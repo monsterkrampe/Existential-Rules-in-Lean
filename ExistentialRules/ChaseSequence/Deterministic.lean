@@ -53,7 +53,7 @@ theorem ChaseTree.firstResult_is_in_result (ct : ChaseTree obs kb) : ct.firstRes
                   rw [← List.isEmpty_eq_true, List.isEmpty_iff_length_eq_zero]
                   rw [List.length_enum_with_lt]
                   rw [List.length_map]
-                  rw [← trg.val.head_length_eq_mapped_head_length]
+                  rw [trg.val.length_mapped_head]
                   exact eq2
                 have : node ∈ ct.tree.leaves := by
                   unfold FiniteDegreeTree.leaves
@@ -70,7 +70,7 @@ theorem ChaseTree.firstResult_is_in_result (ct : ChaseTree obs kb) : ct.firstRes
                 have length_aux_1 : 0 < trg.val.result.length := by
                   unfold PreTrigger.result
                   rw [List.length_map]
-                  rw [← trg.val.head_length_eq_mapped_head_length]
+                  rw [trg.val.length_mapped_head]
                   rw [eq2]
                   simp
                 have length_aux_2 : 0 < (ct.tree.children (List.repeat 0 n)).length := by
@@ -255,12 +255,13 @@ theorem ChaseTree.firstResult_is_result_when_deterministic (ct : ChaseTree obs k
                     rw [List.length_map, List.length_attach, List.length_enum_with_lt] at isLt
                     unfold PreTrigger.result at isLt
                     rw [List.length_map] at isLt
-                    rw [← PreTrigger.head_length_eq_mapped_head_length] at isLt
+                    rw [PreTrigger.length_mapped_head] at isLt
                     unfold KnowledgeBase.isDeterministic at h_deterministic
                     unfold RuleSet.isDeterministic at h_deterministic
-                    rw [h_deterministic _ trg.property] at isLt
-                    rw [Nat.lt_succ] at isLt
-                    rw [Nat.le_zero_eq] at isLt
+                    unfold Rule.isDeterministic at h_deterministic
+                    specialize h_deterministic _ trg.property
+                    rw [decide_eq_true_iff] at h_deterministic
+                    rw [h_deterministic, Nat.lt_succ, Nat.le_zero_eq] at isLt
                     exact isLt
               | inr trg_ex =>
                 unfold not_exists_trigger_list at trg_ex
@@ -506,7 +507,11 @@ def ChaseBranch.intoTree (cb : ChaseBranch obs kb) (deterministic : kb.isDetermi
             . rcases trg_result with ⟨i, trg_result⟩
               have res_length : trg.val.result.length = 1 := by
                 unfold PreTrigger.result
-                rw [List.length_map, ← PreTrigger.head_length_eq_mapped_head_length]
+                rw [List.length_map, PreTrigger.length_mapped_head]
+                unfold KnowledgeBase.isDeterministic at deterministic
+                unfold RuleSet.isDeterministic at deterministic
+                unfold Rule.isDeterministic at deterministic
+                simp only [decide_eq_true_iff] at deterministic
                 apply deterministic
                 exact trg.property
               have i_eq : i = (⟨0, by simp [res_length]⟩ : Fin trg.val.result.length) := by

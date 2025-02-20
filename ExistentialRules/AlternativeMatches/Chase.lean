@@ -122,12 +122,12 @@ namespace ChaseBranch
                     apply identity
                     simp at t_mem
                     rcases t_mem with ⟨v, v_mem, v_eq⟩
-                    rcases origin.fst.val.rule.frontier_var_occurs_in_fact_in_body v v_mem with ⟨a, a_mem, v_mem⟩
+                    rcases origin.fst.val.rule.frontier_occurs_in_body v v_mem with ⟨a, a_mem, v_mem⟩
                     exists origin.fst.val.subs.apply_function_free_atom a
                     constructor
                     . apply origin_trg_active.left
                       rw [List.mem_toSet]
-                      simp [PreTrigger.mapped_body, SubsTarget.apply, GroundSubstitution.apply_function_free_conj]
+                      simp [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj]
                       exists a
                       constructor
                       . simp [eq_origin]; exact a_mem
@@ -306,11 +306,10 @@ namespace ChaseBranch
 
         have : h_k.applyFact f = f := by
           unfold GroundTermMapping.applyFact
-          rw [Fact.ext_iff]
+          rw [Fact.mk.injEq]
           constructor
           . simp
-          . simp
-            apply List.map_id_of_id_on_all_mem
+          . apply List.map_id_of_id_on_all_mem
             intro t t_mem
             apply identity
             apply step_ex
@@ -435,13 +434,14 @@ namespace ChaseBranch
               apply subset_res
               have : h.applyFact f' = f' := by
                 unfold GroundTermMapping.applyFact
-                rw [Fact.ext_iff]
-                simp
-                rw [List.map_id_of_id_on_all_mem]
-                intro t t_mem
-                unfold h
-                have : t ∈ ts := by rw [eq_ts]; exists f'
-                simp [this]
+                rw [Fact.mk.injEq]
+                constructor
+                . simp
+                . rw [List.map_id_of_id_on_all_mem]
+                  intro t t_mem
+                  unfold h
+                  have : t ∈ ts := by rw [eq_ts]; exists f'
+                  simp [this]
               rw [this]
               exact f'_mem
             | inr f'_mem =>
@@ -684,7 +684,7 @@ namespace ChaseBranch
       | none =>
         have no_holes := cb.branch.no_holes step
         simp [eq] at no_holes
-        specialize no_holes ⟨step - 1, by apply Nat.sub_one_lt; exact step_ne_0⟩
+        specialize no_holes ⟨step-1, by apply Nat.sub_one_lt; exact step_ne_0⟩
         apply False.elim
         apply no_holes
         exact eq2
@@ -797,14 +797,13 @@ namespace ChaseBranch
             unfold PreTrigger.loaded at loaded
             unfold PreTrigger.mapped_body at loaded
             rcases t_mem with ⟨v, v_mem, v_eq⟩
-            rcases origin.fst.val.rule.frontier_var_occurs_in_fact_in_body _ v_mem with ⟨a, a_mem, v_mem⟩
+            rcases origin.fst.val.rule.frontier_occurs_in_body _ v_mem with ⟨a, a_mem, v_mem⟩
             exists origin.fst.val.subs.apply_function_free_atom a
             constructor
             . apply loaded
               rw [List.mem_toSet]
-              simp only [SubsTarget.apply]
               unfold GroundSubstitution.apply_function_free_conj
-              simp
+              rw [List.mem_map]
               exists a
               constructor
               . simp [eq_origin]; exact a_mem

@@ -17,7 +17,7 @@ namespace PreTrigger
   -- TODO: cleanup the proof; seems like we need lemmas on PreTrigger and Substitution Interaction (likely also useful elsewhere)
   theorem satisfied_of_alternativeMatch (trg : PreTrigger sig) (fs : FactSet sig) : ∀ (h_alt : GroundTermMapping sig) (disj_index : Fin trg.result.length), h_alt.isAlternativeMatch trg disj_index fs -> trg.satisfied fs := by
     intro h_alt disj_index is_alt_match
-    exists ⟨disj_index.val, by have isLt := disj_index.isLt; rw [PreTrigger.head_length_eq_mapped_head_length]; unfold PreTrigger.result at isLt; simp at isLt; exact isLt⟩
+    exists ⟨disj_index.val, by have isLt := disj_index.isLt; rw [← PreTrigger.length_mapped_head]; unfold PreTrigger.result at isLt; simp at isLt; exact isLt⟩
     exists (h_alt ∘ trg.apply_to_var_or_const disj_index ∘ VarOrConst.var)
     constructor
     . intro v v_in_frontier
@@ -53,7 +53,7 @@ namespace PreTrigger
         | const c => simp [VarOrConst.skolemize, GroundSubstitution.apply_skolem_term]; apply is_alt_match.left.left (GroundTerm.const c)
         | var v => simp
 
-  theorem alternativeMatch_of_satisfied (trg : PreTrigger sig) (fs : FactSet sig) (disj_index : Fin trg.result.length) (gt : GroundTerm sig) (gt_in_res_but_not_fs : gt ∈ (trg.result.get disj_index).terms ∧ ¬ gt ∈ fs.terms) : trg.satisfied_for_disj fs ⟨disj_index, by rw [PreTrigger.head_length_eq_mapped_head_length]; have isLt := disj_index.isLt; unfold PreTrigger.result at isLt; simp at isLt; exact isLt⟩ -> ∃ (h_alt : GroundTermMapping sig), h_alt.isAlternativeMatch trg disj_index fs := by
+  theorem alternativeMatch_of_satisfied (trg : PreTrigger sig) (fs : FactSet sig) (disj_index : Fin trg.result.length) (gt : GroundTerm sig) (gt_in_res_but_not_fs : gt ∈ (trg.result.get disj_index).terms ∧ ¬ gt ∈ fs.terms) : trg.satisfied_for_disj fs ⟨disj_index, by rw [← PreTrigger.length_mapped_head]; have isLt := disj_index.isLt; unfold PreTrigger.result at isLt; simp at isLt; exact isLt⟩ -> ∃ (h_alt : GroundTermMapping sig), h_alt.isAlternativeMatch trg disj_index fs := by
     intro satisfied
     rcases satisfied with ⟨s, s_frontier, s_subs⟩
 
@@ -100,7 +100,7 @@ namespace PreTrigger
               apply PreTrigger.result_term_not_in_frontier_image_of_var_not_in_frontier
               exact v_not_in_frontier
             simp [this]
-            simp [PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, PreTrigger.apply_to_skolemized_term, GroundSubstitution.apply_skolem_term]
+            simp [PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, PreTrigger.apply_to_skolemized_term, GroundSubstitution.apply_skolem_term, GroundTerm.func]
             simp [v_not_in_frontier]
 
     exists h_alt

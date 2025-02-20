@@ -24,17 +24,20 @@ namespace PreTrigger
       arity_ok := by rw [List.length_map, atom.arity_ok]
     }
 
-  theorem apply_to_function_free_atom_terms_same_length (trg : PreTrigger sig) (disjunctIndex : Nat) (atom : FunctionFreeAtom sig) : atom.terms.length = (trg.apply_to_function_free_atom disjunctIndex atom).terms.length := by
+  theorem length_terms_apply_to_function_free_atom (trg : PreTrigger sig) (disjunctIndex : Nat) (atom : FunctionFreeAtom sig) :
+      (trg.apply_to_function_free_atom disjunctIndex atom).terms.length = atom.terms.length := by
     unfold apply_to_function_free_atom
     simp
 
-  def mapped_body (trg : PreTrigger sig) : List (Fact sig) := SubsTarget.apply trg.subs trg.rule.body
-  def mapped_head (trg : PreTrigger sig) : List (List (Fact sig)) := trg.rule.head.enum.map (fun (i, h) => h.map (trg.apply_to_function_free_atom i))
+  def mapped_body (trg : PreTrigger sig) : List (Fact sig) := trg.subs.apply_function_free_conj trg.rule.body
+  def mapped_head (trg : PreTrigger sig) : List (List (Fact sig)) :=
+    trg.rule.head.enum.map (fun (i, h) => h.map (trg.apply_to_function_free_atom i))
 
-  theorem head_length_eq_mapped_head_length (trg : PreTrigger sig) : trg.rule.head.length = trg.mapped_head.length := by
+  theorem length_mapped_head (trg : PreTrigger sig) : trg.mapped_head.length = trg.rule.head.length := by
     unfold mapped_head
     rw [List.length_map, List.length_enum]
 
+  -- TODO: remove this and use mapped_head directly
   def result (trg : PreTrigger sig) : List (FactSet sig) :=
     trg.mapped_head.map List.toSet
 
@@ -43,11 +46,11 @@ namespace PreTrigger
 
     cases Decidable.em (s ∈ trg.rule.frontier) with
     | inr hr =>
-      simp [t_not_in_frontier, hr, apply_to_var_or_const, apply_to_skolemized_term, skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize] at apply_eq_for_t_and_s
+      simp [GroundTerm.func, t_not_in_frontier, hr, apply_to_var_or_const, apply_to_skolemized_term, skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize] at apply_eq_for_t_and_s
       simp [t_not_in_frontier, hr, apply_to_var_or_const, apply_to_skolemized_term, skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize]
       exact apply_eq_for_t_and_s
     | inl hl =>
-      simp [t_not_in_frontier, hl, apply_to_var_or_const, apply_to_skolemized_term, skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize] at apply_eq_for_t_and_s
+      simp [GroundTerm.func, t_not_in_frontier, hl, apply_to_var_or_const, apply_to_skolemized_term, skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize] at apply_eq_for_t_and_s
       apply False.elim
       let tree_for_s := trg.apply_to_var_or_const disjunctIndex (VarOrConst.var s)
       let ts := trg.rule.frontier.map (fun fv => trg.subs fv)
@@ -55,13 +58,6 @@ namespace PreTrigger
       apply FiniteTree.tree_eq_while_contained_is_impossible tree_for_s (FiniteTreeList.fromList ts.unattach) a
       . simp [tree_for_s, apply_to_var_or_const, apply_to_skolemized_term, skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, hl]
         rw [← apply_eq_for_t_and_s]
-        rw [FiniteTree.inner.injEq]
-        constructor
-        . rfl
-        . rw [← FiniteTreeList.eqIffFromListEq]
-          unfold List.unattach
-          unfold ts
-          simp
       simp [tree_for_s, apply_to_var_or_const, apply_to_skolemized_term, skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, hl]
       rw [FiniteTreeList.fromListToListIsId]
       unfold List.unattach
@@ -69,13 +65,13 @@ namespace PreTrigger
       rw [List.map_map, List.mem_map]
       exists s
 
-  def idx_of_fact_in_result (trg : PreTrigger sig) (f : Fact sig) (disj_index : Fin trg.result.length) (f_in_res : f ∈ trg.result.get disj_index) : Fin (trg.rule.head.get ⟨disj_index.val, (by rw [head_length_eq_mapped_head_length]; have isLt := disj_index.isLt; unfold result at isLt; simp only [List.length_map] at isLt; exact isLt)⟩).length :=
+  def idx_of_fact_in_result (trg : PreTrigger sig) (f : Fact sig) (disj_index : Fin trg.result.length) (f_in_res : f ∈ trg.result.get disj_index) : Fin (trg.rule.head.get ⟨disj_index.val, (by rw [← length_mapped_head]; have isLt := disj_index.isLt; unfold result at isLt; simp only [List.length_map] at isLt; exact isLt)⟩).length :=
     let disj_index_mapped_head : Fin trg.mapped_head.length := ⟨disj_index.val, (by have isLt := disj_index.isLt; unfold result at isLt; simp only [List.length_map] at isLt; exact isLt)⟩
     let fin_mapped := (trg.mapped_head.get disj_index_mapped_head).idx_of (((trg.mapped_head.get disj_index_mapped_head).mem_toSet (e := f)).mp (by unfold result at f_in_res; simp at f_in_res; apply f_in_res))
     have fin_mapped_isLt := fin_mapped.isLt
     ⟨fin_mapped.val, by simp [mapped_head] at fin_mapped_isLt; exact fin_mapped_isLt⟩
 
-  theorem apply_subs_to_atom_at_idx_same_as_fact_at_idx (trg : PreTrigger sig) (disj_index : Fin trg.rule.head.length) (idx : Fin (trg.rule.head.get disj_index).length) : trg.apply_to_function_free_atom disj_index ((trg.rule.head.get disj_index).get idx) = (trg.mapped_head.get ⟨disj_index.val, (by rw [← head_length_eq_mapped_head_length]; exact disj_index.isLt)⟩).get ⟨idx.val, (by unfold mapped_head; simp)⟩ := by
+  theorem apply_subs_to_atom_at_idx_same_as_fact_at_idx (trg : PreTrigger sig) (disj_index : Fin trg.rule.head.length) (idx : Fin (trg.rule.head.get disj_index).length) : trg.apply_to_function_free_atom disj_index ((trg.rule.head.get disj_index).get idx) = (trg.mapped_head.get ⟨disj_index.val, (by rw [length_mapped_head]; exact disj_index.isLt)⟩).get ⟨idx.val, (by unfold mapped_head; simp)⟩ := by
     unfold mapped_head
     simp
 
@@ -124,7 +120,8 @@ namespace PreTrigger
         intro _ hf'; apply base; apply Or.inr; apply hf'
         exact hr
 
-  def equiv (trg1 trg2 : PreTrigger sig) : Prop := trg1.rule = trg2.rule ∧ ∀ v, v ∈ trg1.rule.frontier.toSet -> trg1.subs v = trg2.subs v
+  def equiv (trg1 trg2 : PreTrigger sig) : Prop :=
+    trg1.rule = trg2.rule ∧ ∀ v, v ∈ trg1.rule.frontier.toSet -> trg1.subs v = trg2.subs v
 
   theorem result_eq_of_equiv (trg1 trg2 : PreTrigger sig) : trg1.equiv trg2 -> trg1.result = trg2.result := by
     unfold equiv
@@ -152,8 +149,9 @@ namespace PreTrigger
         | inr v_not_in_frontier =>
           simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term]
           rw [← h.left]
-          simp [VarOrConst.skolemize, v_not_in_frontier]
+          simp [GroundTerm.func, VarOrConst.skolemize, v_not_in_frontier]
           apply congrArg
+          rw [List.eq_iff_unattach_eq]
           rw [List.map_inj_left]
           intro w hw
           rw [← h.right w]
@@ -170,7 +168,7 @@ namespace PreTrigger
     simp at contra
     rcases contra with ⟨u, u_in_frontier, u_eq⟩
 
-    have := subs_application_is_injective_for_freshly_introduced_terms trg ⟨disj_index, by rw [head_length_eq_mapped_head_length]; have isLt := disj_index.isLt; unfold result at isLt; simp at isLt; exact isLt⟩ v_not_in_frontier u (by
+    have := subs_application_is_injective_for_freshly_introduced_terms trg ⟨disj_index, by rw [← length_mapped_head]; have isLt := disj_index.isLt; unfold result at isLt; simp at isLt; exact isLt⟩ v_not_in_frontier u (by
       rw [← u_eq]
       simp [apply_to_var_or_const, skolemize_var_or_const, apply_to_skolemized_term, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, u_in_frontier]
     )
@@ -205,12 +203,12 @@ def SkolemObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C]
     intro trg F
     simp
     intro i h
-    exists ⟨i, by rw [PreTrigger.head_length_eq_mapped_head_length]; exact i.isLt⟩
+    exists ⟨i, by rw [← PreTrigger.length_mapped_head]; exact i.isLt⟩
     exists (fun v => trg.apply_to_var_or_const i (VarOrConst.var v))
     constructor
     . intro v v_in_frontier
       simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, GroundSubstitution.apply_skolem_term, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, v_in_frontier]
-    . have : trg.mapped_head[i.val] = (trg.rule.head[i]'(by rw [PreTrigger.head_length_eq_mapped_head_length]; exact i.isLt)).map (fun a => { predicate := a.predicate, terms := a.terms.map (trg.apply_to_var_or_const i), arity_ok := (by rw [List.length_map, a.arity_ok])}) := by
+    . have : trg.mapped_head[i.val] = (trg.rule.head[i]'(by rw [← PreTrigger.length_mapped_head]; exact i.isLt)).map (fun a => { predicate := a.predicate, terms := a.terms.map (trg.apply_to_var_or_const i), arity_ok := (by rw [List.length_map, a.arity_ok])}) := by
         unfold PreTrigger.mapped_head
         unfold PreTrigger.apply_to_function_free_atom
         simp
@@ -252,7 +250,7 @@ def RestrictedObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq si
   cond_implies_trg_is_satisfied := by intro _ _ h; exact h
   contains_trg_result_implies_cond := by
     intro trg F i result_in_F
-    let adjusted_i : Fin trg.rule.head.length := ⟨i, by rw [PreTrigger.head_length_eq_mapped_head_length]; have isLt := i.isLt; unfold PreTrigger.result at isLt; simp [List.length_map] at isLt; exact isLt⟩
+    let adjusted_i : Fin trg.rule.head.length := ⟨i, by rw [← PreTrigger.length_mapped_head]; have isLt := i.isLt; unfold PreTrigger.result at isLt; simp [List.length_map] at isLt; exact isLt⟩
     let obs_subs := fun v : sig.V => trg.apply_to_var_or_const adjusted_i (VarOrConst.var v)
 
     exists adjusted_i
@@ -260,7 +258,7 @@ def RestrictedObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq si
     constructor
     . intro _ v'_in_frontier
       simp [obs_subs, PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, v'_in_frontier]
-    . simp [obs_subs, SubsTarget.apply, GroundSubstitution.apply_function_free_conj]
+    . simp [obs_subs, GroundSubstitution.apply_function_free_conj]
       unfold GroundSubstitution.apply_function_free_atom
       intro f' hf'
       apply result_in_F
@@ -274,7 +272,7 @@ def RestrictedObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq si
         | nil => simp [List.map]
         | cons head tail ih =>
           simp [List.map, ih]
-          simp [obs_subs, SubsTarget.apply, GroundSubstitution.apply_skolem_term, GroundSubstitution.apply_var_or_const, PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const]
+          simp [obs_subs, GroundSubstitution.apply_skolem_term, GroundSubstitution.apply_var_or_const, PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const]
           cases head with
           | var v => simp
           | const c => simp [VarOrConst.skolemize]
@@ -320,7 +318,7 @@ namespace RTrigger
     ->
     trg1.equiv trg2 ∧ disjIndex1.val = disjIndex2.val := by
     intro applications_eq
-    simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, var1_not_in_frontier, var2_not_in_frontier] at applications_eq
+    simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, var1_not_in_frontier, var2_not_in_frontier, GroundTerm.func] at applications_eq
     have rules_eq : trg1.val.rule = trg2.val.rule := by
       apply rs.id_unique
       constructor
@@ -337,10 +335,9 @@ namespace RTrigger
         rw [← FiniteTreeList.eqIffFromListEq _ _] at right
         have : trg1.val.rule.frontier = trg2.val.rule.frontier := by rw [rules_eq]
         rw [← this] at right
-        rw [List.map_eq_map_iff] at right
+        rw [List.eq_iff_unattach_eq, List.map_eq_map_iff] at right
         intro v v_mem
         rw [List.mem_toSet] at v_mem
-        apply Subtype.eq
         apply right
         exact v_mem
     . exact applications_eq.left.right.left

@@ -203,7 +203,7 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
           have v_is_in_frontier : v_from_head_atom ∈ trg.val.rule.frontier := by
             apply Decidable.byContradiction
             intro opp
-            simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, opp] at h_c_eq
+            simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, opp, GroundTerm.func] at h_c_eq
           rw [h_obs_at_head_index_for_m_subs.left _ v_is_in_frontier]
           simp only [↓reduceIte, Function.comp_apply, PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, v_is_in_frontier]
           simp only [↓reduceIte, Function.comp_apply, PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, v_is_in_frontier] at h_c_eq
@@ -241,7 +241,7 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
           case h_2 _ n_exis_f_for_step_j _ =>
             have v_not_in_frontier : ¬ v_from_head_atom ∈ trg.val.rule.frontier := by
               intro v_is_in_frontier
-              have v_in_body := Rule.frontier_var_occurs_in_fact_in_body _ _ v_is_in_frontier
+              have v_in_body := Rule.frontier_occurs_in_body _ _ v_is_in_frontier
               cases v_in_body with | intro f hf =>
                 apply n_exis_f_for_step_j
                 exists (trg.val.subs.apply_function_free_atom f)
@@ -271,7 +271,7 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
               rw [List.mem_iff_get]
               rcases (List.mem_iff_get.mp voc_is_in_head_atom_for_fact) with ⟨voc_idx, h_voc_idx⟩
               exists ⟨voc_idx.val, (by
-                rw [← PreTrigger.apply_to_function_free_atom_terms_same_length]
+                rw [PreTrigger.length_terms_apply_to_function_free_atom]
                 apply voc_idx.isLt
               )⟩
               simp only [GroundSubstitution.apply_atom, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term, FunctionFreeAtom.skolemize, PreTrigger.apply_to_function_free_atom, PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const]
@@ -296,7 +296,7 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
                   rw [f_is_at_its_idx]
                   unfold PreTrigger.mapped_head
                   simp
-                  rw [← PreTrigger.apply_to_function_free_atom_terms_same_length]
+                  rw [PreTrigger.length_terms_apply_to_function_free_atom]
                   simp [atom_in_head, List.enum_with_lt_getElem_snd_eq_getElem]
 
                 let var_corresponding_to_applied_v := atom_in_head.terms.get ⟨idx_v_in_f.val, (by
@@ -311,7 +311,7 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
                   cases s with
                   | const const_s =>
                     simp [skolem_v, v_from_head_atom, PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, v_not_in_frontier, GroundSubstitution.apply_skolem_term] at hs
-                    simp [GroundTerm.const] at hs
+                    simp [GroundTerm.const, GroundTerm.func] at hs
                   | var var_s =>
                     apply PreTrigger.subs_application_is_injective_for_freshly_introduced_terms
                     apply v_not_in_frontier
@@ -505,7 +505,7 @@ theorem inductive_homomorphism_with_prev_node_and_trg_latest_index_lt_trg_result
     have isLt := head_index_for_m_subs.isLt
     simp only [trg_variant_for_m, trg] at isLt
     unfold PreTrigger.result
-    simp only [PreTrigger.head_length_eq_mapped_head_length] at isLt
+    simp only [← PreTrigger.length_mapped_head] at isLt
     simp
     exact isLt
 

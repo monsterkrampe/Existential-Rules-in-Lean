@@ -18,7 +18,7 @@ namespace ChaseBranch
     let disj_index := Classical.choose trg_res
     have trg_res := Classical.choose_spec trg_res
 
-    let disj_index' : Fin trg.val.rule.head.length := ⟨disj_index.val, by rw [PreTrigger.head_length_eq_mapped_head_length]; have isLt := disj_index.isLt; unfold PreTrigger.result at isLt; simp only [List.length_map] at isLt; exact isLt⟩
+    let disj_index' : Fin trg.val.rule.head.length := ⟨disj_index.val, by rw [← PreTrigger.length_mapped_head]; have isLt := disj_index.isLt; unfold PreTrigger.result at isLt; simp only [List.length_map] at isLt; exact isLt⟩
 
     let trg' : PreTrigger sig := ⟨trg.val.rule, h ∘ trg.val.subs⟩
     have trg'_loaded : trg'.loaded cb.result := by
@@ -42,10 +42,12 @@ namespace ChaseBranch
           have isLt := i.isLt
           have := det trg'.rule trg.property
           unfold Rule.isDeterministic at this
+          rw [decide_eq_true_iff] at this
           simp [this] at isLt
           have isLt' := disj_index'.isLt
           have := det trg.val.rule trg.property
           unfold Rule.isDeterministic at this
+          rw [decide_eq_true_iff] at this
           simp [this] at isLt'
           rw [Fin.ext_iff]
           rw [isLt, isLt']
@@ -71,7 +73,7 @@ namespace ChaseBranch
         . simp; exact GroundTermMapping.apply_constant_is_id_of_isIdOnConstants hom.left c
         . simp
           intro v _ not_frontier contra
-          simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term, not_frontier] at contra
+          simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term, not_frontier, GroundTerm.func] at contra
 
     have h'_is_subs_on_head_vars : ∀ v, v ∈ (trg.val.rule.head.get disj_index').vars -> (h' (trg.val.apply_to_var_or_const disj_index.val (VarOrConst.var v))) = subs v := by
       intro v v_mem

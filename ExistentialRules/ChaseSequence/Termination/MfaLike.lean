@@ -71,12 +71,17 @@ namespace ConstantMapping
     | const c => simp
     | func f ts =>
       intros
-      conv => left; unfold ConstantMapping.apply_ground_term; unfold FiniteTree.mapLeaves; unfold GroundSubstitution.apply_skolem_term
+      conv => left; unfold ConstantMapping.apply_ground_term; unfold GroundSubstitution.apply_skolem_term
       conv => right; unfold GroundSubstitution.apply_skolem_term
+      unfold GroundTerm.func
       simp only [apply_pre_ground_term, FiniteTree.mapLeaves]
       simp
       rw [FiniteTree.mapLeavesList_fromList_eq_fromList_map]
+      apply congrArg
       unfold ConstantMapping.apply_ground_term
+      unfold List.unattach
+      rw [List.map_map]
+      rw [List.map_map]
       rw [List.map_map]
       rfl
 
@@ -525,7 +530,7 @@ section ArgumentsForImages
       )
 
     theorem apply_to_arguments_yields_original_term_list (g : StrictConstantMapping sig) (possible_constants : List sig.C) (ts : List (GroundTerm sig)) :
-        ∀ args, args ∈ g.arguments_for_term_list possible_constants ts ↔ ((∀ c, c ∈ (FiniteTree.leavesList (FiniteTreeList.fromList args.unattach)) -> c ∈ possible_constants) ∧ (args.map (fun arg => g.toConstantMapping.apply_ground_term arg) = ts)) := by
+        ∀ args, args ∈ g.arguments_for_term_list possible_constants ts ↔ ((∀ c, c ∈ (args.flatMap GroundTerm.constants) -> c ∈ possible_constants) ∧ (args.map (fun arg => g.toConstantMapping.apply_ground_term arg) = ts)) := by
       intro args
 
       have := g.apply_to_arguments_yields_original_pre_term_list possible_constants (FiniteTreeList.fromList ts.unattach)
@@ -543,11 +548,18 @@ section ArgumentsForImages
         rw [← FiniteTreeList.eqIffFromListEq] at h
         constructor
         . intro c c_mem
-          unfold List.unattach at c_mem
-          rw [List.map_pmap] at c_mem
-          simp at c_mem
+          rw [List.mem_flatMap] at c_mem
+          rcases c_mem with ⟨t, t_mem, c_mem⟩
+          rw [List.mem_pmap] at t_mem
+          rcases t_mem with ⟨t, t_mem, eq⟩
+          unfold GroundTerm.constants at c_mem
+          rw [← eq] at c_mem
           apply h.left
-          exact c_mem
+          rw [FiniteTree.mem_leavesList]
+          exists t
+          constructor
+          . rw [FiniteTreeList.fromListToListIsId]; exact t_mem
+          . exact c_mem
         . rw [← List.eq_iff_unattach_eq]
           simp only [← h.right]
           unfold ConstantMapping.apply_ground_term
@@ -562,7 +574,21 @@ section ArgumentsForImages
         exists (by
           rw [this]
           constructor
-          . exact h.left
+          . intro c c_mem
+            rw [FiniteTree.mem_leavesList] at c_mem
+            rcases c_mem with ⟨t, t_mem, c_mem⟩
+            rw [FiniteTreeList.fromListToListIsId] at t_mem
+            unfold List.unattach at t_mem
+            rw [List.mem_map] at t_mem
+            rcases t_mem with ⟨t', t'_mem, t_mem⟩
+            apply h.left
+            rw [List.mem_flatMap]
+            exists t'
+            constructor
+            . exact t'_mem
+            . unfold GroundTerm.constants
+              rw [← t_mem] at c_mem
+              exact c_mem
           . rw [← h.right]
             rw [FiniteTree.mapLeavesList_fromList_eq_fromList_map]
             rw [← FiniteTreeList.eqIffFromListEq]
@@ -616,7 +642,7 @@ section ArgumentsForImages
         rcases h with ⟨ts, mem, arg_eq⟩
         rw [← arg_eq]
         unfold ConstantMapping.apply_fact
-        rw [Fact.ext_iff]
+        rw [Fact.mk.injEq]
         simp only [true_and]
 
         specialize this ts
@@ -631,13 +657,14 @@ section ArgumentsForImages
           . exact h.left
           . have r := h.right
             unfold ConstantMapping.apply_fact at r
-            rw [Fact.ext_iff] at r
+            rw [Fact.mk.injEq] at r
             exact r.right
         )
         have r := h.right
         unfold ConstantMapping.apply_fact at r
-        rw [Fact.ext_iff] at r
-        apply Fact.ext
+        rw [Fact.mk.injEq] at r
+        rw [Fact.mk.injEq]
+        constructor
         . rw [← r.left]
         . rfl
 
@@ -752,11 +779,9 @@ namespace KnowledgeBase
         rw [← f_mem] at c_mem
         unfold PreTrigger.apply_to_function_free_atom at c_mem
         unfold Fact.constants at c_mem
-        rw [FiniteTree.mem_leavesList] at c_mem
+        rw [List.mem_flatMap] at c_mem
         rcases c_mem with ⟨tree, tree_mem, c_mem⟩
-        rw [FiniteTreeList.fromListToListIsId] at tree_mem
-        unfold List.unattach at tree_mem
-        rw [List.map_map, List.mem_map] at tree_mem
+        rw [List.mem_map] at tree_mem
         rcases tree_mem with ⟨voc, voc_mem, tree_eq⟩
         unfold PreTrigger.apply_to_var_or_const at tree_eq
 
@@ -781,7 +806,7 @@ namespace KnowledgeBase
               . unfold FunctionFreeAtom.constants
                 apply VarOrConst.mem_filterConsts_of_const
                 rw [← tree_eq] at c_mem
-                simp only [FiniteTree.leaves, GroundTerm.const, List.mem_singleton] at c_mem
+                rw [GroundTerm.constants_const, List.mem_singleton] at c_mem
                 rw [c_mem]
                 exact voc_mem
         | var v =>
@@ -792,56 +817,50 @@ namespace KnowledgeBase
             simp [v_frontier] at tree_eq
 
             apply ih
-            rcases (trg.val.rule.frontier_var_occurs_in_fact_in_body _ v_frontier) with ⟨b, b_mem, v_mem⟩
+            rcases (trg.val.rule.frontier_occurs_in_body _ v_frontier) with ⟨b, b_mem, v_mem⟩
             exists trg.val.subs.apply_function_free_atom b
             constructor
             . apply trg_act.left
               rw [List.mem_toSet]
               unfold PreTrigger.mapped_body
-              simp only [SubsTarget.apply, GroundSubstitution.apply_function_free_conj]
+              simp only [GroundSubstitution.apply_function_free_conj]
               rw [List.mem_map]
               exists b
             . unfold Fact.constants
-              rw [FiniteTree.mem_leavesList]
+              rw [List.mem_flatMap]
               exists tree
               constructor
-              . rw [FiniteTreeList.fromListToListIsId]
-                rw [← tree_eq]
+              . rw [← tree_eq]
                 unfold GroundSubstitution.apply_function_free_atom
-                unfold List.unattach
-                rw [List.map_map, List.mem_map]
+                rw [List.mem_map]
                 exists (VarOrConst.var v)
               . exact c_mem
           | inr v_frontier =>
             simp [v_frontier] at tree_eq
             rw [← tree_eq] at c_mem
-            unfold FiniteTree.leaves at c_mem
-            rw [FiniteTree.mem_leavesList] at c_mem
+            rw [GroundTerm.constants_func, List.mem_flatMap] at c_mem
             rcases c_mem with ⟨tree, tree_mem, c_mem⟩
-            rw [FiniteTreeList.fromListToListIsId] at tree_mem
             rw [List.mem_map] at tree_mem
             rcases tree_mem with ⟨v, v_frontier, tree_eq⟩
 
             -- from here its the same as in the inl case
             apply ih
-            rcases (trg.val.rule.frontier_var_occurs_in_fact_in_body _ v_frontier) with ⟨b, b_mem, v_mem⟩
+            rcases (trg.val.rule.frontier_occurs_in_body _ v_frontier) with ⟨b, b_mem, v_mem⟩
             exists trg.val.subs.apply_function_free_atom b
             constructor
             . apply trg_act.left
               rw [List.mem_toSet]
               unfold PreTrigger.mapped_body
-              simp only [SubsTarget.apply, GroundSubstitution.apply_function_free_conj]
+              simp only [GroundSubstitution.apply_function_free_conj]
               rw [List.mem_map]
               exists b
             . unfold Fact.constants
-              rw [FiniteTree.mem_leavesList]
+              rw [List.mem_flatMap]
               exists tree
               constructor
-              . rw [FiniteTreeList.fromListToListIsId]
-                rw [← tree_eq]
+              . rw [← tree_eq]
                 unfold GroundSubstitution.apply_function_free_atom
-                unfold List.unattach
-                rw [List.map_map, List.mem_map]
+                rw [List.mem_map]
                 exists (VarOrConst.var v)
               . exact c_mem
 
@@ -855,9 +874,10 @@ namespace KnowledgeBase
       unfold FactSet.function_symbols at func_mem
       rcases func_mem with ⟨f, f_mem, func_mem⟩
       unfold Fact.function_symbols at func_mem
+      rw [List.mem_flatMap] at func_mem
       rcases func_mem with ⟨t, t_mem, func_mem⟩
       cases eq : t with
-      | const c => simp [eq, GroundTerm.const, FiniteTree.innerLabels] at func_mem
+      | const c => simp [eq, GroundTerm.functions_const] at func_mem
       | func _ _ =>
         have func_free := kb.db.toFactSet.property.right
         specialize func_free f f_mem t t_mem
@@ -880,6 +900,7 @@ namespace KnowledgeBase
         rw [List.get_eq_getElem, List.getElem_enum] at a_mem
 
         unfold Fact.function_symbols at func_mem
+        rw [List.mem_flatMap] at func_mem
         rcases func_mem with ⟨t, t_mem, func_mem⟩
         rw [← f_mem] at t_mem
         simp only [PreTrigger.apply_to_function_free_atom] at t_mem
@@ -890,7 +911,7 @@ namespace KnowledgeBase
         | const c =>
           simp only at t_mem
           rw [← t_mem] at func_mem
-          simp [GroundTerm.const, FiniteTree.innerLabels] at func_mem
+          simp [GroundTerm.functions_const] at func_mem
         | var v =>
           simp only at t_mem
           cases Decidable.em (v ∈ trg.val.rule.frontier) with
@@ -898,16 +919,17 @@ namespace KnowledgeBase
             simp [v_frontier] at t_mem
             -- apply ih here with some massaging
             apply ih
-            rcases trg.val.rule.frontier_var_occurs_in_fact_in_body _ v_frontier with ⟨body_atom, body_atom_mem, v_mem⟩
+            rcases trg.val.rule.frontier_occurs_in_body _ v_frontier with ⟨body_atom, body_atom_mem, v_mem⟩
             unfold FactSet.function_symbols
             exists (trg.val.subs.apply_function_free_atom body_atom)
             constructor
             . apply trg_act.left
               rw [List.mem_toSet]
-              simp only [PreTrigger.mapped_body, SubsTarget.apply, GroundSubstitution.apply_function_free_conj]
+              simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj]
               rw [List.mem_map]
               exists body_atom
             . unfold Fact.function_symbols
+              rw [List.mem_flatMap]
               exists t
               constructor
               . unfold GroundSubstitution.apply_function_free_atom
@@ -917,7 +939,7 @@ namespace KnowledgeBase
           | inr v_frontier =>
             simp only [v_frontier, ↓reduceIte] at t_mem
             rw [← t_mem] at func_mem
-            simp only [FiniteTree.innerLabels] at func_mem
+            simp only [GroundTerm.functions_func] at func_mem
             rw [List.mem_cons] at func_mem
             cases func_mem with
             | inl func_mem =>
@@ -943,24 +965,24 @@ namespace KnowledgeBase
                       exact voc_mem
                   . exact v_frontier
             | inr func_mem =>
-              rw [FiniteTree.mem_innerLabelsList] at func_mem
-              rw [FiniteTreeList.fromListToListIsId] at func_mem
+              rw [List.mem_flatMap] at func_mem
               rcases func_mem with ⟨tree, tree_mem, func_mem⟩
               rw [List.mem_map] at tree_mem
               rcases tree_mem with ⟨frontier_var, frontier_var_mem, tree_mem⟩
 
               -- apply ih here with some massaging (should be similar to inl case for v_frontier
               apply ih
-              rcases trg.val.rule.frontier_var_occurs_in_fact_in_body _ frontier_var_mem with ⟨body_atom, body_atom_mem, frontier_var_mem⟩
+              rcases trg.val.rule.frontier_occurs_in_body _ frontier_var_mem with ⟨body_atom, body_atom_mem, frontier_var_mem⟩
               unfold FactSet.function_symbols
               exists (trg.val.subs.apply_function_free_atom body_atom)
               constructor
               . apply trg_act.left
                 rw [List.mem_toSet]
-                simp only [PreTrigger.mapped_body, SubsTarget.apply, GroundSubstitution.apply_function_free_conj]
+                simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj]
                 rw [List.mem_map]
                 exists body_atom
               . unfold Fact.function_symbols
+                rw [List.mem_flatMap]
                 exists (trg.val.subs frontier_var)
                 constructor
                 . unfold GroundSubstitution.apply_function_free_atom
@@ -1197,16 +1219,22 @@ namespace KnowledgeBase
             apply trg_not_active
             have disj_index_zero : disj_index.val = 0 := by
               have isLt := disj_index.isLt
-              simp only [← PreTrigger.head_length_eq_mapped_head_length] at isLt
-              rw [det _ trg.property, Nat.lt_one_iff] at isLt
+              simp only [PreTrigger.length_mapped_head] at isLt
+              specialize det _ trg.property
+              unfold Rule.isDeterministic at det
+              rw [decide_eq_true_iff] at det
+              rw [det, Nat.lt_one_iff] at isLt
               exact isLt
             unfold PreTrigger.result at f_mem
             rcases f_mem with ⟨i, f_mem⟩
             have i_zero : i.val = 0 := by
               have isLt := i.isLt
-              simp only [← PreTrigger.head_length_eq_mapped_head_length] at isLt
-              simp only [List.length_map, ← PreTrigger.head_length_eq_mapped_head_length] at isLt
-              rw [det _ trg.property, Nat.lt_one_iff] at isLt
+              simp only [PreTrigger.length_mapped_head] at isLt
+              simp only [List.length_map, PreTrigger.length_mapped_head] at isLt
+              specialize det _ trg.property
+              unfold Rule.isDeterministic at det
+              rw [decide_eq_true_iff] at det
+              rw [det, Nat.lt_one_iff] at isLt
               exact isLt
             rw [List.get_eq_getElem, List.getElem_map, List.mem_toSet] at f_mem
             rw [List.mem_toSet, List.get_eq_getElem]
@@ -1228,16 +1256,22 @@ namespace KnowledgeBase
             apply trg_not_active
             have disj_index_zero : disj_index.val = 0 := by
               have isLt := disj_index.isLt
-              simp only [← PreTrigger.head_length_eq_mapped_head_length] at isLt
-              rw [det _ trg.property, Nat.lt_one_iff] at isLt
+              simp only [PreTrigger.length_mapped_head] at isLt
+              specialize det _ trg.property
+              unfold Rule.isDeterministic at det
+              rw [decide_eq_true_iff] at det
+              rw [det, Nat.lt_one_iff] at isLt
               exact isLt
             unfold PreTrigger.result at f_mem
             rcases f_mem with ⟨i, f_mem⟩
             have i_zero : i.val = 0 := by
               have isLt := i.isLt
-              simp only [← PreTrigger.head_length_eq_mapped_head_length] at isLt
-              simp only [List.length_map, ← PreTrigger.head_length_eq_mapped_head_length] at isLt
-              rw [det _ trg.property, Nat.lt_one_iff] at isLt
+              simp only [PreTrigger.length_mapped_head] at isLt
+              simp only [List.length_map, PreTrigger.length_mapped_head] at isLt
+              specialize det _ trg.property
+              unfold Rule.isDeterministic at det
+              rw [decide_eq_true_iff] at det
+              rw [det, Nat.lt_one_iff] at isLt
               exact isLt
             rw [List.get_eq_getElem, List.getElem_map, List.mem_toSet] at f_mem
             rw [List.mem_toSet, List.get_eq_getElem]
@@ -1300,8 +1334,8 @@ namespace RuleSet
           exists f.predicate
           constructor
           . rw [eq]; exact h.left
-          . rw [FunctionFreeFact.ext_iff]
-            simp
+          . rw [FunctionFreeFact.mk.injEq]
+            simp only [true_and]
             rw [List.repeat_eq_iff_all_val]
             constructor
             . exact f.arity_ok
@@ -1550,7 +1584,7 @@ namespace RuleSet
                 . apply Set.subset_trans (b := fun f => f.predicate ∈ rs.predicates ∧ f ∈ ((UniformConstantMapping sig special_const).toConstantMapping.apply_fact_set prev_node.fact.val))
                   . intro f f_mem
                     rw [List.mem_toSet] at f_mem
-                    simp only [PreTrigger.mapped_body, SubsTarget.apply, GroundSubstitution.apply_function_free_conj, List.mem_map] at f_mem
+                    simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj, List.mem_map] at f_mem
                     rcases f_mem with ⟨a, a_mem, f_eq⟩
                     unfold adjusted_trg at a_mem
                     unfold StrictConstantMapping.apply_rule at a_mem
@@ -1579,7 +1613,7 @@ namespace RuleSet
                       constructor
                       . apply trg_active.left
                         rw [List.mem_toSet]
-                        simp only [PreTrigger.mapped_body, SubsTarget.apply, GroundSubstitution.apply_function_free_conj, List.mem_map]
+                        simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj, List.mem_map]
                         exists a'
                       . rw [← f_eq]
                         unfold ConstantMapping.apply_fact
@@ -1608,12 +1642,12 @@ namespace RuleSet
                   apply contra ⟨disj_index.val, by
                     have isLt := disj_index.isLt
                     unfold PreTrigger.result
-                    simp only [List.length_map, ← PreTrigger.head_length_eq_mapped_head_length]
+                    simp only [List.length_map, PreTrigger.length_mapped_head]
                     unfold adjusted_trg
                     unfold StrictConstantMapping.apply_rule
                     simp only [List.length_map]
                     unfold PreTrigger.result at isLt
-                    simp only [List.length_map, ← PreTrigger.head_length_eq_mapped_head_length] at isLt
+                    simp only [List.length_map, PreTrigger.length_mapped_head] at isLt
                     exact isLt
                   ⟩
                   rw [List.get_eq_getElem]
@@ -1659,12 +1693,12 @@ namespace RuleSet
                 let adjusted_disj_index : Fin adjusted_trg.val.result.length := ⟨disj_index.val, by
                   have isLt := disj_index.isLt
                   unfold PreTrigger.result
-                  simp only [List.length_map, ← PreTrigger.head_length_eq_mapped_head_length]
+                  simp only [List.length_map, PreTrigger.length_mapped_head]
                   unfold adjusted_trg
                   unfold StrictConstantMapping.apply_rule
                   simp only [List.length_map]
                   unfold PreTrigger.result at isLt
-                  simp only [List.length_map, ← PreTrigger.head_length_eq_mapped_head_length] at isLt
+                  simp only [List.length_map, PreTrigger.length_mapped_head] at isLt
                   exact isLt
                 ⟩
                 exists adjusted_disj_index
@@ -1843,7 +1877,7 @@ namespace RuleSet
                       exists trg.val.rule.head[disj_index.val]'(by
                         have isLt := disj_index.isLt
                         unfold PreTrigger.result at isLt
-                        simp only [List.length_map, ← PreTrigger.head_length_eq_mapped_head_length] at isLt
+                        simp only [List.length_map, PreTrigger.length_mapped_head] at isLt
                         exact isLt
                       )
                       simp only [List.getElem_mem, true_and]
@@ -1983,7 +2017,9 @@ namespace RuleSet
         exists f
         constructor
         . exact f_mem
-        . exists t
+        . unfold Fact.function_symbols
+          rw [List.mem_flatMap]
+          exists t
 
       unfold overapproximation
       constructor
@@ -2007,14 +2043,8 @@ namespace RuleSet
           constructor
           . exact f_mem
           . unfold Fact.constants
-            rw [FiniteTree.mem_leavesList]
-            rw [FiniteTreeList.fromListToListIsId]
-            exists t.val
-            constructor
-            . unfold List.unattach
-              rw [List.mem_map]
-              exists t
-            . exact c_mem
+            rw [List.mem_flatMap]
+            exists t
         )
         cases this with
         | inl this =>

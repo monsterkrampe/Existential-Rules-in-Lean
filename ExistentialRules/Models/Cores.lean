@@ -595,11 +595,10 @@ namespace FactSet
       rw [← Function.comp_apply (f := (h.repeat_hom k).applyFact)]
       rw [← GroundTermMapping.applyFact_compose]
       unfold GroundTermMapping.applyFact
-      rw [Fact.ext_iff]
+      rw [Fact.mk.injEq]
       constructor
       . rfl
-      . simp only
-        rw [List.map_id_of_id_on_all_mem]
+      . rw [List.map_id_of_id_on_all_mem]
         intro t t_mem
         rw [Function.comp_apply]
         apply inv
@@ -791,7 +790,8 @@ namespace FactSet
             rw [← Function.comp_apply (f := h_fs_sc.applyFact), ← GroundTermMapping.applyFact_compose]
             have : f' = GroundTermMapping.applyFact (h_fs_sc ∘ inv) f' := by
               unfold GroundTermMapping.applyFact
-              apply Fact.ext
+              rw [Fact.mk.injEq]
+              constructor
               . rfl
               . apply List.ext_getElem
                 . rw [List.length_map]
@@ -816,7 +816,8 @@ namespace FactSet
         specialize prop f f_mem
 
         unfold GroundTermMapping.applyFact
-        apply Fact.ext
+        rw [Fact.mk.injEq]
+        constructor
         . rfl
         . apply List.ext_getElem
           . rw [List.length_map]

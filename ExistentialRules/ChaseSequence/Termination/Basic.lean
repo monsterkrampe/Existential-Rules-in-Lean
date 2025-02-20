@@ -373,7 +373,7 @@ section GeneralResults
             case h_1 _ p _ =>
               have spec := Classical.choose_spec p
               simp
-              apply ChaseBranch.ext
+              rw [ChaseBranch.mk.injEq]
               exact spec
             case h_2 _ p _ =>
               apply False.elim
