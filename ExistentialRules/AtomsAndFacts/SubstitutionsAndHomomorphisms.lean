@@ -14,7 +14,7 @@ end Defs
 
 namespace GroundSubstitution
 
-  variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
+  variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
 
   def apply_var_or_const (σ : GroundSubstitution sig) : VarOrConst sig -> GroundTerm sig
     | .var v => σ v
@@ -29,11 +29,23 @@ namespace GroundSubstitution
         exact arity_ok
       )
 
-  def apply_atom (σ : GroundSubstitution sig) (ϕ : Atom sig) : Fact sig :=
-    { predicate := ϕ.predicate, terms := List.map (apply_skolem_term σ) ϕ.terms, arity_ok := by rw [List.length_map, ϕ.arity_ok] }
+  theorem apply_skolem_term_injective_on_func_of_frontier_eq (subs : GroundSubstitution sig) (s t : SkolemTerm sig)
+      (hs : s = SkolemTerm.func a frontier arity_a) (ht : t = SkolemTerm.func b frontier arity_b) :
+      subs.apply_skolem_term s = subs.apply_skolem_term t -> s = t := by
+    simp only [hs, ht, apply_skolem_term]
+    intro h
+    unfold GroundTerm.func at h
+    simp at h
+    simp [h]
 
-  def apply_function_free_atom (σ : GroundSubstitution sig) (ϕ : FunctionFreeAtom sig) : Fact sig :=
-    { predicate := ϕ.predicate, terms := List.map (apply_var_or_const σ) ϕ.terms, arity_ok := by rw [List.length_map, ϕ.arity_ok] }
+
+  variable [DecidableEq sig.P]
+
+  def apply_atom (σ : GroundSubstitution sig) (a : Atom sig) : Fact sig :=
+    { predicate := a.predicate, terms := List.map (apply_skolem_term σ) a.terms, arity_ok := by rw [List.length_map, a.arity_ok] }
+
+  def apply_function_free_atom (σ : GroundSubstitution sig) (a : FunctionFreeAtom sig) : Fact sig :=
+    { predicate := a.predicate, terms := List.map (apply_var_or_const σ) a.terms, arity_ok := by rw [List.length_map, a.arity_ok] }
 
   def apply_function_free_conj (σ : GroundSubstitution sig) (conj : FunctionFreeConjunction sig) : List (Fact sig) :=
     (List.map (apply_function_free_atom σ)) conj

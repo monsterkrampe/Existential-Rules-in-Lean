@@ -18,7 +18,7 @@ namespace ChaseBranch
     let disj_index := Classical.choose trg_res
     have trg_res := Classical.choose_spec trg_res
 
-    let disj_index' : Fin trg.val.rule.head.length := ⟨disj_index.val, by rw [← PreTrigger.length_mapped_head]; have isLt := disj_index.isLt; unfold PreTrigger.result at isLt; simp only [List.length_map] at isLt; exact isLt⟩
+    let disj_index' : Fin trg.val.rule.head.length := ⟨disj_index.val, by rw [← PreTrigger.length_mapped_head]; exact disj_index.isLt⟩
 
     let trg' : PreTrigger sig := ⟨trg.val.rule, h ∘ trg.val.subs⟩
     have trg'_loaded : trg'.loaded cb.result := by
@@ -73,7 +73,7 @@ namespace ChaseBranch
         . simp; exact GroundTermMapping.apply_constant_is_id_of_isIdOnConstants hom.left c
         . simp
           intro v _ not_frontier contra
-          simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term, not_frontier, GroundTerm.func] at contra
+          simp [PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term, not_frontier, GroundTerm.func] at contra
 
     have h'_is_subs_on_head_vars : ∀ v, v ∈ (trg.val.rule.head.get disj_index').vars -> (h' (trg.val.apply_to_var_or_const disj_index.val (VarOrConst.var v))) = subs v := by
       intro v v_mem
@@ -81,14 +81,14 @@ namespace ChaseBranch
       | inl v_frontier =>
         simp only [subs]
         rw [subs_frontier _ v_frontier]
-        simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term, v_frontier]
+        simp [PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term, v_frontier]
         unfold h'
         rw [List.find?_eq_none.mpr]
         simp [trg']
         intro u u_mem
         simp
         intro u_frontier contra
-        have u_result_not_in_frontier_image := trg.val.result_term_not_in_frontier_image_of_var_not_in_frontier disj_index u u_frontier
+        have u_result_not_in_frontier_image := trg.val.result_term_not_in_frontier_image_of_var_not_in_frontier ⟨disj_index, by rw [← PreTrigger.length_mapped_head]; exact disj_index.isLt⟩ u u_frontier
         apply u_result_not_in_frontier_image
         rw [contra]
         simp
@@ -107,11 +107,9 @@ namespace ChaseBranch
           . intro u u_mem
             apply Or.inr
             intro contra
-            have skolem_eq := trg.val.subs_application_is_injective_for_freshly_introduced_terms disj_index' v_frontier u (Eq.symm contra)
-            unfold PreTrigger.skolemize_var_or_const at skolem_eq
-            have terms_eq := VarOrConst.skolemize_injective _ _ _ _ _ skolem_eq
-            injection terms_eq with terms_eq
-            rw [terms_eq] at v_not_in_as
+            have vars_eq := trg.val.apply_to_var_or_const_injective_of_not_in_frontier disj_index' v_frontier _ (Eq.symm contra)
+            rw [VarOrConst.var.injEq] at vars_eq
+            rw [vars_eq] at v_not_in_as
             contradiction
 
     have h'_is_h_on_terms_in_node : ∀ t, t ∈ node.fact.val.terms -> h' t = h t := by
@@ -120,8 +118,8 @@ namespace ChaseBranch
       rw [List.find?_eq_none.mpr]
       simp
       intro v v_head v_not_frontier contra
-      have : trg.val.result.get disj_index ⊆ node.fact := by
-        -- kb.isDeterministic is used here but likely we could show a similar theorem used here also for branches
+      have : trg.val.mapped_head[disj_index.val].toSet ⊆ node.fact := by
+        -- TODO: kb.isDeterministic is used here but likely we could show a similar theorem used here also for branches
         apply funcTermForExisVarInChaseTreeMeansTriggerResultOccurs (cb.intoTree det) trg disj_index v node (List.repeat 0 k)
         constructor
         . unfold ChaseBranch.intoTree
@@ -161,15 +159,14 @@ namespace ChaseBranch
           | inr f_mem =>
             rw [← f_eq]
             apply subs_contained
-            have : (subs.apply_function_free_conj (trg'.rule.head.get disj_index')).toSet = h'.applyFactSet (trg.val.result.get disj_index) := by
+            have : (subs.apply_function_free_conj trg'.rule.head[disj_index'.val]).toSet = h'.applyFactSet trg.val.mapped_head[disj_index.val].toSet := by
               apply funext
               intro f
-              have mem_toSet := (subs.apply_function_free_conj (trg'.rule.head.get disj_index')).mem_toSet (e := f)
+              have mem_toSet := (subs.apply_function_free_conj trg'.rule.head[disj_index'.val]).mem_toSet (e := f)
               simp only [Set.element] at mem_toSet
               rw [mem_toSet]
               unfold GroundTermMapping.applyFactSet
               unfold GroundSubstitution.apply_function_free_conj
-              unfold PreTrigger.result
               unfold PreTrigger.mapped_head
               simp
               constructor
@@ -182,7 +179,7 @@ namespace ChaseBranch
                   simp [PreTrigger.apply_to_function_free_atom, GroundTermMapping.applyFact, GroundSubstitution.apply_function_free_atom]
                   intro voc voc_mem
                   cases voc with
-                  | const c => simp [PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, PreTrigger.apply_to_skolemized_term, GroundSubstitution.apply_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize]; exact h'_is_id_on_const (GroundTerm.const c)
+                  | const c => simp [PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize]; exact h'_is_id_on_const (GroundTerm.const c)
                   | var v =>
                     rw [h'_is_subs_on_head_vars]
                     simp [GroundSubstitution.apply_var_or_const]
@@ -206,7 +203,7 @@ namespace ChaseBranch
                   simp [PreTrigger.apply_to_function_free_atom, GroundTermMapping.applyFact, GroundSubstitution.apply_function_free_atom]
                   intro voc voc_mem
                   cases voc with
-                  | const c => simp [PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, PreTrigger.apply_to_skolemized_term, GroundSubstitution.apply_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize]; rw [h'_is_id_on_const (GroundTerm.const c)]
+                  | const c => simp [PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize]; rw [h'_is_id_on_const (GroundTerm.const c)]
                   | var v =>
                     rw [h'_is_subs_on_head_vars]
                     simp [GroundSubstitution.apply_var_or_const]

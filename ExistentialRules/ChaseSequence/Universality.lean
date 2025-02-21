@@ -5,9 +5,6 @@ variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
 
 abbrev InductiveHomomorphismResult (ct : ChaseTree obs kb) (m : FactSet sig) (depth : Nat) := {pair : (List Nat) × (GroundTermMapping sig) // pair.1.length = depth ∧ (ct.tree.get pair.1).is_none_or (fun fs => pair.2.isHomomorphism fs.fact m) }
 
--- TODO: split up the following definition (rather the proofs inside) to get rid of heartbeat increase
-set_option maxHeartbeats 1000000
-
 noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree obs kb) (m : FactSet sig) (m_is_model : m.modelsKb kb) (prev_depth : Nat) (prev_result : InductiveHomomorphismResult ct m prev_depth) (prev_node_unwrapped : ChaseNode obs kb.rules) (prev_node_eq : ct.tree.get prev_result.val.fst = some prev_node_unwrapped) (trg_ex : exists_trigger_list obs kb.rules prev_node_unwrapped (ct.tree.children prev_result.val.fst)) : InductiveHomomorphismResult ct m (prev_depth + 1) :=
   let prev_path := prev_result.val.fst
   let prev_hom := prev_result.val.snd
@@ -49,7 +46,7 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
   let obs_for_m_subs := Classical.choose h_head_index_for_m_subs
   let h_obs_at_head_index_for_m_subs := Classical.choose_spec h_head_index_for_m_subs
 
-  let result_index_for_trg : Fin trg.val.result.length := ⟨head_index_for_m_subs.val, by unfold PreTrigger.result; unfold PreTrigger.mapped_head; simp [List.length_enum_with_lt]; exact head_index_for_m_subs.isLt⟩
+  let result_index_for_trg : Fin trg.val.mapped_head.length := ⟨head_index_for_m_subs.val, by unfold PreTrigger.mapped_head; simp [List.length_enum_with_lt]; exact head_index_for_m_subs.isLt⟩
 
   let next_hom : GroundTermMapping sig := fun t =>
     match t.val with
@@ -59,32 +56,20 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
       match t_in_step_j_dec with
       | Decidable.isTrue _ => prev_hom t
       | Decidable.isFalse _ =>
-        let t_in_trg_result_dec := Classical.propDecidable (∃ f, f ∈ (trg.val.result.get result_index_for_trg) ∧ t ∈ f.terms)
+        let t_in_trg_result_dec := Classical.propDecidable (∃ f, f ∈ (trg.val.mapped_head[result_index_for_trg.val]) ∧ t ∈ f.terms)
         match t_in_trg_result_dec with
         | Decidable.isFalse _ => t
         | Decidable.isTrue t_in_trg_result =>
           let f := Classical.choose t_in_trg_result
-          let ⟨f_in_trg_result, t_in_f⟩ := Classical.choose_spec t_in_trg_result
+          let f_spec := Classical.choose_spec t_in_trg_result
+          let v_for_t := trg.val.var_or_const_for_result_term result_index_for_trg f_spec.left f_spec.right
+          obs_for_m_subs.apply_var_or_const v_for_t
 
-          let idx_f := trg.val.idx_of_fact_in_result f result_index_for_trg f_in_trg_result
-          let atom_in_head := (trg.val.rule.head.get head_index_for_m_subs).get idx_f
-          let idx_t_in_f := f.terms.idx_of t_in_f
-          have idx_t_in_f_isLt := idx_t_in_f.isLt
-          have f_is_at_its_idx :
-            f = (trg.val.mapped_head.get ⟨head_index_for_m_subs.val, by simp [PreTrigger.mapped_head, List.length_enum_with_lt]; exact head_index_for_m_subs.isLt⟩).get ⟨idx_f.val, by simp [PreTrigger.mapped_head, List.enum_with_lt_getElem_snd_eq_getElem]; exact idx_f.isLt⟩ := by simp [idx_f, PreTrigger.idx_of_fact_in_result]; apply List.idx_of_get
-
-          have atom_arity_same_as_fact : f.terms.length = List.length (FunctionFreeAtom.terms atom_in_head) := by
-              rw [f_is_at_its_idx]
-              unfold PreTrigger.mapped_head
-              unfold PreTrigger.apply_to_function_free_atom
-              simp [atom_in_head, List.enum_with_lt_getElem_snd_eq_getElem]
-
-          let term_corresponding_to_t := atom_in_head.terms.get ⟨idx_t_in_f.val, (by
-            rw [← atom_arity_same_as_fact]
-            exact idx_t_in_f_isLt
-          )⟩
-
-          obs_for_m_subs.apply_var_or_const term_corresponding_to_t
+  have next_hom_id_const : next_hom.isIdOnConstants := by
+    intro term
+    cases eq : term with
+    | const c => simp [GroundTerm.const, next_hom, eq]
+    | func _ _ => simp [GroundTerm.func]
 
   ⟨(head_index_for_m_subs.val::prev_path, next_hom), by
     have prev_cond_r := prev_cond.right
@@ -98,16 +83,12 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
     | some next_node =>
     rw [Option.is_none_or]
     constructor
-    . intro term
-      cases eq : term with
-      | const c => simp [GroundTerm.const, next_hom, eq]
-      | func _ _ => simp [GroundTerm.func]
-    have next_node_results_from_trg : next_node.fact = prev_node_unwrapped.fact ∪ trg.val.result.get result_index_for_trg := by
-      have length_eq_helper_1 : trg.val.rule.head.length = trg.val.result.enum_with_lt.attach.length := by
+    . exact next_hom_id_const
+    have next_node_results_from_trg : next_node.fact = prev_node_unwrapped.fact ∪ trg.val.mapped_head[result_index_for_trg.val].toSet := by
+      have length_eq_helper_1 : trg.val.rule.head.length = trg.val.mapped_head.enum_with_lt.attach.length := by
         rw [List.length_attach, List.length_enum_with_lt]
-        unfold PreTrigger.result
         unfold PreTrigger.mapped_head
-        rw [List.map_map, List.length_map, List.enum_length]
+        rw [List.length_map, List.enum_length]
       have length_eq_helper_2 : trg_variant_for_m.val.rule.head.length = (ct.tree.children prev_path).length := by
         rw [← trg_result_used_for_next_chase_step, List.length_map]
         exact length_eq_helper_1
@@ -115,7 +96,7 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
       specialize trg_result_used_for_next_chase_step head_index_for_m_subs.val
       have index_valid : head_index_for_m_subs < (ct.tree.children prev_path).length := by rw [← length_eq_helper_2]; exact head_index_for_m_subs.isLt
       rw [List.getElem?_eq_getElem (l:=ct.tree.children prev_path) (i:=head_index_for_m_subs) index_valid] at trg_result_used_for_next_chase_step
-      rw [List.getElem?_eq_getElem (l:=trg.val.result.enum_with_lt.attach) (i:=head_index_for_m_subs) (by rw [← length_eq_helper_1]; exact head_index_for_m_subs.isLt)] at trg_result_used_for_next_chase_step
+      rw [List.getElem?_eq_getElem (l:=trg.val.mapped_head.enum_with_lt.attach) (i:=head_index_for_m_subs) (by rw [← length_eq_helper_1]; exact head_index_for_m_subs.isLt)] at trg_result_used_for_next_chase_step
       rw [Option.map_some'] at trg_result_used_for_next_chase_step
       injection trg_result_used_for_next_chase_step with trg_result_used_for_next_chase_step
       have : some (ct.tree.children prev_path)[head_index_for_m_subs.val] = some next_node := by
@@ -126,7 +107,7 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
       rw [trg_result_used_for_next_chase_step]
       rw [List.getElem_attach]
       simp only
-      rw [List.get_eq_getElem, List.get_eq_getElem, List.enum_with_lt_getElem_snd_eq_getElem]
+      rw [List.get_eq_getElem, List.enum_with_lt_getElem_snd_eq_getElem]
     rw [next_node_results_from_trg]
 
     intro mapped_fact fact_in_chase
@@ -159,183 +140,111 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
         . simp only [eq, GroundTerm.func] at this
           contradiction
     | inr fact_in_trg_result =>
-      let idx_of_fact_in_result := trg.val.idx_of_fact_in_result fact result_index_for_trg fact_in_trg_result
-      have fact_is_at_its_idx :
-        fact = (trg.val.mapped_head.get ⟨head_index_for_m_subs.val, by unfold PreTrigger.mapped_head; rw [List.length_map, List.enum_length]; exact head_index_for_m_subs.isLt⟩).get ⟨idx_of_fact_in_result.val, by unfold PreTrigger.mapped_head; simp only [List.get_eq_getElem, List.getElem_map, List.length_map, List.getElem_enum]; exact idx_of_fact_in_result.isLt⟩ := by simp only [idx_of_fact_in_result, PreTrigger.idx_of_fact_in_result]; apply List.idx_of_get
-
-      rw [fact_is_at_its_idx]
-      unfold GroundTermMapping.applyFact
-
       apply h_obs_at_head_index_for_m_subs.right
       rw [List.mem_toSet]
-      rw [List.mem_iff_get]
-      exists ⟨idx_of_fact_in_result.val, (by
-        simp only [GroundSubstitution.apply_function_free_conj, List.length_map]
-        have isLt := idx_of_fact_in_result.isLt
-        simp only [List.get_eq_getElem, head_index_for_m_subs] at isLt
-        apply isLt
-      )⟩
-      simp only [GroundSubstitution.apply_function_free_conj, GroundSubstitution.apply_function_free_atom, PreTrigger.mapped_head, PreTrigger.apply_to_function_free_atom, List.get_eq_getElem, List.getElem_map]
-
-      -- we show that applying next_hom after trg is the same is applying trg_variant_for_m for each relevant VarOrConst
-
-      simp only [head_index_for_m_subs, Fact.mk.injEq]
+      rw [List.mem_toSet] at fact_in_trg_result
+      unfold GroundSubstitution.apply_function_free_conj
+      rw [List.mem_map]
+      exists (trg.val.atom_for_result_fact result_index_for_trg fact_in_trg_result)
       constructor
-      . simp only [List.getElem_enum]; rfl
-      let head_disjunct : List (FunctionFreeAtom sig) := trg.val.rule.head[head_index_for_m_subs.val]
-      have : (trg.val.rule.head.enum[head_index_for_m_subs.val]'(by rw [List.enum_length]; exact head_index_for_m_subs.isLt)).snd = head_disjunct := by rw [List.getElem_enum]
-      have terms_eq : head_disjunct[idx_of_fact_in_result.val].terms = head_disjunct[idx_of_fact_in_result.val].terms := rfl
-      conv at terms_eq => left; simp only [← this]
-      conv at terms_eq => right; simp only [head_disjunct]
-      simp only [head_index_for_m_subs] at terms_eq
-      simp only [List.map_map]
-      rw [terms_eq, List.map_eq_map_iff]
-      intro voc voc_is_in_head_atom_for_fact
-      cases voc with
-      | const _ => rw [List.getElem_enum]; simp only [Function.comp_apply, PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term, GroundSubstitution.apply_var_or_const, next_hom, GroundTerm.const]
-      | var v_from_head_atom =>
-        have : trg.val.rule.head.enum[head_index_for_m_subs.val].fst = head_index_for_m_subs.val := by rw [List.getElem_enum]
-        rw [this]
-        rw [Function.comp_apply]
-        simp only [next_hom, GroundSubstitution.apply_var_or_const]
-        split
-        case h_1 c h_c_eq =>
-          have v_is_in_frontier : v_from_head_atom ∈ trg.val.rule.frontier := by
-            apply Decidable.byContradiction
-            intro opp
-            simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, opp, GroundTerm.func] at h_c_eq
-          rw [h_obs_at_head_index_for_m_subs.left _ v_is_in_frontier]
-          simp only [↓reduceIte, Function.comp_apply, PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, v_is_in_frontier]
-          simp only [↓reduceIte, Function.comp_apply, PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, v_is_in_frontier] at h_c_eq
-          have h_c_eq : (trg.val.subs v_from_head_atom) = GroundTerm.const c := by apply Subtype.eq; exact h_c_eq
-          simp only [trg_variant_for_m]
-          rw [h_c_eq]
-          have prev_hom_id_on_constants := GroundTermMapping.apply_constant_is_id_of_isIdOnConstants prev_cond_r.left c
-          simp only [prev_hom]
-          rw [prev_hom_id_on_constants]
-        case h_2 =>
-          split
-          case h_1 _ exis_f _ =>
-            have v_is_in_frontier : v_from_head_atom ∈ trg.val.rule.frontier := by
-              apply Decidable.byContradiction
-              intro v_not_in_frontier
-
-              have : (trg.val.result.get result_index_for_trg) ⊆ prev_node_unwrapped.fact := by
-                apply funcTermForExisVarInChaseTreeMeansTriggerResultOccurs ct trg result_index_for_trg v_from_head_atom prev_node_unwrapped prev_path
-                constructor
-                . rw [prev_node_eq]
-                constructor
-                . apply v_not_in_frontier
-                . exact exis_f
-
-              have : obs.cond trg.val prev_node_unwrapped.fact := obs.contains_trg_result_implies_cond result_index_for_trg this
-              have : ¬ obs.cond trg.val prev_node_unwrapped.fact := trg_active_for_current_step.right
-              contradiction
-
-            rw [h_obs_at_head_index_for_m_subs.left]
-            simp only [↓reduceIte, Function.comp_apply, PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, v_is_in_frontier]
-            simp only [trg_variant_for_m]
-            have : trg.val.rule = trg_variant_for_m.val.rule := by rfl
-            rw [← this]
-            apply v_is_in_frontier
-          case h_2 _ n_exis_f_for_step_j _ =>
-            have v_not_in_frontier : ¬ v_from_head_atom ∈ trg.val.rule.frontier := by
-              intro v_is_in_frontier
-              have v_in_body := Rule.frontier_occurs_in_body _ _ v_is_in_frontier
-              cases v_in_body with | intro f hf =>
-                apply n_exis_f_for_step_j
-                exists (trg.val.subs.apply_function_free_atom f)
+      . unfold trg_variant_for_m
+        unfold PreTrigger.atom_for_result_fact
+        apply List.getElem_mem
+      . simp only
+        conv => right; rw [← trg.val.apply_on_atom_for_result_fact_is_fact result_index_for_trg fact_in_trg_result]
+        rw [← PreTrigger.apply_subs_for_atom_eq]
+        rw [← GroundSubstitution.apply_function_free_atom_compose _ _ next_hom_id_const]
+        unfold GroundSubstitution.apply_function_free_atom
+        simp only [Fact.mk.injEq, true_and]
+        rw [List.map_inj_left]
+        intro voc voc_mem
+        cases voc with
+        | const c => simp [GroundSubstitution.apply_var_or_const]
+        | var v =>
+          rw [GroundSubstitution.apply_var_or_const_compose _ _ next_hom_id_const]
+          simp only [GroundSubstitution.apply_var_or_const]
+          cases Decidable.em (v ∈ trg.val.rule.frontier) with
+          | inl v_front =>
+            rw [h_obs_at_head_index_for_m_subs.left v v_front]
+            unfold PreTrigger.subs_for_mapped_head
+            rw [PreTrigger.apply_to_var_or_const_frontier_var _ _ _ v_front]
+            unfold trg_variant_for_m
+            simp only
+            cases eq_v : trg.val.subs v with
+            | const c =>
+              unfold GroundTerm.const
+              unfold next_hom
+              simp only
+              apply GroundTermMapping.apply_constant_is_id_of_isIdOnConstants
+              exact prev_hom_is_homomorphism.left
+            | func func ts arity_ok =>
+              unfold GroundTerm.func
+              unfold next_hom
+              simp only
+              have h : ∃ f, f ∈ prev_node_unwrapped.fact.val ∧ (GroundTerm.func func ts arity_ok) ∈ f.terms := by
+                rcases trg.val.rule.frontier_occurs_in_body v v_front with ⟨body_atom, v_front'⟩
+                exists trg.val.subs.apply_function_free_atom body_atom
                 constructor
                 . apply trg_active_for_current_step.left
-                  unfold PreTrigger.mapped_body
                   rw [List.mem_toSet]
                   apply List.mem_map_of_mem
-                  apply hf.left
-                . simp only [↓reduceIte, Function.comp_apply, PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, v_is_in_frontier, GroundSubstitution.apply_function_free_atom]
+                  exact v_front'.left
+                . rw [← eq_v]
+                  unfold GroundSubstitution.apply_function_free_atom
                   rw [List.mem_map]
-                  have : trg.val.subs v_from_head_atom = trg.val.subs.apply_var_or_const (VarOrConst.var v_from_head_atom) := by simp only [GroundSubstitution.apply_var_or_const]
-                  rw [this]
-                  exists VarOrConst.var v_from_head_atom
-                  constructor
-                  . exact hf.right
-                  . rfl
-            split
-            case h_1 _ n_exis_f_for_trg_result _ =>
-              apply False.elim
-              apply n_exis_f_for_trg_result
+                  exists VarOrConst.var v
+                  simp [GroundSubstitution.apply_var_or_const, v_front'.right]
+
+              have : Classical.propDecidable (∃ f, f ∈ prev_node_unwrapped.fact.val ∧ (GroundTerm.func func ts arity_ok) ∈ f.terms) = isTrue h := by cases Classical.propDecidable (∃ f, f ∈ prev_node_unwrapped.fact.val ∧ (GroundTerm.func func ts arity_ok) ∈ f.terms) <;> trivial
+              unfold GroundTerm.func at this
+              rw [this]
+          | inr v_front =>
+            unfold PreTrigger.subs_for_mapped_head
+            rw [PreTrigger.apply_to_var_or_const_non_frontier_var _ _ _ v_front]
+            unfold PreTrigger.functional_term_for_var
+            unfold next_hom
+
+            have h : ¬ ∃ f, f ∈ prev_node_unwrapped.fact.val ∧ (trg.val.functional_term_for_var result_index_for_trg.val v) ∈ f.terms := by
+              intro contra
+              apply trg_active_for_current_step.right
+              apply obs.contains_trg_result_implies_cond result_index_for_trg
+              apply funcTermForExisVarInChaseTreeMeansTriggerResultOccurs
+              constructor
+              . apply Eq.symm; exact prev_node_eq
+              constructor
+              . exact v_front
+              . rw [PreTrigger.apply_to_var_or_const_non_frontier_var _ _ _ v_front]
+                exact contra
+            have : Classical.propDecidable (∃ f, f ∈ prev_node_unwrapped.fact.val ∧ (trg.val.functional_term_for_var result_index_for_trg.val v) ∈ f.terms) = isFalse h := by cases Classical.propDecidable (∃ f, f ∈ prev_node_unwrapped.fact.val ∧ (trg.val.functional_term_for_var result_index_for_trg.val v) ∈ f.terms) <;> trivial
+            unfold PreTrigger.functional_term_for_var at this
+            rw [this]
+
+            have h : ∃ f, f ∈ (trg.val.mapped_head[result_index_for_trg.val]) ∧ (trg.val.functional_term_for_var result_index_for_trg.val v) ∈ f.terms := by
               exists fact
               constructor
               . exact fact_in_trg_result
-              rw [fact_is_at_its_idx]
-              rw [← PreTrigger.apply_subs_to_atom_at_idx_same_as_fact_at_idx]
-              rw [List.mem_iff_get]
-              rcases (List.mem_iff_get.mp voc_is_in_head_atom_for_fact) with ⟨voc_idx, h_voc_idx⟩
-              exists ⟨voc_idx.val, (by
-                rw [PreTrigger.length_terms_apply_to_function_free_atom]
-                apply voc_idx.isLt
-              )⟩
-              simp only [GroundSubstitution.apply_atom, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term, FunctionFreeAtom.skolemize, PreTrigger.apply_to_function_free_atom, PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const]
-              simp only [List.get_eq_getElem, List.getElem_map, head_index_for_m_subs]
-              simp only [List.get_eq_getElem] at h_voc_idx
-              rw [← h_voc_idx]
-            case h_2 _ exis_f _ =>
-              split
-              case _ _ chosen_f_in_result applied_v_is_in_chosen_f _ =>
-                let v_from_head_atom := VarOrConst.var v_from_head_atom
-                let skolem_v := trg.val.skolemize_var_or_const head_index_for_m_subs v_from_head_atom
-                let chosen_f := Classical.choose exis_f
+              . rw [← trg.val.apply_on_atom_for_result_fact_is_fact result_index_for_trg fact_in_trg_result]
+                rw [← trg.val.apply_to_var_or_const_non_frontier_var _ _ v_front]
+                unfold PreTrigger.apply_to_function_free_atom
+                apply List.mem_map_of_mem
+                exact voc_mem
 
-                let idx_f := trg.val.idx_of_fact_in_result chosen_f result_index_for_trg chosen_f_in_result
-                let atom_in_head := (trg.val.rule.head.get head_index_for_m_subs).get idx_f
-                let idx_v_in_f := chosen_f.terms.idx_of applied_v_is_in_chosen_f
-                have idx_v_in_f_isLt := idx_v_in_f.isLt
-                have f_is_at_its_idx : chosen_f = (trg.val.mapped_head.get ⟨head_index_for_m_subs.val, by simp [PreTrigger.mapped_head, List.length_enum_with_lt]; exact head_index_for_m_subs.isLt⟩).get ⟨idx_f.val, by simp [PreTrigger.mapped_head, List.enum_with_lt_getElem_snd_eq_getElem]; exact idx_f.isLt⟩ := by simp [idx_f, PreTrigger.idx_of_fact_in_result]; apply List.idx_of_get
-                have v_is_at_its_idx : (trg.val.apply_to_var_or_const head_index_for_m_subs v_from_head_atom) = chosen_f.terms.get idx_v_in_f := by simp [idx_v_in_f]; apply List.idx_of_get
+            have : Classical.propDecidable (∃ f, f ∈ (trg.val.mapped_head[result_index_for_trg.val]) ∧ (trg.val.functional_term_for_var result_index_for_trg.val v) ∈ f.terms) = isTrue h := by cases Classical.propDecidable (∃ f, f ∈ (trg.val.mapped_head[result_index_for_trg.val]) ∧ (trg.val.functional_term_for_var result_index_for_trg.val v) ∈ f.terms) <;> trivial
+            unfold PreTrigger.functional_term_for_var at this
+            rw [this]
+            simp only [GroundTerm.func]
 
-                have atom_arity_same_as_fact : chosen_f.terms.length = List.length (FunctionFreeAtom.terms atom_in_head) := by
-                  rw [f_is_at_its_idx]
-                  unfold PreTrigger.mapped_head
-                  simp
-                  rw [PreTrigger.length_terms_apply_to_function_free_atom]
-                  simp [atom_in_head, List.enum_with_lt_getElem_snd_eq_getElem]
-
-                let var_corresponding_to_applied_v := atom_in_head.terms.get ⟨idx_v_in_f.val, (by
-                  rw [← atom_arity_same_as_fact]
-                  exact idx_v_in_f_isLt
-                )⟩
-
-                let skolem_term_corresponding_to_applied_v := trg.val.skolemize_var_or_const head_index_for_m_subs var_corresponding_to_applied_v
-
-                have subs_application_is_injective_for_freshly_introduced_terms : ∀ s, trg.val.apply_to_skolemized_term skolem_v = trg.val.apply_to_var_or_const head_index_for_m_subs s -> skolem_v = trg.val.skolemize_var_or_const head_index_for_m_subs s := by
-                  intro s hs
-                  cases s with
-                  | const const_s =>
-                    simp [skolem_v, v_from_head_atom, PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, v_not_in_frontier, GroundSubstitution.apply_skolem_term] at hs
-                    simp [GroundTerm.const, GroundTerm.func] at hs
-                  | var var_s =>
-                    apply PreTrigger.subs_application_is_injective_for_freshly_introduced_terms
-                    apply v_not_in_frontier
-                    apply hs
-
-                have skolemized_ts_are_equal : skolem_term_corresponding_to_applied_v = skolem_v := by
-                  apply Eq.symm
-                  apply subs_application_is_injective_for_freshly_introduced_terms
-                  unfold PreTrigger.apply_to_var_or_const at v_is_at_its_idx
-                  simp at v_is_at_its_idx
-                  rw [v_is_at_its_idx]
-
-                  have : chosen_f.terms = (trg.val.apply_to_function_free_atom head_index_for_m_subs atom_in_head).terms := by
-                    rw [f_is_at_its_idx]
-                    rw [← PreTrigger.apply_subs_to_atom_at_idx_same_as_fact_at_idx]
-
-                  simp [this, PreTrigger.apply_to_function_free_atom, var_corresponding_to_applied_v]
-
-                have : var_corresponding_to_applied_v = v_from_head_atom := by
-                  apply VarOrConst.skolemize_injective trg.val.rule.id head_index_for_m_subs (Rule.frontier trg.val.rule)
-                  apply skolemized_ts_are_equal
-
-                simp only [var_corresponding_to_applied_v, atom_in_head] at this
-                rw [this]
+            have spec := Classical.choose_spec h
+            have : trg.val.var_or_const_for_result_term result_index_for_trg spec.left spec.right = VarOrConst.var v := by
+              have : (trg.val.apply_to_var_or_const result_index_for_trg.val (trg.val.var_or_const_for_result_term result_index_for_trg spec.left spec.right)) = trg.val.apply_to_var_or_const result_index_for_trg.val (VarOrConst.var v) := by
+                rw [PreTrigger.apply_on_var_or_const_for_result_term_is_term]
+                rw [PreTrigger.apply_to_var_or_const_non_frontier_var _ _ _ v_front]
+              apply Eq.symm
+              apply trg.val.apply_to_var_or_const_injective_of_not_in_frontier ⟨result_index_for_trg.val, by rw [← PreTrigger.length_mapped_head]; exact result_index_for_trg.isLt⟩ v_front
+              rw [this]
+            rw [this]
+            simp only [GroundSubstitution.apply_var_or_const]
+            rfl
   ⟩
 
 noncomputable def inductive_homomorphism_with_prev_node (ct : ChaseTree obs kb) (m : FactSet sig) (m_is_model : m.modelsKb kb) (prev_depth : Nat) (prev_result : InductiveHomomorphismResult ct m prev_depth) (prev_node_unwrapped : ChaseNode obs kb.rules) (prev_node_eq : ct.tree.get prev_result.val.fst = some prev_node_unwrapped) : InductiveHomomorphismResult ct m (prev_depth + 1) :=
@@ -460,7 +369,7 @@ theorem inductive_homomorphism_with_prev_node_and_trg_latest_index_lt_trg_result
   (prev_node : ChaseNode obs kb.rules)
   (prev_ex : some prev_node = ct.tree.get (inductive_homomorphism ct m m_is_model prev_step).val.1)
   (trg_ex : exists_trigger_list obs kb.rules prev_node (ct.tree.children (inductive_homomorphism ct m m_is_model prev_step).val.1))
-  : (inductive_homomorphism_with_prev_node_and_trg ct m m_is_model prev_step _ _ (Eq.symm prev_ex) trg_ex).val.1.head (by apply inductive_homomorphism_with_prev_node_and_trg_path_not_empty) < (Classical.choose trg_ex).val.result.length := by
+  : (inductive_homomorphism_with_prev_node_and_trg ct m m_is_model prev_step _ _ (Eq.symm prev_ex) trg_ex).val.1.head (by apply inductive_homomorphism_with_prev_node_and_trg_path_not_empty) < (Classical.choose trg_ex).val.mapped_head.length := by
     let prev_result := inductive_homomorphism ct m m_is_model prev_step
     let prev_hom := prev_result.val.snd
     let prev_cond := prev_result.property
@@ -504,7 +413,6 @@ theorem inductive_homomorphism_with_prev_node_and_trg_latest_index_lt_trg_result
     simp [this]
     have isLt := head_index_for_m_subs.isLt
     simp only [trg_variant_for_m, trg] at isLt
-    unfold PreTrigger.result
     simp only [← PreTrigger.length_mapped_head] at isLt
     simp
     exact isLt
@@ -515,7 +423,7 @@ theorem inductive_homomorphism_latest_index_lt_trg_result_length
   (prev_node : ChaseNode obs kb.rules)
   (prev_ex : some prev_node = ct.tree.get (inductive_homomorphism ct m m_is_model prev_step).val.1)
   (trg_ex : exists_trigger_list obs kb.rules prev_node (ct.tree.children (inductive_homomorphism ct m m_is_model prev_step).val.1))
-  : (inductive_homomorphism ct m m_is_model (prev_step+1)).val.1.head (by apply inductive_homomorphism_path_not_empty) < (Classical.choose trg_ex).val.result.length := by
+  : (inductive_homomorphism ct m m_is_model (prev_step+1)).val.1.head (by apply inductive_homomorphism_path_not_empty) < (Classical.choose trg_ex).val.mapped_head.length := by
 
     have : inductive_homomorphism ct m m_is_model (prev_step + 1) = inductive_homomorphism_with_prev_node ct m m_is_model prev_step (inductive_homomorphism ct m m_is_model prev_step) prev_node (by rw [prev_ex]) := by
       conv => left; unfold inductive_homomorphism
@@ -710,7 +618,7 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
           exists trg
           constructor
           . exact h.left
-          let i : Fin trg.val.result.length := ⟨((inductive_homomorphism_shortcut (n+1)).val.fst.head (inductive_homomorphism_path_not_empty n)), inductive_homomorphism_latest_index_lt_trg_result_length n node (by rw [← eq]) ex_trg⟩
+          let i : Fin trg.val.mapped_head.length := ⟨((inductive_homomorphism_shortcut (n+1)).val.fst.head (inductive_homomorphism_path_not_empty n)), inductive_homomorphism_latest_index_lt_trg_result_length n node (by rw [← eq]) ex_trg⟩
           let i' : Fin (ct.tree.children (inductive_homomorphism_shortcut n).val.1).length := ⟨i.val, by rw [← h.right]; simp; rw [List.length_enum_with_lt]; exact i.isLt⟩
           exists i
           rw [inductive_homomorphism_path_extends_prev]

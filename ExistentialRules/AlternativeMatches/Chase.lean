@@ -90,7 +90,7 @@ namespace ChaseBranch
               have node_fact_is_prev_fact_union_origin_res := cb.origin_trg_result_yields_next_node_fact k node node2 eq eq2 origin eq_origin
               have origin_trg_active := cb.origin_trg_is_active k node node2 eq eq2
 
-              let trg_res_terms := (origin.fst.val.result.get origin.snd).terms
+              let trg_res_terms := (FactSet.terms origin.fst.val.mapped_head[origin.snd.val].toSet)
 
               have h_surj_on_trg_res : h_k.surjective_for_domain_and_image_set trg_res_terms trg_res_terms := by
                 apply Classical.byContradiction
@@ -155,7 +155,6 @@ namespace ChaseBranch
                 rw [node_fact_is_prev_fact_union_origin_res]
                 intro t t_mem
                 rcases t_mem with ⟨f, f_mem, t_mem⟩
-                simp at f_mem
                 cases f_mem with
                 | inl f_mem =>
                   exists t
@@ -457,7 +456,7 @@ namespace ChaseBranch
                 unfold h
                 split
                 case isTrue t_mem_ts =>
-                  simp only [PreTrigger.result, PreTrigger.mapped_head] at f'_mem
+                  simp only [PreTrigger.mapped_head] at f'_mem
                   simp at f'_mem
                   rw [List.mem_toSet] at f'_mem
                   simp at f'_mem
@@ -471,7 +470,7 @@ namespace ChaseBranch
 
                   cases voc with
                   | const c =>
-                    simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term] at t_eq
+                    simp [PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term] at t_eq
                     rw [← t_eq]
                     have id_const := altMatch.left.left (GroundTerm.const c)
                     simp at id_const
@@ -487,7 +486,7 @@ namespace ChaseBranch
                       exists v
                       constructor
                       . exact v_in_frontier
-                      . simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term]
+                      . simp [PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term]
                         simp [v_in_frontier]
                     | inr v_not_in_frontier =>
                       -- kb.isDeterministic is used here but likely we could show a similar theorem used here also for branches
@@ -551,7 +550,7 @@ namespace ChaseBranch
             constructor
             . exact n_mem
             . -- this is all copy pasted from an argument already given above
-              simp only [PreTrigger.result, PreTrigger.mapped_head] at f_mem
+              simp only [PreTrigger.mapped_head] at f_mem
               simp at f_mem
               rw [List.mem_toSet] at f_mem
               simp at f_mem
@@ -565,7 +564,7 @@ namespace ChaseBranch
 
               cases voc with
               | const c =>
-                simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term] at n_eq
+                simp [PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term] at n_eq
                 rw [← n_eq]
                 have id_const := h_alt_hom.left (GroundTerm.const c)
                 simp at id_const
@@ -579,7 +578,7 @@ namespace ChaseBranch
                   exists v
                   constructor
                   . exact v_in_frontier
-                  . simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term]
+                  . simp [PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term]
                     simp [v_in_frontier]
                 | inr v_not_in_frontier =>
                   -- kb.isDeterministic is used here but likely we could show a similar theorem used here also for branches

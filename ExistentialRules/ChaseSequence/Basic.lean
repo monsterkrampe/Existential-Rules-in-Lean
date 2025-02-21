@@ -1,75 +1,62 @@
 import PossiblyInfiniteTrees.PossiblyInfiniteTree.FiniteDegreeTree.Basic
 
 import ExistentialRules.Models.Basic
-import ExistentialRules.Triggers.Basic
+import ExistentialRules.Triggers.RTrigger
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 structure ChaseNode (obs : ObsoletenessCondition sig) (rules : RuleSet sig) where
   fact : { fs : FactSet sig // fs.finite }
   -- the origin is none only for the database
-  origin : Option ((trg : RTrigger (obs : LaxObsoletenessCondition sig) rules) × Fin trg.val.result.length)
-  fact_contains_origin_result : origin.is_none_or (fun origin => origin.fst.val.result.get origin.snd ⊆ fact)
+  origin : Option ((trg : RTrigger (obs : LaxObsoletenessCondition sig) rules) × Fin trg.val.mapped_head.length)
+  fact_contains_origin_result : origin.is_none_or (fun origin => origin.fst.val.mapped_head[origin.snd.val].toSet ⊆ fact)
 
 def exists_trigger_opt_fs (obs : ObsoletenessCondition sig) (rules : RuleSet sig) (before : ChaseNode obs rules) (after : Option (ChaseNode obs rules)) : Prop :=
   ∃ trg : (RTrigger (obs : LaxObsoletenessCondition sig) rules), trg.val.active before.fact ∧ ∃ i, some {
     fact := ⟨
-      before.fact ∪ trg.val.result.get i,
+      before.fact ∪ (trg.val.mapped_head[i.val]'(i.isLt)).toSet,
       by
-        unfold Set.finite
-        unfold PreTrigger.result
-        simp
-        cases before.fact.property with | intro l_before h =>
-          let new_list := (l_before ++ trg.val.mapped_head[i.val]'(by have isLt := i.isLt; unfold PreTrigger.result at isLt; simp at isLt; exact isLt)).eraseDupsKeepRight
-          exists new_list
-          simp [Set.union, Set.element]
-          simp [Set.element] at h
-          constructor
-          . apply List.nodup_eraseDupsKeepRight
-          . intro e
-            simp [new_list, List.mem_eraseDupsKeepRight]
-            constructor
-            . intro h'; cases h' with
-              | inl h' => apply Or.inl; rw [← h.right]; exact h'
-              | inr h' => apply Or.inr; rw [← List.mem_toSet] at h'; exact h'
-            . intro h'; cases h' with
-              | inl h' => apply Or.inl; rw [h.right]; exact h'
-              | inr h' => apply Or.inr; rw [← List.mem_toSet]; exact h'
+        rcases before.fact.property with ⟨l_before, _, l_eq⟩
+        let new_list := (l_before ++ trg.val.mapped_head[i.val]).eraseDupsKeepRight
+        exists new_list
+        constructor
+        . apply List.nodup_eraseDupsKeepRight
+        . intro e
+          unfold new_list
+          rw [List.mem_eraseDupsKeepRight, List.mem_append]
+          unfold Set.union
+          rw [l_eq]
+          simp only [List.mem_toSet]
+          simp [Set.element]
     ⟩
     origin := some ⟨trg, i⟩
     fact_contains_origin_result := by simp [Option.is_none_or]; apply Set.subset_union_of_subset_right; apply Set.subset_refl
   } = after
 
 def exists_trigger_list_condition (obs : ObsoletenessCondition sig) (rules : RuleSet sig) (before : ChaseNode obs rules) (after : List (ChaseNode obs rules)) (trg : RTrigger obs rules) : Prop :=
-  trg.val.active before.fact ∧ trg.val.result.enum_with_lt.attach.map (fun ⟨⟨i, fs⟩, h⟩ => {
+  trg.val.active before.fact ∧ trg.val.mapped_head.enum_with_lt.attach.map (fun ⟨⟨i, head⟩, h⟩ => {
     fact := ⟨
-      before.fact ∪ fs,
+      before.fact ∪ head.toSet,
       by
         rw [List.mk_mem_enum_with_lt_iff_getElem] at h
-        unfold PreTrigger.result at h
-        simp at h
-        unfold Set.finite
-        cases before.fact.property with | intro l_before h_before =>
-          let new_terms := (l_before ++ trg.val.mapped_head[i.val]'(by have isLt := i.isLt; unfold PreTrigger.result at isLt; simp at isLt; exact isLt)).eraseDupsKeepRight
-          exists new_terms
-          simp [Set.union, Set.element]
-          simp [Set.element] at h_before
-          constructor
-          . apply List.nodup_eraseDupsKeepRight
-          . intro e
-            simp [new_terms, List.mem_eraseDupsKeepRight]
-            constructor
-            . intro h'; cases h' with
-              | inl h' => apply Or.inl; rw [← h_before.right]; exact h'
-              | inr h' => apply Or.inr; rw [← List.mem_toSet] at h'; rw [h] at h'; exact h'
-            . intro h'; cases h' with
-              | inl h' => apply Or.inl; rw [h_before.right]; exact h'
-              | inr h' => apply Or.inr; rw [← List.mem_toSet]; rw [h]; exact h'
+        rcases before.fact.property with ⟨l_before, _, l_eq⟩
+        let new_list := (l_before ++ trg.val.mapped_head[i.val]).eraseDupsKeepRight
+        exists new_list
+        constructor
+        . apply List.nodup_eraseDupsKeepRight
+        . intro e
+          unfold new_list
+          rw [List.mem_eraseDupsKeepRight, List.mem_append]
+          unfold Set.union
+          rw [l_eq]
+          simp only [List.mem_toSet]
+          rw [← h]
+          simp [Set.element]
     ⟩
     origin := some ⟨trg, i⟩
     fact_contains_origin_result := by
-      have : fs = trg.val.result[i.val] := by rw [List.mk_mem_enum_with_lt_iff_getElem] at h; rw [h]
-      simp [Option.is_none_or]
+      have : head = trg.val.mapped_head[i.val] := by rw [List.mk_mem_enum_with_lt_iff_getElem] at h; rw [h]
+      simp only [Option.is_none_or]
       apply Set.subset_union_of_subset_right
       rw [this]
       apply Set.subset_refl
@@ -158,8 +145,8 @@ namespace ChaseBranch
       exact trg_active
 
   -- TODO: check if this simplifies code where we used cb.triggers_exist before
-  theorem origin_trg_result_yields_next_node_fact (cb : ChaseBranch obs kb) (i : Nat) (node prev_node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list (i + 1) = some node) (eq2 : cb.branch.infinite_list i = some prev_node) (origin : ((trg : RTrigger obs kb.rules) × Fin trg.val.result.length)) (eq_origin : node.origin = some origin) :
-      node.fact.val = prev_node.fact.val ∪ (origin.fst.val.result.get origin.snd) := by
+  theorem origin_trg_result_yields_next_node_fact (cb : ChaseBranch obs kb) (i : Nat) (node prev_node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list (i + 1) = some node) (eq2 : cb.branch.infinite_list i = some prev_node) (origin : ((trg : RTrigger obs kb.rules) × Fin trg.val.mapped_head.length)) (eq_origin : node.origin = some origin) :
+      node.fact.val = prev_node.fact.val ∪ (origin.fst.val.mapped_head[origin.snd.val].toSet) := by
     have trg_ex := cb.triggers_exist i
     rw [eq2, Option.is_none_or] at trg_ex
     cases trg_ex with
@@ -438,8 +425,6 @@ theorem constantsInChaseBranchAreFromDatabase (cb : ChaseBranch obs kb) : ∀ n 
             exists f
           | inr f_mem =>
             unfold Fact.constants at c_mem
-            unfold PreTrigger.result at f_mem
-            rw [List.get_eq_getElem, List.getElem_map] at f_mem
             rw [List.mem_toSet] at f_mem
             unfold PreTrigger.mapped_head at f_mem
             simp at f_mem
@@ -456,7 +441,7 @@ theorem constantsInChaseBranchAreFromDatabase (cb : ChaseBranch obs kb) : ∀ n 
 
             cases voc with
             | const d =>
-              simp only [Function.comp_apply, PreTrigger.skolemize_var_or_const, PreTrigger.apply_to_skolemized_term, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize] at tree_eq
+              simp only [Function.comp_apply, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize] at tree_eq
               apply Or.inr
               unfold RuleSet.head_constants
               exists trg.val.rule
@@ -464,7 +449,7 @@ theorem constantsInChaseBranchAreFromDatabase (cb : ChaseBranch obs kb) : ∀ n 
               . exact trg.property
               . unfold Rule.head_constants
                 rw [List.mem_flatMap]
-                exists trg.val.rule.head[disj_index.val]'(by have isLt := disj_index.isLt; unfold PreTrigger.result at isLt; rw [← PreTrigger.length_mapped_head]; simp only [List.length_map] at isLt; exact isLt)
+                exists trg.val.rule.head[disj_index.val]'(by rw [← PreTrigger.length_mapped_head]; exact disj_index.isLt)
                 constructor
                 . simp
                 . unfold FunctionFreeConjunction.consts
@@ -479,7 +464,7 @@ theorem constantsInChaseBranchAreFromDatabase (cb : ChaseBranch obs kb) : ∀ n 
                     rw [c_mem]
                     exact voc_mem
             | var v =>
-              simp only [Function.comp_apply, PreTrigger.skolemize_var_or_const, PreTrigger.apply_to_skolemized_term, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize] at tree_eq
+              simp only [Function.comp_apply, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize] at tree_eq
 
               cases Decidable.em (v ∈ trg.val.rule.frontier) with
               | inl v_frontier =>
@@ -645,7 +630,7 @@ theorem trgActiveForChaseResultMeansActiveAtSomeIndex (cb : ChaseBranch obs kb) 
           apply subsetOfResult
         . apply contra
 
-theorem funcTermForExisVarInChaseTreeMeansTriggerIsUsed (ct : ChaseTree obs kb) (trg : RTrigger obs kb.rules) (result_index : Fin trg.val.result.length) (var : sig.V) (node : ChaseNode obs kb.rules) (node_path : List Nat) : some node = ct.tree.get node_path ∧ (¬ var ∈ trg.val.rule.frontier) ∧ (∃ f: Fact sig, f ∈ node.fact ∧ (trg.val.apply_to_var_or_const result_index (VarOrConst.var var)) ∈ f.terms) -> ∃ drop_number : Fin node_path.length, (ct.tree.get (node_path.drop drop_number.val)).is_some_and (fun prev_node => prev_node.origin.is_some_and (fun origin => trg.equiv origin.fst ∧ result_index.val = origin.snd.val)) := by
+theorem funcTermForExisVarInChaseTreeMeansTriggerIsUsed (ct : ChaseTree obs kb) (trg : RTrigger obs kb.rules) (result_index : Fin trg.val.mapped_head.length) (var : sig.V) (node : ChaseNode obs kb.rules) (node_path : List Nat) : some node = ct.tree.get node_path ∧ (¬ var ∈ trg.val.rule.frontier) ∧ (∃ f: Fact sig, f ∈ node.fact ∧ (trg.val.apply_to_var_or_const result_index (VarOrConst.var var)) ∈ f.terms) -> ∃ drop_number : Fin node_path.length, (ct.tree.get (node_path.drop drop_number.val)).is_some_and (fun prev_node => prev_node.origin.is_some_and (fun origin => trg.equiv origin.fst ∧ result_index.val = origin.snd.val)) := by
   intro ⟨node_is_at_path, var_not_in_frontier, exis_f⟩
   induction node_path generalizing node with
   | nil =>
@@ -659,7 +644,7 @@ theorem funcTermForExisVarInChaseTreeMeansTriggerIsUsed (ct : ChaseTree obs kb) 
       specialize isFunctionFree _ f_in_db
       specialize isFunctionFree (trg.val.apply_to_var_or_const (result_index.val) (VarOrConst.var var)) functional_term_in_f
       rcases isFunctionFree with ⟨c, isFunctionFree⟩
-      simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, var_not_in_frontier, GroundTerm.const, GroundTerm.func] at isFunctionFree
+      simp [PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, var_not_in_frontier, GroundTerm.const, GroundTerm.func] at isFunctionFree
   | cons head tail ih =>
     cases eq : ct.tree.get tail with
     | none =>
@@ -710,14 +695,13 @@ theorem funcTermForExisVarInChaseTreeMeansTriggerIsUsed (ct : ChaseTree obs kb) 
               unfold FiniteDegreeTree.get at node_is_at_path
               rw [← node_is_at_path] at this
               contradiction
-            have head_lt_aux_1 : head < trg'.val.result.length := by rw [← htrg'.right] at head_lt_tail_children_length; simp [List.length_enum_with_lt] at head_lt_tail_children_length; exact head_lt_tail_children_length
-            have head_lt_aux_2 : head < trg'.val.rule.head.length := by rw [← htrg'.right] at head_lt_tail_children_length; simp [List.length_enum_with_lt] at head_lt_tail_children_length; rw [← PreTrigger.length_mapped_head]; unfold PreTrigger.result at head_lt_tail_children_length; simp at head_lt_tail_children_length; exact head_lt_tail_children_length
-            have head_lt_aux_3 : head < trg'.val.mapped_head.length := by rw [← htrg'.right] at head_lt_tail_children_length; simp [List.length_enum_with_lt] at head_lt_tail_children_length; unfold PreTrigger.result at head_lt_tail_children_length; simp at head_lt_tail_children_length; exact head_lt_tail_children_length
+            have head_lt_aux_1 : head < trg'.val.mapped_head.length := by rw [← htrg'.right] at head_lt_tail_children_length; simp [List.length_enum_with_lt] at head_lt_tail_children_length; exact head_lt_tail_children_length
+            have head_lt_aux_2 : head < trg'.val.rule.head.length := by rw [← htrg'.right] at head_lt_tail_children_length; simp [List.length_enum_with_lt] at head_lt_tail_children_length; rw [← PreTrigger.length_mapped_head]; exact head_lt_tail_children_length
 
             rw [← ct.tree.getElem_children_eq_get tail ⟨head, head_lt_tail_children_length⟩] at node_is_at_path
             injection node_is_at_path with node_is_at_path
 
-            have : ∃ f, f ∈ trg'.val.result[head] ∧ (trg.val.apply_to_var_or_const result_index (VarOrConst.var var)) ∈ f.terms := by
+            have : ∃ f, f ∈ trg'.val.mapped_head[head] ∧ (trg.val.apply_to_var_or_const result_index (VarOrConst.var var)) ∈ f.terms := by
               cases exis_f with | intro f hf =>
                 exists f
                 constructor
@@ -726,7 +710,7 @@ theorem funcTermForExisVarInChaseTreeMeansTriggerIsUsed (ct : ChaseTree obs kb) 
                   simp [← htrg'.right] at f_in_next_step
                   cases f_in_next_step with
                   | inr f_in_result =>
-                    rw [List.enum_with_lt_getElem_snd_eq_getElem] at f_in_result
+                    rw [List.enum_with_lt_getElem_snd_eq_getElem, List.mem_toSet] at f_in_result
                     assumption
                   | inl f_in_j =>
                     apply False.elim
@@ -740,77 +724,47 @@ theorem funcTermForExisVarInChaseTreeMeansTriggerIsUsed (ct : ChaseTree obs kb) 
             have : ∃ var2, ¬ var2 ∈ trg'.val.rule.frontier ∧ (trg.val.apply_to_var_or_const result_index (VarOrConst.var var)) = (trg'.val.apply_to_var_or_const head (VarOrConst.var var2)) := by
               cases this with | intro f hf =>
                 have ⟨f_in_res, apply_var_in_f_terms⟩ := hf
-                let i := trg'.val.idx_of_fact_in_result f ⟨head, head_lt_aux_1⟩ f_in_res
-                let atom_for_f := trg'.val.rule.head[head].get i
 
-                cases List.mem_iff_get.mp apply_var_in_f_terms with | intro k hk =>
-                  have f_is_at_its_idx : f = (trg'.val.mapped_head.get ⟨head, head_lt_aux_3⟩).get ⟨i.val, by unfold PreTrigger.mapped_head; simp⟩ := by simp [i, PreTrigger.idx_of_fact_in_result]; apply List.idx_of_get
+                let term_for_f := trg'.val.var_or_const_for_result_term ⟨head, head_lt_aux_1⟩ f_in_res apply_var_in_f_terms
+                have h_term_for_f := trg'.val.apply_on_var_or_const_for_result_term_is_term ⟨head, head_lt_aux_1⟩ f_in_res apply_var_in_f_terms
 
-                  have atom_arity_same_as_fact : f.terms.length = List.length (FunctionFreeAtom.terms atom_for_f) := by
-                    rw [f_is_at_its_idx]
-                    unfold PreTrigger.mapped_head
-                    unfold PreTrigger.apply_to_function_free_atom
-                    simp [atom_for_f]
-
-                  let term_for_f := atom_for_f.terms.get ⟨k.val, (by
-                    rw [← atom_arity_same_as_fact]
-                    exact k.isLt
-                  )⟩
-
-                  have : (trg'.val.apply_to_var_or_const head term_for_f) = f.terms.get k := by
-                    have : f.terms = (trg'.val.apply_to_function_free_atom head atom_for_f).terms := by
-                      conv => lhs; rw [f_is_at_its_idx]
-                      rw [← trg'.val.apply_subs_to_atom_at_idx_same_as_fact_at_idx ⟨head, head_lt_aux_2⟩]
-                      simp [atom_for_f]
-                    rw [List.get_eq_of_eq this]
-                    simp [PreTrigger.apply_to_function_free_atom, term_for_f]
-
-                  have : (trg.val.apply_to_var_or_const result_index (VarOrConst.var var)) = (trg'.val.apply_to_var_or_const head term_for_f) := by
-                    rw [← this] at hk
-                    rw [hk]
-
-                  cases eq_term_for_f : term_for_f with
-                  | const c =>
-                    rw [eq_term_for_f] at this
-                    simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, var_not_in_frontier] at this
-                    simp [GroundTerm.const, GroundTerm.func] at this
-                  | var var_for_f =>
-                    exists var_for_f
-                    have var_for_f_not_in_frontier : ¬ var_for_f ∈ trg'.val.rule.frontier := by
-                      apply Decidable.byContradiction
-                      intro h
-                      simp at h
-                      rw [eq_term_for_f] at this
-
-                      apply f_not_in_j
-                      have var_for_f_occurs_in_body_atom := trg'.val.rule.frontier_occurs_in_body var_for_f h
-                      cases var_for_f_occurs_in_body_atom with | intro body_atom_for_f h_body_atom_for_f =>
-                        exists (trg'.val.subs.apply_function_free_atom body_atom_for_f)
-                        constructor
-                        . have trg'_loaded := htrg'.left.left
-                          apply trg'_loaded
-                          unfold PreTrigger.mapped_body
-                          unfold GroundSubstitution.apply_function_free_conj
-                          rw [List.mem_toSet]
-                          apply List.mem_map_of_mem
-                          exact h_body_atom_for_f.left
-                        . simp [GroundSubstitution.apply_function_free_atom]
-                          simp [PreTrigger.apply_to_var_or_const, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const] at this
-                          rw [this]
-                          simp [GroundSubstitution.apply_skolem_term, VarOrConst.skolemize, h]
-                          exists VarOrConst.var var_for_f
-                          constructor
-                          . exact h_body_atom_for_f.right
-                          . simp [GroundSubstitution.apply_var_or_const]
-
+                cases eq : term_for_f with
+                | const c =>
+                  apply False.elim
+                  have contra := h_term_for_f
+                  unfold term_for_f at eq
+                  rw [eq, PreTrigger.apply_to_var_or_const_for_const] at contra
+                  rw [trg.val.apply_to_var_or_const_non_frontier_var result_index _ var_not_in_frontier] at contra
+                  simp [PreTrigger.functional_term_for_var, GroundTerm.const, GroundTerm.func] at contra
+                | var v =>
+                  exists v
+                  unfold term_for_f at eq
+                  rw [eq] at h_term_for_f
+                  constructor
+                  . intro contra
+                    apply f_not_in_j
+                    rcases trg'.val.rule.frontier_occurs_in_body v contra with ⟨body_atom, contra'⟩
+                    exists (trg'.val.subs.apply_function_free_atom body_atom)
                     constructor
-                    . exact var_for_f_not_in_frontier
-                    . rw [eq_term_for_f] at this
-                      exact this
+                    . have trg'_loaded := htrg'.left.left
+                      apply trg'_loaded
+                      rw [List.mem_toSet]
+                      unfold PreTrigger.mapped_body
+                      unfold GroundSubstitution.apply_function_free_conj
+                      apply List.mem_map_of_mem
+                      exact contra'.left
+                    . conv at h_term_for_f => right; unfold PreTrigger.apply_to_var_or_const; unfold PreTrigger.skolemize_var_or_const; rw [Function.comp_apply]
+                      rw [← h_term_for_f]
+                      rw [trg'.val.apply_to_var_or_const_frontier_var head v contra]
+                      unfold GroundSubstitution.apply_function_free_atom
+                      rw [List.mem_map]
+                      exists VarOrConst.var v
+                      simp [GroundSubstitution.apply_var_or_const, contra']
+                  . rw [h_term_for_f]
 
             have : trg.equiv trg' ∧ result_index.val = head := by
               cases this with | intro var2 hvar2 =>
-                apply RTrigger.funcTermForExisVarInMultipleTriggersMeansTheyAreTheSame trg trg' ⟨result_index.val, by have isLt := result_index.isLt; unfold PreTrigger.result at isLt; rw [← PreTrigger.length_mapped_head]; simp at isLt; apply isLt⟩ ⟨head, head_lt_aux_2⟩
+                apply RTrigger.funcTermForExisVarInMultipleTriggersMeansTheyAreTheSame trg trg' ⟨result_index.val, by rw [← PreTrigger.length_mapped_head]; exact result_index.isLt⟩ ⟨head, head_lt_aux_2⟩
                 apply var_not_in_frontier
                 apply hvar2.left
                 apply hvar2.right
@@ -821,7 +775,7 @@ theorem funcTermForExisVarInChaseTreeMeansTriggerIsUsed (ct : ChaseTree obs kb) 
             rw [List.enum_with_lt_getElem_fst_eq_index head_lt_aux_1]
             exact this
 
-theorem funcTermForExisVarInChaseTreeMeansTriggerResultOccurs (ct : ChaseTree obs kb) (trg : RTrigger obs kb.rules) (result_index : Fin trg.val.result.length) (var : sig.V) (node : ChaseNode obs kb.rules) (node_path : List Nat) : (some node = ct.tree.get node_path) ∧ (¬ var ∈ trg.val.rule.frontier) ∧ (∃ f: Fact sig, f ∈ node.fact ∧ (trg.val.apply_to_var_or_const result_index (VarOrConst.var var)) ∈ f.terms) -> trg.val.result.get result_index ⊆ node.fact := by
+theorem funcTermForExisVarInChaseTreeMeansTriggerResultOccurs (ct : ChaseTree obs kb) (trg : RTrigger obs kb.rules) (result_index : Fin trg.val.mapped_head.length) (var : sig.V) (node : ChaseNode obs kb.rules) (node_path : List Nat) : (some node = ct.tree.get node_path) ∧ (¬ var ∈ trg.val.rule.frontier) ∧ (∃ (f : Fact sig), f ∈ node.fact ∧ (trg.val.apply_to_var_or_const result_index (VarOrConst.var var)) ∈ f.terms) -> trg.val.mapped_head[result_index.val].toSet ⊆ node.fact := by
   intro h
   have node_is_at_path := h.left
   cases funcTermForExisVarInChaseTreeMeansTriggerIsUsed ct trg result_index var node node_path h with | intro drop_number h =>
@@ -829,7 +783,7 @@ theorem funcTermForExisVarInChaseTreeMeansTriggerResultOccurs (ct : ChaseTree ob
     | none => rw [eq] at h; simp [Option.is_some_and] at h
     | some prev_node =>
       rw [eq] at h; simp [Option.is_some_and] at h
-      have : trg.val.result.get result_index ⊆ prev_node.fact := by
+      have : trg.val.mapped_head[result_index.val].toSet ⊆ prev_node.fact := by
         cases eq : prev_node.origin with
         | none => simp [eq] at h
         | some origin =>
@@ -844,7 +798,6 @@ theorem funcTermForExisVarInChaseTreeMeansTriggerResultOccurs (ct : ChaseTree ob
 
       apply Set.subset_trans
       . exact this
-
       . have subsetAllFollowing := chaseTreeSetIsSubsetOfAllFollowing ct (node_path.drop drop_number) (node_path.take drop_number)
         rw [eq] at subsetAllFollowing
         rw [List.take_append_drop] at subsetAllFollowing

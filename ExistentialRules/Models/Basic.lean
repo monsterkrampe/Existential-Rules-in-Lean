@@ -2,6 +2,7 @@ import ExistentialRules.AtomsAndFacts.Basic
 import ExistentialRules.AtomsAndFacts.SubstitutionsAndHomomorphisms
 
 namespace FactSet
+
   variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
   def modelsDb (fs : FactSet sig) (db : Database sig) : Prop :=
@@ -23,5 +24,6 @@ namespace FactSet
   def universallyModelsKb (fs : FactSet sig) (kb : KnowledgeBase sig) : Prop :=
     fs.modelsKb kb ∧
     (∀ (m : FactSet sig), m.modelsKb kb -> ∃ (h : GroundTermMapping sig), h.isHomomorphism fs m)
+
 end FactSet
 

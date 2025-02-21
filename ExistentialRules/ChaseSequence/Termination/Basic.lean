@@ -257,7 +257,7 @@ section GeneralResults
                 exists trg
                 constructor
                 . exact trg_active
-                . have length_eq : trg.val.result.length = (ct.tree.children (nodes.take n).reverse).length := by
+                . have length_eq : trg.val.mapped_head.length = (ct.tree.children (nodes.take n).reverse).length := by
                     rw [← trg_eq]
                     simp [List.length_enum_with_lt]
 
@@ -269,7 +269,7 @@ section GeneralResults
                     simp
                     rfl
 
-                  have nodes_n_le : nodes n < trg.val.result.length := by
+                  have nodes_n_le : nodes n < trg.val.mapped_head.length := by
                     rw [length_eq]
                     apply Decidable.byContradiction
                     intro contra'

@@ -99,7 +99,6 @@ namespace ConstantMapping
     unfold PreTrigger.apply_to_function_free_atom
     unfold ConstantMapping.apply_fact
     unfold PreTrigger.apply_to_var_or_const
-    unfold PreTrigger.apply_to_skolemized_term
     unfold PreTrigger.skolemize_var_or_const
     simp
     intro voc voc_mem
@@ -676,7 +675,7 @@ end ArgumentsForImages
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 def DeterministicSkolemObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] : LaxObsoletenessCondition sig := {
-  cond := fun (trg : PreTrigger sig) (F : FactSet sig) => ∀ i : Fin trg.result.length, (trg.result.get i) ⊆ F
+  cond := fun (trg : PreTrigger sig) (F : FactSet sig) => ∀ i : Fin trg.mapped_head.length, trg.mapped_head[i.val].toSet ⊆ F
   monotone := by
     intro trg A B A_sub_B
     simp
@@ -696,7 +695,7 @@ namespace KnowledgeBase
       f ∈ prev_step ∨
       (∃ (trg : RTrigger (DeterministicSkolemObsoleteness sig) kb.rules),
         trg.val.active prev_step ∧
-        ∃ i, f ∈ trg.val.result.get i)
+        ∃ (i : Fin trg.val.mapped_head.length), f ∈ trg.val.mapped_head[i.val])
 
   theorem parallelSkolemChase_subset_all_following (kb : KnowledgeBase sig) (n m : Nat) : kb.parallelSkolemChase n ⊆ kb.parallelSkolemChase (n+m) := by
     induction m with
@@ -725,10 +724,9 @@ namespace KnowledgeBase
       | inl f_mem => apply ih; exists f
       | inr f_mem =>
         rcases f_mem with ⟨trg, trg_act, f_mem⟩
-        unfold PreTrigger.result at f_mem
         unfold PreTrigger.mapped_head at f_mem
         rcases f_mem with ⟨i, f_mem⟩
-        rw [List.get_eq_getElem, List.getElem_map, List.mem_toSet, List.getElem_map, List.mem_map] at f_mem
+        rw [List.getElem_map, List.mem_map] at f_mem
         rcases f_mem with ⟨a, a_mem, f_mem⟩
         rw [List.get_eq_getElem, List.getElem_enum] at a_mem
         apply Or.inl
@@ -767,10 +765,9 @@ namespace KnowledgeBase
       | inl f_mem => apply ih; exists f
       | inr f_mem =>
         rcases f_mem with ⟨trg, trg_act, f_mem⟩
-        unfold PreTrigger.result at f_mem
         unfold PreTrigger.mapped_head at f_mem
         rcases f_mem with ⟨i, f_mem⟩
-        rw [List.get_eq_getElem, List.getElem_map, List.mem_toSet, List.getElem_map, List.mem_map] at f_mem
+        rw [List.getElem_map, List.mem_map] at f_mem
         rcases f_mem with ⟨a, a_mem, f_mem⟩
         rw [List.get_eq_getElem, List.getElem_enum] at a_mem
 
@@ -787,7 +784,7 @@ namespace KnowledgeBase
 
         cases voc with
         | const d =>
-          simp only [Function.comp_apply, PreTrigger.skolemize_var_or_const, PreTrigger.apply_to_skolemized_term, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize] at tree_eq
+          simp only [Function.comp_apply, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize] at tree_eq
           apply Or.inl
           unfold RuleSet.head_constants
           exists trg.val.rule
@@ -810,7 +807,7 @@ namespace KnowledgeBase
                 rw [c_mem]
                 exact voc_mem
         | var v =>
-          simp only [Function.comp_apply, PreTrigger.skolemize_var_or_const, PreTrigger.apply_to_skolemized_term, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize] at tree_eq
+          simp only [Function.comp_apply, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize] at tree_eq
 
           cases Decidable.em (v ∈ trg.val.rule.frontier) with
           | inl v_frontier =>
@@ -892,10 +889,9 @@ namespace KnowledgeBase
       | inl f_mem => apply ih; exists f
       | inr f_mem =>
         rcases f_mem with ⟨trg, trg_act, f_mem⟩
-        unfold PreTrigger.result at f_mem
         unfold PreTrigger.mapped_head at f_mem
         rcases f_mem with ⟨i, f_mem⟩
-        rw [List.get_eq_getElem, List.getElem_map, List.mem_toSet, List.getElem_map, List.mem_map] at f_mem
+        rw [List.getElem_map, List.mem_map] at f_mem
         rcases f_mem with ⟨a, a_mem, f_mem⟩
         rw [List.get_eq_getElem, List.getElem_enum] at a_mem
 
@@ -906,7 +902,7 @@ namespace KnowledgeBase
         simp only [PreTrigger.apply_to_function_free_atom] at t_mem
         rw [List.mem_map] at t_mem
         rcases t_mem with ⟨voc, voc_mem, t_mem⟩
-        simp only [PreTrigger.apply_to_var_or_const, Function.comp_apply, PreTrigger.apply_to_skolemized_term, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize] at t_mem
+        simp only [PreTrigger.apply_to_var_or_const, Function.comp_apply, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize] at t_mem
         cases voc with
         | const c =>
           simp only at t_mem
@@ -1102,7 +1098,8 @@ namespace KnowledgeBase
                       apply not_mem
                       apply contra disj_index
                       exact h
-                  . exists disj_index
+                  . rw [List.mem_toSet] at h
+                    exists disj_index
     . intro h
       rcases h with ⟨n, h⟩
       induction n generalizing f with
@@ -1225,19 +1222,16 @@ namespace KnowledgeBase
               rw [decide_eq_true_iff] at det
               rw [det, Nat.lt_one_iff] at isLt
               exact isLt
-            unfold PreTrigger.result at f_mem
             rcases f_mem with ⟨i, f_mem⟩
             have i_zero : i.val = 0 := by
               have isLt := i.isLt
               simp only [PreTrigger.length_mapped_head] at isLt
-              simp only [List.length_map, PreTrigger.length_mapped_head] at isLt
               specialize det _ trg.property
               unfold Rule.isDeterministic at det
               rw [decide_eq_true_iff] at det
               rw [det, Nat.lt_one_iff] at isLt
               exact isLt
-            rw [List.get_eq_getElem, List.getElem_map, List.mem_toSet] at f_mem
-            rw [List.mem_toSet, List.get_eq_getElem]
+            rw [List.mem_toSet]
             simp only [disj_index_zero]
             simp only [i_zero] at f_mem
             exact f_mem
@@ -1262,19 +1256,16 @@ namespace KnowledgeBase
               rw [decide_eq_true_iff] at det
               rw [det, Nat.lt_one_iff] at isLt
               exact isLt
-            unfold PreTrigger.result at f_mem
             rcases f_mem with ⟨i, f_mem⟩
             have i_zero : i.val = 0 := by
               have isLt := i.isLt
               simp only [PreTrigger.length_mapped_head] at isLt
-              simp only [List.length_map, PreTrigger.length_mapped_head] at isLt
               specialize det _ trg.property
               unfold Rule.isDeterministic at det
               rw [decide_eq_true_iff] at det
               rw [det, Nat.lt_one_iff] at isLt
               exact isLt
-            rw [List.get_eq_getElem, List.getElem_map, List.mem_toSet] at f_mem
-            rw [List.mem_toSet, List.get_eq_getElem]
+            rw [List.mem_toSet]
             simp only [disj_index_zero]
             simp only [i_zero] at f_mem
             exact f_mem
@@ -1641,23 +1632,17 @@ namespace RuleSet
                   apply f_not_in_prev
                   apply contra ⟨disj_index.val, by
                     have isLt := disj_index.isLt
-                    unfold PreTrigger.result
-                    simp only [List.length_map, PreTrigger.length_mapped_head]
+                    simp only [PreTrigger.length_mapped_head]
                     unfold adjusted_trg
                     unfold StrictConstantMapping.apply_rule
                     simp only [List.length_map]
-                    unfold PreTrigger.result at isLt
-                    simp only [List.length_map, PreTrigger.length_mapped_head] at isLt
+                    simp only [PreTrigger.length_mapped_head] at isLt
                     exact isLt
                   ⟩
-                  rw [List.get_eq_getElem]
-                  unfold PreTrigger.result
-                  rw [List.getElem_map, List.mem_toSet]
+                  rw [List.mem_toSet]
                   unfold PreTrigger.mapped_head
                   simp
-                  unfold PreTrigger.result at f_mem
                   unfold PreTrigger.mapped_head at f_mem
-                  rw [List.get_eq_getElem] at f_mem
                   simp at f_mem
                   rw [List.mem_toSet, List.mem_map] at f_mem
                   rcases f_mem with ⟨a, a_mem, f_eq⟩
@@ -1670,7 +1655,7 @@ namespace RuleSet
                     simp only [List.getElem_map, List.mem_map]
                     exists a
                   . rw [← f_eq]
-                    simp only [ConstantMapping.apply_fact, PreTrigger.apply_to_function_free_atom, StrictConstantMapping.apply_function_free_atom, PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, PreTrigger.apply_to_skolemized_term, Fact.mk.injEq, true_and, List.map_map, List.map_inj_left, Function.comp_apply]
+                    simp only [ConstantMapping.apply_fact, PreTrigger.apply_to_function_free_atom, StrictConstantMapping.apply_function_free_atom, PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, Fact.mk.injEq, true_and, List.map_map, List.map_inj_left, Function.comp_apply]
                     intro voc voc_mem
                     cases voc with
                     | var v =>
@@ -1683,30 +1668,21 @@ namespace RuleSet
                         split <;> simp
                     | const c =>
                       simp only [StrictConstantMapping.apply_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term, ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, StrictConstantMapping.toConstantMapping, GroundTerm.const]
-              . unfold PreTrigger.result at f_mem
-                simp only [List.get_eq_getElem] at f_mem
-                rw [List.getElem_map, List.mem_toSet] at f_mem
+              . rw [List.mem_toSet] at f_mem
                 unfold PreTrigger.mapped_head at f_mem
                 simp at f_mem
                 rcases f_mem with ⟨a, a_mem, f_eq⟩
 
-                let adjusted_disj_index : Fin adjusted_trg.val.result.length := ⟨disj_index.val, by
+                let adjusted_disj_index : Fin adjusted_trg.val.mapped_head.length := ⟨disj_index.val, by
                   have isLt := disj_index.isLt
-                  unfold PreTrigger.result
-                  simp only [List.length_map, PreTrigger.length_mapped_head]
+                  simp only [PreTrigger.length_mapped_head]
                   unfold adjusted_trg
                   unfold StrictConstantMapping.apply_rule
                   simp only [List.length_map]
-                  unfold PreTrigger.result at isLt
-                  simp only [List.length_map, PreTrigger.length_mapped_head] at isLt
+                  simp only [PreTrigger.length_mapped_head] at isLt
                   exact isLt
                 ⟩
                 exists adjusted_disj_index
-                unfold PreTrigger.result
-                rw [List.get_eq_getElem, List.getElem_map]
-                have mem_toSet := List.mem_toSet (l := adjusted_trg.val.mapped_head[adjusted_disj_index.val]'(by have isLt := adjusted_disj_index.isLt; unfold PreTrigger.result at isLt; simp only [List.length_map] at isLt; exact isLt)) (e := (UniformConstantMapping sig special_const).toConstantMapping.apply_fact f)
-                unfold Set.element at mem_toSet
-                rw [mem_toSet]
                 unfold PreTrigger.mapped_head
                 simp
 
@@ -1718,7 +1694,7 @@ namespace RuleSet
                   simp only [List.getElem_map, List.mem_map]
                   exists a
                 . rw [← f_eq]
-                  simp only [ConstantMapping.apply_fact, PreTrigger.apply_to_function_free_atom, StrictConstantMapping.apply_function_free_atom, PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, PreTrigger.apply_to_skolemized_term, Fact.mk.injEq, true_and, List.map_map, List.map_inj_left, Function.comp_apply]
+                  simp only [ConstantMapping.apply_fact, PreTrigger.apply_to_function_free_atom, StrictConstantMapping.apply_function_free_atom, PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, Fact.mk.injEq, true_and, List.map_map, List.map_inj_left, Function.comp_apply]
                   intro voc voc_mem
                   cases voc with
                   | var v =>
@@ -1860,7 +1836,7 @@ namespace RuleSet
                   apply Or.inr
                   constructor
                   . -- since f occur in the trigger result, its predicate occurs in the rule and must therefore occur in the ruleset
-                    simp only [List.get_eq_getElem, PreTrigger.result, List.getElem_map] at f_mem
+                    simp only [List.get_eq_getElem] at f_mem
                     rw [List.mem_toSet] at f_mem
                     simp only [PreTrigger.mapped_head] at f_mem
                     simp at f_mem
@@ -1876,8 +1852,7 @@ namespace RuleSet
                       rw [List.mem_flatMap]
                       exists trg.val.rule.head[disj_index.val]'(by
                         have isLt := disj_index.isLt
-                        unfold PreTrigger.result at isLt
-                        simp only [List.length_map, PreTrigger.length_mapped_head] at isLt
+                        simp only [PreTrigger.length_mapped_head] at isLt
                         exact isLt
                       )
                       simp only [List.getElem_mem, true_and]

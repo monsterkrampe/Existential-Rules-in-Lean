@@ -14,4 +14,6 @@ import ExistentialRules.Terms.Basic
 import ExistentialRules.Terms.Cyclic
 import ExistentialRules.Terms.ListsOfTerms
 import ExistentialRules.Triggers.Basic
+import ExistentialRules.Triggers.Obsoleteness
+import ExistentialRules.Triggers.RTrigger
 

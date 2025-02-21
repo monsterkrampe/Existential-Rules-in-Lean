@@ -348,7 +348,8 @@ namespace VarOrConst
         (SkolemTerm.func { ruleId, disjunctIndex, var := v, arity := frontier.length } frontier rfl)
       | .const c => SkolemTerm.const c
 
-  theorem skolemize_injective (ruleId : Nat) (disjunctIndex : Nat) (frontier : List sig.V) (s t : VarOrConst sig) : s.skolemize ruleId disjunctIndex frontier = t.skolemize ruleId disjunctIndex frontier -> s = t := by
+  theorem skolemize_injective (ruleId : Nat) (i : Nat) (frontier : List sig.V) (s t : VarOrConst sig) :
+      s.skolemize ruleId i frontier = t.skolemize ruleId i frontier -> s = t := by
     cases s with
     | var vs => cases t with
       | var vt =>
