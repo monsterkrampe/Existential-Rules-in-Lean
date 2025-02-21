@@ -11,6 +11,11 @@ structure ChaseNode (obs : ObsoletenessCondition sig) (rules : RuleSet sig) wher
   origin : Option ((trg : RTrigger (obs : LaxObsoletenessCondition sig) rules) × Fin trg.val.mapped_head.length)
   fact_contains_origin_result : origin.is_none_or (fun origin => origin.fst.val.mapped_head[origin.snd.val].toSet ⊆ fact)
 
+def ChaseNode.origin_result {obs : ObsoletenessCondition sig} (node : ChaseNode obs rules) (isSome : node.origin.isSome) :
+    List (Fact sig) :=
+  let origin := node.origin.get isSome
+  origin.fst.val.mapped_head[origin.snd.val]
+
 def exists_trigger_opt_fs (obs : ObsoletenessCondition sig) (rules : RuleSet sig) (before : ChaseNode obs rules) (after : Option (ChaseNode obs rules)) : Prop :=
   ∃ trg : (RTrigger (obs : LaxObsoletenessCondition sig) rules), trg.val.active before.fact ∧ ∃ i, some {
     fact := ⟨
@@ -89,81 +94,82 @@ structure ChaseBranch (obs : ObsoletenessCondition sig) (kb : KnowledgeBase sig)
     ∧ (∀ j : Nat, j > i -> (branch.infinite_list j).is_none_or (fun fs => ¬ trg.val.active fs.fact))
 
 namespace ChaseBranch
+
   variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
 
-  def result (branch : ChaseBranch obs kb) : FactSet sig :=
-    fun f => ∃ n : Nat, (branch.branch.infinite_list n).is_some_and (fun fs => f ∈ fs.fact)
+  def result (cb : ChaseBranch obs kb) : FactSet sig :=
+    fun f => ∃ n : Nat, (cb.branch.infinite_list n).is_some_and (fun fs => f ∈ fs.fact)
 
-  theorem origin_is_some (cb : ChaseBranch obs kb) :
-      ∀ i, (cb.branch.infinite_list (i + 1)).is_none_or (fun node => node.origin.isSome) := by
-    intro i
-    cases eq : cb.branch.infinite_list (i + 1) with
-    | none => simp [Option.is_none_or]
+  theorem predecessor_isSome_of_isSome (cb : ChaseBranch obs kb) (i : Nat) (isSome : (cb.branch.infinite_list (i + 1)).isSome) :
+      (cb.branch.infinite_list i).isSome := by
+    cases eq : cb.branch.infinite_list (i+1) with
+    | none => rw [eq] at isSome; simp at isSome
     | some node =>
-      simp only [Option.is_none_or]
-      have trg_ex := cb.triggers_exist i
-      cases eq2 : cb.branch.infinite_list i with
+      cases eq_prev : cb.branch.infinite_list i with
+      | some prev => simp
       | none =>
-        have no_holes := cb.branch.no_holes (i + 1)
+        apply False.elim
+        have no_holes := cb.branch.no_holes (i+1)
         simp [eq] at no_holes
         specialize no_holes ⟨i, by simp⟩
-        apply False.elim
         apply no_holes
-        exact eq2
-      | some prev_node =>
-        rw [eq2, Option.is_none_or] at trg_ex
-        cases trg_ex with
-        | inl trg_ex =>
-          unfold exists_trigger_opt_fs at trg_ex
-          rcases trg_ex with ⟨trg, _, disj, trg_eq⟩
-          rw [eq] at trg_eq
-          injection trg_eq with trg_eq
-          rw [← trg_eq]
-          simp
-        | inr trg_ex =>
-          unfold not_exists_trigger_opt_fs at trg_ex
-          rw [eq] at trg_ex
-          simp at trg_ex
+        exact eq_prev
+
+  def prev_node (cb : ChaseBranch obs kb) (i : Nat) (isSome : (cb.branch.infinite_list (i + 1)).isSome) : ChaseNode obs kb.rules :=
+    (cb.branch.infinite_list i).get (cb.predecessor_isSome_of_isSome i isSome)
+
+  theorem prev_node_eq (cb : ChaseBranch obs kb) (i : Nat) (isSome : (cb.branch.infinite_list (i + 1)).isSome) :
+      cb.branch.infinite_list i = some (cb.prev_node i isSome) := by
+    simp [prev_node]
+
+  theorem origin_isSome (cb : ChaseBranch obs kb) (i : Nat) {node : ChaseNode obs kb.rules}
+      (eq : cb.branch.infinite_list (i + 1) = some node) : node.origin.isSome := by
+    have trg_ex := cb.triggers_exist i
+    rw [prev_node_eq _ _ (by simp [eq]), Option.is_none_or] at trg_ex
+    cases trg_ex with
+    | inl trg_ex =>
+      unfold exists_trigger_opt_fs at trg_ex
+      rcases trg_ex with ⟨trg, _, disj, trg_eq⟩
+      simp only [eq] at trg_eq
+      injection trg_eq with trg_eq
+      rw [← trg_eq]
+      simp
+    | inr trg_ex =>
+      unfold not_exists_trigger_opt_fs at trg_ex
+      simp only [eq] at trg_ex
+      simp at trg_ex
 
   -- TODO: check if this simplifies code where we used cb.triggers_exist before
-  theorem origin_trg_is_active (cb : ChaseBranch obs kb) (i : Nat) (node prev_node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list (i + 1) = some node) (eq2 : cb.branch.infinite_list i = some prev_node) :
-      (node.origin.get (by
-        have is_some := cb.origin_is_some i
-        rw [eq, Option.is_none_or] at is_some
-        exact is_some
-      )).fst.val.active prev_node.fact.val := by
+  theorem origin_trg_is_active (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list (i + 1) = some node) :
+      (node.origin.get (cb.origin_isSome i eq)).fst.val.active (cb.prev_node i (by simp [eq])).fact.val := by
     have trg_ex := cb.triggers_exist i
-    rw [eq2, Option.is_none_or] at trg_ex
+    rw [prev_node_eq _ _ (by simp [eq]), Option.is_none_or] at trg_ex
     cases trg_ex with
     | inr trg_ex => unfold not_exists_trigger_opt_fs at trg_ex; rw [trg_ex.right] at eq; simp at eq
     | inl trg_ex =>
       unfold exists_trigger_opt_fs at trg_ex
       rcases trg_ex with ⟨trg, trg_active, disj, trg_eq⟩
-      rw [eq] at trg_eq
+      simp only [eq] at trg_eq
       injection trg_eq with trg_eq
-      simp [← trg_eq]
+      simp only [← trg_eq]
       exact trg_active
 
   -- TODO: check if this simplifies code where we used cb.triggers_exist before
-  theorem origin_trg_result_yields_next_node_fact (cb : ChaseBranch obs kb) (i : Nat) (node prev_node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list (i + 1) = some node) (eq2 : cb.branch.infinite_list i = some prev_node) (origin : ((trg : RTrigger obs kb.rules) × Fin trg.val.mapped_head.length)) (eq_origin : node.origin = some origin) :
-      node.fact.val = prev_node.fact.val ∪ (origin.fst.val.mapped_head[origin.snd.val].toSet) := by
+  theorem origin_trg_result_yields_next_node_fact (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list (i + 1) = some node) :
+      node.fact.val = (cb.prev_node i (by simp [eq])).fact.val ∪ (node.origin_result (cb.origin_isSome i eq)).toSet := by
     have trg_ex := cb.triggers_exist i
-    rw [eq2, Option.is_none_or] at trg_ex
+    rw [prev_node_eq _ _ (by simp [eq]), Option.is_none_or] at trg_ex
     cases trg_ex with
     | inr trg_ex => unfold not_exists_trigger_opt_fs at trg_ex; rw [trg_ex.right] at eq; simp at eq
     | inl trg_ex =>
       unfold exists_trigger_opt_fs at trg_ex
       rcases trg_ex with ⟨trg, trg_active, disj, trg_eq⟩
-      rw [eq] at trg_eq
+      simp only [eq] at trg_eq
       injection trg_eq with trg_eq
-      simp [← trg_eq]
-      have : trg = origin.fst ∧ disj.val = origin.snd.val := by
-        have : node.origin = some ⟨trg, disj⟩ := by rw [← trg_eq]
-        rw [eq_origin] at this
-        injection this with this
-        rw [this]
-        simp
-      simp [this]
+      simp only [← trg_eq]
+      unfold ChaseNode.origin_result
+      simp
+
 end ChaseBranch
 
 structure ChaseTree (obs : ObsoletenessCondition sig) (kb : KnowledgeBase sig) where
