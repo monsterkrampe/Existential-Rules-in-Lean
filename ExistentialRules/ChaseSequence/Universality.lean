@@ -78,10 +78,8 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
 
     constructor
     . simp only [List.length_cons, Nat.add_right_cancel_iff]; exact prev_cond.left
-    cases next_node_eq : ct.tree.get (head_index_for_m_subs.val::prev_path) with
-    | none => simp [Option.is_none_or]
-    | some next_node =>
-    rw [Option.is_none_or]
+    rw [Option.is_none_or_iff]
+    intro next_node next_node_eq
     constructor
     . exact next_hom_id_const
     have next_node_results_from_trg : next_node.fact = prev_node_unwrapped.fact ∪ trg.val.mapped_head[result_index_for_trg.val].toSet := by
@@ -208,13 +206,10 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
               intro contra
               apply trg_active_for_current_step.right
               apply obs.contains_trg_result_implies_cond result_index_for_trg
-              apply funcTermForExisVarInChaseTreeMeansTriggerResultOccurs
-              constructor
-              . apply Eq.symm; exact prev_node_eq
-              constructor
+              apply ChaseTree.funcTermForExisVarInChaseMeansTriggerResultOccurs
+              . exact prev_node_eq
               . exact v_front
-              . rw [PreTrigger.apply_to_var_or_const_non_frontier_var _ _ _ v_front]
-                exact contra
+              . exact contra
             have : Classical.propDecidable (∃ f, f ∈ prev_node_unwrapped.fact.val ∧ (trg.val.functional_term_for_var result_index_for_trg.val v) ∈ f.terms) = isFalse h := by cases Classical.propDecidable (∃ f, f ∈ prev_node_unwrapped.fact.val ∧ (trg.val.functional_term_for_var result_index_for_trg.val v) ∈ f.terms) <;> trivial
             unfold PreTrigger.functional_term_for_var at this
             rw [this]
@@ -534,12 +529,10 @@ theorem inductive_homomorphism_same_on_all_following_terms (ct : ChaseTree obs k
         rw [eq2] at next_step; simp [Option.is_none_or] at next_step
         specialize next_step f t
         apply next_step
-        . have subset_following := chaseTreeSetIsSubsetOfAllFollowing ct (inductive_homomorphism ct m m_is_model i).val.fst ((inductive_homomorphism ct m m_is_model (i+j)).val.fst.take j)
-          rw [eq] at subset_following
-          simp at subset_following
+        . have subset_following := ct.stepIsSubsetOfAllFollowing (inductive_homomorphism ct m m_is_model i).val.fst node eq ((inductive_homomorphism ct m m_is_model (i+j)).val.fst.take j)
           rw [← inductive_homomorphism_path_extends_all_prev i j] at subset_following
           rw [eq2] at subset_following
-          simp [Option.is_none_or] at subset_following
+          simp only [Option.is_none_or] at subset_following
           apply subset_following
           exact precond.left
         . exact precond.right
@@ -735,7 +728,7 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
         apply n_ex
         exists f
         constructor
-        . have subset_result := chaseBranchSetIsSubsetOfResult branch i
+        . have subset_result := branch.stepIsSubsetOfResult i
           rw [eq] at subset_result; simp [Option.is_none_or] at subset_result
           apply subset_result
           exact f_in_node

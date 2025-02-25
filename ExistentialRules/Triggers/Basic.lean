@@ -126,6 +126,68 @@ namespace PreTrigger
     intros
     apply apply_subs_for_atom_eq trg i
 
+  theorem mapped_head_constants_subset (trg : PreTrigger sig) (i : Fin trg.mapped_head.length) :
+      FactSet.constants trg.mapped_head[i.val].toSet ⊆ (((trg.rule.frontier.map (trg.subs_for_mapped_head i)).flatMap GroundTerm.constants) ++ (trg.rule.head[i.val]'(by rw [← length_mapped_head]; exact i.isLt)).consts).toSet := by
+    unfold FactSet.constants
+    intro c c_mem
+    rw [List.mem_toSet, List.mem_append, List.mem_flatMap]
+    simp only [List.mem_toSet, ← trg.apply_subs_for_mapped_head_eq i, GroundSubstitution.apply_function_free_conj] at c_mem
+    rcases c_mem with ⟨f, f_mem, c_mem⟩
+    rw [List.mem_map] at f_mem
+    rcases f_mem with ⟨a, a_mem, f_mem⟩
+    rw [← f_mem] at c_mem
+    unfold GroundSubstitution.apply_function_free_atom at c_mem
+    unfold Fact.constants at c_mem
+    rw [List.mem_flatMap] at c_mem
+    rcases c_mem with ⟨t, t_mem, c_mem⟩
+    rw [List.mem_map] at t_mem
+    rcases t_mem with ⟨voc, voc_mem, t_mem⟩
+    cases voc with
+    | var v =>
+      apply Or.inl
+      cases Decidable.em (v ∈ trg.rule.frontier) with
+      | inl v_front =>
+        exists t
+        constructor
+        . rw [← t_mem]
+          simp only [GroundSubstitution.apply_var_or_const]
+          apply List.mem_map_of_mem
+          exact v_front
+        . exact c_mem
+      | inr v_front =>
+        rw [apply_subs_for_var_or_const_eq, apply_to_var_or_const_non_frontier_var _ _ _ v_front] at t_mem
+        rw [← t_mem] at c_mem
+        unfold functional_term_for_var at c_mem
+        rw [GroundTerm.constants_func] at c_mem
+        rw [List.mem_flatMap] at c_mem
+        rcases c_mem with ⟨s, s_mem, c_mem⟩
+        exists s
+        constructor
+        . rw [List.mem_map]
+          rw [List.mem_map] at s_mem
+          rcases s_mem with ⟨v, v_mem, s_mem⟩
+          exists v
+          constructor
+          . exact v_mem
+          . unfold subs_for_mapped_head
+            rw [apply_to_var_or_const_frontier_var _ _ _ v_mem]
+            exact s_mem
+        . exact c_mem
+    | const d =>
+      apply Or.inr
+      unfold FunctionFreeConjunction.consts
+      rw [List.mem_flatMap]
+      exists a
+      constructor
+      . exact a_mem
+      . unfold FunctionFreeAtom.constants
+        apply VarOrConst.mem_filterConsts_of_const
+        rw [← t_mem] at c_mem
+        unfold GroundSubstitution.apply_var_or_const at c_mem
+        rw [GroundTerm.constants_const, List.mem_singleton] at c_mem
+        rw [c_mem]
+        exact voc_mem
+
   def atom_for_result_fact (trg : PreTrigger sig) {f : Fact sig} (i : Fin trg.mapped_head.length)
       (f_mem : f ∈ trg.mapped_head[i.val]) : FunctionFreeAtom sig :=
     let j := trg.mapped_head[i.val].idx_of f_mem

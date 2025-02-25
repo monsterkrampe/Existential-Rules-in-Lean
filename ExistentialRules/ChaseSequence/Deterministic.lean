@@ -388,7 +388,7 @@ theorem deterministicChaseTreeResultUniversallyModelsKb (ct : ChaseTree obs kb) 
   intro h
   unfold FactSet.universallyModelsKb
   constructor
-  . apply chaseTreeResultModelsKb; apply ct.firstResult_is_in_result
+  . apply ChaseTree.result_models_kb; apply ct.firstResult_is_in_result
   . intro m m_is_model
     cases chaseTreeResultIsUniversal ct m m_is_model with | intro fs h' =>
       cases h' with | intro hom h' =>

@@ -30,7 +30,7 @@ namespace ChaseBranch
     have trg'_satisfied : trg'.satisfied_for_disj cb.result disj_index' := by
       unfold PreTrigger.satisfied_for_disj
       have modelsRule : cb.result.modelsRule trg'.rule := by
-        have modelsKb := chaseBranchResultModelsKb cb
+        have modelsKb := ChaseBranch.result_models_kb cb
         exact modelsKb.right trg'.rule trg.property
       specialize modelsRule trg'.subs trg'_loaded
       rcases modelsRule with ⟨i, s', s'_frontier, s'_contains⟩
@@ -119,26 +119,13 @@ namespace ChaseBranch
       simp
       intro v v_head v_not_frontier contra
       have : trg.val.mapped_head[disj_index.val].toSet ⊆ node.fact := by
-        -- TODO: kb.isDeterministic is used here but likely we could show a similar theorem used here also for branches
-        apply funcTermForExisVarInChaseTreeMeansTriggerResultOccurs (cb.intoTree det) trg disj_index v node (List.repeat 0 k)
+        apply cb.funcTermForExisVarInChaseMeansTriggerResultOccurs _ node_k trg disj_index v_not_frontier
+        unfold FactSet.terms at t_mem
+        rcases t_mem with ⟨f, f_mem, t_mem⟩
+        exists f
         constructor
-        . unfold ChaseBranch.intoTree
-          unfold FiniteDegreeTree.get
-          unfold PossiblyInfiniteTree.get
-          simp
-          rw [List.length_repeat, node_k]
-          simp
-          have := List.all_eq_val_repeat 0 k
-          simp at this
-          exact this
-        constructor
-        . exact v_not_frontier
-        . unfold FactSet.terms at t_mem
-          rcases t_mem with ⟨f, f_mem, t_mem⟩
-          exists f
-          constructor
-          . exact f_mem
-          . rw [contra]; exact t_mem
+        . exact f_mem
+        . rw [PreTrigger.apply_to_var_or_const_non_frontier_var _ _ _ v_not_frontier] at contra; rw [contra]; exact t_mem
       have trg_obs := obs.contains_trg_result_implies_cond disj_index this
       have not_obs := trg_active.right
       contradiction
@@ -298,10 +285,10 @@ namespace ChaseBranch
           simp
           rw [extended_hom_same_on_next_extensions]
           . exact ih
-          . have all_following := chaseBranchSetIsSubsetOfAllFollowing cb (k + i) j
+          . have all_following := cb.stepIsSubsetOfAllFollowing (k + i) _ eq j
             rw [← Nat.add_assoc] at eq2
-            rw [eq, eq2] at all_following
-            simp [Option.is_none_or] at all_following
+            rw [eq2] at all_following
+            simp only [Option.is_none_or] at all_following
             unfold FactSet.terms
             rcases t_mem with ⟨f, f_mem, t_mem⟩
             exists f
@@ -367,7 +354,7 @@ namespace ChaseBranch
             apply n_ex
             exists f
             constructor
-            . have subset_result := chaseBranchSetIsSubsetOfResult cb i
+            . have subset_result := cb.stepIsSubsetOfResult i
               rw [eq2] at subset_result; simp [Option.is_none_or] at subset_result
               apply subset_result
               exact f_mem
@@ -391,10 +378,9 @@ namespace ChaseBranch
                 rw [target_h_same]
                 . unfold extend_hom_to_any_following_step
                   simp
-                . have all_following := chaseBranchSetIsSubsetOfAllFollowing cb j (k - j)
-                  rw [eq3] at all_following; simp at all_following
+                . have all_following := cb.stepIsSubsetOfAllFollowing j _ eq3 (k - j)
                   rw [Nat.add_sub_of_le le] at all_following
-                  rw [eq] at all_following; simp [Option.is_none_or] at all_following
+                  rw [eq] at all_following; simp only [Option.is_none_or] at all_following
                   unfold FactSet.terms
                   exists (Classical.choose ex)
                   constructor
@@ -413,10 +399,9 @@ namespace ChaseBranch
                     rw [this] at target_h_same
                     rw [target_h_same]
                     . rw [Nat.sub_eq_zero_of_le le3]
-                    . have all_following := chaseBranchSetIsSubsetOfAllFollowing cb i (k - i)
-                      rw [eq2] at all_following; simp at all_following
+                    . have all_following := cb.stepIsSubsetOfAllFollowing i _ eq2 (k - i)
                       rw [Nat.add_sub_of_le le3] at all_following
-                      rw [eq] at all_following; simp [Option.is_none_or] at all_following
+                      rw [eq] at all_following; simp only [Option.is_none_or] at all_following
                       unfold FactSet.terms
                       exists f
                       constructor
@@ -455,7 +440,7 @@ namespace ChaseBranch
           rcases t_mem with ⟨f, f_mem, f_eq⟩
           exists f
           constructor
-          . have sub_result := chaseBranchSetIsSubsetOfResult cb k
+          . have sub_result := cb.stepIsSubsetOfResult k
             simp [eq, Option.is_none_or] at sub_result
             apply sub_result
             exact f_mem
@@ -503,12 +488,10 @@ namespace ChaseBranch
               rw [eq, Option.is_none_or] at target_h_property
               apply target_h_property.right
               apply GroundTermMapping.applyPreservesElement
-              have all_following := chaseBranchSetIsSubsetOfAllFollowing cb n (k - n)
-              rw [eq2] at all_following
-              simp at all_following
+              have all_following := cb.stepIsSubsetOfAllFollowing n _ eq2 (k - n)
               rw [Nat.add_sub_of_le le] at all_following
               rw [eq] at all_following
-              simp [Option.is_none_or] at all_following
+              simp only [Option.is_none_or] at all_following
               apply all_following
               exact f_arg_mem
             | inr gt =>

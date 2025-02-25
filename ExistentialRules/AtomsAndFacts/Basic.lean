@@ -99,8 +99,10 @@ end FunctionFreeConjunction
 
 namespace Rule
 
+  def frontier_for_head (r : Rule sig) (i : Fin r.head.length) : List sig.V :=
+    r.body.vars.filter (fun v => v ∈ r.head[i.val].vars)
+
   def frontier (r : Rule sig) : List sig.V :=
-    -- NOTE: using ∈ does not really work here because it produces a Prop which can not always be simply cast into Bool
     List.filter (fun v => r.head.any (fun h => v ∈ h.vars)) (FunctionFreeConjunction.vars r.body)
 
   theorem frontier_occurs_in_body (r : Rule sig) : ∀ v, v ∈ r.frontier -> ∃ f, f ∈ r.body ∧ (VarOrConst.var v) ∈ f.terms := by

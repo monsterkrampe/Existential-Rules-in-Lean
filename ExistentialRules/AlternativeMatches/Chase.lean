@@ -66,165 +66,155 @@ namespace ChaseBranch
 
             exact h_0_hom.left (GroundTerm.const c)
       | succ k ih =>
-        cases eq : cb.branch.infinite_list (k+1) with
-        | none => simp [Option.is_none_or]
-        | some node =>
-          rw [Option.is_none_or]
-          cases eq2 : cb.branch.infinite_list k with
-          | none =>
-            have no_holes := cb.branch.no_holes (k + 1)
-            simp [eq] at no_holes
-            specialize no_holes ⟨k, by simp⟩
-            contradiction
-          | some node2 =>
-            rw [eq2, Option.is_none_or] at ih
-            rcases ih with ⟨h_k, h_k_hom, retains, identity⟩
+        rw [Option.is_none_or_iff]
+        intro node eq
 
-            have node_fact_is_prev_fact_union_origin_res := cb.origin_trg_result_yields_next_node_fact k node eq
-            have origin_trg_active := cb.origin_trg_is_active k node eq
-            unfold ChaseBranch.prev_node at origin_trg_active
-            simp only [eq2, Option.get_some] at origin_trg_active
+        let node2 := cb.prev_node k (by simp [eq])
+        have eq2 := cb.prev_node_eq k (by simp [eq])
 
-            have origin_isSome := cb.origin_isSome k eq
-            let origin := node.origin.get origin_isSome
+        rw [eq2, Option.is_none_or] at ih
+        rcases ih with ⟨h_k, h_k_hom, retains, identity⟩
 
-            let trg_res_terms := (FactSet.terms (node.origin_result origin_isSome).toSet)
+        have node_fact_is_prev_fact_union_origin_res := cb.origin_trg_result_yields_next_node_fact k node eq
+        have origin_trg_active := cb.origin_trg_is_active k node eq
+        unfold ChaseBranch.prev_node at origin_trg_active
+        simp only [eq2, Option.get_some] at origin_trg_active
 
-            have h_surj_on_trg_res : h_k.surjective_for_domain_and_image_set trg_res_terms trg_res_terms := by
-              apply Classical.byContradiction
-              intro not_surj
-              apply noAltMatch
-              exists k
-              exists h_k
-              exists node
-              exists origin
-              constructor
-              . exact eq
-              constructor
-              . simp [origin]
-              . constructor
-                . constructor
-                  . exact h_k_hom.left
-                  . apply Set.subset_trans (b := h_k.applyFactSet cb.result)
-                    . apply GroundTermMapping.applyFactSet_subset_of_subset
-                      apply Set.subset_trans (b := node.fact.val)
-                      . rw [node_fact_is_prev_fact_union_origin_res]
-                        apply Set.subset_union_of_subset_right
-                        apply Set.subset_refl
-                      . have subset_res := chaseBranchSetIsSubsetOfResult cb (k+1)
-                        rw [eq, Option.is_none_or] at subset_res
-                        exact subset_res
-                    . exact h_k_hom.right
-                constructor
-                . intro t t_mem
-                  apply identity
-                  simp at t_mem
-                  rcases t_mem with ⟨v, v_mem, v_eq⟩
-                  rcases origin.fst.val.rule.frontier_occurs_in_body v v_mem with ⟨a, a_mem, v_mem⟩
-                  exists origin.fst.val.subs.apply_function_free_atom a
-                  constructor
-                  . apply origin_trg_active.left
-                    rw [List.mem_toSet]
-                    simp [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj]
-                    exists a
-                  . rw [← v_eq]
-                    simp [GroundSubstitution.apply_function_free_atom]
-                    exists VarOrConst.var v
-                . unfold Function.surjective_for_domain_and_image_set at not_surj
-                  simp at not_surj
-                  rcases not_surj with ⟨t, t_arity_ok, t_mem, no_arg_for_t⟩
-                  exists ⟨t, t_arity_ok⟩
-                  constructor
-                  . exact t_mem
-                  . intro t_mem_image
-                    rcases t_mem_image with ⟨f, f_mem, t_mem_image⟩
-                    rcases f_mem with ⟨f', f'_mem, f_eq⟩
-                    rw [← f_eq] at t_mem_image
-                    simp [GroundTermMapping.applyFact] at t_mem_image
-                    rcases t_mem_image with ⟨t', _, t'_mem_image, t_eq⟩
-                    apply no_arg_for_t t'
-                    . exists f'
-                    . exact t_eq
+        have origin_isSome := cb.origin_isSome k eq
+        let origin := node.origin.get origin_isSome
 
-            have h_surj_on_step : h_k.surjective_for_domain_and_image_set node.fact.val.terms node.fact.val.terms := by
-              rw [node_fact_is_prev_fact_union_origin_res]
-              intro t t_mem
-              rcases t_mem with ⟨f, f_mem, t_mem⟩
-              cases f_mem with
-              | inl f_mem =>
-                exists t
-                constructor
-                . exists f; constructor; apply Or.inl; exact f_mem; exact t_mem
-                . apply identity
-                  exists f
-                  constructor
-                  . unfold ChaseBranch.prev_node at f_mem
-                    simp only [eq2] at f_mem
-                    exact f_mem
-                  . exact t_mem
-              | inr f_mem =>
-                rcases h_surj_on_trg_res t (by exists f) with ⟨s, s_mem, s_eq⟩
-                rcases s_mem with ⟨f', f'_mem, s_mem⟩
-                exists s
-                constructor
-                . exists f'; constructor; apply Or.inr; exact f'_mem; exact s_mem
-                . exact s_eq
+        let trg_res_terms := (FactSet.terms (node.origin_result origin_isSome).toSet)
 
-            have node_terms_finite := node.fact.val.terms_finite_of_finite node.fact.property
-            rcases node_terms_finite with ⟨l_terms, l_terms_nodup, l_terms_eq⟩
-
-            rw [h_k.surjective_set_list_equiv _ _ l_terms_eq _ _ l_terms_eq] at h_surj_on_step
-
-            have h_inj_on_step : h_k.injective_for_domain_list l_terms := Function.injective_of_surjective_of_nodup h_k l_terms l_terms_nodup h_surj_on_step
-            have h_closed_on_step : ∀ t, t ∈ l_terms -> h_k t ∈ l_terms := Function.closed_of_injective_of_surjective_of_nodup h_k l_terms l_terms_nodup h_inj_on_step h_surj_on_step
-
-            have inv_ex := h_k.exists_repetition_that_is_inverse_of_surj l_terms h_surj_on_step
-            rcases inv_ex with ⟨repetition_number, inv_prop⟩
-            let inv := h_k.repeat_hom repetition_number
-
-            have extend_inv := cb.hom_for_step_extendable_result det (k+1) inv
-            rw [eq, Option.is_none_or] at extend_inv
-            specialize extend_inv (by
-              constructor
-              . apply h_k.repeat_hom_id_on_const
-                exact h_k_hom.left
-              . have is_hom := h_k.repeat_hom_isHomomorphism cb.result h_k_hom repetition_number
-                apply Set.subset_trans (b := inv.applyFactSet cb.result)
-                . apply inv.applyFactSet_subset_of_subset
-                  have subset_res := chaseBranchSetIsSubsetOfResult cb (k+1)
-                  rw [eq, Option.is_none_or] at subset_res
-                  apply subset_res
-                . unfold inv
-                  apply is_hom.right
-            )
-
-            rcases extend_inv with ⟨extended_inv, extended_inv_eq, extended_inv_hom⟩
-            exists extended_inv ∘ h_k
-            constructor
-            . apply GroundTermMapping.isHomomorphism_compose _ _ _ cb.result _
-              . exact h_k_hom
-              . exact extended_inv_hom
-            constructor
+        have h_surj_on_trg_res : h_k.surjective_for_domain_and_image_set trg_res_terms trg_res_terms := by
+          apply Classical.byContradiction
+          intro not_surj
+          apply noAltMatch
+          exists k
+          exists h_k
+          exists node
+          exists origin
+          constructor
+          . exact eq
+          constructor
+          . simp [origin]
+          . constructor
             . constructor
-              . intro f terms_mem f_mem apply_mem
-                rw [GroundTermMapping.applyFact_compose]
-                simp
-                apply extended_inv_hom.right
-                apply GroundTermMapping.applyPreservesElement
-                exact retains.left f terms_mem f_mem apply_mem
-              . intro s t s_mem t_mem neq h_0_eq
-                simp
-                rw [retains.right s t s_mem t_mem neq h_0_eq]
+              . exact h_k_hom.left
+              . apply Set.subset_trans (b := h_k.applyFactSet cb.result)
+                . apply GroundTermMapping.applyFactSet_subset_of_subset
+                  apply Set.subset_trans (b := node.fact.val)
+                  . rw [node_fact_is_prev_fact_union_origin_res]
+                    apply Set.subset_union_of_subset_right
+                    apply Set.subset_refl
+                  . have subset_res := cb.stepIsSubsetOfResult (k+1)
+                    rw [eq, Option.is_none_or] at subset_res
+                    exact subset_res
+                . exact h_k_hom.right
+            constructor
             . intro t t_mem
-              simp
-              rw [extended_inv_eq]
-              . rw [← l_terms_eq] at t_mem
-                unfold inv
-                rw [inv_prop t t_mem]
-              . rw [← l_terms_eq]
-                rw [← l_terms_eq] at t_mem
-                apply h_closed_on_step
-                exact t_mem
+              apply identity
+              simp at t_mem
+              rcases t_mem with ⟨v, v_mem, v_eq⟩
+              rcases origin.fst.val.rule.frontier_occurs_in_body v v_mem with ⟨a, a_mem, v_mem⟩
+              exists origin.fst.val.subs.apply_function_free_atom a
+              constructor
+              . apply origin_trg_active.left
+                rw [List.mem_toSet]
+                simp [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj]
+                exists a
+              . rw [← v_eq]
+                simp [GroundSubstitution.apply_function_free_atom]
+                exists VarOrConst.var v
+            . unfold Function.surjective_for_domain_and_image_set at not_surj
+              simp at not_surj
+              rcases not_surj with ⟨t, t_arity_ok, t_mem, no_arg_for_t⟩
+              exists ⟨t, t_arity_ok⟩
+              constructor
+              . exact t_mem
+              . intro t_mem_image
+                rcases t_mem_image with ⟨f, f_mem, t_mem_image⟩
+                rcases f_mem with ⟨f', f'_mem, f_eq⟩
+                rw [← f_eq] at t_mem_image
+                simp [GroundTermMapping.applyFact] at t_mem_image
+                rcases t_mem_image with ⟨t', _, t'_mem_image, t_eq⟩
+                apply no_arg_for_t t'
+                . exists f'
+                . exact t_eq
+
+        have h_surj_on_step : h_k.surjective_for_domain_and_image_set node.fact.val.terms node.fact.val.terms := by
+          rw [node_fact_is_prev_fact_union_origin_res]
+          intro t t_mem
+          rcases t_mem with ⟨f, f_mem, t_mem⟩
+          cases f_mem with
+          | inl f_mem =>
+            exists t
+            constructor
+            . exists f; constructor; apply Or.inl; exact f_mem; exact t_mem
+            . apply identity
+              exists f
+          | inr f_mem =>
+            rcases h_surj_on_trg_res t (by exists f) with ⟨s, s_mem, s_eq⟩
+            rcases s_mem with ⟨f', f'_mem, s_mem⟩
+            exists s
+            constructor
+            . exists f'; constructor; apply Or.inr; exact f'_mem; exact s_mem
+            . exact s_eq
+
+        have node_terms_finite := node.fact.val.terms_finite_of_finite node.fact.property
+        rcases node_terms_finite with ⟨l_terms, l_terms_nodup, l_terms_eq⟩
+
+        rw [h_k.surjective_set_list_equiv _ _ l_terms_eq _ _ l_terms_eq] at h_surj_on_step
+
+        have h_inj_on_step : h_k.injective_for_domain_list l_terms := Function.injective_of_surjective_of_nodup h_k l_terms l_terms_nodup h_surj_on_step
+        have h_closed_on_step : ∀ t, t ∈ l_terms -> h_k t ∈ l_terms := Function.closed_of_injective_of_surjective_of_nodup h_k l_terms l_terms_nodup h_inj_on_step h_surj_on_step
+
+        have inv_ex := h_k.exists_repetition_that_is_inverse_of_surj l_terms h_surj_on_step
+        rcases inv_ex with ⟨repetition_number, inv_prop⟩
+        let inv := h_k.repeat_hom repetition_number
+
+        have extend_inv := cb.hom_for_step_extendable_result det (k+1) inv
+        rw [eq, Option.is_none_or] at extend_inv
+        specialize extend_inv (by
+          constructor
+          . apply h_k.repeat_hom_id_on_const
+            exact h_k_hom.left
+          . have is_hom := h_k.repeat_hom_isHomomorphism cb.result h_k_hom repetition_number
+            apply Set.subset_trans (b := inv.applyFactSet cb.result)
+            . apply inv.applyFactSet_subset_of_subset
+              have subset_res := cb.stepIsSubsetOfResult (k+1)
+              rw [eq, Option.is_none_or] at subset_res
+              apply subset_res
+            . unfold inv
+              apply is_hom.right
+        )
+
+        rcases extend_inv with ⟨extended_inv, extended_inv_eq, extended_inv_hom⟩
+        exists extended_inv ∘ h_k
+        constructor
+        . apply GroundTermMapping.isHomomorphism_compose _ _ _ cb.result _
+          . exact h_k_hom
+          . exact extended_inv_hom
+        constructor
+        . constructor
+          . intro f terms_mem f_mem apply_mem
+            rw [GroundTermMapping.applyFact_compose]
+            simp
+            apply extended_inv_hom.right
+            apply GroundTermMapping.applyPreservesElement
+            exact retains.left f terms_mem f_mem apply_mem
+          . intro s t s_mem t_mem neq h_0_eq
+            simp
+            rw [retains.right s t s_mem t_mem neq h_0_eq]
+        . intro t t_mem
+          simp
+          rw [extended_inv_eq]
+          . rw [← l_terms_eq] at t_mem
+            unfold inv
+            rw [inv_prop t t_mem]
+          . rw [← l_terms_eq]
+            rw [← l_terms_eq] at t_mem
+            apply h_closed_on_step
+            exact t_mem
 
     cases contra with
     | inl not_strong =>
@@ -261,8 +251,7 @@ namespace ChaseBranch
                   rw [t_mem]
                   exists f
                   constructor
-                  . have all_following := chaseBranchSetIsSubsetOfAllFollowing cb i_hd (i_ih - i_hd)
-                    simp [eq_hd] at all_following
+                  . have all_following := cb.stepIsSubsetOfAllFollowing i_hd _ eq_hd (i_ih - i_hd)
                     rw [Nat.add_sub_of_le le, eq_ih, Option.is_none_or] at all_following
                     apply all_following
                     exact f_mem
@@ -285,8 +274,7 @@ namespace ChaseBranch
                   rcases ih with ⟨f', f'_mem, t_mem⟩
                   exists f'
                   constructor
-                  . have all_following := chaseBranchSetIsSubsetOfAllFollowing cb i_ih (i_hd - i_ih)
-                    simp [eq_ih] at all_following
+                  . have all_following := cb.stepIsSubsetOfAllFollowing i_ih _ eq_ih (i_hd - i_ih)
                     rw [Nat.add_sub_of_le (Nat.le_of_lt lt), eq_hd, Option.is_none_or] at all_following
                     apply all_following
                     exact f'_mem
@@ -295,28 +283,26 @@ namespace ChaseBranch
       specialize step_ex f.terms f_dom
       rcases step_ex with ⟨step, step_ex⟩
 
-      cases eq : cb.branch.infinite_list step with
-      | none => rw [eq, Option.is_some_and] at step_ex; contradiction
-      | some node =>
-        rw [eq, Option.is_some_and] at step_ex
-        specialize this step
-        rw [eq, Option.is_none_or] at this
-        rcases this with ⟨h_k, _, retains, identity⟩
-        have retains := retains.left f f_dom f_mem apply_f_mem
+      rw [Option.is_some_and_iff] at step_ex
+      rcases step_ex with ⟨node, eq, step_ex⟩
+      specialize this step
+      rw [eq, Option.is_none_or] at this
+      rcases this with ⟨h_k, _, retains, identity⟩
+      have retains := retains.left f f_dom f_mem apply_f_mem
 
-        have : h_k.applyFact f = f := by
-          unfold GroundTermMapping.applyFact
-          rw [Fact.mk.injEq]
-          constructor
-          . simp
-          . apply List.map_id_of_id_on_all_mem
-            intro t t_mem
-            apply identity
-            apply step_ex
-            exact t_mem
-        apply f_mem
-        rw [← this]
-        exact retains
+      have : h_k.applyFact f = f := by
+        unfold GroundTermMapping.applyFact
+        rw [Fact.mk.injEq]
+        constructor
+        . simp
+        . apply List.map_id_of_id_on_all_mem
+          intro t t_mem
+          apply identity
+          apply step_ex
+          exact t_mem
+      apply f_mem
+      rw [← this]
+      exact retains
     | inr not_inj =>
       apply not_inj
       intro s t s_mem t_mem image_eq
@@ -327,254 +313,144 @@ namespace ChaseBranch
       rcases t_mem with ⟨f_t, f_t_mem, t_mem⟩
       rcases f_s_mem with ⟨step_s, f_s_mem⟩
       rcases f_t_mem with ⟨step_t, f_t_mem⟩
-      cases eq_s : cb.branch.infinite_list step_s with
-      | none => simp [eq_s, Option.is_some_and] at f_s_mem
-      | some node_s =>
-        rw [eq_s, Option.is_some_and] at f_s_mem
-        cases eq_t : cb.branch.infinite_list step_t with
-        | none => simp [eq_t, Option.is_some_and] at f_t_mem
-        | some node_t =>
-          rw [eq_t, Option.is_some_and] at f_t_mem
-          cases Decidable.em (step_s ≤ step_t) with
-          | inl le =>
-            specialize this step_t
-            rw [eq_t, Option.is_none_or] at this
-            rcases this with ⟨h_k, _, retains, identity⟩
-            have retains := retains.right
-            specialize retains s t
-              (by exists f_s; constructor; exists step_s; rw [eq_s, Option.is_some_and]; exact f_s_mem; exact s_mem)
-              (by exists f_t; constructor; exists step_t; rw [eq_t, Option.is_some_and]; exact f_t_mem; exact t_mem)
-              neq image_eq
-            have id_s := identity s (by
-              exists f_s
-              constructor
-              . have all_following := chaseBranchSetIsSubsetOfAllFollowing cb step_s (step_t - step_s)
-                simp [eq_s] at all_following
-                rw [Nat.add_sub_of_le le, eq_t, Option.is_none_or] at all_following
-                apply all_following
-                exact f_s_mem
-              . exact s_mem
-            )
-            have id_t := identity t (by exists f_t)
-            rw [id_s, id_t] at retains
-            apply neq
-            apply retains
-          | inr lt =>
-            simp at lt
-            specialize this step_s
-            rw [eq_s, Option.is_none_or] at this
-            rcases this with ⟨h_k, _, retains, identity⟩
-            have retains := retains.right
-            specialize retains s t
-              (by exists f_s; constructor; exists step_s; rw [eq_s, Option.is_some_and]; exact f_s_mem; exact s_mem)
-              (by exists f_t; constructor; exists step_t; rw [eq_t, Option.is_some_and]; exact f_t_mem; exact t_mem)
-              neq image_eq
-            have id_s := identity s (by exists f_s)
-            have id_t := identity t (by
-              exists f_t
-              constructor
-              . have all_following := chaseBranchSetIsSubsetOfAllFollowing cb step_t (step_s - step_t)
-                simp [eq_t] at all_following
-                rw [Nat.add_sub_of_le (Nat.le_of_lt lt), eq_s, Option.is_none_or] at all_following
-                apply all_following
-                exact f_t_mem
-              . exact t_mem
-            )
-            rw [id_s, id_t] at retains
-            apply neq
-            apply retains
+      rw [Option.is_some_and_iff] at f_s_mem
+      rw [Option.is_some_and_iff] at f_t_mem
+      rcases f_s_mem with ⟨node_s, eq_s, f_s_mem⟩
+      rcases f_t_mem with ⟨node_t, eq_t, f_t_mem⟩
+      cases Decidable.em (step_s ≤ step_t) with
+      | inl le =>
+        specialize this step_t
+        rw [eq_t, Option.is_none_or] at this
+        rcases this with ⟨h_k, _, retains, identity⟩
+        have retains := retains.right
+        specialize retains s t
+          (by exists f_s; constructor; exists step_s; rw [eq_s, Option.is_some_and]; exact f_s_mem; exact s_mem)
+          (by exists f_t; constructor; exists step_t; rw [eq_t, Option.is_some_and]; exact f_t_mem; exact t_mem)
+          neq image_eq
+        have id_s := identity s (by
+          exists f_s
+          constructor
+          . have all_following := cb.stepIsSubsetOfAllFollowing step_s _ eq_s (step_t - step_s)
+            rw [Nat.add_sub_of_le le, eq_t, Option.is_none_or] at all_following
+            apply all_following
+            exact f_s_mem
+          . exact s_mem
+        )
+        have id_t := identity t (by exists f_t)
+        rw [id_s, id_t] at retains
+        apply neq
+        apply retains
+      | inr lt =>
+        simp at lt
+        specialize this step_s
+        rw [eq_s, Option.is_none_or] at this
+        rcases this with ⟨h_k, _, retains, identity⟩
+        have retains := retains.right
+        specialize retains s t
+          (by exists f_s; constructor; exists step_s; rw [eq_s, Option.is_some_and]; exact f_s_mem; exact s_mem)
+          (by exists f_t; constructor; exists step_t; rw [eq_t, Option.is_some_and]; exact f_t_mem; exact t_mem)
+          neq image_eq
+        have id_s := identity s (by exists f_s)
+        have id_t := identity t (by
+          exists f_t
+          constructor
+          . have all_following := cb.stepIsSubsetOfAllFollowing step_t _ eq_t (step_s - step_t)
+            rw [Nat.add_sub_of_le (Nat.le_of_lt lt), eq_s, Option.is_none_or] at all_following
+            apply all_following
+            exact f_t_mem
+          . exact t_mem
+        )
+        rw [id_s, id_t] at retains
+        apply neq
+        apply retains
 
   theorem non_id_endomorphism_of_altMatch (cb : ChaseBranch obs kb) (det : kb.isDeterministic) (altMatch : cb.has_alt_match) : ∃ (endo : GroundTermMapping sig), endo.isHomomorphism cb.result cb.result ∧ ∃ t, endo t ≠ t := by
     rcases altMatch with ⟨step, h_alt, node, origin, eq_node, eq_origin, altMatch⟩
 
-    cases eq_prev : cb.branch.infinite_list step with
-    | none =>
-      have no_holes := cb.branch.no_holes (step + 1)
-      simp [eq_node] at no_holes
-      specialize no_holes ⟨step, by simp⟩
-      contradiction
-    | some prev_node =>
-      have ts_finite := prev_node.fact.val.terms_finite_of_finite prev_node.fact.property
-      rcases ts_finite with ⟨ts, nodup, eq_ts⟩
+    let prev_node := cb.prev_node step (by simp [eq_node])
 
-      let h : GroundTermMapping sig := fun t => if t ∈ ts then t else h_alt t
-      have hom : h.isHomomorphism node.fact.val cb.result := by
-        have trg_ex := cb.triggers_exist step
-        rw [eq_prev, Option.is_none_or] at trg_ex
-        cases trg_ex with
-        | inr trg_ex => unfold not_exists_trigger_opt_fs at trg_ex; rw [trg_ex.right] at eq_node; simp at eq_node
-        | inl trg_ex =>
-          unfold exists_trigger_opt_fs at trg_ex
-          rw [eq_node] at trg_ex
-          rcases trg_ex with ⟨trg, trg_active, disj_index, eq_result⟩
-          injection eq_result with eq_result
-          have eq_trg_origin : origin = ⟨trg, disj_index⟩ := by rw [← Option.some_inj, ← eq_origin, ← eq_result]
-          rw [← eq_result]
-          simp only
-          constructor
-          . intro t
-            cases eq : t with
-            | func _ _ => simp [GroundTerm.func]
-            | const c =>
-              simp only [GroundTerm.const]
-              unfold h
-              split
-              . rfl
-              . have := altMatch.left.left (GroundTerm.const c)
-                simp only [GroundTerm.const] at this
-                exact this
-          . intro f f_mem
-            unfold GroundTermMapping.applyFactSet at f_mem
-            rcases f_mem with ⟨f', f'_mem, f_eq⟩
-            cases f'_mem with
-            | inl f'_mem =>
-              rw [← f_eq]
-              have subset_res := chaseBranchSetIsSubsetOfResult cb step
-              rw [eq_prev, Option.is_none_or] at subset_res
-              apply subset_res
-              have : h.applyFact f' = f' := by
-                unfold GroundTermMapping.applyFact
-                rw [Fact.mk.injEq]
-                constructor
-                . simp
-                . rw [List.map_id_of_id_on_all_mem]
-                  intro t t_mem
-                  unfold h
-                  have : t ∈ ts := by rw [eq_ts]; exists f'
-                  simp [this]
-              rw [this]
-              exact f'_mem
-            | inr f'_mem =>
-              have alt_hom := altMatch.left.right
-              apply alt_hom f
-              exists f'
-              constructor
-              . rw [eq_trg_origin]; exact f'_mem
-              . rw [← f_eq]
-                unfold GroundTermMapping.applyFact
-                simp
-                intro t _ t_mem
-                unfold h
-                split
-                case isTrue t_mem_ts =>
-                  simp only [PreTrigger.mapped_head] at f'_mem
-                  simp at f'_mem
-                  rw [List.mem_toSet] at f'_mem
-                  simp at f'_mem
+    have ts_finite := prev_node.fact.val.terms_finite_of_finite prev_node.fact.property
+    rcases ts_finite with ⟨ts, nodup, eq_ts⟩
 
-                  rcases f'_mem with ⟨a, a_mem, f'_eq⟩
-                  rw [← f'_eq] at t_mem
-                  simp only [PreTrigger.apply_to_function_free_atom] at t_mem
-                  simp at t_mem
-
-                  rcases t_mem with ⟨voc, voc_mem, t_eq⟩
-
-                  cases voc with
-                  | const c =>
-                    simp [PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term] at t_eq
-                    rw [← t_eq]
-                    have id_const := altMatch.left.left (GroundTerm.const c)
-                    simp at id_const
-                    exact id_const
-                  | var v =>
-                    have := altMatch.right.left
-                    apply this
-
-                    cases Decidable.em (v ∈ trg.val.rule.frontier) with
-                    | inl v_in_frontier =>
-                      rw [← t_eq, eq_trg_origin]
-                      simp only [List.mem_map]
-                      exists v
-                      constructor
-                      . exact v_in_frontier
-                      . simp [PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term]
-                        simp [v_in_frontier]
-                    | inr v_not_in_frontier =>
-                      -- kb.isDeterministic is used here but likely we could show a similar theorem used here also for branches
-                      have := funcTermForExisVarInChaseTreeMeansTriggerResultOccurs (cb.intoTree det) trg disj_index v prev_node (List.repeat 0 step)
-                      apply False.elim
-                      apply trg_active.right
-                      apply obs.contains_trg_result_implies_cond disj_index
-                      apply this
-                      constructor
-                      . unfold ChaseBranch.intoTree
-                        unfold FiniteDegreeTree.get
-                        unfold PossiblyInfiniteTree.get
-                        simp
-                        rw [List.length_repeat, eq_prev]
-                        simp
-                        have := List.all_eq_val_repeat 0 step
-                        simp at this
-                        exact this
-                      constructor
-                      . exact v_not_in_frontier
-                      . rw [eq_ts] at t_mem_ts
-                        rcases t_mem_ts with ⟨f, f_mem, t_mem⟩
-                        exists f
-                        constructor
-                        . exact f_mem
-                        . rw [t_eq]
-                          exact t_mem
-                . rfl
-
-      have hom_extension := cb.hom_for_step_extendable_result det (step+1) h
-      rw [eq_node, Option.is_none_or] at hom_extension
-      specialize hom_extension hom
-      rcases hom_extension with ⟨ext, same_as_before, ext_hom⟩
-      exists ext
+    let h : GroundTermMapping sig := fun t => if t ∈ ts then t else h_alt t
+    have hom : h.isHomomorphism node.fact.val cb.result := by
       constructor
-      . exact ext_hom
-      . rcases altMatch with ⟨h_alt_hom, same_on_frontier, n, n_mem, n_not_mem_mapped⟩
-        rcases n_mem with ⟨f, f_mem, n_mem⟩
-        exists n
-        intro contra
-        rw [same_as_before n (by
-          exists f
-          constructor
-          . have := node.fact_contains_origin_result
-            rw [eq_origin, Option.is_none_or] at this
-            apply this
-            exact f_mem
-          . exact n_mem
-        )] at contra
-        unfold h at contra
-        cases Decidable.em (n ∈ ts) with
-        | inl n_in_ts =>
-          apply n_not_mem_mapped
-          exists (h_alt.applyFact f)
-          constructor
-          . apply h_alt.applyPreservesElement
-            exact f_mem
-          . unfold GroundTermMapping.applyFact
-            rw [List.mem_map]
-            exists n
+      . intro t
+        cases eq : t with
+        | func _ _ => simp [GroundTerm.func]
+        | const c =>
+          simp only [GroundTerm.const]
+          unfold h
+          split
+          . rfl
+          . have := altMatch.left.left (GroundTerm.const c)
+            simp only [GroundTerm.const] at this
+            exact this
+      . intro f f_mem
+        unfold GroundTermMapping.applyFactSet at f_mem
+        rcases f_mem with ⟨f', f'_mem, f_eq⟩
+        rw [cb.origin_trg_result_yields_next_node_fact step _ eq_node] at f'_mem
+        cases f'_mem with
+        | inl f'_mem =>
+          rw [← f_eq]
+          have subset_res := cb.stepIsSubsetOfResult step
+          rw [cb.prev_node_eq step (by simp [eq_node]), Option.is_none_or] at subset_res
+          apply subset_res
+          have : h.applyFact f' = f' := by
+            unfold GroundTermMapping.applyFact
+            rw [Fact.mk.injEq]
             constructor
-            . exact n_mem
-            . -- this is all copy pasted from an argument already given above
-              simp only [PreTrigger.mapped_head] at f_mem
-              simp at f_mem
-              rw [List.mem_toSet] at f_mem
-              simp at f_mem
+            . simp
+            . rw [List.map_id_of_id_on_all_mem]
+              intro t t_mem
+              unfold h
+              have : t ∈ ts := by rw [eq_ts]; exists f'
+              simp [this]
+          rw [this]
+          exact f'_mem
+        | inr f'_mem =>
+          unfold ChaseNode.origin_result at f'_mem
+          have : (node.origin.get (cb.origin_isSome step (by simp [eq_node]))) = origin := by simp [eq_origin]
+          have : (node.origin.get (cb.origin_isSome step (by simp [eq_node]))).snd.val = origin.snd.val := by rw [this]
+          simp only [eq_origin, this, Option.get_some] at f'_mem
+          have alt_hom := altMatch.left.right
+          apply alt_hom f
+          exists f'
+          constructor
+          . exact f'_mem
+          . rw [← f_eq]
+            unfold GroundTermMapping.applyFact
+            simp
+            intro t _ t_mem
+            unfold h
+            split
+            case isTrue t_mem_ts =>
+              simp only [PreTrigger.mapped_head] at f'_mem
+              simp at f'_mem
+              rw [List.mem_toSet] at f'_mem
+              simp at f'_mem
 
-              rcases f_mem with ⟨a, a_mem, f_eq⟩
-              rw [← f_eq] at n_mem
-              simp only [PreTrigger.apply_to_function_free_atom] at n_mem
-              simp at n_mem
+              rcases f'_mem with ⟨a, a_mem, f'_eq⟩
+              rw [← f'_eq] at t_mem
+              simp only [PreTrigger.apply_to_function_free_atom] at t_mem
+              simp at t_mem
 
-              rcases n_mem with ⟨voc, voc_mem, n_eq⟩
+              rcases t_mem with ⟨voc, voc_mem, t_eq⟩
 
               cases voc with
               | const c =>
-                simp [PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term] at n_eq
-                rw [← n_eq]
-                have id_const := h_alt_hom.left (GroundTerm.const c)
+                simp [PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term] at t_eq
+                rw [← t_eq]
+                have id_const := altMatch.left.left (GroundTerm.const c)
                 simp at id_const
                 exact id_const
               | var v =>
-                apply same_on_frontier
+                have := altMatch.right.left
+                apply this
+
                 cases Decidable.em (v ∈ origin.fst.val.rule.frontier) with
                 | inl v_in_frontier =>
-                  rw [← n_eq]
+                  rw [← t_eq]
                   simp only [List.mem_map]
                   exists v
                   constructor
@@ -582,54 +458,111 @@ namespace ChaseBranch
                   . simp [PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term]
                     simp [v_in_frontier]
                 | inr v_not_in_frontier =>
-                  -- kb.isDeterministic is used here but likely we could show a similar theorem used here also for branches
-                  have := funcTermForExisVarInChaseTreeMeansTriggerResultOccurs (cb.intoTree det) origin.fst origin.snd v prev_node (List.repeat 0 step)
+                  have := cb.funcTermForExisVarInChaseMeansTriggerResultOccurs step (cb.prev_node_eq step (by simp [eq_node])) origin.fst origin.snd v_not_in_frontier
                   apply False.elim
-                  have trg_active : origin.fst.val.active prev_node.fact.val := by
-                    have trg_ex := cb.triggers_exist step
-                    rw [eq_prev, Option.is_none_or] at trg_ex
-                    cases trg_ex with
-                    | inr trg_ex => unfold not_exists_trigger_opt_fs at trg_ex; rw [trg_ex.right] at eq_node; simp at eq_node
-                    | inl trg_ex =>
-                      unfold exists_trigger_opt_fs at trg_ex
-                      rw [eq_node] at trg_ex
-                      rcases trg_ex with ⟨trg, trg_active, disj_index, eq_result⟩
-                      injection eq_result with eq_result
-                      have eq_trg_origin : origin = ⟨trg, disj_index⟩ := by rw [← Option.some_inj, ← eq_origin, ← eq_result]
-                      rw [eq_trg_origin]
-                      exact trg_active
-                  apply trg_active.right
+                  apply (cb.origin_trg_is_active _ _ eq_node).right
+                  simp only [eq_origin]
                   apply obs.contains_trg_result_implies_cond origin.snd
                   apply this
+                  rw [eq_ts] at t_mem_ts
+                  rcases t_mem_ts with ⟨f, f_mem, t_mem⟩
+                  exists f
                   constructor
-                  . unfold ChaseBranch.intoTree
-                    unfold FiniteDegreeTree.get
-                    unfold PossiblyInfiniteTree.get
-                    simp
-                    rw [List.length_repeat, eq_prev]
-                    simp
-                    have := List.all_eq_val_repeat 0 step
-                    simp at this
-                    exact this
-                  constructor
-                  . exact v_not_in_frontier
-                  . rw [eq_ts] at n_in_ts
-                    rcases n_in_ts with ⟨f, f_mem, n_mem⟩
-                    exists f
-                    constructor
-                    . exact f_mem
-                    . rw [n_eq]
-                      exact n_mem
-        | inr n_not_in_ts =>
-          simp [n_not_in_ts] at contra
-          apply n_not_mem_mapped
-          exists (h_alt.applyFact f)
+                  . exact f_mem
+                  . rw [PreTrigger.apply_to_var_or_const_non_frontier_var _ _ _ v_not_in_frontier] at t_eq
+                    rw [t_eq]
+                    exact t_mem
+            . rfl
+
+    have hom_extension := cb.hom_for_step_extendable_result det (step+1) h
+    rw [eq_node, Option.is_none_or] at hom_extension
+    specialize hom_extension hom
+    rcases hom_extension with ⟨ext, same_as_before, ext_hom⟩
+    exists ext
+    constructor
+    . exact ext_hom
+    . rcases altMatch with ⟨h_alt_hom, same_on_frontier, n, n_mem, n_not_mem_mapped⟩
+      rcases n_mem with ⟨f, f_mem, n_mem⟩
+      exists n
+      intro contra
+      rw [same_as_before n (by
+        exists f
+        constructor
+        . have := node.fact_contains_origin_result
+          rw [eq_origin, Option.is_none_or] at this
+          apply this
+          exact f_mem
+        . exact n_mem
+      )] at contra
+      unfold h at contra
+      cases Decidable.em (n ∈ ts) with
+      | inl n_in_ts =>
+        apply n_not_mem_mapped
+        exists (h_alt.applyFact f)
+        constructor
+        . apply h_alt.applyPreservesElement
+          exact f_mem
+        . unfold GroundTermMapping.applyFact
+          rw [List.mem_map]
+          exists n
           constructor
-          . apply h_alt.applyPreservesElement
-            exact f_mem
-          . unfold GroundTermMapping.applyFact
-            rw [List.mem_map]
-            exists n
+          . exact n_mem
+          . -- this is all copy pasted from an argument already given above
+            simp only [PreTrigger.mapped_head] at f_mem
+            simp at f_mem
+            rw [List.mem_toSet] at f_mem
+            simp at f_mem
+
+            rcases f_mem with ⟨a, a_mem, f_eq⟩
+            rw [← f_eq] at n_mem
+            simp only [PreTrigger.apply_to_function_free_atom] at n_mem
+            simp at n_mem
+
+            rcases n_mem with ⟨voc, voc_mem, n_eq⟩
+
+            cases voc with
+            | const c =>
+              simp [PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term] at n_eq
+              rw [← n_eq]
+              have id_const := h_alt_hom.left (GroundTerm.const c)
+              simp at id_const
+              exact id_const
+            | var v =>
+              apply same_on_frontier
+              cases Decidable.em (v ∈ origin.fst.val.rule.frontier) with
+              | inl v_in_frontier =>
+                rw [← n_eq]
+                simp only [List.mem_map]
+                exists v
+                constructor
+                . exact v_in_frontier
+                . simp [PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term]
+                  simp [v_in_frontier]
+              | inr v_not_in_frontier =>
+                have := cb.funcTermForExisVarInChaseMeansTriggerResultOccurs step (cb.prev_node_eq step (by simp [eq_node])) origin.fst origin.snd v_not_in_frontier
+                apply False.elim
+                apply (cb.origin_trg_is_active _ _ eq_node).right
+                simp only [eq_origin]
+                apply obs.contains_trg_result_implies_cond origin.snd
+                apply this
+                rw [eq_ts] at n_in_ts
+                rcases n_in_ts with ⟨f, f_mem, n_mem⟩
+                exists f
+                constructor
+                . exact f_mem
+                . rw [PreTrigger.apply_to_var_or_const_non_frontier_var _ _ _ v_not_in_frontier] at n_eq
+                  rw [n_eq]
+                  exact n_mem
+      | inr n_not_in_ts =>
+        simp [n_not_in_ts] at contra
+        apply n_not_mem_mapped
+        exists (h_alt.applyFact f)
+        constructor
+        . apply h_alt.applyPreservesElement
+          exact f_mem
+        . unfold GroundTermMapping.applyFact
+          rw [List.mem_map]
+          exists n
 
   theorem altMatch_of_some_not_reaches_self (cb : ChaseBranch obs kb) (fs : FactSet sig) (h : GroundTermMapping sig) (hom_res : h.isHomomorphism cb.result fs) (hom_fs : h.isHomomorphism fs fs) (t : GroundTerm sig) (t_mem : t ∈ cb.result.terms) (t_not_reaches_self : ∀ j, 1 ≤ j -> (h.repeat_hom j) t ≠ t) : cb.has_alt_match_for fs := by
 
@@ -674,171 +607,161 @@ namespace ChaseBranch
       rw [t_eq]
       rw [(h.repeat_hom_id_on_const _ 1) (GroundTerm.const c)]; exact hom_res.left
 
-    cases eq : cb.branch.infinite_list step with
-    | none =>
-      unfold step_property at prop_step
-      rw [eq, Option.is_some_and] at prop_step
-      contradiction
-    | some node =>
-      cases eq2 : cb.branch.infinite_list (step-1) with
-      | none =>
-        have no_holes := cb.branch.no_holes step
-        simp [eq] at no_holes
-        specialize no_holes ⟨step-1, by apply Nat.sub_one_lt; exact step_ne_0⟩
-        apply False.elim
-        apply no_holes
-        exact eq2
-      | some prev_node =>
-        specialize smallest ⟨step-1, by apply Nat.sub_one_lt; exact step_ne_0⟩
+    unfold step_property at prop_step
+    rw [Option.is_some_and_iff] at prop_step
+    rcases prop_step with ⟨node, eq, prop_step⟩
 
-        unfold step_property at smallest
-        rw [eq2, Option.is_some_and] at smallest
-        unfold term_property at smallest
-        simp at smallest
+    let prev_node := cb.prev_node (step-1) (by rw [Nat.sub_add_cancel (by omega)]; simp [step_ne_0, eq])
+    have eq2 := cb.prev_node_eq (step-1) (by rw [Nat.sub_add_cancel (by omega)]; simp [step_ne_0, eq])
 
-        have : ∃ l, 1 ≤ l ∧ ∀ s, s ∈ prev_node.fact.val.terms -> (h.repeat_hom l) s = s := by
-          have step_finite := prev_node.fact.property
-          have l_terms_finite := prev_node.fact.val.terms_finite_of_finite step_finite
-          rcases l_terms_finite with ⟨l_terms, l_terms_nodup, l_terms_eq⟩
-          rcases h.repeat_globally_of_each_repeats l_terms (by intro s s_mem; rw [l_terms_eq] at s_mem; apply smallest; exact s_mem) with ⟨l, l_le, aux⟩
-          exists l
+    specialize smallest ⟨step-1, by apply Nat.sub_one_lt; exact step_ne_0⟩
+
+    unfold step_property at smallest
+    rw [eq2, Option.is_some_and] at smallest
+    unfold term_property at smallest
+    simp at smallest
+
+    have : ∃ l, 1 ≤ l ∧ ∀ s, s ∈ prev_node.fact.val.terms -> (h.repeat_hom l) s = s := by
+      have step_finite := prev_node.fact.property
+      have l_terms_finite := prev_node.fact.val.terms_finite_of_finite step_finite
+      rcases l_terms_finite with ⟨l_terms, l_terms_nodup, l_terms_eq⟩
+      rcases h.repeat_globally_of_each_repeats l_terms (by intro s s_mem; rw [l_terms_eq] at s_mem; apply smallest; exact s_mem) with ⟨l, l_le, aux⟩
+      exists l
+      constructor
+      . exact l_le
+      . intro s s_mem
+        rw [← l_terms_eq] at s_mem
+        apply aux
+        exact s_mem
+
+    rcases this with ⟨l, l_le, hom_id⟩
+
+    have prop_step : ∃ t, t ∈ node.fact.val.terms ∧ ∃ k, ∀ j, k ≤ j -> ∀ s, s ∈ node.fact.val.terms -> (h.repeat_hom j) s ≠ t := by
+      apply Classical.byContradiction
+      intro contra
+      simp at contra
+      have step_finite := node.fact.property
+      have l_terms_finite := node.fact.val.terms_finite_of_finite step_finite
+      rcases l_terms_finite with ⟨l_terms, l_terms_nodup, l_terms_eq⟩
+      have reaches_self := h.repeat_each_reaches_self_of_each_reachable l_terms (by
+        intro t t_mem
+        rw [l_terms_eq] at t_mem
+        specialize contra t _ t_mem 1
+        rcases contra with ⟨k, k_le, s, s_arity_ok, s_mem, s_eq⟩
+        exists k
+        constructor
+        . exact k_le
+        . exists ⟨s, s_arity_ok⟩
+          rw [l_terms_eq]
           constructor
-          . exact l_le
-          . intro s s_mem
-            rw [← l_terms_eq] at s_mem
-            apply aux
-            exact s_mem
+          . exact s_mem
+          . exact s_eq
+      )
+      rcases prop_step with ⟨t, t_mem, prop_step⟩
+      specialize reaches_self t (by rw [l_terms_eq]; exact t_mem)
+      rcases reaches_self with ⟨l, l_le, reaches_self⟩
+      apply prop_step l
+      . exact l_le
+      . exact reaches_self
 
-        rcases this with ⟨l, l_le, hom_id⟩
-        unfold step_property at prop_step
-        rw [eq, Option.is_some_and] at prop_step
+    rcases prop_step with ⟨t, t_mem, k, prop_step⟩
 
-        have prop_step : ∃ t, t ∈ node.fact.val.terms ∧ ∃ k, ∀ j, k ≤ j -> ∀ s, s ∈ node.fact.val.terms -> (h.repeat_hom j) s ≠ t := by
-          apply Classical.byContradiction
-          intro contra
-          simp at contra
-          have step_finite := node.fact.property
-          have l_terms_finite := node.fact.val.terms_finite_of_finite step_finite
-          rcases l_terms_finite with ⟨l_terms, l_terms_nodup, l_terms_eq⟩
-          have reaches_self := h.repeat_each_reaches_self_of_each_reachable l_terms (by
-            intro t t_mem
-            rw [l_terms_eq] at t_mem
-            specialize contra t _ t_mem 1
-            rcases contra with ⟨k, k_le, s, s_arity_ok, s_mem, s_eq⟩
-            exists k
+    exists (h.repeat_hom ((k + 1) * l)) -- we just need a multiple of l >= k
+    have hom_res' : (h.repeat_hom ((k + 1) * l)).isHomomorphism cb.result fs := by
+      have : (k + 1) * l = ((k + 1) * l - 1) + 1 := by
+        rw [Nat.sub_one_add_one]
+        apply Nat.mul_ne_zero
+        . simp
+        . apply Nat.not_eq_zero_of_lt; apply Nat.lt_of_succ_le; exact l_le
+      have : h.repeat_hom ((k + 1) * l) = h.repeat_hom (((k + 1) * l) - 1) ∘ h := by
+        apply funext
+        intro t
+        simp
+        have eq : h t = (h.repeat_hom 1) t := by simp [GroundTermMapping.repeat_hom]
+        rw [eq, ← h.repeat_hom_add]
+        rw [← this]
+      rw [this]
+      apply GroundTermMapping.isHomomorphism_compose h _ cb.result fs fs
+      . exact hom_res
+      . apply h.repeat_hom_isHomomorphism; exact hom_fs
+    unfold GroundTermMapping.is_alt_match_at_chase_step_for
+    exists node
+    have origin_isSome := cb.origin_isSome (step-1) (by rw [Nat.sub_one_add_one step_ne_0, eq])
+    let origin := node.origin.get origin_isSome
+    exists origin
+    rw [Nat.sub_one_add_one step_ne_0, eq]
+    simp [origin]
+    constructor
+    . constructor
+      . exact hom_res'.left
+      . have origin_res_in_fact := node.fact_contains_origin_result
+        have eq_origin : node.origin = some (node.origin.get origin_isSome) := by simp
+        rw [eq_origin, Option.is_none_or] at origin_res_in_fact
+        apply Set.subset_trans (b := (h.repeat_hom ((k + 1) * l)).applyFactSet node.fact.val)
+        . exact ((h.repeat_hom ((k + 1) * l)).applyFactSet_subset_of_subset _ _ origin_res_in_fact)
+        . apply Set.subset_trans (b := (h.repeat_hom ((k + 1) * l)).applyFactSet cb.result)
+          . apply GroundTermMapping.applyFactSet_subset_of_subset
+            have subs_res := cb.stepIsSubsetOfResult step
+            rw [eq, Option.is_none_or] at subs_res
+            exact subs_res
+          . apply hom_res'.right
+    constructor
+    . intro t t_mem
+      simp at t_mem
+      rw [Nat.mul_comm]
+      apply h.repeat_hom_cycle_mul
+      apply hom_id
+      have orig_trg_active := cb.origin_trg_is_active (step-1) node (by rw [Nat.sub_one_add_one step_ne_0]; exact eq)
+      unfold ChaseBranch.prev_node at orig_trg_active
+      simp only [eq2] at orig_trg_active
+      have loaded := orig_trg_active.left
+      unfold PreTrigger.loaded at loaded
+      unfold PreTrigger.mapped_body at loaded
+      rcases t_mem with ⟨v, v_mem, v_eq⟩
+      rcases origin.fst.val.rule.frontier_occurs_in_body _ v_mem with ⟨a, a_mem, v_mem⟩
+      exists origin.fst.val.subs.apply_function_free_atom a
+      constructor
+      . apply loaded
+        rw [List.mem_toSet]
+        unfold GroundSubstitution.apply_function_free_conj
+        rw [List.mem_map]
+        exists a
+      . simp [GroundSubstitution.apply_function_free_atom]
+        exists VarOrConst.var v
+    . exists t
+      have node_fact_is_prev_fact_union_origin_res := cb.origin_trg_result_yields_next_node_fact (step-1) node (by rw [Nat.sub_one_add_one step_ne_0]; exact eq)
+      constructor
+      . have t_not_mem_prev : ¬ t ∈ prev_node.fact.val.terms := by
+          intro t_mem
+          rcases t_mem with ⟨f, f_mem, t_mem⟩
+          apply prop_step ((k + 1) * l) _ t
+          . exists f
             constructor
-            . exact k_le
-            . exists ⟨s, s_arity_ok⟩
-              rw [l_terms_eq]
-              constructor
-              . exact s_mem
-              . exact s_eq
-          )
-          rcases prop_step with ⟨t, t_mem, prop_step⟩
-          specialize reaches_self t (by rw [l_terms_eq]; exact t_mem)
-          rcases reaches_self with ⟨l, l_le, reaches_self⟩
-          apply prop_step l
-          . exact l_le
-          . exact reaches_self
-
-        rcases prop_step with ⟨t, t_mem, k, prop_step⟩
-
-        exists (h.repeat_hom ((k + 1) * l)) -- we just need a multiple of l >= k
-        have hom_res' : (h.repeat_hom ((k + 1) * l)).isHomomorphism cb.result fs := by
-          have : (k + 1) * l = ((k + 1) * l - 1) + 1 := by
-            rw [Nat.sub_one_add_one]
-            apply Nat.mul_ne_zero
-            . simp
-            . apply Nat.not_eq_zero_of_lt; apply Nat.lt_of_succ_le; exact l_le
-          have : h.repeat_hom ((k + 1) * l) = h.repeat_hom (((k + 1) * l) - 1) ∘ h := by
-            apply funext
-            intro t
-            simp
-            have eq : h t = (h.repeat_hom 1) t := by simp [GroundTermMapping.repeat_hom]
-            rw [eq, ← h.repeat_hom_add]
-            rw [← this]
-          rw [this]
-          apply GroundTermMapping.isHomomorphism_compose h _ cb.result fs fs
-          . exact hom_res
-          . apply h.repeat_hom_isHomomorphism; exact hom_fs
-        unfold GroundTermMapping.is_alt_match_at_chase_step_for
-        exists node
-        have origin_isSome := cb.origin_isSome (step-1) (by rw [Nat.sub_one_add_one step_ne_0, eq])
-        let origin := node.origin.get origin_isSome
-        exists origin
-        rw [Nat.sub_one_add_one step_ne_0, eq]
-        simp [origin]
-        constructor
-        . constructor
-          . exact hom_res'.left
-          . have origin_res_in_fact := node.fact_contains_origin_result
-            have eq_origin : node.origin = some (node.origin.get origin_isSome) := by simp
-            rw [eq_origin, Option.is_none_or] at origin_res_in_fact
-            apply Set.subset_trans (b := (h.repeat_hom ((k + 1) * l)).applyFactSet node.fact.val)
-            . exact ((h.repeat_hom ((k + 1) * l)).applyFactSet_subset_of_subset _ _ origin_res_in_fact)
-            . apply Set.subset_trans (b := (h.repeat_hom ((k + 1) * l)).applyFactSet cb.result)
-              . apply GroundTermMapping.applyFactSet_subset_of_subset
-                have subs_res := chaseBranchSetIsSubsetOfResult cb step
-                rw [eq, Option.is_none_or] at subs_res
-                exact subs_res
-              . apply hom_res'.right
-        constructor
-        . intro t t_mem
-          simp at t_mem
-          rw [Nat.mul_comm]
-          apply h.repeat_hom_cycle_mul
-          apply hom_id
-          have orig_trg_active := cb.origin_trg_is_active (step-1) node (by rw [Nat.sub_one_add_one step_ne_0]; exact eq)
-          unfold ChaseBranch.prev_node at orig_trg_active
-          simp only [eq2] at orig_trg_active
-          have loaded := orig_trg_active.left
-          unfold PreTrigger.loaded at loaded
-          unfold PreTrigger.mapped_body at loaded
-          rcases t_mem with ⟨v, v_mem, v_eq⟩
-          rcases origin.fst.val.rule.frontier_occurs_in_body _ v_mem with ⟨a, a_mem, v_mem⟩
-          exists origin.fst.val.subs.apply_function_free_atom a
-          constructor
-          . apply loaded
-            rw [List.mem_toSet]
-            unfold GroundSubstitution.apply_function_free_conj
-            rw [List.mem_map]
-            exists a
-          . simp [GroundSubstitution.apply_function_free_atom]
-            exists VarOrConst.var v
-        . exists t
-          have node_fact_is_prev_fact_union_origin_res := cb.origin_trg_result_yields_next_node_fact (step-1) node (by rw [Nat.sub_one_add_one step_ne_0]; exact eq)
-          constructor
-          . have t_not_mem_prev : ¬ t ∈ prev_node.fact.val.terms := by
-              intro t_mem
-              rcases t_mem with ⟨f, f_mem, t_mem⟩
-              apply prop_step ((k + 1) * l) _ t
-              . exists f
-                constructor
-                . rw [node_fact_is_prev_fact_union_origin_res]
-                  unfold ChaseBranch.prev_node
-                  simp only [eq2]
-                  apply Or.inl
-                  exact f_mem
-                . exact t_mem
-              . rw [Nat.mul_comm]; apply h.repeat_hom_cycle_mul; apply hom_id; exists f
-              . apply Nat.le_trans; apply Nat.le_succ; apply Nat.le_mul_of_pos_right; apply Nat.lt_of_succ_le; exact l_le
-            rw [node_fact_is_prev_fact_union_origin_res] at t_mem
-            unfold ChaseBranch.prev_node at t_mem
-            simp only [eq2] at t_mem
-            rcases t_mem with ⟨f, f_mem, t_mem⟩
-            cases f_mem with
-            | inl f_mem => apply False.elim; apply t_not_mem_prev; exists f
-            | inr f_mem => exists f
-          . intro t_mem
-            rcases t_mem with ⟨f, f_mem, t_mem⟩
-            rcases f_mem with ⟨f', f'_mem, f_eq⟩
-            rw [← f_eq] at t_mem
-            simp [GroundTermMapping.applyFact] at t_mem
-            rcases t_mem with ⟨t', t'_arity_ok, t'_mem, t_eq⟩
-            apply prop_step ((k + 1) * l) _ ⟨t', t'_arity_ok⟩
-            . exists f'; constructor; rw [node_fact_is_prev_fact_union_origin_res]; apply Or.inr; exact f'_mem; exact t'_mem
-            . exact t_eq
-            . apply Nat.le_trans; apply Nat.le_succ; apply Nat.le_mul_of_pos_right; apply Nat.lt_of_succ_le; exact l_le
+            . rw [node_fact_is_prev_fact_union_origin_res]
+              unfold ChaseBranch.prev_node
+              simp only [eq2]
+              apply Or.inl
+              exact f_mem
+            . exact t_mem
+          . rw [Nat.mul_comm]; apply h.repeat_hom_cycle_mul; apply hom_id; exists f
+          . apply Nat.le_trans; apply Nat.le_succ; apply Nat.le_mul_of_pos_right; apply Nat.lt_of_succ_le; exact l_le
+        rw [node_fact_is_prev_fact_union_origin_res] at t_mem
+        unfold ChaseBranch.prev_node at t_mem
+        simp only [eq2] at t_mem
+        rcases t_mem with ⟨f, f_mem, t_mem⟩
+        cases f_mem with
+        | inl f_mem => apply False.elim; apply t_not_mem_prev; exists f
+        | inr f_mem => exists f
+      . intro t_mem
+        rcases t_mem with ⟨f, f_mem, t_mem⟩
+        rcases f_mem with ⟨f', f'_mem, f_eq⟩
+        rw [← f_eq] at t_mem
+        simp [GroundTermMapping.applyFact] at t_mem
+        rcases t_mem with ⟨t', t'_arity_ok, t'_mem, t_eq⟩
+        apply prop_step ((k + 1) * l) _ ⟨t', t'_arity_ok⟩
+        . exists f'; constructor; rw [node_fact_is_prev_fact_union_origin_res]; apply Or.inr; exact f'_mem; exact t'_mem
+        . exact t_eq
+        . apply Nat.le_trans; apply Nat.le_succ; apply Nat.le_mul_of_pos_right; apply Nat.lt_of_succ_le; exact l_le
 
   theorem every_endo_surjective_of_noAltMatch (cb : ChaseBranch obs kb) : ¬ cb.has_alt_match -> ∀ (h : GroundTermMapping sig), h.isHomomorphism cb.result cb.result -> h.surjective_for_domain_and_image_set cb.result.terms cb.result.terms := by
     intro noAltMatch h endo

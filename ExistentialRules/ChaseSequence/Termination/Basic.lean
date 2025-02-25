@@ -87,27 +87,22 @@ section GeneralResults
                   exact e_in_node
                 . intro ex_n'
                   cases ex_n' with | intro n' hn' =>
+                    rw [Option.is_some_and_iff] at hn'
+                    rcases hn' with ⟨node', eq', hn'⟩
+                    have subset := ChaseBranch.stepIsSubsetOfAllFollowing branch n' node' eq' (n-n')
                     have : n' ≤ n := by
                       apply Decidable.byContradiction
                       intro contra
                       simp at contra
                       have contra := h.right n' contra
-                      rw [contra] at hn'
-                      simp [Option.is_some_and] at hn'
-                    have subset := chaseBranchSetIsSubsetOfAllFollowing branch n' (n-n')
-                    cases eq' : branch.branch.infinite_list n' with
-                    | none => rw [eq'] at hn'; simp [Option.is_some_and] at hn'
-                    | some node' =>
-                      rw [eq'] at hn'
-                      simp [Option.is_some_and] at hn'
-                      rw [eq'] at subset
-                      simp at subset
-                      have : n' + (n - n') = n := by apply Nat.add_sub_of_le; exact this
-                      rw [this] at subset
-                      rw [eq] at subset
-                      simp [Option.is_none_or] at subset
-                      apply subset
-                      exact hn'
+                      rw [contra] at eq'
+                      simp at eq'
+                    have : n' + (n - n') = n := by apply Nat.add_sub_of_le; exact this
+                    rw [this] at subset
+                    rw [eq] at subset
+                    simp [Option.is_none_or] at subset
+                    apply subset
+                    exact hn'
       . intro h
         rcases h with ⟨l, h⟩
         unfold ChaseBranch.result at h
@@ -141,12 +136,10 @@ section GeneralResults
               constructor
               . rw [eq_n_hd] at h; simp [Option.is_some_and] at h
                 exact h
-              . have subs_following := chaseBranchSetIsSubsetOfAllFollowing branch n_ih (n_hd - n_ih)
-                rw [eq_n_ih] at subs_following
-                simp at subs_following
+              . have subs_following := ChaseBranch.stepIsSubsetOfAllFollowing branch n_ih _ eq_n_ih (n_hd - n_ih)
                 rw [Nat.add_sub_of_le n_ih_le_n_hd] at subs_following
                 rw [eq_n_hd] at subs_following
-                simp [Option.is_none_or] at subs_following
+                simp only [Option.is_none_or] at subs_following
                 intro e e_mem_tl
                 apply subs_following
                 rw [eq_n_ih] at ih; simp [Option.is_some_and] at ih
@@ -157,12 +150,10 @@ section GeneralResults
               rw [Nat.max_eq_left n_hd_le_n_ih]
               rw [eq_n_ih]; simp [Option.is_some_and]
               constructor
-              . have subs_following := chaseBranchSetIsSubsetOfAllFollowing branch n_hd (n_ih - n_hd)
-                rw [eq_n_hd] at subs_following
-                simp at subs_following
+              . have subs_following := ChaseBranch.stepIsSubsetOfAllFollowing branch n_hd _ eq_n_hd (n_ih - n_hd)
                 rw [Nat.add_sub_of_le n_hd_le_n_ih] at subs_following
                 rw [eq_n_ih] at subs_following
-                simp [Option.is_none_or] at subs_following
+                simp only [Option.is_none_or] at subs_following
                 apply subs_following
                 rw [eq_n_hd] at h; simp [Option.is_some_and] at h
                 apply h
