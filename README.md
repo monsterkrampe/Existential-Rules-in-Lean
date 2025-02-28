@@ -6,8 +6,8 @@ and the Chase algorithm
 written up in LEAN 4.
 Mostly, the formalizations are related to my own research.
 
-Broadly speaking, the chase takes a set of rules and an initial of facts (called database) and computes further facts to satisfy all the rules in the most general way.
-This might require infinitely many chase steps. In the presence of disjunctions, the chase is branching out to produce a set of facts sets to capture all "possible worlds".
+Broadly speaking, the chase takes a set of rules and an initial set of facts (called database) and computes further facts to satisfy all the rules in the most general way.
+This might require infinitely many "chase steps". In the presence of disjunctions, the chase is branching out to produce a set of fact sets to capture all "possible worlds".
 
 More specifically, this repo contains a generalized formalization of the chase on disjunctive existential rules in `ExistentialRules/ChaseSequence`.
 The definition captures both the skolem and restricted chase at the same time through a generic `ObsoletenessCondition`.
