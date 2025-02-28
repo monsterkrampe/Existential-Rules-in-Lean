@@ -10,7 +10,7 @@ More specifically, this repo contains a generalized formalization of the chase o
 The definition captures both the skolem and restricted chase at the same time through a generic `ObsoletenessCondition`.
 The definition of the chase for disjunctive rules involves (possibly) infinite trees of finite degree formalized [here](https://github.com/monsterkrampe/Possibly-Infinite-Trees).
 
-*Key results that are already formalized include the following:*
+**Key results that are already formalized include the following:**
 - The result of the chase is a universal model set (which is the fundamental property of the algorithm).
 - A chase sequence without alternative matches on rules without disjunctions yields a universal model that is a core. (Section 3 of [this paper](https://iccl.inf.tu-dresden.de/web/Inproceedings3249))
 - If a rule set is model-faithful acyclic (MFA), then every chase sequence on every database terminates. (The formalization is inspired by Section 3.1 in [this paper](https://iccl.inf.tu-dresden.de/web/Inproceedings3348); MFA was originally introduced [here](https://arxiv.org/abs/1406.4110).)
