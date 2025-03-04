@@ -83,16 +83,16 @@ namespace PreTrigger
 
   def mapped_body (trg : PreTrigger sig) : List (Fact sig) := trg.subs.apply_function_free_conj trg.rule.body
   def mapped_head (trg : PreTrigger sig) : List (List (Fact sig)) :=
-    trg.rule.head.enum.map (fun (i, h) => h.map (trg.apply_to_function_free_atom i))
+    trg.rule.head.zipIdx.map (fun (h, i) => h.map (trg.apply_to_function_free_atom i))
 
   theorem length_mapped_head (trg : PreTrigger sig) : trg.mapped_head.length = trg.rule.head.length := by
     unfold mapped_head
-    rw [List.length_map, List.length_enum]
+    rw [List.length_map, List.length_zipIdx]
 
   theorem length_each_mapped_head (trg : PreTrigger sig) : ∀ (n : Nat), trg.mapped_head[n]?.map (List.length) = trg.rule.head[n]?.map (List.length) := by
     intro n
     unfold mapped_head
-    simp only [List.getElem?_map, List.getElem?_enum, Option.map_map]
+    simp only [List.getElem?_map, List.getElem?_zipIdx, Option.map_map]
     cases trg.rule.head[n]? <;> simp
 
   def subs_for_mapped_head (trg : PreTrigger sig) (i : Fin trg.mapped_head.length) : GroundSubstitution sig :=
@@ -122,7 +122,7 @@ namespace PreTrigger
     unfold mapped_head
     unfold subs_for_mapped_head
     unfold GroundSubstitution.apply_function_free_conj
-    rw [List.getElem_map, List.getElem_enum, List.map_inj_left]
+    rw [List.getElem_map, List.getElem_zipIdx, List.map_inj_left, Nat.zero_add]
     intros
     apply apply_subs_for_atom_eq trg i
 
@@ -209,7 +209,7 @@ namespace PreTrigger
     conv => right; rw [this]
     unfold mapped_head
     unfold atom_for_result_fact
-    simp only [List.getElem_map, List.getElem_enum]
+    simp only [List.getElem_map, List.getElem_zipIdx, Nat.zero_add]
 
   def var_or_const_for_result_term (trg : PreTrigger sig) {f : Fact sig} {t : GroundTerm sig} (i : Fin trg.mapped_head.length)
       (f_mem : f ∈ trg.mapped_head[i.val]) (t_mem : t ∈ f.terms) : VarOrConst sig :=

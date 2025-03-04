@@ -46,7 +46,7 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
   let obs_for_m_subs := Classical.choose h_head_index_for_m_subs
   let h_obs_at_head_index_for_m_subs := Classical.choose_spec h_head_index_for_m_subs
 
-  let result_index_for_trg : Fin trg.val.mapped_head.length := ⟨head_index_for_m_subs.val, by unfold PreTrigger.mapped_head; simp [List.length_enum_with_lt]; exact head_index_for_m_subs.isLt⟩
+  let result_index_for_trg : Fin trg.val.mapped_head.length := ⟨head_index_for_m_subs.val, by unfold PreTrigger.mapped_head; simp [List.length_zipIdx_with_lt]; exact head_index_for_m_subs.isLt⟩
 
   let next_hom : GroundTermMapping sig := fun t =>
     match t.val with
@@ -83,10 +83,10 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
     constructor
     . exact next_hom_id_const
     have next_node_results_from_trg : next_node.fact = prev_node_unwrapped.fact ∪ trg.val.mapped_head[result_index_for_trg.val].toSet := by
-      have length_eq_helper_1 : trg.val.rule.head.length = trg.val.mapped_head.enum_with_lt.attach.length := by
-        rw [List.length_attach, List.length_enum_with_lt]
+      have length_eq_helper_1 : trg.val.rule.head.length = trg.val.mapped_head.zipIdx_with_lt.attach.length := by
+        rw [List.length_attach, List.length_zipIdx_with_lt]
         unfold PreTrigger.mapped_head
-        rw [List.length_map, List.enum_length]
+        rw [List.length_map, List.length_zipIdx]
       have length_eq_helper_2 : trg_variant_for_m.val.rule.head.length = (ct.tree.children prev_path).length := by
         rw [← trg_result_used_for_next_chase_step, List.length_map]
         exact length_eq_helper_1
@@ -94,7 +94,7 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
       specialize trg_result_used_for_next_chase_step head_index_for_m_subs.val
       have index_valid : head_index_for_m_subs < (ct.tree.children prev_path).length := by rw [← length_eq_helper_2]; exact head_index_for_m_subs.isLt
       rw [List.getElem?_eq_getElem (l:=ct.tree.children prev_path) (i:=head_index_for_m_subs) index_valid] at trg_result_used_for_next_chase_step
-      rw [List.getElem?_eq_getElem (l:=trg.val.mapped_head.enum_with_lt.attach) (i:=head_index_for_m_subs) (by rw [← length_eq_helper_1]; exact head_index_for_m_subs.isLt)] at trg_result_used_for_next_chase_step
+      rw [List.getElem?_eq_getElem (l:=trg.val.mapped_head.zipIdx_with_lt.attach) (i:=head_index_for_m_subs) (by rw [← length_eq_helper_1]; exact head_index_for_m_subs.isLt)] at trg_result_used_for_next_chase_step
       rw [Option.map_some'] at trg_result_used_for_next_chase_step
       injection trg_result_used_for_next_chase_step with trg_result_used_for_next_chase_step
       have : some (ct.tree.children prev_path)[head_index_for_m_subs.val] = some next_node := by
@@ -105,7 +105,7 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
       rw [trg_result_used_for_next_chase_step]
       rw [List.getElem_attach]
       simp only
-      rw [List.get_eq_getElem, List.enum_with_lt_getElem_snd_eq_getElem]
+      rw [List.get_eq_getElem, List.zipIdx_with_lt_getElem_fst_eq_getElem]
     rw [next_node_results_from_trg]
 
     intro mapped_fact fact_in_chase
@@ -460,7 +460,7 @@ theorem inductive_homomorphism_tree_get_path_none_means_layer_empty {ct : ChaseT
           let trg_spec := Classical.choose_spec ex
           rw [← trg_spec.right]
           simp
-          rw [List.length_enum_with_lt]
+          rw [List.length_zipIdx_with_lt]
           apply inductive_homomorphism_with_prev_node_and_trg_latest_index_lt_trg_result_length
           rw [heq]
       ⟩
@@ -612,15 +612,15 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
           constructor
           . exact h.left
           let i : Fin trg.val.mapped_head.length := ⟨((inductive_homomorphism_shortcut (n+1)).val.fst.head (inductive_homomorphism_path_not_empty n)), inductive_homomorphism_latest_index_lt_trg_result_length n node (by rw [← eq]) ex_trg⟩
-          let i' : Fin (ct.tree.children (inductive_homomorphism_shortcut n).val.1).length := ⟨i.val, by rw [← h.right]; simp; rw [List.length_enum_with_lt]; exact i.isLt⟩
+          let i' : Fin (ct.tree.children (inductive_homomorphism_shortcut n).val.1).length := ⟨i.val, by rw [← h.right]; simp; rw [List.length_zipIdx_with_lt]; exact i.isLt⟩
           exists i
           rw [inductive_homomorphism_path_extends_prev]
           rw [← ct.tree.getElem_children_eq_get _ i']
           simp only [← h.right]
           simp
           constructor
-          . rw [List.enum_with_lt_getElem_snd_eq_getElem]
-          . rw [List.enum_with_lt_getElem_fst_eq_index]
+          . rw [List.zipIdx_with_lt_getElem_fst_eq_getElem]
+          . rw [List.zipIdx_with_lt_getElem_snd_eq_index]; constructor <;> rfl
         | inr ex_trg =>
           apply Or.inr
           unfold not_exists_trigger_opt_fs

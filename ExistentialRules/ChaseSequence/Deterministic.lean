@@ -50,7 +50,7 @@ theorem ChaseTree.firstResult_is_in_result (ct : ChaseTree obs kb) : ct.firstRes
                   rw [← trg_ex.right]
                   rw [List.map_eq_nil_iff, List.attach_eq_nil_iff]
                   rw [← List.isEmpty_eq_true, List.isEmpty_iff_length_eq_zero]
-                  rw [List.length_enum_with_lt]
+                  rw [List.length_zipIdx_with_lt]
                   rw [trg.val.length_mapped_head]
                   exact eq2
                 have : node ∈ ct.tree.leaves := by
@@ -71,7 +71,7 @@ theorem ChaseTree.firstResult_is_in_result (ct : ChaseTree obs kb) : ct.firstRes
                   simp
                 have length_aux_2 : 0 < (ct.tree.children (List.repeat 0 n)).length := by
                   rw [← trg_ex.right]
-                  rw [List.length_map, List.length_attach, List.length_enum_with_lt]
+                  rw [List.length_map, List.length_attach, List.length_zipIdx_with_lt]
                   exact length_aux_1
                 exists ⟨0, length_aux_1⟩
                 unfold List.repeat
@@ -79,8 +79,8 @@ theorem ChaseTree.firstResult_is_in_result (ct : ChaseTree obs kb) : ct.firstRes
                 simp only [← trg_ex.right]
                 simp only [Option.some.injEq, List.getElem_map]
                 simp only [ChaseNode.mk.injEq, List.getElem_attach, Subtype.mk.injEq]
-                rw [List.enum_with_lt_getElem_snd_eq_getElem]
-                rw [List.enum_with_lt_getElem_fst_eq_index]
+                rw [List.zipIdx_with_lt_getElem_fst_eq_getElem]
+                rw [List.zipIdx_with_lt_getElem_snd_eq_index]
                 constructor
                 . rfl
                 . rfl
@@ -248,7 +248,7 @@ theorem ChaseTree.firstResult_is_result_when_deterministic (ct : ChaseTree obs k
                   have n_succ_in_ct := Eq.symm n_succ_in_ct
                   rw [List.getElem?_eq_some_iff] at n_succ_in_ct
                   cases n_succ_in_ct with | intro isLt n_succ_in_ct =>
-                    rw [List.length_map, List.length_attach, List.length_enum_with_lt] at isLt
+                    rw [List.length_map, List.length_attach, List.length_zipIdx_with_lt] at isLt
                     rw [PreTrigger.length_mapped_head] at isLt
                     unfold KnowledgeBase.isDeterministic at h_deterministic
                     unfold RuleSet.isDeterministic at h_deterministic
@@ -521,7 +521,7 @@ def ChaseBranch.intoTree (cb : ChaseBranch obs kb) (deterministic : kb.isDetermi
                 rw [FiniteDegreeTree.getElem_children_eq_getElem_lifted_children]
                 rw [PossiblyInfiniteTree.getElem_children_eq_get]
                 unfold PossiblyInfiniteTree.get
-                rw [List.getElem?_eq_getElem (by rw [List.length_attach, List.length_enum_with_lt]; rw [res_length]; simp)]
+                rw [List.getElem?_eq_getElem (by rw [List.length_attach, List.length_zipIdx_with_lt]; rw [res_length]; simp)]
                 have : (0::l).all (fun e => e = 0) = true := by
                   rw [List.all_cons, eq]
                   simp
@@ -529,15 +529,15 @@ def ChaseBranch.intoTree (cb : ChaseBranch obs kb) (deterministic : kb.isDetermi
                 rw [← trg_result]
                 simp only [Option.map_some', Option.some.injEq, List.getElem_attach, ChaseNode.mk.injEq]
                 constructor
-                . rw [Subtype.mk.injEq, i_eq, List.enum_with_lt_getElem_snd_eq_getElem]
-                . rw [i_eq, List.enum_with_lt_getElem_fst_eq_index]
+                . rw [Subtype.mk.injEq, i_eq, List.zipIdx_with_lt_getElem_fst_eq_getElem]
+                . rw [i_eq, List.zipIdx_with_lt_getElem_snd_eq_index]
               | succ j =>
                 rw [FiniteDegreeTree.getElem_children_eq_getElem_lifted_children]
                 rw [PossiblyInfiniteTree.getElem_children_eq_get]
                 unfold PossiblyInfiniteTree.get
                 rw [List.getElem?_eq_none]
                 . simp
-                . rw [List.length_attach, List.length_enum_with_lt, res_length]
+                . rw [List.length_attach, List.length_zipIdx_with_lt, res_length]
                   simp
           | inr cb_trgs =>
             apply Or.inr

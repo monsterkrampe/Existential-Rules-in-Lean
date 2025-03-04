@@ -223,12 +223,12 @@ namespace StrictConstantMapping
     apply List.ext_getElem
     . rw [List.length_map]
       rw [List.length_map]
-      rw [List.length_enum]
-      rw [List.length_enum]
+      rw [List.length_zipIdx]
+      rw [List.length_zipIdx]
       unfold apply_rule
       rw [List.length_map]
     . intro n n_le1 n_le2
-      simp only [List.getElem_map, List.getElem_enum]
+      simp only [List.getElem_map, List.getElem_zipIdx]
       apply List.map_eq_of_eq
       apply List.filter_eq_of_eq
       unfold apply_rule
@@ -728,7 +728,7 @@ namespace KnowledgeBase
         rcases f_mem with ⟨i, f_mem⟩
         rw [List.getElem_map, List.mem_map] at f_mem
         rcases f_mem with ⟨a, a_mem, f_mem⟩
-        rw [List.get_eq_getElem, List.getElem_enum] at a_mem
+        rw [List.get_eq_getElem, List.getElem_zipIdx] at a_mem
         apply Or.inl
         exists trg.val.rule
         constructor
@@ -769,7 +769,7 @@ namespace KnowledgeBase
         rcases f_mem with ⟨i, f_mem⟩
         rw [List.getElem_map, List.mem_map] at f_mem
         rcases f_mem with ⟨a, a_mem, f_mem⟩
-        rw [List.get_eq_getElem, List.getElem_enum] at a_mem
+        rw [List.get_eq_getElem, List.getElem_zipIdx] at a_mem
 
         -- NOTE: heavily inspired by: constantsInChaseBranchAreFromDatabase
 
@@ -893,7 +893,7 @@ namespace KnowledgeBase
         rcases f_mem with ⟨i, f_mem⟩
         rw [List.getElem_map, List.mem_map] at f_mem
         rcases f_mem with ⟨a, a_mem, f_mem⟩
-        rw [List.get_eq_getElem, List.getElem_enum] at a_mem
+        rw [List.get_eq_getElem, List.getElem_zipIdx] at a_mem
 
         unfold Fact.function_symbols at func_mem
         rw [List.mem_flatMap] at func_mem
@@ -944,9 +944,9 @@ namespace KnowledgeBase
               . exact trg.property
               . unfold Rule.skolem_functions
                 rw [List.mem_flatMap]
-                exists (i, trg.val.rule.head[i])
+                exists (trg.val.rule.head[i], i)
                 constructor
-                . rw [List.mem_enum_iff_getElem?]
+                . rw [List.mem_zipIdx_iff_getElem?]
                   simp
                 . rw [func_mem]
                   simp

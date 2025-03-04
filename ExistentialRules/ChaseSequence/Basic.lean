@@ -39,11 +39,11 @@ def exists_trigger_opt_fs (obs : ObsoletenessCondition sig) (rules : RuleSet sig
   } = after
 
 def exists_trigger_list_condition (obs : ObsoletenessCondition sig) (rules : RuleSet sig) (before : ChaseNode obs rules) (after : List (ChaseNode obs rules)) (trg : RTrigger obs rules) : Prop :=
-  trg.val.active before.fact ∧ trg.val.mapped_head.enum_with_lt.attach.map (fun ⟨⟨i, head⟩, h⟩ => {
+  trg.val.active before.fact ∧ trg.val.mapped_head.zipIdx_with_lt.attach.map (fun ⟨⟨head, i⟩, h⟩ => {
     fact := ⟨
       before.fact ∪ head.toSet,
       by
-        rw [List.mk_mem_enum_with_lt_iff_getElem] at h
+        rw [List.mk_mem_zipIdx_with_lt_iff_getElem] at h
         rcases before.fact.property with ⟨l_before, _, l_eq⟩
         let new_list := (l_before ++ trg.val.mapped_head[i.val]).eraseDupsKeepRight
         exists new_list
@@ -60,7 +60,7 @@ def exists_trigger_list_condition (obs : ObsoletenessCondition sig) (rules : Rul
     ⟩
     origin := some ⟨trg, i⟩
     fact_contains_origin_result := by
-      have : head = trg.val.mapped_head[i.val] := by rw [List.mk_mem_enum_with_lt_iff_getElem] at h; rw [h]
+      have : head = trg.val.mapped_head[i.val] := by rw [List.mk_mem_zipIdx_with_lt_iff_getElem] at h; rw [h]
       simp only [Option.is_none_or]
       apply Set.subset_union_of_subset_right
       rw [this]
@@ -666,13 +666,13 @@ namespace ChaseTree
       have i_lt : i < trg.val.mapped_head.length := by
         have : trg.val.mapped_head.length = (ct.tree.children path).length := by
           rw [← trg_eq]
-          rw [List.length_map, List.length_attach, List.length_enum_with_lt]
+          rw [List.length_map, List.length_attach, List.length_zipIdx_with_lt]
         rw [this]
         exact i_fin.isLt
-      have origin_eq : node.origin.get (by simp [this]) = ⟨trg, ⟨i, i_lt⟩⟩ := by simp only [this]; simp [List.enum_with_lt_getElem_fst_eq_index i_lt]
+      have origin_eq : node.origin.get (by simp [this]) = ⟨trg, ⟨i, i_lt⟩⟩ := by simp only [this]; simp [List.zipIdx_with_lt_getElem_snd_eq_index i_lt]
       have idx_eq : (node.origin.get (by simp [this])).snd.val = i := by rw [origin_eq]
       simp only [this]
-      simp [List.enum_with_lt_getElem_snd_eq_getElem i_lt, idx_eq]
+      simp [List.zipIdx_with_lt_getElem_fst_eq_getElem i_lt, idx_eq]
     | inr trg_ex =>
       unfold not_exists_trigger_list at trg_ex
       have := ct.tree.each_successor_none_of_children_empty _ trg_ex.right i

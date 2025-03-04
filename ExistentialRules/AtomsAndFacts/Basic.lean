@@ -132,7 +132,7 @@ namespace Rule
 
   def head_constants (r : Rule sig) : List sig.C := r.head.flatMap (fun conj => conj.consts)
 
-  def skolem_functions (r : Rule sig) : List (SkolemFS sig) := r.head.enum.flatMap (fun (i, head) =>
+  def skolem_functions (r : Rule sig) : List (SkolemFS sig) := r.head.zipIdx.flatMap (fun (head, i) =>
     (head.vars.filter (fun v => !(v ∈ r.frontier))).map (fun v => { ruleId := r.id, disjunctIndex := i, var := v, arity := r.frontier.length })
   )
 
