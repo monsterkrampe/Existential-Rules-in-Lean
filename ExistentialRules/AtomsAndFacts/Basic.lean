@@ -237,7 +237,7 @@ namespace FunctionFreeFact
     rw [FunctionFreeFact.mk.injEq]
     constructor
     . simp
-    . rw [List.map_attach, List.pmap_map]
+    . rw [List.map_attach_eq_pmap, List.pmap_map]
       simp [GroundTerm.toConst, GroundTerm.const]
 
 end FunctionFreeFact
@@ -249,7 +249,7 @@ theorem Fact.toFact_after_toFunctionFreeFact_is_id (f : Fact sig) (isFunctionFre
   rw [Fact.mk.injEq]
   constructor
   . simp
-  . simp only [List.map_attach]
+  . simp only [List.map_attach_eq_pmap]
     apply List.ext_get
     . simp
     intro n _ _

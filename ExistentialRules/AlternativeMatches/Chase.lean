@@ -40,7 +40,7 @@ namespace ChaseBranch
     intro noAltMatch h_0 h_0_hom
     apply Classical.byContradiction
     intro contra
-    rw [Classical.not_and_iff_or_not_not] at contra
+    rw [Classical.not_and_iff_not_or_not] at contra
 
     have : ∀ k, (cb.branch.infinite_list k).is_none_or (fun node => ∃ (h_k : GroundTermMapping sig), (h_k.isHomomorphism cb.result cb.result) ∧ ((∀ (f : Fact sig), (∀ (t : GroundTerm sig), t ∈ f.terms -> t ∈ cb.result.terms) -> ¬ f ∈ cb.result -> h_0.applyFact f ∈ cb.result -> h_k.applyFact f ∈ cb.result) ∧ (∀ s t, s ∈ cb.result.terms -> t ∈ cb.result.terms -> s ≠ t -> h_0 s = h_0 t -> h_k s = h_k t)) ∧ (∀ t, t ∈ node.fact.val.terms -> h_k t = t)) := by
       intro k
@@ -672,7 +672,7 @@ namespace ChaseBranch
         rw [Nat.sub_one_add_one]
         apply Nat.mul_ne_zero
         . simp
-        . apply Nat.not_eq_zero_of_lt; apply Nat.lt_of_succ_le; exact l_le
+        . apply Nat.ne_zero_of_lt; apply Nat.lt_of_succ_le; exact l_le
       have : h.repeat_hom ((k + 1) * l) = h.repeat_hom (((k + 1) * l) - 1) ∘ h := by
         apply funext
         intro t
@@ -789,7 +789,7 @@ namespace ChaseBranch
     . have repeat_add := h.repeat_hom_add 1 (j - 1) ⟨t, t_arity_ok⟩
       conv at repeat_add => right; simp [GroundTermMapping.repeat_hom]
       rw [← repeat_add]
-      rw [Nat.add_comm, Nat.sub_one_add_one (Nat.not_eq_zero_of_lt (Nat.lt_of_succ_le j_le))]
+      rw [Nat.add_comm, Nat.sub_one_add_one (Nat.ne_zero_of_lt (Nat.lt_of_succ_le j_le))]
       exact eq
 
   theorem result_isStrongCore_of_noAltMatch (cb : ChaseBranch obs kb) (det : kb.isDeterministic) : ¬ cb.has_alt_match -> cb.result.isStrongCore := by
@@ -879,7 +879,7 @@ namespace ChaseBranch
             simp
             have : h t = h.repeat_hom 1 t := by simp [GroundTermMapping.repeat_hom]
             rw [this, ← h.repeat_hom_add]
-            rw [Nat.sub_one_add_one (Nat.not_eq_zero_of_lt (Nat.lt_of_succ_le j_le))]
+            rw [Nat.sub_one_add_one (Nat.ne_zero_of_lt (Nat.lt_of_succ_le j_le))]
           rw [this]
           apply GroundTermMapping.isHomomorphism_compose h (h.repeat_hom (j-1)) fs sub_fs sub_fs
           . exact hom

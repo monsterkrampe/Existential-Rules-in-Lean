@@ -677,9 +677,7 @@ variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq 
 def DeterministicSkolemObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] : LaxObsoletenessCondition sig := {
   cond := fun (trg : PreTrigger sig) (F : FactSet sig) => ∀ i : Fin trg.mapped_head.length, trg.mapped_head[i.val].toSet ⊆ F
   monotone := by
-    intro trg A B A_sub_B
-    simp
-    intro head_sub_A i
+    intro trg A B A_sub_B head_sub_A i
     apply Set.subset_trans
     . apply head_sub_A
     . apply A_sub_B

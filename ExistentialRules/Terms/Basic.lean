@@ -112,7 +112,7 @@ namespace GroundTerm
         unfold GroundTerm.func
         simp [eq, ts]
         unfold List.unattach
-        rw [List.map_map, List.map_attach]
+        rw [List.map_map, List.map_attach_eq_pmap]
         simp [FiniteTreeList.toListFromListIsId]
       exact eq ▸ (func f ts arity_ok)
 
@@ -149,7 +149,7 @@ namespace GroundTerm
         unfold GroundTerm.func
         simp [eq_val, ts]
         unfold List.unattach
-        rw [List.map_map, List.map_attach]
+        rw [List.map_map, List.map_attach_eq_pmap]
         simp [FiniteTreeList.toListFromListIsId]
       exact eq ▸ (func f ts arity_ok (by
         intro t' mem

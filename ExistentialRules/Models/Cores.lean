@@ -454,7 +454,7 @@ namespace GroundTermMapping
     rw [← repeat_add]
     rw [Nat.sub_one_add_one]
     . apply repeats_globally; exact t_mem
-    . apply Nat.not_eq_zero_of_lt; apply Nat.lt_of_succ_le; exact le
+    . apply Nat.ne_zero_of_lt; apply Nat.lt_of_succ_le; exact le
 
   theorem repeat_hom_id_on_const (h : GroundTermMapping sig) (idOnConst : h.isIdOnConstants) : ∀ i, (h.repeat_hom i).isIdOnConstants := by
     intro i

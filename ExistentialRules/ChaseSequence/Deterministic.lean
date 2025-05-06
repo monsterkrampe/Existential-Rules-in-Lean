@@ -49,7 +49,7 @@ theorem ChaseTree.firstResult_is_in_result (ct : ChaseTree obs kb) : ct.firstRes
                 have : ct.tree.children (List.repeat 0 n) = [] := by
                   rw [← trg_ex.right]
                   rw [List.map_eq_nil_iff, List.attach_eq_nil_iff]
-                  rw [← List.isEmpty_eq_true, List.isEmpty_iff_length_eq_zero]
+                  rw [← List.isEmpty_iff, List.isEmpty_iff_length_eq_zero]
                   rw [List.length_zipIdx_with_lt]
                   rw [trg.val.length_mapped_head]
                   exact eq2
@@ -406,9 +406,8 @@ def ChaseBranch.intoTree (cb : ChaseBranch obs kb) (deterministic : kb.isDetermi
         no_orphans := by
           intro l
           cases eq : l.all (fun e => e = 0) with
-          | false => simp only [eq]; simp
+          | false => simp
           | true =>
-            simp only [eq]
             intro not_none
             intro parent
             rcases parent.property with ⟨diff, l_eq⟩
