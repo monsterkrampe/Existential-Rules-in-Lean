@@ -749,6 +749,7 @@ theorem DeterministicSkolemObsoleteness.blocks_each_obs (obs : ObsoletenessCondi
     | const c =>
       simp only [StrictConstantMapping.apply_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term, ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, StrictConstantMapping.toConstantMapping, GroundTerm.const]
 
+-- TODO: moving everything related to backtracking to a separate file
 def RTrigger.backtrackFacts {obs : ObsoletenessCondition sig} {rs : RuleSet sig} (trg : RTrigger obs rs) : FactSet sig := sorry
 def GroundSubstitution.rename_constants_apart (subs : GroundSubstitution sig) : GroundSubstitution sig := sorry
 
@@ -765,7 +766,8 @@ def BlockingObsoleteness (obs : ObsoletenessCondition sig) (rs : RuleSet sig) : 
     exact h
 }
 
-theorem BlockingObsoleteness.blocks_corresponding_obs (obs : ObsoletenessCondition sig) (rs : RuleSet sig) (special_const : sig.C) : (BlockingObsoleteness obs rs).blocks_obs obs special_const := by
+theorem BlockingObsoleteness.blocks_corresponding_obs (obs : ObsoletenessCondition sig) (rs : RuleSet sig) (special_const : sig.C) :
+    (BlockingObsoleteness obs rs).blocks_obs obs special_const := by
   intro trg _ fs _ blocked loaded
   simp only [BlockingObsoleteness, RTrigger.blocked_for_backtracking] at blocked
   sorry
@@ -1405,25 +1407,27 @@ namespace RuleSet
             . exact h.right
     ⟩
 
+  def mfaRules (rs : RuleSet sig) (special_const : sig.C) : RuleSet sig := {
+    rules := fun r => ∃ r', r' ∈ rs.rules ∧ r = (UniformConstantMapping sig special_const).apply_rule r'
+    id_unique := by
+      intro r1 r2 h
+      rcases h with ⟨r1_mem, r2_mem, id_eq⟩
+      rcases r1_mem with ⟨r1', r1'_mem, r1_eq⟩
+      rcases r2_mem with ⟨r2', r2'_mem, r2_eq⟩
+      have : r1' = r2' := by
+        apply rs.id_unique
+        constructor
+        . exact r1'_mem
+        constructor
+        . exact r2'_mem
+        rw [r1_eq, r2_eq] at id_eq
+        simp only [StrictConstantMapping.apply_rule] at id_eq
+        exact id_eq
+      rw [r1_eq, this, r2_eq]
+  }
+
   def mfaKb (rs : RuleSet sig) (finite : rs.rules.finite) (special_const : sig.C) : KnowledgeBase sig := {
-    rules := {
-      rules := fun r => ∃ r', r' ∈ rs.rules ∧ r = (UniformConstantMapping sig special_const).apply_rule r'
-      id_unique := by
-        intro r1 r2 h
-        rcases h with ⟨r1_mem, r2_mem, id_eq⟩
-        rcases r1_mem with ⟨r1', r1'_mem, r1_eq⟩
-        rcases r2_mem with ⟨r2', r2'_mem, r2_eq⟩
-        have : r1' = r2' := by
-          apply rs.id_unique
-          constructor
-          . exact r1'_mem
-          constructor
-          . exact r2'_mem
-          rw [r1_eq, r2_eq] at id_eq
-          simp only [StrictConstantMapping.apply_rule] at id_eq
-          exact id_eq
-        rw [r1_eq, this, r2_eq]
-    }
+    rules := mfaRules rs special_const
     db := criticalInstance rs finite special_const
   }
 
@@ -2044,8 +2048,8 @@ namespace RuleSet
     rs.terminates_of_isMfa rs_finite (DeterministicSkolemObsoleteness sig) (DeterministicSkolemObsoleteness.blocks_each_obs obs default)
 
   theorem terminates_of_isMfa_with_BlockingObsoleteness [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.rules.finite) (obs : ObsoletenessCondition sig) :
-      rs.isMfa rs_finite (BlockingObsoleteness obs rs) -> rs.terminates obs :=
-    rs.terminates_of_isMfa rs_finite (BlockingObsoleteness obs rs) (BlockingObsoleteness.blocks_corresponding_obs obs rs default)
+      rs.isMfa rs_finite (BlockingObsoleteness obs (mfaRules rs default)) -> rs.terminates obs :=
+    rs.terminates_of_isMfa rs_finite (BlockingObsoleteness obs (mfaRules rs default)) (BlockingObsoleteness.blocks_corresponding_obs obs (mfaRules rs default) default)
 
 end RuleSet
 
