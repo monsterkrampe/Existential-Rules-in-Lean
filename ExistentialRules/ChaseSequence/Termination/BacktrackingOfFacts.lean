@@ -157,17 +157,18 @@ mutual
       (term_arity_ok : PreGroundTerm.arity_ok term)
       (term_ruleIds_valid : PreGroundTerm.skolem_ruleIds_valid rl term)
       (term_disjIdx_valid : PreGroundTerm.skolem_disjIdx_valid rl term term_ruleIds_valid)
-      (term_rule_arity_valid : PreGroundTerm.skolem_rule_arity_valid rl term term_ruleIds_valid) :
-      -- we return the backtracked facts and all the constants that have already been used (as a basis for picking fresh ones)
+      (term_rule_arity_valid : PreGroundTerm.skolem_rule_arity_valid rl term term_ruleIds_valid)
+      (forbidden_constants : List sig.C) :
+      -- we return the backtracked facts and all the constants that have been freshly introduced (as a basis for picking other fresh ones)
       (List (Fact sig)) × (List sig.C) :=
     match term with
-    | .leaf c => ([], [c])
+    | .leaf c => ([], [])
     | .inner func ts =>
-      let recursive_result := PreGroundTerm.backtrackFacts_list rl ts (Bool.and_eq_true_iff.mp term_arity_ok).right term_ruleIds_valid.right term_disjIdx_valid.right term_rule_arity_valid.right
+      let recursive_result := PreGroundTerm.backtrackFacts_list rl ts (Bool.and_eq_true_iff.mp term_arity_ok).right term_ruleIds_valid.right term_disjIdx_valid.right term_rule_arity_valid.right forbidden_constants
 
       let rule : Rule sig := rl.get_by_id func.ruleId term_ruleIds_valid.left
       let pure_body_vars := rule.body.vars.filter (fun x => x ∉ rule.frontier)
-      let fresh_consts_for_pure_body_vars := GetFreshRepresentant.fresh_n recursive_result.snd pure_body_vars.length
+      let fresh_consts_for_pure_body_vars := GetFreshRepresentant.fresh_n (forbidden_constants ++ recursive_result.snd) pure_body_vars.length
 
       let subs : GroundSubstitution sig := fun x =>
         if mem : x ∈ rule.frontier
@@ -210,12 +211,14 @@ mutual
       (terms_arity_ok : PreGroundTerm.arity_ok_list terms)
       (terms_ruleIds_valid : PreGroundTerm.skolem_ruleIds_valid_list rl terms)
       (terms_disjIdx_valid : PreGroundTerm.skolem_disjIdx_valid_list rl terms terms_ruleIds_valid)
-      (terms_rule_arity_valid : PreGroundTerm.skolem_rule_arity_valid_list rl terms terms_ruleIds_valid) : (List (Fact sig)) × (List sig.C) :=
+      (terms_rule_arity_valid : PreGroundTerm.skolem_rule_arity_valid_list rl terms terms_ruleIds_valid)
+      (forbidden_constants : List sig.C) : (List (Fact sig)) × (List sig.C) :=
     match terms with
     | .nil => ([], [])
     | .cons t ts =>
-      let t_res := PreGroundTerm.backtrackFacts rl t (Bool.and_eq_true_iff.mp terms_arity_ok).left terms_ruleIds_valid.left terms_disjIdx_valid.left terms_rule_arity_valid.left
-      let ts_res := PreGroundTerm.backtrackFacts_list rl ts (Bool.and_eq_true_iff.mp terms_arity_ok).right terms_ruleIds_valid.right terms_disjIdx_valid.right terms_rule_arity_valid.right
+      let t_res := PreGroundTerm.backtrackFacts rl t (Bool.and_eq_true_iff.mp terms_arity_ok).left terms_ruleIds_valid.left terms_disjIdx_valid.left terms_rule_arity_valid.left forbidden_constants
+
+      let ts_res := PreGroundTerm.backtrackFacts_list rl ts (Bool.and_eq_true_iff.mp terms_arity_ok).right terms_ruleIds_valid.right terms_disjIdx_valid.right terms_rule_arity_valid.right (forbidden_constants ++ t_res.snd)
       (t_res.fst ++ ts_res.fst, t_res.snd ++ ts_res.snd)
 
 end
@@ -227,8 +230,9 @@ def GroundTerm.backtrackFacts
     (term : GroundTerm sig)
     (term_ruleIds_valid : term.skolem_ruleIds_valid rl)
     (term_disjIdx_valid : term.skolem_disjIdx_valid rl term_ruleIds_valid)
-    (term_rule_arity_valid : term.skolem_rule_arity_valid rl term_ruleIds_valid) : List (Fact sig) :=
-  (PreGroundTerm.backtrackFacts rl term.val term.property term_ruleIds_valid term_disjIdx_valid term_rule_arity_valid).fst
+    (term_rule_arity_valid : term.skolem_rule_arity_valid rl term_ruleIds_valid)
+    (forbidden_constants : List sig.C) : (List (Fact sig)) × (List sig.C) :=
+  PreGroundTerm.backtrackFacts rl term.val term.property term_ruleIds_valid term_disjIdx_valid term_rule_arity_valid forbidden_constants
 
 
 
@@ -548,5 +552,10 @@ def PreTrigger.backtrackFacts
     (trg_ruleIds_valid : trg.skolem_ruleIds_valid rl)
     (trg_disjIdx_valid : trg.skolem_disjIdx_valid rl trg_ruleIds_valid)
     (trg_rule_arity_valid : trg.skolem_rule_arity_valid rl trg_ruleIds_valid) : List (Fact sig) :=
-  trg.mapped_body ++ ((trg.mapped_body.flatMap Fact.terms).attach.flatMap (fun ⟨t, h⟩ => t.backtrackFacts rl (trg_ruleIds_valid t h) (trg_disjIdx_valid t h) (trg_rule_arity_valid t h)))
+  let forbidden_constants := trg.mapped_body.flatMap Fact.constants
+  let backtrack_result : (List (Fact sig)) × (List sig.C) := (trg.mapped_body.flatMap Fact.terms).attach.foldl (fun acc ⟨t, h⟩ =>
+    let result_for_t := t.backtrackFacts rl (trg_ruleIds_valid t h) (trg_disjIdx_valid t h) (trg_rule_arity_valid t h) (forbidden_constants ++ acc.snd)
+    (acc.fst ++ result_for_t.fst, acc.snd ++ result_for_t.snd)
+  ) ([], [])
+  trg.mapped_body ++ backtrack_result.fst
 
