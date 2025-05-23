@@ -1,6 +1,8 @@
 import BasicLeanDatastructures.List.Repeat
 
 import ExistentialRules.ChaseSequence.Termination.Basic
+import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts
+import ExistentialRules.ChaseSequence.Termination.RenameConstantsApart
 import ExistentialRules.Terms.Cyclic
 
 section Defs
@@ -679,12 +681,22 @@ structure MfaObsoletenessCondition (sig : Signature) [DecidableEq sig.P] [Decida
 instance {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] : Coe (MfaObsoletenessCondition sig) (LaxObsoletenessCondition sig) where
   coe obs := { cond := obs.cond, monotone := obs.monotone }
 
-def MfaObsoletenessCondition.blocks_obs (mfa_obs : MfaObsoletenessCondition sig) (obs : ObsoletenessCondition sig) (special_const : sig.C) : Prop :=
-  ∀ (trg : PreTrigger sig) (fs fs2 : FactSet sig),
-  (∃ (i : Fin trg.mapped_head.length), ¬ ((UniformConstantMapping sig special_const).toConstantMapping.apply_fact_set trg.mapped_head[i.val].toSet) ⊆ fs) ->
-  (mfa_obs.cond { rule := (UniformConstantMapping sig special_const).apply_rule trg.rule, subs := (UniformConstantMapping sig special_const).toConstantMapping.apply_ground_term ∘ trg.subs } fs) ->
-  trg.loaded fs2 ->
-  obs.cond trg fs2
+-- TODO: remove once adjusted version (below) works
+/- def MfaObsoletenessCondition.blocks_obs (mfa_obs : MfaObsoletenessCondition sig) (obs : ObsoletenessCondition sig) (special_const : sig.C) : Prop := -/
+/-   ∀ (trg : PreTrigger sig) (fs fs2 : FactSet sig), -/
+/-   (∃ (i : Fin trg.mapped_head.length), ¬ ((UniformConstantMapping sig special_const).toConstantMapping.apply_fact_set trg.mapped_head[i.val].toSet) ⊆ fs) -> -/
+/-   (mfa_obs.cond { rule := (UniformConstantMapping sig special_const).apply_rule trg.rule, subs := (UniformConstantMapping sig special_const).toConstantMapping.apply_ground_term ∘ trg.subs } fs) -> -/
+/-   trg.loaded fs2 -> -/
+/-   obs.cond trg fs2 -/
+
+def MfaObsoletenessCondition.blocks_obs (mfa_obs : MfaObsoletenessCondition sig) (obs : ObsoletenessCondition sig) (rs : RuleSet sig) (special_const : sig.C) : Prop :=
+  ∀ {db : Database sig} (cb : ChaseBranch obs ⟨db, rs⟩) (step : Nat) (trg : RTrigger obs rs) (fs : FactSet sig),
+  (∃ (i : Fin trg.val.mapped_head.length), ¬ ((UniformConstantMapping sig special_const).toConstantMapping.apply_fact_set trg.val.mapped_head[i.val].toSet) ⊆ fs) ->
+  (mfa_obs.cond { rule := (UniformConstantMapping sig special_const).apply_rule trg.val.rule, subs := (UniformConstantMapping sig special_const).toConstantMapping.apply_ground_term ∘ trg.val.subs } fs) ->
+  (cb.branch.infinite_list step).is_none_or (fun node =>
+    trg.val.loaded node.fact ->
+    obs.cond trg.val node.fact
+  )
 
 def DeterministicSkolemObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] : MfaObsoletenessCondition sig := {
   cond := fun (trg : PreTrigger sig) (F : FactSet sig) => trg.mapped_head.length > 0 ∧ ∀ i : Fin trg.mapped_head.length, trg.mapped_head[i.val].toSet ⊆ F
@@ -700,8 +712,8 @@ def DeterministicSkolemObsoleteness (sig : Signature) [DecidableEq sig.P] [Decid
       . apply A_sub_B
 }
 
-theorem DeterministicSkolemObsoleteness.blocks_each_obs (obs : ObsoletenessCondition sig) (special_const : sig.C) : (DeterministicSkolemObsoleteness sig).blocks_obs obs special_const := by
-  intro trg fs _ f_not_in_prev cond
+theorem DeterministicSkolemObsoleteness.blocks_each_obs (obs : ObsoletenessCondition sig) (special_const : sig.C) : ∀ rs, (DeterministicSkolemObsoleteness sig).blocks_obs obs rs special_const := by
+  intro _ _ _ _ trg fs f_not_in_prev cond
   rcases f_not_in_prev with ⟨disj_index, f_not_in_prev⟩
   apply False.elim
   apply f_not_in_prev
@@ -749,16 +761,23 @@ theorem DeterministicSkolemObsoleteness.blocks_each_obs (obs : ObsoletenessCondi
     | const c =>
       simp only [StrictConstantMapping.apply_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term, ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, StrictConstantMapping.toConstantMapping, GroundTerm.const]
 
--- TODO: moving everything related to backtracking to a separate file
-def RTrigger.backtrackFacts {obs : ObsoletenessCondition sig} {rs : RuleSet sig} (trg : RTrigger obs rs) : FactSet sig := sorry
-def GroundSubstitution.rename_constants_apart (subs : GroundSubstitution sig) : GroundSubstitution sig := sorry
+def Trigger.blocked_for_backtracking
+    [GetFreshRepresentant sig.C]
+    [Inhabited sig.C]
+    {obs : LaxObsoletenessCondition sig}
+    (trg : Trigger obs)
+    (rs : RuleSet sig) : Prop :=
+  ∀ (rl : RuleList sig), (∀ r, r ∈ rl.rules ↔ r ∈ rs.rules)
+  -> (trg_ruleIds_valid : trg.skolem_ruleIds_valid rl)
+  -> (trg_disjIdx_valid : trg.skolem_disjIdx_valid rl trg_ruleIds_valid)
+  -> (trg_rule_arity_valid : trg.skolem_rule_arity_valid rl trg_ruleIds_valid)
+  -> (obs.cond trg (trg.backtrackFacts rl trg_ruleIds_valid trg_disjIdx_valid trg_rule_arity_valid).toSet)
 
-def RTrigger.blocked_for_backtracking {obs : ObsoletenessCondition sig} {rs : RuleSet sig} (trg : RTrigger obs rs) : Prop :=
-  obs.cond trg.val trg.backtrackFacts
-
-def BlockingObsoleteness (obs : ObsoletenessCondition sig) (rs : RuleSet sig) : MfaObsoletenessCondition sig := {
+def BlockingObsoleteness [GetFreshRepresentant sig.C] [Inhabited sig.C] (obs : ObsoletenessCondition sig) (rs : RuleSet sig) : MfaObsoletenessCondition sig := {
   cond := fun (trg : PreTrigger sig) _ =>
-    (h : trg.rule ∈ rs.rules) -> (RTrigger.blocked_for_backtracking ⟨{ rule := trg.rule, subs := trg.subs.rename_constants_apart : Trigger obs }, h⟩)
+    let trg' := trg.rename_constants_apart
+    let trg'' : Trigger obs := { rule := trg'.rule, subs := trg'.subs }
+    trg''.blocked_for_backtracking rs
   monotone := by
     -- trivial since the condition does not depend on the passed fact set
     intro trg A B A_sub_B
@@ -766,10 +785,12 @@ def BlockingObsoleteness (obs : ObsoletenessCondition sig) (rs : RuleSet sig) : 
     exact h
 }
 
-theorem BlockingObsoleteness.blocks_corresponding_obs (obs : ObsoletenessCondition sig) (rs : RuleSet sig) (special_const : sig.C) :
-    (BlockingObsoleteness obs rs).blocks_obs obs special_const := by
-  intro trg _ fs _ blocked loaded
-  simp only [BlockingObsoleteness, RTrigger.blocked_for_backtracking] at blocked
+theorem BlockingObsoleteness.blocks_corresponding_obs [GetFreshRepresentant sig.C] [Inhabited sig.C] (obs : ObsoletenessCondition sig) (rs : RuleSet sig) (special_const : sig.C) :
+    (BlockingObsoleteness obs rs).blocks_obs obs rs special_const := by
+  intro db cb step trg _ _ blocked
+  rw [Option.is_none_or_iff]
+  intro node eq_node loaded
+  simp only [BlockingObsoleteness, Trigger.blocked_for_backtracking] at blocked
   sorry
 
 namespace KnowledgeBase
@@ -1482,7 +1503,7 @@ namespace RuleSet
   def mfaSet (rs : RuleSet sig) (finite : rs.rules.finite) (special_const : sig.C) (obs : MfaObsoletenessCondition sig) : FactSet sig :=
     (rs.mfaKb finite special_const).deterministicSkolemChaseResult obs
 
-  theorem mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_predicates_not_from_rs (rs : RuleSet sig) (finite : rs.rules.finite) (special_const : sig.C) (mfa_obs : MfaObsoletenessCondition sig) : ∀ {db : Database sig} {obs : ObsoletenessCondition sig}, (mfa_obs.blocks_obs obs special_const) -> ∀ (cb : ChaseBranch obs { rules := rs, db := db }) (n : Nat), (cb.branch.infinite_list n).is_none_or (fun node => ∀ f, f.predicate ∈ rs.predicates -> f ∈ node.fact.val -> ((UniformConstantMapping sig special_const).toConstantMapping.apply_fact f) ∈ (rs.mfaSet finite special_const mfa_obs)) := by
+  theorem mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_predicates_not_from_rs (rs : RuleSet sig) (finite : rs.rules.finite) (special_const : sig.C) (mfa_obs : MfaObsoletenessCondition sig) : ∀ {db : Database sig} {obs : ObsoletenessCondition sig}, (mfa_obs.blocks_obs obs rs special_const) -> ∀ (cb : ChaseBranch obs { rules := rs, db := db }) (n : Nat), (cb.branch.infinite_list n).is_none_or (fun node => ∀ f, f.predicate ∈ rs.predicates -> f ∈ node.fact.val -> ((UniformConstantMapping sig special_const).toConstantMapping.apply_fact f) ∈ (rs.mfaSet finite special_const mfa_obs)) := by
     intro db obs blocks cb n
     induction n with
     | zero =>
@@ -1602,8 +1623,8 @@ namespace RuleSet
             exact f_mem
           )
 
-          rcases this with ⟨n, this⟩
-          exists n
+          rcases this with ⟨m, this⟩
+          exists m
           intro f f_pred f_mem
           specialize this f (by
             rw [prev_l_eq]
@@ -1614,8 +1635,8 @@ namespace RuleSet
           )
           exact this
 
-        rcases this with ⟨n, prev_node_subs_parallel_chase⟩
-        exists (n+1)
+        rcases this with ⟨m, prev_node_subs_parallel_chase⟩
+        exists (m+1)
         unfold KnowledgeBase.parallelSkolemChase
         simp only [Set.element]
 
@@ -1693,7 +1714,7 @@ namespace RuleSet
                 exact f_pred
               . exact f'_mem
           . intro contra
-            have contra := blocks _ _ prev_node.fact.val (by
+            have contra := blocks cb n trg _ (by
               exists disj_index
               intro contra
               apply f_not_in_prev
@@ -1701,6 +1722,8 @@ namespace RuleSet
               apply ConstantMapping.apply_fact_mem_apply_fact_set_of_mem
               exact f_mem
             ) contra
+            rw [ChaseBranch.prev_node_eq _ _ (by simp [eq_node])] at contra
+            simp only [Option.is_none_or] at contra
             specialize contra (cb.origin_trg_is_active _ _ eq_node).left
 
             apply (cb.origin_trg_is_active _ _ eq_node).right
@@ -1746,7 +1769,7 @@ namespace RuleSet
             | const c =>
               simp only [StrictConstantMapping.apply_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term, ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, StrictConstantMapping.toConstantMapping, GroundTerm.const]
 
-  theorem filtered_cb_result_subset_mfaSet (rs : RuleSet sig) (finite : rs.rules.finite) (special_const : sig.C) (mfa_obs : MfaObsoletenessCondition sig) : ∀ {db : Database sig} {obs : ObsoletenessCondition sig}, (mfa_obs.blocks_obs obs special_const) -> ∀ (cb : ChaseBranch obs { rules := rs, db := db }), ((UniformConstantMapping sig special_const).toConstantMapping.apply_fact_set (fun f => f.predicate ∈ rs.predicates ∧ f ∈ cb.result)) ⊆ (rs.mfaSet finite special_const mfa_obs) := by
+  theorem filtered_cb_result_subset_mfaSet (rs : RuleSet sig) (finite : rs.rules.finite) (special_const : sig.C) (mfa_obs : MfaObsoletenessCondition sig) : ∀ {db : Database sig} {obs : ObsoletenessCondition sig}, (mfa_obs.blocks_obs obs rs special_const) -> ∀ (cb : ChaseBranch obs { rules := rs, db := db }), ((UniformConstantMapping sig special_const).toConstantMapping.apply_fact_set (fun f => f.predicate ∈ rs.predicates ∧ f ∈ cb.result)) ⊆ (rs.mfaSet finite special_const mfa_obs) := by
     intro db obs blocks cb f f_mem
 
     rcases f_mem with ⟨f', f'_mem, f_eq⟩
@@ -1765,7 +1788,7 @@ namespace RuleSet
         exact f'_mem
 
   theorem terminates_of_mfaSet_finite [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.rules.finite) (mfa_obs : MfaObsoletenessCondition sig) :
-      ∀ {obs : ObsoletenessCondition sig}, (mfa_obs.blocks_obs obs Inhabited.default) -> (rs.mfaSet rs_finite Inhabited.default mfa_obs).finite -> rs.terminates obs := by
+      ∀ {obs : ObsoletenessCondition sig}, (mfa_obs.blocks_obs obs rs Inhabited.default) -> (rs.mfaSet rs_finite Inhabited.default mfa_obs).finite -> rs.terminates obs := by
     intro obs blocks mfa_finite
     unfold RuleSet.terminates
     intro db
@@ -1898,7 +1921,7 @@ namespace RuleSet
     ∀ t, t ∈ (rs.mfaSet finite default mfa_obs).terms -> ¬ PreGroundTerm.cyclic t.val
 
   theorem terminates_of_isMfa [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.rules.finite) (mfa_obs : MfaObsoletenessCondition sig) :
-      ∀ {obs : ObsoletenessCondition sig}, (mfa_obs.blocks_obs obs Inhabited.default) -> rs.isMfa rs_finite mfa_obs -> rs.terminates obs := by
+      ∀ {obs : ObsoletenessCondition sig}, (mfa_obs.blocks_obs obs rs Inhabited.default) -> rs.isMfa rs_finite mfa_obs -> rs.terminates obs := by
     intro obs blocks isMfa
     apply rs.terminates_of_mfaSet_finite rs_finite mfa_obs blocks
     apply FactSet.finite_of_preds_finite_of_terms_finite
@@ -2045,11 +2068,11 @@ namespace RuleSet
 
   theorem terminates_of_isMfa_with_DeterministicSkolemObsoleteness [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.rules.finite) :
       rs.isMfa rs_finite (DeterministicSkolemObsoleteness sig) -> rs.terminates obs :=
-    rs.terminates_of_isMfa rs_finite (DeterministicSkolemObsoleteness sig) (DeterministicSkolemObsoleteness.blocks_each_obs obs default)
+    rs.terminates_of_isMfa rs_finite (DeterministicSkolemObsoleteness sig) (DeterministicSkolemObsoleteness.blocks_each_obs obs default rs)
 
-  theorem terminates_of_isMfa_with_BlockingObsoleteness [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.rules.finite) (obs : ObsoletenessCondition sig) :
-      rs.isMfa rs_finite (BlockingObsoleteness obs (mfaRules rs default)) -> rs.terminates obs :=
-    rs.terminates_of_isMfa rs_finite (BlockingObsoleteness obs (mfaRules rs default)) (BlockingObsoleteness.blocks_corresponding_obs obs (mfaRules rs default) default)
+  theorem terminates_of_isMfa_with_BlockingObsoleteness [GetFreshRepresentant sig.C] [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.rules.finite) (obs : ObsoletenessCondition sig) :
+      rs.isMfa rs_finite (BlockingObsoleteness obs rs) -> rs.terminates obs :=
+    rs.terminates_of_isMfa rs_finite (BlockingObsoleteness obs rs) (BlockingObsoleteness.blocks_corresponding_obs obs rs default)
 
 end RuleSet
 
