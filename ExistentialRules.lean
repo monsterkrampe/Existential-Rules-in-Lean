@@ -7,7 +7,9 @@ import ExistentialRules.ChaseSequence.Basic
 import ExistentialRules.ChaseSequence.Universality
 import ExistentialRules.ChaseSequence.Deterministic
 import ExistentialRules.ChaseSequence.Termination.Basic
+import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts
 import ExistentialRules.ChaseSequence.Termination.MfaLike
+import ExistentialRules.ChaseSequence.Termination.RenameConstantsApart
 import ExistentialRules.Models.Basic
 import ExistentialRules.Models.Cores
 import ExistentialRules.Terms.Basic
