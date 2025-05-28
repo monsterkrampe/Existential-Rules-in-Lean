@@ -785,12 +785,31 @@ def BlockingObsoleteness [GetFreshRepresentant sig.C] [Inhabited sig.C] (obs : O
     exact h
 }
 
-theorem BlockingObsoleteness.blocks_corresponding_obs [GetFreshRepresentant sig.C] [Inhabited sig.C] (obs : ObsoletenessCondition sig) (rs : RuleSet sig) (special_const : sig.C) :
+theorem BlockingObsoleteness.blocks_corresponding_obs [GetFreshRepresentant sig.C] [Inhabited sig.C] (obs : ObsoletenessCondition sig) (rs : RuleSet sig) (rs_finite : rs.rules.finite) (special_const : sig.C) :
     (BlockingObsoleteness obs rs).blocks_obs obs rs special_const := by
   intro db cb step trg _ _ blocked
   rw [Option.is_none_or_iff]
   intro node eq_node loaded
-  simp only [BlockingObsoleteness, Trigger.blocked_for_backtracking] at blocked
+  simp only [BlockingObsoleteness] at blocked
+
+  have blocked : trg.val.blocked_for_backtracking rs := by
+    -- should follow from original blocked and should be its own result
+    -- it also relates to one theorem/lemma from the DMFA paper if I remember correctly
+    -- i.e. if the renamed apart trigger is blocked, then each trigger with different constants is also blocked
+    -- not sure what to do about the rule adjustment though, maybe it just works?
+    sorry
+
+  simp only [Trigger.blocked_for_backtracking] at blocked
+
+  rcases rs_finite with ⟨rl, rl_nodup, rl_rs_eq⟩
+  let rl : RuleList sig := ⟨rl, by intro r1 r2 h; apply rs.id_unique; rw [← rl_rs_eq]; rw [← rl_rs_eq]; exact h⟩
+
+  specialize blocked rl
+  specialize blocked rl_rs_eq
+  specialize blocked (by apply cb.trigger_ruleIds_valid_of_loaded step node eq_node rl rl_rs_eq; exact loaded)
+  specialize blocked (by apply cb.trigger_disjIdx_valid_of_loaded step node eq_node rl rl_rs_eq; exact loaded)
+  specialize blocked (by apply cb.trigger_rule_arity_valid_of_loaded step node eq_node rl rl_rs_eq; exact loaded)
+  apply obs.monotone _ _ _ _ blocked
   sorry
 
 namespace KnowledgeBase
@@ -2072,7 +2091,7 @@ namespace RuleSet
 
   theorem terminates_of_isMfa_with_BlockingObsoleteness [GetFreshRepresentant sig.C] [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.rules.finite) (obs : ObsoletenessCondition sig) :
       rs.isMfa rs_finite (BlockingObsoleteness obs rs) -> rs.terminates obs :=
-    rs.terminates_of_isMfa rs_finite (BlockingObsoleteness obs rs) (BlockingObsoleteness.blocks_corresponding_obs obs rs default)
+    rs.terminates_of_isMfa rs_finite (BlockingObsoleteness obs rs) (BlockingObsoleteness.blocks_corresponding_obs obs rs rs_finite default)
 
 end RuleSet
 
