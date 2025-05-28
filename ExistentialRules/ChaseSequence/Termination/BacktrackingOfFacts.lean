@@ -559,3 +559,129 @@ def PreTrigger.backtrackFacts
   ) ([], [])
   trg.mapped_body ++ backtrack_result.fst
 
+theorem ChaseBranch.trigger_ruleIds_valid_of_loaded (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) :
+    ∀ (rl : RuleList sig), (∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) -> ∀ (trg : PreTrigger sig), trg.loaded node.fact -> trg.skolem_ruleIds_valid rl := by
+  intro rl rl_rs_eq trg trg_loaded
+  intro t t_mem_body
+  rw [List.mem_flatMap] at t_mem_body
+  rcases t_mem_body with ⟨f, f_mem, t_mem⟩
+  specialize trg_loaded f (by rw [List.mem_toSet]; exact f_mem)
+  induction i generalizing node trg f t with
+  | zero =>
+    rw [cb.database_first] at eq
+    injection eq with eq
+    rw [← eq] at trg_loaded
+    simp only at trg_loaded
+    rcases kb.db.toFactSet.property.right f trg_loaded t t_mem with ⟨_, t_eq⟩
+    rw [t_eq]
+    apply GroundTerm.skolem_ruleIds_valid_const
+  | succ i ih =>
+    rw [cb.origin_trg_result_yields_next_node_fact i node eq] at trg_loaded
+    cases trg_loaded with
+    | inl trg_loaded => exact ih (cb.prev_node i (by simp [eq])) (by apply cb.prev_node_eq) trg t f f_mem t_mem trg_loaded
+    | inr trg_loaded =>
+      let origin := node.origin.get (cb.origin_isSome i eq)
+      rw [List.mem_toSet] at trg_loaded
+      apply PreTrigger.skolem_ruleIds_remain_valid_in_head rl origin.fst.val (by rw [rl_rs_eq]; exact origin.fst.property)
+      . intro t t_mem
+        rw [List.mem_flatMap] at t_mem
+        rcases t_mem with ⟨f, f_mem, t_mem⟩
+        apply ih (cb.prev_node i (by simp [eq])) (by apply cb.prev_node_eq) origin.fst.val t f f_mem t_mem
+        have := cb.origin_trg_is_active i node eq
+        apply this.left
+        rw [List.mem_toSet]
+        exact f_mem
+      . rw [List.mem_flatMap]
+        exists f
+        constructor
+        . apply List.mem_flatten_of_mem
+          . exact List.getElem_mem origin.snd.isLt
+          . exact trg_loaded
+        . exact t_mem
+
+theorem ChaseBranch.trigger_disjIdx_valid_of_loaded_aux (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) :
+    ∀ (rl : RuleList sig), (∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) -> ∀ (trg : PreTrigger sig), trg.loaded node.fact -> (h : trg.skolem_ruleIds_valid rl) -> trg.skolem_disjIdx_valid rl h := by
+  intro rl rl_rs_eq trg trg_loaded trg_ruleIds_valid
+  intro t t_mem_body
+  rw [List.mem_flatMap] at t_mem_body
+  rcases t_mem_body with ⟨f, f_mem, t_mem⟩
+  specialize trg_loaded f (by rw [List.mem_toSet]; exact f_mem)
+  induction i generalizing node trg f t with
+  | zero =>
+    rw [cb.database_first] at eq
+    injection eq with eq
+    rw [← eq] at trg_loaded
+    simp only at trg_loaded
+    rcases kb.db.toFactSet.property.right f trg_loaded t t_mem with ⟨_, t_eq⟩
+    simp only [t_eq]
+    apply GroundTerm.skolem_disjIdx_valid_const
+  | succ i ih =>
+    rw [cb.origin_trg_result_yields_next_node_fact i node eq] at trg_loaded
+    cases trg_loaded with
+    | inl trg_loaded => exact ih (cb.prev_node i (by simp [eq])) (by apply cb.prev_node_eq) trg trg_ruleIds_valid t t_mem_body f f_mem t_mem trg_loaded
+    | inr trg_loaded =>
+      let origin := node.origin.get (cb.origin_isSome i eq)
+      have origin_active := cb.origin_trg_is_active i node eq
+      have origin_trg_valid := cb.trigger_ruleIds_valid_of_loaded i (cb.prev_node i (by simp [eq])) (by apply cb.prev_node_eq) rl rl_rs_eq origin.fst.val origin_active.left
+      rw [List.mem_toSet] at trg_loaded
+      apply PreTrigger.skolem_disjIdx_remains_valid_in_head rl origin.fst.val (by rw [rl_rs_eq]; exact origin.fst.property) origin_trg_valid
+      . intro t t_mem
+        rw [List.mem_flatMap] at t_mem
+        rcases t_mem with ⟨f, f_mem, t_mem'⟩
+        apply ih (cb.prev_node i (by simp [eq])) (by apply cb.prev_node_eq) origin.fst.val origin_trg_valid t t_mem f f_mem t_mem'
+        apply origin_active.left
+        rw [List.mem_toSet]
+        exact f_mem
+      . rw [List.mem_flatMap]
+        exists f
+        constructor
+        . apply List.mem_flatten_of_mem
+          . exact List.getElem_mem origin.snd.isLt
+          . exact trg_loaded
+        . exact t_mem
+
+theorem ChaseBranch.trigger_disjIdx_valid_of_loaded (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) (rl : RuleList sig) (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) (trg : PreTrigger sig) (trg_loaded : trg.loaded node.fact) : trg.skolem_disjIdx_valid rl (cb.trigger_ruleIds_valid_of_loaded i node eq rl rl_rs_eq trg trg_loaded) := cb.trigger_disjIdx_valid_of_loaded_aux i node eq rl rl_rs_eq trg trg_loaded (cb.trigger_ruleIds_valid_of_loaded i node eq rl rl_rs_eq trg trg_loaded)
+
+theorem ChaseBranch.trigger_rule_arity_valid_of_loaded_aux (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) :
+    ∀ (rl : RuleList sig), (∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) -> ∀ (trg : PreTrigger sig), trg.loaded node.fact -> (h : trg.skolem_ruleIds_valid rl) -> trg.skolem_rule_arity_valid rl h := by
+  intro rl rl_rs_eq trg trg_loaded trg_ruleIds_valid
+  intro t t_mem_body
+  rw [List.mem_flatMap] at t_mem_body
+  rcases t_mem_body with ⟨f, f_mem, t_mem⟩
+  specialize trg_loaded f (by rw [List.mem_toSet]; exact f_mem)
+  induction i generalizing node trg f t with
+  | zero =>
+    rw [cb.database_first] at eq
+    injection eq with eq
+    rw [← eq] at trg_loaded
+    simp only at trg_loaded
+    rcases kb.db.toFactSet.property.right f trg_loaded t t_mem with ⟨_, t_eq⟩
+    simp only [t_eq]
+    apply GroundTerm.skolem_rule_arity_valid_const
+  | succ i ih =>
+    rw [cb.origin_trg_result_yields_next_node_fact i node eq] at trg_loaded
+    cases trg_loaded with
+    | inl trg_loaded => exact ih (cb.prev_node i (by simp [eq])) (by apply cb.prev_node_eq) trg trg_ruleIds_valid t t_mem_body f f_mem t_mem trg_loaded
+    | inr trg_loaded =>
+      let origin := node.origin.get (cb.origin_isSome i eq)
+      have origin_active := cb.origin_trg_is_active i node eq
+      have origin_trg_valid := cb.trigger_ruleIds_valid_of_loaded i (cb.prev_node i (by simp [eq])) (by apply cb.prev_node_eq) rl rl_rs_eq origin.fst.val origin_active.left
+      rw [List.mem_toSet] at trg_loaded
+      apply PreTrigger.skolem_rule_arity_remains_valid_in_head rl origin.fst.val (by rw [rl_rs_eq]; exact origin.fst.property) origin_trg_valid
+      . intro t t_mem
+        rw [List.mem_flatMap] at t_mem
+        rcases t_mem with ⟨f, f_mem, t_mem'⟩
+        apply ih (cb.prev_node i (by simp [eq])) (by apply cb.prev_node_eq) origin.fst.val origin_trg_valid t t_mem f f_mem t_mem'
+        apply origin_active.left
+        rw [List.mem_toSet]
+        exact f_mem
+      . rw [List.mem_flatMap]
+        exists f
+        constructor
+        . apply List.mem_flatten_of_mem
+          . exact List.getElem_mem origin.snd.isLt
+          . exact trg_loaded
+        . exact t_mem
+
+theorem ChaseBranch.trigger_rule_arity_valid_of_loaded (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) (rl : RuleList sig) (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) (trg : PreTrigger sig) (trg_loaded : trg.loaded node.fact) : trg.skolem_rule_arity_valid rl (cb.trigger_ruleIds_valid_of_loaded i node eq rl rl_rs_eq trg trg_loaded) := cb.trigger_rule_arity_valid_of_loaded_aux i node eq rl rl_rs_eq trg trg_loaded (cb.trigger_ruleIds_valid_of_loaded i node eq rl rl_rs_eq trg trg_loaded)
+
