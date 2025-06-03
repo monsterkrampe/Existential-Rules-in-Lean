@@ -95,7 +95,7 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
       have index_valid : head_index_for_m_subs < (ct.tree.children prev_path).length := by rw [← length_eq_helper_2]; exact head_index_for_m_subs.isLt
       rw [List.getElem?_eq_getElem (l:=ct.tree.children prev_path) (i:=head_index_for_m_subs) index_valid] at trg_result_used_for_next_chase_step
       rw [List.getElem?_eq_getElem (l:=trg.val.mapped_head.zipIdx_with_lt.attach) (i:=head_index_for_m_subs) (by rw [← length_eq_helper_1]; exact head_index_for_m_subs.isLt)] at trg_result_used_for_next_chase_step
-      rw [Option.map_some'] at trg_result_used_for_next_chase_step
+      rw [Option.map_some] at trg_result_used_for_next_chase_step
       injection trg_result_used_for_next_chase_step with trg_result_used_for_next_chase_step
       have : some (ct.tree.children prev_path)[head_index_for_m_subs.val] = some next_node := by
         rw [ct.tree.getElem_children_eq_get prev_path ⟨head_index_for_m_subs.val, index_valid⟩]
@@ -292,7 +292,7 @@ noncomputable def inductive_homomorphism (ct : ChaseTree obs kb) (m : FactSet si
       constructor
       . simp; exact prev_cond.left
       . have : ct.tree.get (0::prev_path) = none := by
-          apply Option.decidable_eq_none.byContradiction
+          apply Option.decidableEqNone.byContradiction
           intro contra
           apply ct.tree.tree.no_orphans _ contra ⟨prev_path, by exists [0]⟩
           simp [prev_node] at prev_node_eq

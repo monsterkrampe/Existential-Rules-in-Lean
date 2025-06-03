@@ -51,7 +51,7 @@ section GeneralResults
             | inr n_eq_m => rw [← n_eq_m]; exact h
             | inl n_lt_m =>
               have no_holes := branch.branch.no_holes
-              apply Option.decidable_eq_none.byContradiction
+              apply Option.decidableEqNone.byContradiction
               intro contra
               specialize no_holes m contra
               let n_succ_fin : Fin m := ⟨n+1, n_lt_m⟩

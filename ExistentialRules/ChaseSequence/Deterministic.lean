@@ -303,7 +303,7 @@ theorem ChaseTree.firstResult_is_result_when_deterministic (ct : ChaseTree obs k
             cases eq : ct.tree.get (nodes.take n).reverse with
             | none =>
               specialize ih eq
-              apply Option.decidable_eq_none.byContradiction
+              apply Option.decidableEqNone.byContradiction
               intro contra
               have no_orphans := ct.tree.tree.no_orphans (List.repeat 0 (n+1)) contra ⟨(List.repeat 0 n), by exists [0]⟩
               contradiction
@@ -526,7 +526,7 @@ def ChaseBranch.intoTree (cb : ChaseBranch obs kb) (deterministic : kb.isDetermi
                   simp
                 conv => left; simp [this]
                 rw [← trg_result]
-                simp only [Option.map_some', Option.some.injEq, List.getElem_attach, ChaseNode.mk.injEq]
+                simp only [Option.map_some, Option.some.injEq, List.getElem_attach, ChaseNode.mk.injEq]
                 constructor
                 . rw [Subtype.mk.injEq, i_eq, List.zipIdx_with_lt_getElem_fst_eq_getElem]
                 . rw [i_eq, List.zipIdx_with_lt_getElem_snd_eq_index]

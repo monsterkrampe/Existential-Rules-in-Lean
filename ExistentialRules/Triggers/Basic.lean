@@ -196,7 +196,7 @@ namespace PreTrigger
       have := trg.length_each_mapped_head i.val
       rw [List.getElem?_eq_getElem i.isLt] at this
       rw [List.getElem?_eq_getElem i'.isLt] at this
-      simp only [Option.map_some', Option.some_inj] at this
+      simp only [Option.map_some, Option.some_inj] at this
       rw [← this]
       exact j.isLt
     ⟩
