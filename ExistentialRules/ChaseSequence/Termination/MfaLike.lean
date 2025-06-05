@@ -755,18 +755,18 @@ def Trigger.blocked_for_backtracking
     [Inhabited sig.C]
     {obs : LaxObsoletenessCondition sig}
     (trg : Trigger obs)
-    (rs : RuleSet sig) : Prop :=
-  ∀ (rl : RuleList sig), (∀ r, r ∈ rl.rules ↔ r ∈ rs.rules)
-  -> (trg_ruleIds_valid : trg.skolem_ruleIds_valid rl)
+    (rl : RuleList sig) : Prop :=
+  (trg_ruleIds_valid : trg.skolem_ruleIds_valid rl)
   -> (trg_disjIdx_valid : trg.skolem_disjIdx_valid rl trg_ruleIds_valid)
   -> (trg_rule_arity_valid : trg.skolem_rule_arity_valid rl trg_ruleIds_valid)
   -> (obs.cond trg (trg.backtrackFacts rl trg_ruleIds_valid trg_disjIdx_valid trg_rule_arity_valid).toSet)
 
 def BlockingObsoleteness [GetFreshRepresentant sig.C] [Inhabited sig.C] (obs : ObsoletenessCondition sig) (rs : RuleSet sig) : MfaObsoletenessCondition sig := {
   cond := fun (trg : PreTrigger sig) _ =>
-    let trg' := trg.rename_constants_apart
-    let trg'' : Trigger obs := { rule := trg'.rule, subs := trg'.subs }
-    trg''.blocked_for_backtracking rs
+    ∀ (rl : RuleList sig), (∀ r, r ∈ rl.rules ↔ r ∈ rs.rules) ->
+      let trg' := trg.rename_constants_apart (rl.rules.flatMap Rule.constants)
+      let trg'' : Trigger obs := { rule := trg'.rule, subs := trg'.subs }
+      trg''.blocked_for_backtracking rl
   monotone := by
     -- trivial since the condition does not depend on the passed fact set
     intro trg A B A_sub_B
@@ -781,32 +781,34 @@ theorem BlockingObsoleteness.blocks_corresponding_obs [GetFreshRepresentant sig.
   intro node eq_node loaded
   simp only [BlockingObsoleteness] at blocked
 
-  have blocked : trg.val.blocked_for_backtracking rs := by
+  rcases rs_finite with ⟨rl, rl_nodup, rl_rs_eq⟩
+  let rl : RuleList sig := ⟨rl, by intro r1 r2 h; apply rs.id_unique; rw [← rl_rs_eq]; rw [← rl_rs_eq]; exact h⟩
+
+  have blocked : trg.val.blocked_for_backtracking rl := by
     -- should follow from original blocked and should be its own result
     -- it also relates to one theorem/lemma from the DMFA paper if I remember correctly
-    -- i.e. if the renamed apart trigger is blocked, then each trigger with different constants is also blocked
     -- not sure what to do about the rule adjustment though, maybe it just works?
-    intro rl rl_rs_eq trg_ruleIds_valid trg_disjIdx_valid trg_rule_arity_valid
+    intro trg_ruleIds_valid trg_disjIdx_valid trg_rule_arity_valid
     specialize blocked rl rl_rs_eq
     specialize blocked (by
-      unfold PreTrigger.skolem_ruleIds_valid
-      intro t t_mem
-      rw [List.mem_flatMap] at t_mem
-      rcases t_mem with ⟨f, f_mem, t_mem⟩
+      apply PreTrigger.rename_constants_apart_preserves_ruleId_validity
       sorry
     )
-    specialize blocked sorry
-    specialize blocked sorry
+    specialize blocked (by
+      apply PreTrigger.rename_constants_apart_preserves_disjIdx_validity
+      . sorry
+      . sorry
+    )
+    specialize blocked (by
+      apply PreTrigger.rename_constants_apart_preserves_rule_arity_validity
+      . sorry
+      . sorry
+    )
     simp only at blocked
     sorry
 
   simp only [Trigger.blocked_for_backtracking] at blocked
 
-  rcases rs_finite with ⟨rl, rl_nodup, rl_rs_eq⟩
-  let rl : RuleList sig := ⟨rl, by intro r1 r2 h; apply rs.id_unique; rw [← rl_rs_eq]; rw [← rl_rs_eq]; exact h⟩
-
-  specialize blocked rl
-  specialize blocked rl_rs_eq
   specialize blocked (by apply cb.trigger_ruleIds_valid_of_loaded step node eq_node rl rl_rs_eq; exact loaded)
   specialize blocked (by apply cb.trigger_disjIdx_valid_of_loaded step node eq_node rl rl_rs_eq; exact loaded)
   specialize blocked (by apply cb.trigger_rule_arity_valid_of_loaded step node eq_node rl rl_rs_eq; exact loaded)
