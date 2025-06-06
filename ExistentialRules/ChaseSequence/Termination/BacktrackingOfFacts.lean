@@ -48,7 +48,7 @@ def Nat.fresh (l : List Nat) : { n : Nat // n ∉ l} :=
 instance : GetFreshRepresentant Nat where
   fresh := Nat.fresh
 
-#eval GetFreshRepresentant.fresh_n [2,27,6,3] 5
+-- #eval GetFreshRepresentant.fresh_n [2,27,6,3] 5
 
 
 structure RuleList (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] where
