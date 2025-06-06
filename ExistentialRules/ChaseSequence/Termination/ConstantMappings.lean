@@ -1,3 +1,4 @@
+import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts
 import ExistentialRules.Triggers.Basic
 
 section Defs
@@ -609,3 +610,143 @@ section ArgumentsForImages
   end StrictConstantMapping
 
 end ArgumentsForImages
+
+section SkolemTermValidityPreserved
+
+  namespace StrictConstantMapping
+
+    variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [DecidableEq sig.P]
+
+    mutual
+
+      theorem apply_pre_ground_term_preserves_ruleId_validity (g : StrictConstantMapping sig) (term : FiniteTree (SkolemFS sig) sig.C) :
+          ∀ rl, PreGroundTerm.skolem_ruleIds_valid rl term -> PreGroundTerm.skolem_ruleIds_valid rl (g.toConstantMapping.apply_pre_ground_term term) := by
+        intro rl valid
+        cases term with
+        | leaf _ => simp [PreGroundTerm.skolem_ruleIds_valid, StrictConstantMapping.toConstantMapping, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, GroundTerm.const]
+        | inner func ts =>
+          simp only [PreGroundTerm.skolem_ruleIds_valid, StrictConstantMapping.toConstantMapping, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves]
+          simp only [PreGroundTerm.skolem_ruleIds_valid] at valid
+          constructor
+          . exact valid.left
+          . rw [← ts.toListFromListIsId, FiniteTree.mapLeavesList_fromList_eq_fromList_map]
+            apply apply_pre_ground_term_preserves_ruleId_validity_list
+            exact valid.right
+
+      theorem apply_pre_ground_term_preserves_ruleId_validity_list (g : StrictConstantMapping sig) (terms : FiniteTreeList (SkolemFS sig) sig.C) :
+          ∀ rl, PreGroundTerm.skolem_ruleIds_valid_list rl terms -> PreGroundTerm.skolem_ruleIds_valid_list rl (FiniteTreeList.fromList (terms.toList.map (fun t => g.toConstantMapping.apply_pre_ground_term t))) := by
+        intro rl valid
+        cases terms with
+        | nil =>
+          simp only [StrictConstantMapping.toConstantMapping, ConstantMapping.apply_pre_ground_term]
+          rw [← FiniteTree.mapLeavesList_fromList_eq_fromList_map, FiniteTreeList.toListFromListIsId]
+          simp [FiniteTree.mapLeavesList, PreGroundTerm.skolem_ruleIds_valid_list]
+        | cons hd tl =>
+          simp only [StrictConstantMapping.toConstantMapping, ConstantMapping.apply_pre_ground_term]
+          rw [← FiniteTree.mapLeavesList_fromList_eq_fromList_map, FiniteTreeList.toListFromListIsId]
+          simp only [FiniteTree.mapLeavesList, PreGroundTerm.skolem_ruleIds_valid_list]
+          simp only [PreGroundTerm.skolem_ruleIds_valid_list] at valid
+          constructor
+          . apply apply_pre_ground_term_preserves_ruleId_validity; exact valid.left
+          . rw [← tl.toListFromListIsId, FiniteTree.mapLeavesList_fromList_eq_fromList_map]
+            apply apply_pre_ground_term_preserves_ruleId_validity_list
+            exact valid.right
+
+    end
+
+    mutual
+
+      theorem apply_pre_ground_term_preserves_disjIdx_validity (g : StrictConstantMapping sig) (term : FiniteTree (SkolemFS sig) sig.C) :
+          ∀ rl, (h : PreGroundTerm.skolem_ruleIds_valid rl term) -> PreGroundTerm.skolem_disjIdx_valid rl term h -> PreGroundTerm.skolem_disjIdx_valid rl (g.toConstantMapping.apply_pre_ground_term term) (g.apply_pre_ground_term_preserves_ruleId_validity term rl h) := by
+        intro rl _ valid
+        cases term with
+        | leaf _ => simp [PreGroundTerm.skolem_disjIdx_valid, StrictConstantMapping.toConstantMapping, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, GroundTerm.const]
+        | inner func ts =>
+          simp only [PreGroundTerm.skolem_disjIdx_valid, StrictConstantMapping.toConstantMapping, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves]
+          simp only [PreGroundTerm.skolem_disjIdx_valid] at valid
+          constructor
+          . exact valid.left
+          . conv => left; rw [← ts.toListFromListIsId, FiniteTree.mapLeavesList_fromList_eq_fromList_map]
+            apply apply_pre_ground_term_preserves_disjIdx_validity_list
+            exact valid.right
+
+      theorem apply_pre_ground_term_preserves_disjIdx_validity_list (g : StrictConstantMapping sig) (terms : FiniteTreeList (SkolemFS sig) sig.C) :
+          ∀ rl, (h : PreGroundTerm.skolem_ruleIds_valid_list rl terms) -> PreGroundTerm.skolem_disjIdx_valid_list rl terms h -> PreGroundTerm.skolem_disjIdx_valid_list rl (FiniteTreeList.fromList (terms.toList.map (fun t => g.toConstantMapping.apply_pre_ground_term t))) (g.apply_pre_ground_term_preserves_ruleId_validity_list terms rl h) := by
+        intro rl _ valid
+        cases terms with
+        | nil =>
+          simp only [StrictConstantMapping.toConstantMapping, ConstantMapping.apply_pre_ground_term]
+          simp only [← FiniteTree.mapLeavesList_fromList_eq_fromList_map, FiniteTreeList.toListFromListIsId]
+          simp [FiniteTree.mapLeavesList, PreGroundTerm.skolem_disjIdx_valid_list]
+        | cons hd tl =>
+          simp only [StrictConstantMapping.toConstantMapping, ConstantMapping.apply_pre_ground_term]
+          simp only [← FiniteTree.mapLeavesList_fromList_eq_fromList_map, FiniteTreeList.toListFromListIsId]
+          simp only [FiniteTree.mapLeavesList, PreGroundTerm.skolem_ruleIds_valid_list]
+          simp only [PreGroundTerm.skolem_disjIdx_valid_list] at valid
+          constructor
+          . apply apply_pre_ground_term_preserves_disjIdx_validity; exact valid.left
+          . conv => left; rw [← tl.toListFromListIsId, FiniteTree.mapLeavesList_fromList_eq_fromList_map]
+            apply apply_pre_ground_term_preserves_disjIdx_validity_list
+            exact valid.right
+
+    end
+
+    mutual
+
+      theorem apply_pre_ground_term_preserves_rule_arity_validity (g : StrictConstantMapping sig) (term : FiniteTree (SkolemFS sig) sig.C) :
+          ∀ rl, (h : PreGroundTerm.skolem_ruleIds_valid rl term) -> PreGroundTerm.skolem_rule_arity_valid rl term h -> PreGroundTerm.skolem_rule_arity_valid rl (g.toConstantMapping.apply_pre_ground_term term) (g.apply_pre_ground_term_preserves_ruleId_validity term rl h) := by
+        intro rl _ valid
+        cases term with
+        | leaf _ => simp [PreGroundTerm.skolem_rule_arity_valid, StrictConstantMapping.toConstantMapping, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, GroundTerm.const]
+        | inner func ts =>
+          simp only [PreGroundTerm.skolem_rule_arity_valid, StrictConstantMapping.toConstantMapping, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves]
+          simp only [PreGroundTerm.skolem_rule_arity_valid] at valid
+          constructor
+          . exact valid.left
+          . conv => left; rw [← ts.toListFromListIsId, FiniteTree.mapLeavesList_fromList_eq_fromList_map]
+            apply apply_pre_ground_term_preserves_rule_arity_validity_list
+            exact valid.right
+
+      theorem apply_pre_ground_term_preserves_rule_arity_validity_list (g : StrictConstantMapping sig) (terms : FiniteTreeList (SkolemFS sig) sig.C) :
+          ∀ rl, (h : PreGroundTerm.skolem_ruleIds_valid_list rl terms) -> PreGroundTerm.skolem_rule_arity_valid_list rl terms h -> PreGroundTerm.skolem_rule_arity_valid_list rl (FiniteTreeList.fromList (terms.toList.map (fun t => g.toConstantMapping.apply_pre_ground_term t))) (g.apply_pre_ground_term_preserves_ruleId_validity_list terms rl h) := by
+        intro rl _ valid
+        cases terms with
+        | nil =>
+          simp only [StrictConstantMapping.toConstantMapping, ConstantMapping.apply_pre_ground_term]
+          simp only [← FiniteTree.mapLeavesList_fromList_eq_fromList_map, FiniteTreeList.toListFromListIsId]
+          simp [FiniteTree.mapLeavesList, PreGroundTerm.skolem_rule_arity_valid_list]
+        | cons hd tl =>
+          simp only [StrictConstantMapping.toConstantMapping, ConstantMapping.apply_pre_ground_term]
+          simp only [← FiniteTree.mapLeavesList_fromList_eq_fromList_map, FiniteTreeList.toListFromListIsId]
+          simp only [FiniteTree.mapLeavesList, PreGroundTerm.skolem_ruleIds_valid_list]
+          simp only [PreGroundTerm.skolem_rule_arity_valid_list] at valid
+          constructor
+          . apply apply_pre_ground_term_preserves_rule_arity_validity; exact valid.left
+          . conv => left; rw [← tl.toListFromListIsId, FiniteTree.mapLeavesList_fromList_eq_fromList_map]
+            apply apply_pre_ground_term_preserves_rule_arity_validity_list
+            exact valid.right
+
+    end
+
+    theorem apply_ground_term_preserves_ruleId_validity (g : StrictConstantMapping sig) (term : GroundTerm sig) :
+        ∀ rl, GroundTerm.skolem_ruleIds_valid rl term -> GroundTerm.skolem_ruleIds_valid rl (g.toConstantMapping.apply_ground_term term) := by
+      intro rl valid
+      apply apply_pre_ground_term_preserves_ruleId_validity
+      exact valid
+
+    theorem apply_ground_term_preserves_disjIdx_validity (g : StrictConstantMapping sig) (term : GroundTerm sig) :
+        ∀ rl, (h : GroundTerm.skolem_ruleIds_valid rl term) -> GroundTerm.skolem_disjIdx_valid rl term h -> GroundTerm.skolem_disjIdx_valid rl (g.toConstantMapping.apply_ground_term term) (g.apply_ground_term_preserves_ruleId_validity term rl h) := by
+      intro rl _ valid
+      apply apply_pre_ground_term_preserves_disjIdx_validity
+      exact valid
+
+    theorem apply_ground_term_preserves_rule_arity_validity (g : StrictConstantMapping sig) (term : GroundTerm sig) :
+        ∀ rl, (h : GroundTerm.skolem_ruleIds_valid rl term) -> GroundTerm.skolem_rule_arity_valid rl term h -> GroundTerm.skolem_rule_arity_valid rl (g.toConstantMapping.apply_ground_term term) (g.apply_ground_term_preserves_ruleId_validity term rl h) := by
+      intro rl _ valid
+      apply apply_pre_ground_term_preserves_rule_arity_validity
+      exact valid
+
+  end StrictConstantMapping
+
+end SkolemTermValidityPreserved
+
