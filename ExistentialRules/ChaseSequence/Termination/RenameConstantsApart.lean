@@ -1,7 +1,7 @@
 import ExistentialRules.ChaseSequence.Termination.Basic
 import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts
 
-variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
+variable {sig : Signature} [DecidableEq sig.V]
 
 
 mutual
@@ -28,6 +28,51 @@ mutual
       .cons t_res ts_res
 
 end
+
+mutual
+
+  theorem PreGroundTerm.rename_constants_apart_leaves_fresh
+      [GetFreshRepresentant sig.C]
+      (term : FiniteTree (SkolemFS sig) sig.C)
+      (forbidden_constants : List sig.C) :
+      ∀ e, e ∈ (PreGroundTerm.rename_constants_apart term forbidden_constants).leaves -> e ∉ forbidden_constants := by
+    cases term with
+    | leaf c =>
+      intro e e_mem
+      simp only [rename_constants_apart, FiniteTree.leaves, List.mem_singleton] at e_mem
+      have prop := (GetFreshRepresentant.fresh forbidden_constants).property
+      rw [e_mem]
+      exact prop
+    | inner func ts =>
+      intro e e_mem
+      simp only [FiniteTree.leaves, rename_constants_apart] at e_mem
+      apply rename_constants_apart_leaves_fresh_list
+      exact e_mem
+
+  theorem PreGroundTerm.rename_constants_apart_leaves_fresh_list
+      [GetFreshRepresentant sig.C]
+      (terms : FiniteTreeList (SkolemFS sig) sig.C)
+      (forbidden_constants : List sig.C) :
+      ∀ e, e ∈ FiniteTree.leavesList (PreGroundTerm.rename_constants_apart_list terms forbidden_constants) -> e ∉ forbidden_constants := by
+    cases terms with
+    | nil => simp [rename_constants_apart_list, FiniteTree.leavesList]
+    | cons hd tl =>
+      intro e e_mem
+      simp only [FiniteTree.leavesList, rename_constants_apart_list] at e_mem
+      rw [List.mem_append] at e_mem
+      cases e_mem with
+      | inl e_mem => apply rename_constants_apart_leaves_fresh; exact e_mem
+      | inr e_mem =>
+        have := rename_constants_apart_leaves_fresh_list tl _ e e_mem
+        intro contra
+        apply this
+        rw [List.mem_append]
+        apply Or.inl
+        exact contra
+
+end
+
+variable [DecidableEq sig.P] [DecidableEq sig.C]
 
 mutual
 

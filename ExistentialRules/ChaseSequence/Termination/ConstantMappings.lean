@@ -1,4 +1,5 @@
 import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts
+import ExistentialRules.ChaseSequence.Termination.RenameConstantsApart
 import ExistentialRules.Triggers.Basic
 
 section Defs
@@ -749,4 +750,74 @@ section SkolemTermValidityPreserved
   end StrictConstantMapping
 
 end SkolemTermValidityPreserved
+
+section InterplayWithRenamingConstantsApart
+
+  variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
+
+  namespace PreGroundTerm
+
+    mutual
+
+      theorem exists_strict_constant_mapping_to_reverse_renaming [GetFreshRepresentant sig.C] (term : FiniteTree (SkolemFS sig) sig.C) (forbidden_constants : List sig.C) :
+          ∃ (g : StrictConstantMapping sig), g.toConstantMapping.apply_pre_ground_term (PreGroundTerm.rename_constants_apart term forbidden_constants) = term := by
+        cases term with
+        | leaf c => exists (fun d => if GetFreshRepresentant.fresh forbidden_constants = d then c else d); simp [PreGroundTerm.rename_constants_apart, StrictConstantMapping.toConstantMapping, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, GroundTerm.const]
+        | inner func ts =>
+          rcases exists_strict_constant_mapping_to_reverse_renaming_list ts forbidden_constants with ⟨g, g_eq⟩
+          exists g
+          simp only [PreGroundTerm.rename_constants_apart, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves]
+          rw [FiniteTree.inner.injEq]
+          constructor
+          . rfl
+          . rw [← FiniteTreeList.toListFromListIsId (rename_constants_apart_list ts forbidden_constants)]
+            rw [FiniteTree.mapLeavesList_fromList_eq_fromList_map]
+            unfold ConstantMapping.apply_pre_ground_term at g_eq
+            rw [g_eq]
+            rw [FiniteTreeList.toListFromListIsId]
+
+      theorem exists_strict_constant_mapping_to_reverse_renaming_list [GetFreshRepresentant sig.C] (terms : FiniteTreeList (SkolemFS sig) sig.C) (forbidden_constants : List sig.C) :
+          ∃ (g : StrictConstantMapping sig), (PreGroundTerm.rename_constants_apart_list terms forbidden_constants).toList.map (fun term => g.toConstantMapping.apply_pre_ground_term term) = terms.toList := by
+        cases terms with
+        | nil => exists id
+        | cons hd tl =>
+          let hd_res := PreGroundTerm.rename_constants_apart hd forbidden_constants
+
+          rcases exists_strict_constant_mapping_to_reverse_renaming hd forbidden_constants with ⟨h, h_eq⟩
+
+          rcases exists_strict_constant_mapping_to_reverse_renaming_list tl (forbidden_constants ++ hd_res.leaves) with ⟨g, g_eq⟩
+
+          exists (fun d => if d ∈ hd_res.leaves then h d else g d)
+          simp only [rename_constants_apart_list, FiniteTreeList.toList]
+          rw [List.map_cons, List.cons_eq_cons]
+          constructor
+          . conv => right; rw [← h_eq]
+            unfold ConstantMapping.apply_pre_ground_term
+            apply FiniteTree.mapLeavesEqIfMapEqOnLeaves
+            rw [List.map_inj_left]
+            intro d d_mem
+            simp [StrictConstantMapping.toConstantMapping, GroundTerm.const, hd_res, d_mem]
+          . conv => right; rw [← g_eq]
+            rw [List.map_inj_left]
+            intro t t_mem
+            unfold ConstantMapping.apply_pre_ground_term
+            apply FiniteTree.mapLeavesEqIfMapEqOnLeaves
+            rw [List.map_inj_left]
+            intro d d_mem
+            have : d ∈ FiniteTree.leavesList (rename_constants_apart_list tl (forbidden_constants ++ hd_res.leaves)) := by
+              rw [FiniteTree.mem_leavesList]
+              exists t
+            have : ¬ d ∈ hd_res.leaves := by
+              intro contra
+              apply rename_constants_apart_leaves_fresh_list _ _ _ this
+              simp [contra]
+            simp [StrictConstantMapping.toConstantMapping, GroundTerm.const, this]
+
+    end
+
+    -- TODO: introduce similar results for GroundTerm and PreTrigger
+
+  end PreGroundTerm
+
+end InterplayWithRenamingConstantsApart
 
