@@ -8,6 +8,7 @@ structure ObsoletenessCondition (sig : Signature) [DecidableEq sig.P] [Decidable
   cond_implies_trg_is_satisfied : cond trg fs -> trg.satisfied fs
   contains_trg_result_implies_cond : ∀ {trg : PreTrigger sig} {fs} (disj_index : Fin trg.mapped_head.length),
     ((trg.mapped_head[disj_index.val]).toSet ⊆ fs) -> cond trg fs
+  preserved_under_equiv : ∀ {trg trg2 : PreTrigger sig} {fs}, trg.equiv trg2 -> (cond trg fs ↔ cond trg2 fs)
 
 instance {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] :
     Coe (ObsoletenessCondition sig) (LaxObsoletenessCondition sig) where
@@ -32,6 +33,9 @@ def SkolemObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C]
   contains_trg_result_implies_cond := by
     intro trg F i result_in_F
     exists i
+  preserved_under_equiv := by
+    intro trg trg2 fs equiv
+    rw [PreTrigger.result_eq_of_equiv trg trg2 equiv]
 }
 
 def RestrictedObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] : ObsoletenessCondition sig := {
@@ -53,6 +57,10 @@ def RestrictedObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq si
     exists ⟨i.val, by rw [← PreTrigger.length_mapped_head]; exact i.isLt⟩
     apply trg.satisfied_for_disj_of_mapped_head_contained
     exact result_in_fs
+  preserved_under_equiv := by
+    intro trg trg2 fs equiv
+    apply PreTrigger.satisfied_preserved_of_equiv
+    exact equiv
 }
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]

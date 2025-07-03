@@ -151,7 +151,7 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
       . simp only
         conv => right; rw [← trg.val.apply_on_atom_for_result_fact_is_fact result_index_for_trg fact_in_trg_result]
         rw [← PreTrigger.apply_subs_for_atom_eq]
-        rw [← GroundSubstitution.apply_function_free_atom_compose _ _ next_hom_id_const]
+        rw [← GroundSubstitution.apply_function_free_atom_compose_of_isIdOnConstants _ _ next_hom_id_const]
         unfold GroundSubstitution.apply_function_free_atom
         simp only [Fact.mk.injEq, true_and]
         rw [List.map_inj_left]
@@ -159,7 +159,7 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
         cases voc with
         | const c => simp [GroundSubstitution.apply_var_or_const]
         | var v =>
-          rw [GroundSubstitution.apply_var_or_const_compose _ _ next_hom_id_const]
+          rw [GroundSubstitution.apply_var_or_const_compose_of_isIdOnConstants _ _ next_hom_id_const]
           simp only [GroundSubstitution.apply_var_or_const]
           cases Decidable.em (v ∈ trg.val.rule.frontier) with
           | inl v_front =>

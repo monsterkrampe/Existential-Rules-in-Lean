@@ -841,7 +841,7 @@ namespace FactSet
           unfold GroundSubstitution.apply_function_free_conj at f_mem
           rw [List.mem_toSet, List.mem_map] at f_mem
           rcases f_mem with ⟨a, a_mem, f_eq⟩
-          rw [GroundSubstitution.apply_function_free_atom_compose _ _ inv_hom.left] at f_eq
+          rw [GroundSubstitution.apply_function_free_atom_compose_of_isIdOnConstants _ _ inv_hom.left] at f_eq
           rw [← f_eq]
           apply GroundTermMapping.applyPreservesElement
           apply loaded
@@ -888,7 +888,7 @@ namespace FactSet
           unfold GroundSubstitution.apply_function_free_conj at f_mem
           rw [List.mem_toSet, List.mem_map] at f_mem
           rcases f_mem with ⟨a, a_mem, f_eq⟩
-          rw [GroundSubstitution.apply_function_free_atom_compose _ _ h_fs_sc_hom.left] at f_eq
+          rw [GroundSubstitution.apply_function_free_atom_compose_of_isIdOnConstants _ _ h_fs_sc_hom.left] at f_eq
           rw [← f_eq]
           apply GroundTermMapping.applyPreservesElement
           apply sub_mapping
