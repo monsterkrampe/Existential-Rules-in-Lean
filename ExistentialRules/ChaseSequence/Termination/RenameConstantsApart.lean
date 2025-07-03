@@ -313,6 +313,20 @@ theorem GroundSubstitution.rename_constants_apart_for_vars_preserves_rule_arity_
 def PreTrigger.rename_constants_apart [GetFreshRepresentant sig.C] (trg : PreTrigger sig) (forbidden_constants : List sig.C) : PreTrigger sig :=
   ⟨trg.rule, trg.subs.rename_constants_apart_for_vars forbidden_constants trg.rule.body.vars.eraseDupsKeepRight⟩
 
+theorem PreTrigger.rename_constants_apart_constants_fresh
+    [GetFreshRepresentant sig.C]
+    (trg : PreTrigger sig)
+    (forbidden_constants : List sig.C) :
+    ∀ c ∈ (trg.rule.body.vars.eraseDupsKeepRight.map (trg.rename_constants_apart forbidden_constants).subs).flatMap GroundTerm.constants, c ∉ forbidden_constants := by
+  intro c c_mem
+  rw [List.mem_flatMap] at c_mem
+  rcases c_mem with ⟨t, t_mem, c_mem⟩
+  rw [List.mem_map] at t_mem
+  rcases t_mem with ⟨v, v_mem, t_eq⟩
+  apply trg.subs.rename_constants_apart_for_vars_constants_fresh forbidden_constants trg.rule.body.vars.eraseDupsKeepRight v v_mem
+  rw [← t_eq] at c_mem
+  exact c_mem
+
 theorem PreTrigger.rename_constants_apart_preserves_ruleId_validity [GetFreshRepresentant sig.C] (trg : PreTrigger sig) (forbidden_constants : List sig.C) :
     ∀ rl, PreTrigger.skolem_ruleIds_valid rl trg -> PreTrigger.skolem_ruleIds_valid rl (PreTrigger.rename_constants_apart trg forbidden_constants) := by
   intro rl valid

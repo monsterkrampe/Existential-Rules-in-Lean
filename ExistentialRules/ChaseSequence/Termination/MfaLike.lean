@@ -235,7 +235,19 @@ theorem BlockingObsoleteness.blocks_corresponding_obs [GetFreshRepresentant sig.
     )
 
     apply obs_propagates_under_const_mapping (trg := trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (rl.rules.flatMap Rule.constants))
-    . sorry
+    . intro c c_mem
+      simp only [StrictConstantMapping.toConstantMapping, GroundTerm.const, Subtype.mk.injEq, FiniteTree.leaf.injEq]
+      apply reverse_renaming_mapping_properties.right
+      intro contra
+      apply trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart_constants_fresh (rl.rules.flatMap Rule.constants) c
+      . exact contra
+      . rw [List.mem_flatMap]
+        exists (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (rl.rules.flatMap Rule.constants)).rule
+        constructor
+        . rw [rl_rs_eq]
+          exact trg.property
+        . apply Rule.head_constants_subset_constants
+          exact c_mem
     . exact blocked
 
   simp only [Trigger.blocked_for_backtracking] at blocked
@@ -243,10 +255,84 @@ theorem BlockingObsoleteness.blocks_corresponding_obs [GetFreshRepresentant sig.
   specialize blocked (by apply cb.trigger_ruleIds_valid_of_loaded step node eq_node rl rl_rs_eq; exact loaded)
   specialize blocked (by apply cb.trigger_disjIdx_valid_of_loaded step node eq_node rl rl_rs_eq; exact loaded)
   specialize blocked (by apply cb.trigger_rule_arity_valid_of_loaded step node eq_node rl rl_rs_eq; exact loaded)
-  apply obs.monotone _ _ _ _ blocked
-  sorry
 
-/-
+
+  rcases cb.backtracking_of_loaded_trigger_in_node step node eq_node rl rl_rs_eq trg.val loaded with ⟨g, g_h⟩
+
+  have blocked := obs_propagates_under_const_mapping
+    (g := g.toConstantMapping)
+    (by
+      intro c c_mem
+      simp only [StrictConstantMapping.toConstantMapping, GroundTerm.const, Subtype.mk.injEq, FiniteTree.leaf.injEq]
+      apply g_h.right
+      apply Or.inr
+      apply RuleSet.head_constants_subset_constants
+      exists trg.val.rule
+      constructor
+      . exact trg.property
+      . exact c_mem
+    )
+    blocked
+
+  have equiv : trg.val.equiv {rule := trg.val.rule, subs := g.toConstantMapping.apply_ground_term ∘ trg.val.subs} := by
+    unfold PreTrigger.equiv
+    constructor
+    . rfl
+    . intro v v_mem
+
+      have : ∀ t, (∀ c ∈ t.constants, c ∈ node.fact.val.constants) -> g.toConstantMapping.apply_ground_term t = t := by
+        intro t
+        induction t with
+        | const c =>
+          intro c_mem
+          simp only [ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, StrictConstantMapping.toConstantMapping, GroundTerm.const, Subtype.mk.injEq, FiniteTree.mapLeaves, FiniteTree.leaf.injEq]
+          apply g_h.right
+          apply Or.inl
+          apply c_mem
+          simp [GroundTerm.constants_const]
+        | func fs ts arity_ok ih =>
+          intro cs_mem
+          simp only [ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, GroundTerm.func, FiniteTree.mapLeaves, Subtype.mk.injEq, FiniteTree.inner.injEq, true_and]
+          rw [FiniteTree.mapLeavesList_fromList_eq_fromList_map]
+          rw [← FiniteTreeList.eqIffFromListEq]
+          apply List.map_id_of_id_on_all_mem
+          intro pgt pgt_mem
+          rcases List.mem_unattach.mp pgt_mem with ⟨_, t_mem⟩
+          specialize ih _ t_mem
+          simp only [ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, GroundTerm.func, FiniteTree.mapLeaves, Subtype.mk.injEq, FiniteTree.inner.injEq, true_and] at ih
+          apply ih
+          intro c c_mem
+          apply cs_mem
+          rw [GroundTerm.constants_func]
+          apply List.mem_flatMap_of_mem
+          . exact t_mem
+          . exact c_mem
+
+      simp only [Function.comp_apply]
+      rw [this]
+      intro c c_mem
+      rcases trg.val.rule.frontier_occurs_in_body _ v_mem with ⟨a, a_mem, v_mem⟩
+      exists trg.val.subs.apply_function_free_atom a
+      constructor
+      . apply loaded
+        rw [List.mem_toSet]
+        apply List.mem_map_of_mem
+        exact a_mem
+      . unfold Fact.constants
+        rw [List.mem_flatMap]
+        exists trg.val.subs v
+        constructor
+        . simp only [GroundSubstitution.apply_function_free_atom]
+          rw [List.mem_map]
+          exists VarOrConst.var v
+        . exact c_mem
+
+  rw [obs.preserved_under_equiv equiv]
+
+  apply obs.monotone _ _ _ _ blocked
+  exact g_h.left
+
+
 namespace KnowledgeBase
 
   def parallelSkolemChase (kb : KnowledgeBase sig) (obs : LaxObsoletenessCondition sig) : InfiniteList (FactSet sig)
@@ -1448,9 +1534,9 @@ namespace RuleSet
       rs.isMfa rs_finite (DeterministicSkolemObsoleteness sig) -> rs.terminates obs :=
     rs.terminates_of_isMfa rs_finite (DeterministicSkolemObsoleteness sig) (DeterministicSkolemObsoleteness.blocks_each_obs obs default rs)
 
-  theorem terminates_of_isMfa_with_BlockingObsoleteness [GetFreshRepresentant sig.C] [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.rules.finite) (obs : ObsoletenessCondition sig) :
+  theorem terminates_of_isMfa_with_BlockingObsoleteness [GetFreshRepresentant sig.C] [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.rules.finite) (obs : ObsoletenessCondition sig) (obs_propagates_under_const_mapping : obs.propagates_under_constant_mapping) :
       rs.isMfa rs_finite (BlockingObsoleteness obs rs) -> rs.terminates obs :=
-    rs.terminates_of_isMfa rs_finite (BlockingObsoleteness obs rs) (BlockingObsoleteness.blocks_corresponding_obs obs rs rs_finite default)
+    rs.terminates_of_isMfa rs_finite (BlockingObsoleteness obs rs) (BlockingObsoleteness.blocks_corresponding_obs obs obs_propagates_under_const_mapping rs rs_finite default)
 
 end RuleSet
--/
+
