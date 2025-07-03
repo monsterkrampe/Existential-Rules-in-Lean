@@ -164,7 +164,9 @@ def BlockingObsoleteness [GetFreshRepresentant sig.C] [Inhabited sig.C] (obs : O
     exact h
 }
 
-theorem BlockingObsoleteness.blocks_corresponding_obs [GetFreshRepresentant sig.C] [Inhabited sig.C] (obs : ObsoletenessCondition sig) (rs : RuleSet sig) (rs_finite : rs.rules.finite) (special_const : sig.C) :
+theorem BlockingObsoleteness.blocks_corresponding_obs [GetFreshRepresentant sig.C] [Inhabited sig.C]
+    (obs : ObsoletenessCondition sig) (obs_propagates_under_const_mapping : obs.propagates_under_constant_mapping)
+    (rs : RuleSet sig) (rs_finite : rs.rules.finite) (special_const : sig.C) :
     (BlockingObsoleteness obs rs).blocks_obs obs rs special_const := by
   intro db cb step trg _ _ blocked
   rw [Option.is_none_or_iff]
@@ -181,102 +183,60 @@ theorem BlockingObsoleteness.blocks_corresponding_obs [GetFreshRepresentant sig.
     intro trg_ruleIds_valid trg_disjIdx_valid trg_rule_arity_valid
 
     let trg_with_constant_mapping_applied_but_not_renamed_apart : PreTrigger sig := { rule := trg.val.rule, subs := (rs.mfaConstantMapping special_const).toConstantMapping.apply_ground_term ∘ trg.val.subs }
-    have trg_with_constant_mapping_applied_but_not_renamed_apart_ruleIds_valid : trg_with_constant_mapping_applied_but_not_renamed_apart.skolem_ruleIds_valid rl := by
-      -- TODO: this and similar proofs below are so awefully verbose, I suppose we should introduce some auxiliary results for PreTrigger.mapped_body. This would likely also be helpful elsewhere
-      intro t t_mem
-      rw [List.mem_flatMap] at t_mem
-      rcases t_mem with ⟨f, f_mem, t_mem⟩
-      simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj] at f_mem
-      rw [List.mem_map] at f_mem
-      rcases f_mem with ⟨a, a_mem, f_eq⟩
-      unfold GroundSubstitution.apply_function_free_atom at f_eq
-      rw [← f_eq] at t_mem
-      simp only [List.mem_map] at t_mem
-      rcases t_mem with ⟨voc, voc_mem, t_eq⟩
-      rw [← t_eq]
-      cases voc with
-      | const _ => simp only [GroundSubstitution.apply_var_or_const]; apply GroundTerm.skolem_ruleIds_valid_const
-      | var v =>
-        simp only [GroundSubstitution.apply_var_or_const]
-        apply StrictConstantMapping.apply_ground_term_preserves_ruleId_validity
-        apply trg_ruleIds_valid
-        rw [List.mem_flatMap]
-        exists trg.val.subs.apply_function_free_atom a
-        constructor
-        . simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj]
-          apply List.mem_map_of_mem
-          exact a_mem
-        . simp only [GroundSubstitution.apply_function_free_atom]
-          rw [List.mem_map]
-          exists VarOrConst.var v
 
     specialize blocked rl rl_rs_eq
     specialize blocked (by
       apply PreTrigger.rename_constants_apart_preserves_ruleId_validity
-      exact trg_with_constant_mapping_applied_but_not_renamed_apart_ruleIds_valid
+      apply PreTrigger.compose_strict_constant_mapping_preserves_ruleId_validity
+      exact trg_ruleIds_valid
     )
     specialize blocked (by
       apply PreTrigger.rename_constants_apart_preserves_disjIdx_validity
-      . intro t t_mem
-        rw [List.mem_flatMap] at t_mem
-        rcases t_mem with ⟨f, f_mem, t_mem⟩
-        simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj] at f_mem
-        rw [List.mem_map] at f_mem
-        rcases f_mem with ⟨a, a_mem, f_eq⟩
-        unfold GroundSubstitution.apply_function_free_atom at f_eq
-        rw [← f_eq] at t_mem
-        simp only [List.mem_map] at t_mem
-        rcases t_mem with ⟨voc, voc_mem, t_eq⟩
-        simp only [← t_eq]
-        cases voc with
-        | const _ => simp only [GroundSubstitution.apply_var_or_const]; apply GroundTerm.skolem_disjIdx_valid_const
-        | var v =>
-          simp only [GroundSubstitution.apply_var_or_const]
-          apply StrictConstantMapping.apply_ground_term_preserves_disjIdx_validity
-          apply trg_disjIdx_valid
-          rw [List.mem_flatMap]
-          exists trg.val.subs.apply_function_free_atom a
-          constructor
-          . simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj]
-            apply List.mem_map_of_mem
-            exact a_mem
-          . simp only [GroundSubstitution.apply_function_free_atom]
-            rw [List.mem_map]
-            exists VarOrConst.var v
-      . exact trg_with_constant_mapping_applied_but_not_renamed_apart_ruleIds_valid
+      apply PreTrigger.compose_strict_constant_mapping_preserves_disjIdx_validity
+      exact trg_disjIdx_valid
     )
     specialize blocked (by
       apply PreTrigger.rename_constants_apart_preserves_rule_arity_validity
-      . intro t t_mem
-        rw [List.mem_flatMap] at t_mem
-        rcases t_mem with ⟨f, f_mem, t_mem⟩
-        simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj] at f_mem
-        rw [List.mem_map] at f_mem
-        rcases f_mem with ⟨a, a_mem, f_eq⟩
-        unfold GroundSubstitution.apply_function_free_atom at f_eq
-        rw [← f_eq] at t_mem
-        simp only [List.mem_map] at t_mem
-        rcases t_mem with ⟨voc, voc_mem, t_eq⟩
-        simp only [← t_eq]
-        cases voc with
-        | const _ => simp only [GroundSubstitution.apply_var_or_const]; apply GroundTerm.skolem_rule_arity_valid_const
-        | var v =>
-          simp only [GroundSubstitution.apply_var_or_const]
-          apply StrictConstantMapping.apply_ground_term_preserves_rule_arity_validity
-          apply trg_rule_arity_valid
-          rw [List.mem_flatMap]
-          exists trg.val.subs.apply_function_free_atom a
-          constructor
-          . simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj]
-            apply List.mem_map_of_mem
-            exact a_mem
-          . simp only [GroundSubstitution.apply_function_free_atom]
-            rw [List.mem_map]
-            exists VarOrConst.var v
-      . exact trg_with_constant_mapping_applied_but_not_renamed_apart_ruleIds_valid
+      apply PreTrigger.compose_strict_constant_mapping_preserves_rule_arity_validity
+      exact trg_rule_arity_valid
     )
     simp only at blocked
-    sorry
+
+    have exists_strict_constant_mapping_reversing_renaming :=
+      trg_with_constant_mapping_applied_but_not_renamed_apart.exists_strict_constant_mapping_to_reverse_renaming
+        trg.val.toPreTrigger
+        (by apply PreTrigger.same_skeleton_symm; apply PreTrigger.same_skeleton_under_strict_constant_mapping)
+        (rl.rules.flatMap Rule.constants)
+    rcases exists_strict_constant_mapping_reversing_renaming with ⟨reverse_renaming_mapping, reverse_renaming_mapping_properties⟩
+
+    rw [← obs.preserved_under_equiv (PreTrigger.equiv_of_strong_equiv _ _ reverse_renaming_mapping_properties.left)]
+    rw [← PreTrigger.backtrackFacts_eq_of_strong_equiv _ _ _ _ _ _ reverse_renaming_mapping_properties.left]
+
+    apply obs.monotone _ _ _ (
+      PreTrigger.backtracking_under_constant_mapping_subset_of_composing_with_subs
+      rl
+      (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (rl.rules.flatMap Rule.constants))
+      (by
+        apply PreTrigger.rename_constants_apart_preserves_ruleId_validity
+        apply PreTrigger.compose_strict_constant_mapping_preserves_ruleId_validity
+        exact trg_ruleIds_valid
+      )
+      (by
+        apply PreTrigger.rename_constants_apart_preserves_disjIdx_validity
+        apply PreTrigger.compose_strict_constant_mapping_preserves_disjIdx_validity
+        exact trg_disjIdx_valid
+      )
+      (by
+        apply PreTrigger.rename_constants_apart_preserves_rule_arity_validity
+        apply PreTrigger.compose_strict_constant_mapping_preserves_rule_arity_validity
+        exact trg_rule_arity_valid
+      )
+      reverse_renaming_mapping
+    )
+
+    apply obs_propagates_under_const_mapping (trg := trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (rl.rules.flatMap Rule.constants))
+    . sorry
+    . exact blocked
 
   simp only [Trigger.blocked_for_backtracking] at blocked
 

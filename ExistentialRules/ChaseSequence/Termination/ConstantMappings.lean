@@ -91,7 +91,10 @@ namespace ConstantMapping
     arity_ok := by rw [List.length_map]; exact f.arity_ok
   }
 
-  theorem apply_fact_swap_apply_to_function_free_atom (g : ConstantMapping sig) (trg : PreTrigger sig) (a : FunctionFreeAtom sig) (h : ∃ c, (∀ d, g d = c) ∧ (∀ d, VarOrConst.const d ∈ a.terms -> c = GroundTerm.const d)) : ∀ i, g.apply_fact (trg.apply_to_function_free_atom i a) = PreTrigger.apply_to_function_free_atom { rule := trg.rule, subs := g.apply_ground_term ∘ trg.subs } i a := by
+  theorem apply_fact_eq_groundTermMapping_applyFact (g : ConstantMapping sig) (f : Fact sig) : g.apply_fact f = GroundTermMapping.applyFact g.apply_ground_term f := by
+    simp [apply_fact, GroundTermMapping.applyFact]
+
+  theorem apply_fact_swap_apply_to_function_free_atom (g : ConstantMapping sig) (trg : PreTrigger sig) (a : FunctionFreeAtom sig) (h : ∀ d ∈ a.constants, g d = GroundTerm.const d) : ∀ i, g.apply_fact (trg.apply_to_function_free_atom i a) = PreTrigger.apply_to_function_free_atom { rule := trg.rule, subs := g.apply_ground_term ∘ trg.subs } i a := by
     intro i
     unfold PreTrigger.apply_to_function_free_atom
     unfold ConstantMapping.apply_fact
@@ -114,11 +117,11 @@ namespace ConstantMapping
       unfold GroundTerm.const
       apply Subtype.eq
       simp only
-      rcases h with ⟨c, g_eq, mem_a_eq⟩
-      rw [g_eq]
-      rw [mem_a_eq d]
+      rw [h]
       . simp [GroundTerm.const]
-      . exact voc_mem
+      . unfold FunctionFreeAtom.constants
+        apply VarOrConst.mem_filterConsts_of_const
+        exact voc_mem
 
   def apply_fact_set (g : ConstantMapping sig) (fs : FactSet sig) : FactSet sig := fun f => ∃ f', f' ∈ fs ∧ f = g.apply_fact f'
 
@@ -749,6 +752,69 @@ section SkolemTermValidityPreserved
 
   end StrictConstantMapping
 
+  namespace PreTrigger
+
+    variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [DecidableEq sig.P]
+
+    theorem compose_strict_constant_mapping_preserves_ruleId_validity (trg : PreTrigger sig) (g : StrictConstantMapping sig) :
+        ∀ rl, trg.skolem_ruleIds_valid rl -> {rule := trg.rule, subs := g.toConstantMapping.apply_ground_term ∘ trg.subs : PreTrigger sig}.skolem_ruleIds_valid rl := by
+      intro rl valid
+      intro t t_mem
+      rw [PreTrigger.mem_terms_mapped_body_iff] at t_mem
+      cases t_mem with
+      | inl t_mem =>
+        rcases t_mem with ⟨c, c_mem, t_eq⟩
+        simp only [← t_eq]
+        apply GroundTerm.skolem_ruleIds_valid_const
+      | inr t_mem =>
+        rcases t_mem with ⟨v, v_mem, t_eq⟩
+        simp only [← t_eq]
+        apply StrictConstantMapping.apply_ground_term_preserves_ruleId_validity
+        apply valid
+        rw [PreTrigger.mem_terms_mapped_body_iff]
+        apply Or.inr
+        exists v
+
+    theorem compose_strict_constant_mapping_preserves_disjIdx_validity (trg : PreTrigger sig) (g : StrictConstantMapping sig) :
+        ∀ rl, (h : trg.skolem_ruleIds_valid rl) -> trg.skolem_disjIdx_valid rl h -> {rule := trg.rule, subs := g.toConstantMapping.apply_ground_term ∘ trg.subs : PreTrigger sig}.skolem_disjIdx_valid rl (trg.compose_strict_constant_mapping_preserves_ruleId_validity g rl h) := by
+      intro rl _ valid
+      intro t t_mem
+      rw [PreTrigger.mem_terms_mapped_body_iff] at t_mem
+      cases t_mem with
+      | inl t_mem =>
+        rcases t_mem with ⟨c, c_mem, t_eq⟩
+        simp only [← t_eq]
+        apply GroundTerm.skolem_disjIdx_valid_const
+      | inr t_mem =>
+        rcases t_mem with ⟨v, v_mem, t_eq⟩
+        simp only [← t_eq]
+        apply StrictConstantMapping.apply_ground_term_preserves_disjIdx_validity
+        apply valid
+        rw [PreTrigger.mem_terms_mapped_body_iff]
+        apply Or.inr
+        exists v
+
+    theorem compose_strict_constant_mapping_preserves_rule_arity_validity (trg : PreTrigger sig) (g : StrictConstantMapping sig) :
+        ∀ rl, (h : trg.skolem_ruleIds_valid rl) -> trg.skolem_rule_arity_valid rl h -> {rule := trg.rule, subs := g.toConstantMapping.apply_ground_term ∘ trg.subs : PreTrigger sig}.skolem_rule_arity_valid rl (trg.compose_strict_constant_mapping_preserves_ruleId_validity g rl h) := by
+      intro rl _ valid
+      intro t t_mem
+      rw [PreTrigger.mem_terms_mapped_body_iff] at t_mem
+      cases t_mem with
+      | inl t_mem =>
+        rcases t_mem with ⟨c, c_mem, t_eq⟩
+        simp only [← t_eq]
+        apply GroundTerm.skolem_rule_arity_valid_const
+      | inr t_mem =>
+        rcases t_mem with ⟨v, v_mem, t_eq⟩
+        simp only [← t_eq]
+        apply StrictConstantMapping.apply_ground_term_preserves_rule_arity_validity
+        apply valid
+        rw [PreTrigger.mem_terms_mapped_body_iff]
+        apply Or.inr
+        exists v
+
+  end PreTrigger
+
 end SkolemTermValidityPreserved
 
 section InterplayWithRenamingConstantsApart
@@ -759,65 +825,428 @@ section InterplayWithRenamingConstantsApart
 
     mutual
 
-      theorem exists_strict_constant_mapping_to_reverse_renaming [GetFreshRepresentant sig.C] (term : FiniteTree (SkolemFS sig) sig.C) (forbidden_constants : List sig.C) :
-          ∃ (g : StrictConstantMapping sig), g.toConstantMapping.apply_pre_ground_term (PreGroundTerm.rename_constants_apart term forbidden_constants) = term := by
-        cases term with
-        | leaf c => exists (fun d => if GetFreshRepresentant.fresh forbidden_constants = d then c else d); simp [PreGroundTerm.rename_constants_apart, StrictConstantMapping.toConstantMapping, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, GroundTerm.const]
-        | inner func ts =>
-          rcases exists_strict_constant_mapping_to_reverse_renaming_list ts forbidden_constants with ⟨g, g_eq⟩
-          exists g
-          simp only [PreGroundTerm.rename_constants_apart, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves]
-          rw [FiniteTree.inner.injEq]
-          constructor
-          . rfl
-          . rw [← FiniteTreeList.toListFromListIsId (rename_constants_apart_list ts forbidden_constants)]
-            rw [FiniteTree.mapLeavesList_fromList_eq_fromList_map]
-            unfold ConstantMapping.apply_pre_ground_term at g_eq
-            rw [g_eq]
-            rw [FiniteTreeList.toListFromListIsId]
+      def same_skeleton (term term2 : FiniteTree (SkolemFS sig) sig.C) : Prop :=
+        match term with
+        | .leaf _ => match term2 with | .leaf _ => True | .inner _ _ => False
+        | .inner func ts => match term2 with | .leaf _ => False | .inner func' ts' => func = func' ∧ same_skeleton_list ts ts'
 
-      theorem exists_strict_constant_mapping_to_reverse_renaming_list [GetFreshRepresentant sig.C] (terms : FiniteTreeList (SkolemFS sig) sig.C) (forbidden_constants : List sig.C) :
-          ∃ (g : StrictConstantMapping sig), (PreGroundTerm.rename_constants_apart_list terms forbidden_constants).toList.map (fun term => g.toConstantMapping.apply_pre_ground_term term) = terms.toList := by
-        cases terms with
-        | nil => exists id
-        | cons hd tl =>
-          let hd_res := PreGroundTerm.rename_constants_apart hd forbidden_constants
-
-          rcases exists_strict_constant_mapping_to_reverse_renaming hd forbidden_constants with ⟨h, h_eq⟩
-
-          rcases exists_strict_constant_mapping_to_reverse_renaming_list tl (forbidden_constants ++ hd_res.leaves) with ⟨g, g_eq⟩
-
-          exists (fun d => if d ∈ hd_res.leaves then h d else g d)
-          simp only [rename_constants_apart_list, FiniteTreeList.toList]
-          rw [List.map_cons, List.cons_eq_cons]
-          constructor
-          . conv => right; rw [← h_eq]
-            unfold ConstantMapping.apply_pre_ground_term
-            apply FiniteTree.mapLeavesEqIfMapEqOnLeaves
-            rw [List.map_inj_left]
-            intro d d_mem
-            simp [StrictConstantMapping.toConstantMapping, GroundTerm.const, hd_res, d_mem]
-          . conv => right; rw [← g_eq]
-            rw [List.map_inj_left]
-            intro t t_mem
-            unfold ConstantMapping.apply_pre_ground_term
-            apply FiniteTree.mapLeavesEqIfMapEqOnLeaves
-            rw [List.map_inj_left]
-            intro d d_mem
-            have : d ∈ FiniteTree.leavesList (rename_constants_apart_list tl (forbidden_constants ++ hd_res.leaves)) := by
-              rw [FiniteTree.mem_leavesList]
-              exists t
-            have : ¬ d ∈ hd_res.leaves := by
-              intro contra
-              apply rename_constants_apart_leaves_fresh_list _ _ _ this
-              simp [contra]
-            simp [StrictConstantMapping.toConstantMapping, GroundTerm.const, this]
+      def same_skeleton_list (terms terms2 : FiniteTreeList (SkolemFS sig) sig.C) : Prop :=
+        match terms with
+        | .nil => match terms2 with | .nil => True | .cons _ _ => False
+        | .cons hd tl => match terms2 with | .nil => False | .cons hd' tl' => same_skeleton hd hd' ∧ same_skeleton_list tl tl'
 
     end
 
-    -- TODO: introduce similar results for GroundTerm and PreTrigger
+    mutual
+
+      def same_skeleton_refl (term : FiniteTree (SkolemFS sig) sig.C) : same_skeleton term term := by
+        cases term with
+        | leaf => simp [same_skeleton]
+        | inner func ts => simp only [same_skeleton, true_and]; apply same_skeleton_list_refl
+
+      def same_skeleton_list_refl (terms : FiniteTreeList (SkolemFS sig) sig.C) : same_skeleton_list terms terms := by
+        cases terms with
+        | nil => simp [same_skeleton_list]
+        | cons hd tl => simp only [same_skeleton_list]; constructor; apply same_skeleton_refl; apply same_skeleton_list_refl
+
+    end
+
+    mutual
+
+      def same_skeleton_under_strict_constant_mapping (term : FiniteTree (SkolemFS sig) sig.C) (g : StrictConstantMapping sig) : same_skeleton term (g.toConstantMapping.apply_pre_ground_term term) := by
+        cases term with
+        | leaf => simp [same_skeleton, ConstantMapping.apply_pre_ground_term, StrictConstantMapping.toConstantMapping, GroundTerm.const, FiniteTree.mapLeaves]
+        | inner func ts => simp only [same_skeleton, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, true_and]; apply same_skeleton_list_under_strict_constant_mapping
+
+      def same_skeleton_list_under_strict_constant_mapping (terms : FiniteTreeList (SkolemFS sig) sig.C) (g : StrictConstantMapping sig) : same_skeleton_list terms (FiniteTree.mapLeavesList (fun c => (g.toConstantMapping c).val) terms) := by
+        cases terms with
+        | nil => simp [same_skeleton_list, FiniteTree.mapLeavesList]
+        | cons hd tl => simp only [same_skeleton_list, FiniteTree.mapLeavesList]; constructor; apply same_skeleton_under_strict_constant_mapping; apply same_skeleton_list_under_strict_constant_mapping
+
+    end
+
+    mutual
+
+      theorem exists_strict_constant_mapping_to_reverse_renaming [GetFreshRepresentant sig.C] (term term2 : FiniteTree (SkolemFS sig) sig.C) (terms_same_skeleton : same_skeleton term term2) (forbidden_constants : List sig.C) :
+          ∃ (g : StrictConstantMapping sig),
+            g.toConstantMapping.apply_pre_ground_term (PreGroundTerm.rename_constants_apart term forbidden_constants) = term2 ∧
+            (∀ d, d ∉ (PreGroundTerm.rename_constants_apart term forbidden_constants).leaves -> g d = d) := by
+        cases term with
+        | leaf c =>
+          cases term2 with
+          | leaf c' =>
+            exists (fun d => if GetFreshRepresentant.fresh forbidden_constants = d then c' else d); simp [PreGroundTerm.rename_constants_apart, StrictConstantMapping.toConstantMapping, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, GroundTerm.const]
+            simp only [FiniteTree.leaves, List.mem_singleton]
+            intro _ contra1 contra2
+            rw [contra2] at contra1
+            simp at contra1
+          | inner _ _ => simp [same_skeleton] at terms_same_skeleton
+        | inner func ts =>
+          cases term2 with
+          | leaf _ => simp [same_skeleton] at terms_same_skeleton
+          | inner func' ts' =>
+            simp only [same_skeleton] at terms_same_skeleton
+            rcases exists_strict_constant_mapping_to_reverse_renaming_list ts ts' terms_same_skeleton.right forbidden_constants with ⟨g, g_eq, g_id⟩
+            exists g
+            simp only [PreGroundTerm.rename_constants_apart, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves]
+            rw [FiniteTree.inner.injEq]
+            constructor
+            . constructor
+              . exact terms_same_skeleton.left
+              . rw [← FiniteTreeList.toListFromListIsId (rename_constants_apart_list ts forbidden_constants)]
+                rw [FiniteTree.mapLeavesList_fromList_eq_fromList_map]
+                unfold ConstantMapping.apply_pre_ground_term at g_eq
+                rw [g_eq]
+                rw [FiniteTreeList.toListFromListIsId]
+            . unfold FiniteTree.leaves; exact g_id
+
+      theorem exists_strict_constant_mapping_to_reverse_renaming_list [GetFreshRepresentant sig.C] (terms terms2 : FiniteTreeList (SkolemFS sig) sig.C) (terms_same_skeleton : same_skeleton_list terms terms2) (forbidden_constants : List sig.C) :
+          ∃ (g : StrictConstantMapping sig),
+            (PreGroundTerm.rename_constants_apart_list terms forbidden_constants).toList.map (fun term => g.toConstantMapping.apply_pre_ground_term term) = terms2.toList ∧
+            (∀ d, d ∉ FiniteTree.leavesList (PreGroundTerm.rename_constants_apart_list terms forbidden_constants) -> g d = d) := by
+        cases terms with
+        | nil =>
+          cases terms2 with
+          | nil => exists id; simp [FiniteTreeList.toList, rename_constants_apart_list]
+          | cons _ _ => simp [same_skeleton_list] at terms_same_skeleton
+        | cons hd tl =>
+          cases terms2 with
+          | nil => simp [same_skeleton_list] at terms_same_skeleton
+          | cons hd' tl' =>
+            simp only [same_skeleton_list] at terms_same_skeleton
+            let hd_res := PreGroundTerm.rename_constants_apart hd forbidden_constants
+
+            rcases exists_strict_constant_mapping_to_reverse_renaming hd hd' terms_same_skeleton.left forbidden_constants with ⟨h, h_eq, h_id⟩
+
+            rcases exists_strict_constant_mapping_to_reverse_renaming_list tl tl' terms_same_skeleton.right (forbidden_constants ++ hd_res.leaves) with ⟨g, g_eq, g_id⟩
+
+            exists (fun d => if d ∈ hd_res.leaves then h d else g d)
+            simp only [rename_constants_apart_list, FiniteTreeList.toList]
+            rw [List.map_cons, List.cons_eq_cons]
+            constructor
+            . constructor
+              . conv => right; rw [← h_eq]
+                unfold ConstantMapping.apply_pre_ground_term
+                apply FiniteTree.mapLeavesEqIfMapEqOnLeaves
+                rw [List.map_inj_left]
+                intro d d_mem
+                simp [StrictConstantMapping.toConstantMapping, GroundTerm.const, hd_res, d_mem]
+              . conv => right; rw [← g_eq]
+                rw [List.map_inj_left]
+                intro t t_mem
+                unfold ConstantMapping.apply_pre_ground_term
+                apply FiniteTree.mapLeavesEqIfMapEqOnLeaves
+                rw [List.map_inj_left]
+                intro d d_mem
+                have : d ∈ FiniteTree.leavesList (rename_constants_apart_list tl (forbidden_constants ++ hd_res.leaves)) := by
+                  rw [FiniteTree.mem_leavesList]
+                  exists t
+                have : ¬ d ∈ hd_res.leaves := by
+                  intro contra
+                  apply rename_constants_apart_leaves_fresh_list _ _ _ this
+                  simp [contra]
+                simp [StrictConstantMapping.toConstantMapping, GroundTerm.const, this]
+            . unfold FiniteTree.leavesList
+              intro d d_mem
+              rw [List.mem_append] at d_mem
+              cases Decidable.em (d ∈ hd_res.leaves) with
+              | inl d_mem' => apply False.elim; apply d_mem; apply Or.inl; exact d_mem'
+              | inr d_mem' => simp only [d_mem', ↓reduceIte]; apply g_id; intro contra; apply d_mem; apply Or.inr; exact contra
+
+    end
 
   end PreGroundTerm
 
+  namespace GroundTerm
+
+    def same_skeleton (term term2 : GroundTerm sig) : Prop := PreGroundTerm.same_skeleton term.val term2.val
+
+    theorem same_skeleton_refl (term : GroundTerm sig) : term.same_skeleton term := by unfold same_skeleton; apply PreGroundTerm.same_skeleton_refl
+
+    theorem same_skeleton_under_strict_constant_mapping (term : GroundTerm sig) (g : StrictConstantMapping sig) : term.same_skeleton (g.toConstantMapping.apply_ground_term term) := by unfold same_skeleton; apply PreGroundTerm.same_skeleton_under_strict_constant_mapping
+
+    theorem exists_strict_constant_mapping_to_reverse_renaming [GetFreshRepresentant sig.C] (term term2 : GroundTerm sig) (terms_same_skeleton : same_skeleton term term2) (forbidden_constants : List sig.C) :
+        ∃ (g : StrictConstantMapping sig),
+          g.toConstantMapping.apply_ground_term (term.rename_constants_apart forbidden_constants) = term2 ∧
+          (∀ d, d ∉ (term.rename_constants_apart forbidden_constants).constants -> g d = d) := by
+      unfold rename_constants_apart
+      unfold ConstantMapping.apply_ground_term
+      rcases PreGroundTerm.exists_strict_constant_mapping_to_reverse_renaming term.val term2.val terms_same_skeleton forbidden_constants with ⟨g, g_eq⟩
+      exists g
+      rw [Subtype.mk.injEq]
+      exact g_eq
+
+  end GroundTerm
+
+  namespace GroundSubstitution
+
+    def same_skeleton_for_vars (subs subs2 : GroundSubstitution sig) : List sig.V -> Prop
+    | .nil => True
+    | .cons hd tl => (subs hd).same_skeleton (subs2 hd) ∧ subs.same_skeleton_for_vars subs2 tl
+
+    theorem same_skeleton_for_vars_refl (subs : GroundSubstitution sig) (vars : List sig.V) : subs.same_skeleton_for_vars subs vars := by
+      induction vars with
+      | nil => simp [same_skeleton_for_vars]
+      | cons hd tl ih => unfold same_skeleton_for_vars; constructor; apply GroundTerm.same_skeleton_refl; exact ih
+
+    theorem same_skeleton_for_vars_under_strict_constant_mapping (subs : GroundSubstitution sig) (vars : List sig.V) (g : StrictConstantMapping sig) : subs.same_skeleton_for_vars (g.toConstantMapping.apply_ground_term ∘ subs) vars := by
+      induction vars with
+      | nil => simp [same_skeleton_for_vars]
+      | cons hd tl ih => unfold same_skeleton_for_vars; constructor; apply GroundTerm.same_skeleton_under_strict_constant_mapping; exact ih
+
+    -- NOTE: induction over vars for rename_constants_apart_for_vars does not work nicely without assuming that the vars do not contain duplicates
+    theorem exists_strict_constant_mapping_to_reverse_renaming_for_vars [GetFreshRepresentant sig.C] (subs subs2 : GroundSubstitution sig) (vars : List sig.V) (vars_nodup : vars.Nodup) (subs_same_skeleton : same_skeleton_for_vars subs subs2 vars) (forbidden_constants : List sig.C) :
+        ∃ (g : StrictConstantMapping sig),
+          (∀ v ∈ vars, g.toConstantMapping.apply_ground_term (subs.rename_constants_apart_for_vars forbidden_constants vars v) = subs2 v) ∧
+          (∀ d, d ∉ ((vars.map (subs.rename_constants_apart_for_vars forbidden_constants vars)).flatMap GroundTerm.constants) -> g d = d) := by
+      induction vars generalizing forbidden_constants with
+      | nil => exists id; simp
+      | cons hd tl ih =>
+        simp only [same_skeleton_for_vars] at subs_same_skeleton
+        have g_ex_hd := GroundTerm.exists_strict_constant_mapping_to_reverse_renaming (subs hd) (subs2 hd) subs_same_skeleton.left forbidden_constants
+        rcases g_ex_hd with ⟨g_hd, g_hd_h⟩
+
+        let renamed_term_for_hd := (subs hd).rename_constants_apart forbidden_constants
+        let new_forbidden := forbidden_constants ++ renamed_term_for_hd.constants
+        have g_ex_tl := ih (List.nodup_cons.mp vars_nodup).right subs_same_skeleton.right new_forbidden
+        rcases g_ex_tl with ⟨g_tl, g_tl_h⟩
+
+        let g : StrictConstantMapping sig := fun d =>
+          if d ∈ renamed_term_for_hd.constants then g_hd d else g_tl d
+
+        have g_aux : g.toConstantMapping.apply_ground_term renamed_term_for_hd = g_hd.toConstantMapping.apply_ground_term renamed_term_for_hd := by
+          simp only [g, StrictConstantMapping.toConstantMapping, ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, Subtype.mk.injEq]
+          apply FiniteTree.mapLeavesEqIfMapEqOnLeaves
+          rw [List.map_inj_left]
+          intro d d_mem
+          simp only [GroundTerm.const]
+          simp [GroundTerm.constants, d_mem]
+
+        have g_aux2 : ∀ v ∈ tl, g.toConstantMapping.apply_ground_term (subs.rename_constants_apart_for_vars new_forbidden tl v) = g_tl.toConstantMapping.apply_ground_term (subs.rename_constants_apart_for_vars new_forbidden tl v) := by
+          intro v v_mem
+          simp only [g, StrictConstantMapping.toConstantMapping, ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, Subtype.mk.injEq]
+          apply FiniteTree.mapLeavesEqIfMapEqOnLeaves
+          rw [List.map_inj_left]
+          intro d d_mem
+          simp only [GroundTerm.const]
+          have d_nmem : d ∉ renamed_term_for_hd.constants := by
+            have : d ∉ new_forbidden := by
+              apply subs.rename_constants_apart_for_vars_constants_fresh new_forbidden tl v v_mem
+              exact d_mem
+            intro contra
+            apply this
+            simp [new_forbidden, contra]
+          simp [d_nmem]
+
+        exists g
+        constructor
+        . intro v v_mem
+          rw [List.mem_cons] at v_mem
+          unfold rename_constants_apart_for_vars
+          cases Decidable.em (v = hd) with
+          | inl v_eq_hd =>
+            simp only [v_eq_hd, ↓reduceIte]
+            rw [g_aux]
+            exact g_hd_h.left
+          | inr v_neq_hd =>
+            have v_mem : v ∈ tl := by cases v_mem; contradiction; assumption
+            simp only [v_neq_hd, ↓reduceIte]
+            rw [g_aux2 _ v_mem]
+            exact g_tl_h.left _ v_mem
+        . intro d d_nmem
+          simp only [rename_constants_apart_for_vars, List.map_cons, List.flatMap_cons, ↓reduceIte] at d_nmem
+          have : d ∉ renamed_term_for_hd.constants := by
+            intro contra
+            apply d_nmem
+            rw [List.mem_append]
+            apply Or.inl
+            exact contra
+          simp only [g, this, ↓reduceIte]
+          apply g_tl_h.right
+          intro contra
+          apply d_nmem
+          rw [List.mem_append]
+          apply Or.inr
+
+          rw [List.mem_flatMap] at contra
+          rcases contra with ⟨t, t_mem, d_mem⟩
+          rw [List.mem_map] at t_mem
+          rcases t_mem with ⟨v, v_mem, t_eq⟩
+          have v_neq : v ≠ hd := by
+            intro contra
+            apply (List.nodup_cons.mp vars_nodup).left
+            rw [← contra]
+            exact v_mem
+          rw [List.mem_flatMap]
+          exists t
+          constructor
+          . rw [List.mem_map]
+            exists v
+            constructor
+            . exact v_mem
+            . simp only [v_neq, ↓reduceIte]
+              rw [← t_eq]
+          . exact d_mem
+
+  end GroundSubstitution
+
+  variable [DecidableEq sig.P]
+
+  namespace PreTrigger
+
+    def same_skeleton (trg trg2 : PreTrigger sig) : Prop :=
+      trg.rule = trg2.rule ∧
+      trg.subs.same_skeleton_for_vars trg2.subs trg.rule.body.vars.eraseDupsKeepRight
+
+    theorem same_skeleton_refl (trg : PreTrigger sig) : trg.same_skeleton trg := by unfold same_skeleton; simp [GroundSubstitution.same_skeleton_for_vars_refl]
+
+    theorem same_skeleton_symm (trg trg2 : PreTrigger sig) : trg.same_skeleton trg2 -> trg2.same_skeleton trg := by sorry
+
+    -- TODO: also show transitivity (but I think as of now we do not need it)
+
+    theorem same_skeleton_under_strict_constant_mapping (trg : PreTrigger sig) (g : StrictConstantMapping sig) : trg.same_skeleton {rule := trg.rule, subs := g.toConstantMapping.apply_ground_term ∘ trg.subs} := by
+      unfold same_skeleton
+      simp [GroundSubstitution.same_skeleton_for_vars_under_strict_constant_mapping]
+
+    theorem exists_strict_constant_mapping_to_reverse_renaming [GetFreshRepresentant sig.C] (trg trg2 : PreTrigger sig) (trgs_same_skeleton : same_skeleton trg trg2) (forbidden_constants : List sig.C) :
+        ∃ (g : StrictConstantMapping sig),
+          { rule := trg.rule, subs := g.toConstantMapping.apply_ground_term ∘ (trg.rename_constants_apart forbidden_constants).subs : PreTrigger sig }.strong_equiv trg2 ∧
+          (∀ d, d ∉ ((trg.rename_constants_apart forbidden_constants).mapped_body.flatMap Fact.constants) -> g d = d) := by
+      rcases trg.subs.exists_strict_constant_mapping_to_reverse_renaming_for_vars trg2.subs trg.rule.body.vars.eraseDupsKeepRight trg.rule.body.vars.nodup_eraseDupsKeepRight trgs_same_skeleton.right forbidden_constants with ⟨g, g_h⟩
+      exists g
+      constructor
+      . constructor
+        . exact trgs_same_skeleton.left
+        . intro v v_mem
+          simp only [rename_constants_apart, Function.comp_apply]
+          apply g_h.left
+          rw [List.mem_eraseDupsKeepRight]
+          exact v_mem
+      . intro d d_nmem
+        apply g_h.right
+        intro d_mem
+        apply d_nmem
+        rw [List.mem_flatMap] at d_mem
+        rcases d_mem with ⟨t, t_mem, d_mem⟩
+        rw [List.mem_map] at t_mem
+        rcases t_mem with ⟨v, v_mem, t_eq⟩
+        rw [List.mem_eraseDupsKeepRight] at v_mem
+        unfold FunctionFreeConjunction.vars at v_mem
+        rw [List.mem_flatMap] at v_mem
+        rcases v_mem with ⟨a, a_mem, v_mem⟩
+        rw [List.mem_flatMap]
+        exists (trg.rename_constants_apart forbidden_constants).subs.apply_function_free_atom a
+        constructor
+        . apply List.mem_map_of_mem; exact a_mem
+        . simp only [rename_constants_apart, GroundSubstitution.apply_function_free_atom, Fact.constants]
+          rw [List.mem_flatMap]
+          exists t
+          constructor
+          . rw [List.mem_map]
+            exists VarOrConst.var v
+            constructor
+            . apply VarOrConst.filterVars_occur_in_original_list; exact v_mem
+            . rw [← t_eq]; simp [GroundSubstitution.apply_var_or_const]
+          . exact d_mem
+
+  end PreTrigger
+
+
 end InterplayWithRenamingConstantsApart
+
+section InterplayWithObsoletenessCondition
+
+  variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [DecidableEq sig.P]
+
+  -- we want to assume this property for obsoleteness conditions for MFA
+  def ObsoletenessCondition.propagates_under_constant_mapping (obs : ObsoletenessCondition sig) : Prop := ∀ {trg : PreTrigger sig} {fs : FactSet sig} {g : ConstantMapping sig}, (∀ c ∈ trg.rule.head_constants, g c = GroundTerm.const c) -> obs.cond trg fs -> obs.cond { rule := trg.rule, subs := g.apply_ground_term ∘ trg.subs } (g.apply_fact_set fs)
+
+  -- we show in the following that this property indeed holds for skolem and restricted obsoleteness so the condition is not really a restriction
+
+  theorem SkolemObsoleteness.propagates_under_constant_mapping : (SkolemObsoleteness sig).propagates_under_constant_mapping := by
+    intro trg fs g g_id cond
+    simp only [SkolemObsoleteness] at cond
+    simp only [SkolemObsoleteness]
+    let trg' : PreTrigger sig := { rule := trg.rule, subs := g.apply_ground_term ∘ trg.subs }
+    rcases cond with ⟨i, cond⟩
+    let i' : Fin trg'.mapped_head.length := ⟨i.val, by have isLt := i.isLt; simp only [PreTrigger.length_mapped_head] at *; exact isLt⟩
+    exists i'
+    intro f f_mem
+    rw [List.mem_toSet] at f_mem
+    unfold PreTrigger.mapped_head at f_mem
+    simp only [List.getElem_map, List.getElem_zipIdx, List.mem_map, Nat.zero_add] at f_mem
+    rcases f_mem with ⟨a, a_mem, f_eq⟩
+    rw [← ConstantMapping.apply_fact_swap_apply_to_function_free_atom] at f_eq
+    . rw [← f_eq]
+      apply ConstantMapping.apply_fact_mem_apply_fact_set_of_mem
+      apply cond
+      rw [List.mem_toSet]
+      simp only [PreTrigger.mapped_head, List.getElem_map, List.getElem_zipIdx, List.mem_map, Nat.zero_add]
+      exists a
+    . intro d d_mem
+      apply g_id
+      unfold Rule.head_constants
+      rw [List.mem_flatMap]
+      exists trg.rule.head[i.val]'(by rw [← PreTrigger.length_mapped_head]; exact i.isLt)
+      constructor
+      . apply List.getElem_mem
+      . unfold FunctionFreeConjunction.consts
+        rw [List.mem_flatMap]
+        exists a
+
+  theorem RestrictedObsoleteness.propagates_under_constant_mapping : (RestrictedObsoleteness sig).propagates_under_constant_mapping := by
+    intro trg fs g g_id cond
+    simp only [RestrictedObsoleteness, PreTrigger.satisfied, PreTrigger.satisfied_for_disj] at cond
+    simp only [RestrictedObsoleteness, PreTrigger.satisfied, PreTrigger.satisfied_for_disj]
+    let trg' : PreTrigger sig := { rule := trg.rule, subs := g.apply_ground_term ∘ trg.subs }
+    rcases cond with ⟨i, cond⟩
+    exists i
+    rcases cond with ⟨s, id_front, cond⟩
+    exists g.apply_ground_term ∘ s
+    constructor
+    . intro v v_mem; simp only [Function.comp_apply]; rw [id_front v v_mem]
+    . unfold GroundSubstitution.apply_function_free_conj
+      intro f f_mem
+      rw [List.mem_toSet, List.mem_map] at f_mem
+      rcases f_mem with ⟨a, a_mem, f_eq⟩
+      rw [GroundSubstitution.apply_function_free_atom_compose] at f_eq
+      . rw [← f_eq]
+        rw [← ConstantMapping.apply_fact_eq_groundTermMapping_applyFact]
+        apply ConstantMapping.apply_fact_mem_apply_fact_set_of_mem
+        apply cond
+        rw [List.mem_toSet]
+        unfold GroundSubstitution.apply_function_free_conj
+        apply List.mem_map_of_mem
+        exact a_mem
+      . intro d d_mem
+        conv => left; simp only [ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, GroundTerm.const, FiniteTree.mapLeaves]
+        apply g_id
+        unfold Rule.head_constants
+        rw [List.mem_flatMap]
+        exists trg.rule.head[i.val]
+        constructor
+        . apply List.getElem_mem
+        . unfold FunctionFreeConjunction.consts
+          rw [List.mem_flatMap]
+          exists a
+
+end InterplayWithObsoletenessCondition
+
+section InterplayWithBacktracking
+
+  variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [DecidableEq sig.P]
+
+  theorem PreTrigger.backtracking_under_constant_mapping_subset_of_composing_with_subs
+      [GetFreshRepresentant sig.C]
+      [Inhabited sig.C]
+      (rl : RuleList sig)
+      (trg : PreTrigger sig)
+      (trg_ruleIds_valid : trg.skolem_ruleIds_valid rl)
+      (trg_disjIdx_valid : trg.skolem_disjIdx_valid rl trg_ruleIds_valid)
+      (trg_rule_arity_valid : trg.skolem_rule_arity_valid rl trg_ruleIds_valid) :
+      ∀ (g : StrictConstantMapping sig),
+        g.toConstantMapping.apply_fact_set (trg.backtrackFacts rl trg_ruleIds_valid trg_disjIdx_valid trg_rule_arity_valid).toSet ⊆
+        ({rule := trg.rule, subs := g.toConstantMapping.apply_ground_term ∘ trg.subs : PreTrigger sig}.backtrackFacts rl (trg.compose_strict_constant_mapping_preserves_ruleId_validity g rl trg_ruleIds_valid) (trg.compose_strict_constant_mapping_preserves_disjIdx_validity g rl trg_ruleIds_valid trg_disjIdx_valid) (trg.compose_strict_constant_mapping_preserves_rule_arity_validity g rl trg_ruleIds_valid trg_rule_arity_valid)).toSet := by sorry
+
+end InterplayWithBacktracking
 

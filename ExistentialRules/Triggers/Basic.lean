@@ -82,6 +82,64 @@ namespace PreTrigger
     simp
 
   def mapped_body (trg : PreTrigger sig) : List (Fact sig) := trg.subs.apply_function_free_conj trg.rule.body
+
+  theorem mem_terms_mapped_body_iff (trg : PreTrigger sig) : ∀ t, t ∈ trg.mapped_body.flatMap Fact.terms ↔ ((∃ c ∈ trg.rule.body.consts, GroundTerm.const c = t) ∨ (∃ v ∈ trg.rule.body.vars, trg.subs v = t)) := by
+    intro t
+    rw [List.mem_flatMap]
+    constructor
+    . intro h
+      rcases h with ⟨f, f_mem, t_mem⟩
+      simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj] at f_mem
+      rw [List.mem_map] at f_mem
+      rcases f_mem with ⟨a, a_mem, f_eq⟩
+      rw [← f_eq] at t_mem
+      simp only [GroundSubstitution.apply_function_free_atom] at t_mem
+      rw [List.mem_map] at t_mem
+      rcases t_mem with ⟨voc, voc_mem, t_eq⟩
+      cases voc with
+      | const c =>
+        apply Or.inl
+        exists c
+        constructor
+        . unfold FunctionFreeConjunction.consts; rw [List.mem_flatMap]; exists a; constructor; exact a_mem; apply VarOrConst.mem_filterConsts_of_const; exact voc_mem
+        . rw [← t_eq]; simp [GroundSubstitution.apply_var_or_const]
+      | var v =>
+        apply Or.inr
+        exists v
+        constructor
+        . unfold FunctionFreeConjunction.vars; rw [List.mem_flatMap]; exists a; constructor; exact a_mem; apply VarOrConst.mem_filterVars_of_var; exact voc_mem
+        . rw [← t_eq]; simp [GroundSubstitution.apply_var_or_const]
+    . intro h
+      cases h with
+      | inl h =>
+        rcases h with ⟨c, c_mem, t_eq⟩
+        unfold FunctionFreeConjunction.consts at c_mem
+        rw [List.mem_flatMap] at c_mem
+        rcases c_mem with ⟨a, a_mem, c_mem⟩
+        exists trg.subs.apply_function_free_atom a
+        constructor
+        . apply List.mem_map_of_mem; exact a_mem
+        . simp only [GroundSubstitution.apply_function_free_atom]
+          rw [List.mem_map]
+          exists VarOrConst.const c
+          constructor
+          . apply VarOrConst.filterConsts_occur_in_original_list; exact c_mem
+          . rw [← t_eq]; simp [GroundSubstitution.apply_var_or_const]
+      | inr h =>
+        rcases h with ⟨v, v_mem, t_eq⟩
+        unfold FunctionFreeConjunction.vars at v_mem
+        rw [List.mem_flatMap] at v_mem
+        rcases v_mem with ⟨a, a_mem, v_mem⟩
+        exists trg.subs.apply_function_free_atom a
+        constructor
+        . apply List.mem_map_of_mem; exact a_mem
+        . simp only [GroundSubstitution.apply_function_free_atom]
+          rw [List.mem_map]
+          exists VarOrConst.var v
+          constructor
+          . apply VarOrConst.filterVars_occur_in_original_list; exact v_mem
+          . rw [← t_eq]; simp [GroundSubstitution.apply_var_or_const]
+
   def mapped_head (trg : PreTrigger sig) : List (List (Fact sig)) :=
     trg.rule.head.zipIdx.map (fun (h, i) => h.map (trg.apply_to_function_free_atom i))
 
@@ -251,7 +309,7 @@ namespace PreTrigger
     simp only [GroundSubstitution.apply_function_free_conj] at f_mem
     rw [List.mem_map] at f_mem
     rcases f_mem with ⟨a, a_mem, f_mem⟩
-    rw [GroundSubstitution.apply_function_free_atom_compose _ _ h_id] at f_mem
+    rw [GroundSubstitution.apply_function_free_atom_compose_of_isIdOnConstants _ _ h_id] at f_mem
     rw [← f_mem]
     apply GroundTermMapping.applyPreservesElement
     apply loaded
@@ -280,6 +338,49 @@ namespace PreTrigger
 
   def equiv (trg1 trg2 : PreTrigger sig) : Prop :=
     trg1.rule = trg2.rule ∧ ∀ v, v ∈ trg1.rule.frontier -> trg1.subs v = trg2.subs v
+
+  def strong_equiv (trg1 trg2 : PreTrigger sig) : Prop :=
+    trg1.rule = trg2.rule ∧ ∀ v, v ∈ trg1.rule.body.vars -> trg1.subs v = trg2.subs v
+
+  theorem equiv_of_strong_equiv (trg1 trg2 : PreTrigger sig) : trg1.strong_equiv trg2 -> trg1.equiv trg2 := by
+    intro ⟨r_eq, body_mapping_eq⟩
+    constructor
+    . exact r_eq
+    . intro v v_mem
+      apply body_mapping_eq
+      rcases trg1.rule.frontier_occurs_in_body _ v_mem with ⟨a, a_mem, v_mem⟩
+      unfold FunctionFreeConjunction.vars
+      rw [List.mem_flatMap]
+      exists a
+      constructor
+      . exact a_mem
+      . unfold FunctionFreeAtom.variables
+        apply VarOrConst.mem_filterVars_of_var
+        exact v_mem
+
+  theorem mapped_body_eq_of_strong_equiv {trg1 trg2 : PreTrigger sig} : trg1.strong_equiv trg2 -> trg1.mapped_body = trg2.mapped_body := by
+    intro equiv
+    unfold mapped_body
+    rw [equiv.left]
+    unfold GroundSubstitution.apply_function_free_conj
+    rw [List.map_inj_left]
+    intro a a_mem
+    unfold GroundSubstitution.apply_function_free_atom
+    simp only [Fact.mk.injEq, true_and]
+    rw [List.map_inj_left]
+    intro voc voc_mem
+    cases voc with
+    | const c => simp only [GroundSubstitution.apply_var_or_const]
+    | var v =>
+      simp only [GroundSubstitution.apply_var_or_const]
+      apply equiv.right
+      unfold FunctionFreeConjunction.vars
+      rw [List.mem_flatMap]
+      exists a
+      constructor
+      . rw [equiv.left]; exact a_mem
+      . apply VarOrConst.mem_filterVars_of_var
+        exact voc_mem
 
   theorem result_eq_of_equiv (trg1 trg2 : PreTrigger sig) : trg1.equiv trg2 -> trg1.mapped_head = trg2.mapped_head := by
     unfold equiv
@@ -314,6 +415,30 @@ namespace PreTrigger
           rw [List.map_inj_left]
           exact h.right
         simp only [this]
+
+  theorem satisfied_preserved_of_equiv {trg1 trg2 : PreTrigger sig} : trg1.equiv trg2 -> ∀ {fs}, trg1.satisfied fs ↔ trg2.satisfied fs := by
+    intro equiv fs
+    unfold satisfied
+    unfold satisfied_for_disj
+    constructor
+    . intro h
+      rcases h with ⟨i, s, front, subset⟩
+      exists ⟨i, by rw [← equiv.left]; exact i.isLt⟩, s
+      constructor
+      . intro v v_mem
+        rw [← equiv.right]
+        . apply front; rw [equiv.left]; exact v_mem
+        . rw [equiv.left]; exact v_mem
+      . simp only [← equiv.left]; exact subset
+    . intro h
+      rcases h with ⟨i, s, front, subset⟩
+      exists ⟨i, by rw [equiv.left]; exact i.isLt⟩, s
+      constructor
+      . intro v v_mem
+        rw [equiv.right]
+        . apply front; rw [← equiv.left]; exact v_mem
+        . exact v_mem
+      . simp only [equiv.left]; exact subset
 
   theorem result_term_not_in_frontier_image_of_var_not_in_frontier (trg : PreTrigger sig)
       (disj_index : Fin trg.rule.head.length) (v : sig.V) (v_not_in_frontier : ¬ v ∈ trg.rule.frontier) :

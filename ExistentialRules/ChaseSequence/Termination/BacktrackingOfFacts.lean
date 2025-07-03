@@ -234,6 +234,28 @@ def GroundTerm.backtrackFacts
     (forbidden_constants : List sig.C) : (List (Fact sig)) × (List sig.C) :=
   PreGroundTerm.backtrackFacts rl term.val term.property term_ruleIds_valid term_disjIdx_valid term_rule_arity_valid forbidden_constants
 
+def GroundTerm.backtrackFacts_list
+    [GetFreshRepresentant sig.C]
+    [Inhabited sig.C]
+    (rl : RuleList sig)
+    (terms : List (GroundTerm sig))
+    (terms_ruleIds_valid : ∀ t ∈ terms, t.skolem_ruleIds_valid rl)
+    (terms_disjIdx_valid : ∀ t, (mem : t ∈ terms) -> t.skolem_disjIdx_valid rl (terms_ruleIds_valid t mem))
+    (terms_rule_arity_valid : ∀ t, (mem : t ∈ terms) -> t.skolem_rule_arity_valid rl (terms_ruleIds_valid t mem))
+    (forbidden_constants : List sig.C) : (List (Fact sig)) × (List sig.C) :=
+  match terms with
+  | .nil => ([], [])
+  | .cons hd tl =>
+    have hd_mem : hd ∈ hd :: tl := by simp
+    let result_for_hd := hd.backtrackFacts rl (terms_ruleIds_valid hd hd_mem) (terms_disjIdx_valid hd hd_mem) (terms_rule_arity_valid hd hd_mem) forbidden_constants
+
+    let recursive_result := backtrackFacts_list rl tl
+      (by intro t t_mem; apply terms_ruleIds_valid; simp [t_mem])
+      (by intro t t_mem; apply terms_disjIdx_valid; simp [t_mem])
+      (by intro t t_mem; apply terms_rule_arity_valid; simp [t_mem])
+      (forbidden_constants ++ result_for_hd.snd)
+
+    (result_for_hd.fst ++ recursive_result.fst, result_for_hd.snd ++ recursive_result.snd)
 
 
 def PreTrigger.skolem_ruleIds_valid (rl : RuleList sig) (trg : PreTrigger sig) : Prop := ∀ t ∈ trg.mapped_body.flatMap Fact.terms, t.skolem_ruleIds_valid rl
@@ -241,6 +263,15 @@ def PreTrigger.skolem_disjIdx_valid (rl : RuleList sig) (trg : PreTrigger sig) (
   ∀ t, (h : t ∈ trg.mapped_body.flatMap Fact.terms) -> t.skolem_disjIdx_valid rl (trg_ruleIds_valid t h)
 def PreTrigger.skolem_rule_arity_valid (rl : RuleList sig) (trg : PreTrigger sig) (trg_ruleIds_valid : trg.skolem_ruleIds_valid rl) : Prop :=
   ∀ t, (h : t ∈ trg.mapped_body.flatMap Fact.terms) -> t.skolem_rule_arity_valid rl (trg_ruleIds_valid t h)
+
+theorem PreTrigger.skolem_ruleIds_valid_of_strong_equiv {rl : RuleList sig} {trg trg2 : PreTrigger sig} (strong_equiv : trg.strong_equiv trg2) (trg_valid : trg.skolem_ruleIds_valid rl) : trg2.skolem_ruleIds_valid rl := by
+  unfold skolem_ruleIds_valid; rw [← PreTrigger.mapped_body_eq_of_strong_equiv strong_equiv]; exact trg_valid
+
+theorem PreTrigger.skolem_disjIdx_valid_of_strong_equiv {rl : RuleList sig} {trg trg2 : PreTrigger sig} (strong_equiv : trg.strong_equiv trg2) (h : trg.skolem_ruleIds_valid rl) (trg_valid : trg.skolem_disjIdx_valid rl h) : trg2.skolem_disjIdx_valid rl (PreTrigger.skolem_ruleIds_valid_of_strong_equiv strong_equiv h) := by
+  unfold skolem_disjIdx_valid; simp only [← PreTrigger.mapped_body_eq_of_strong_equiv strong_equiv]; exact trg_valid
+
+theorem PreTrigger.skolem_rule_arity_valid_of_strong_equiv {rl : RuleList sig} {trg trg2 : PreTrigger sig} (strong_equiv : trg.strong_equiv trg2) (h : trg.skolem_ruleIds_valid rl) (trg_valid : trg.skolem_rule_arity_valid rl h) : trg2.skolem_rule_arity_valid rl (PreTrigger.skolem_ruleIds_valid_of_strong_equiv strong_equiv h) := by
+  unfold skolem_rule_arity_valid; simp only [← PreTrigger.mapped_body_eq_of_strong_equiv strong_equiv]; exact trg_valid
 
 -- TODO: extract this result
 theorem List.getElem_idxOf_of_mem [BEq α] [LawfulBEq α] {l : List α} {e : α} (mem : e ∈ l) : l[l.idxOf e]'(by apply List.idxOf_lt_length; exact mem) = e := by
@@ -553,11 +584,30 @@ def PreTrigger.backtrackFacts
     (trg_disjIdx_valid : trg.skolem_disjIdx_valid rl trg_ruleIds_valid)
     (trg_rule_arity_valid : trg.skolem_rule_arity_valid rl trg_ruleIds_valid) : List (Fact sig) :=
   let forbidden_constants := trg.mapped_body.flatMap Fact.constants
-  let backtrack_result : (List (Fact sig)) × (List sig.C) := (trg.mapped_body.flatMap Fact.terms).attach.foldl (fun acc ⟨t, h⟩ =>
-    let result_for_t := t.backtrackFacts rl (trg_ruleIds_valid t h) (trg_disjIdx_valid t h) (trg_rule_arity_valid t h) (forbidden_constants ++ acc.snd)
-    (acc.fst ++ result_for_t.fst, acc.snd ++ result_for_t.snd)
-  ) ([], [])
+  -- TODO: remove commented code if the new solution works nicely
+  /- let backtrack_result : (List (Fact sig)) × (List sig.C) := (trg.mapped_body.flatMap Fact.terms).attach.foldl (fun acc ⟨t, h⟩ => -/
+  /-   let result_for_t := t.backtrackFacts rl (trg_ruleIds_valid t h) (trg_disjIdx_valid t h) (trg_rule_arity_valid t h) (forbidden_constants ++ acc.snd) -/
+  /-   (acc.fst ++ result_for_t.fst, acc.snd ++ result_for_t.snd) -/
+  /- ) ([], []) -/
+  let backtrack_result := GroundTerm.backtrackFacts_list rl (trg.mapped_body.flatMap Fact.terms) trg_ruleIds_valid trg_disjIdx_valid trg_rule_arity_valid forbidden_constants
   trg.mapped_body ++ backtrack_result.fst
+
+theorem PreTrigger.backtrackFacts_eq_of_strong_equiv
+    [GetFreshRepresentant sig.C]
+    [Inhabited sig.C]
+    (rl : RuleList sig)
+    (trg trg2 : PreTrigger sig)
+    (trg_ruleIds_valid : trg.skolem_ruleIds_valid rl)
+    (trg_disjIdx_valid : trg.skolem_disjIdx_valid rl trg_ruleIds_valid)
+    (trg_rule_arity_valid : trg.skolem_rule_arity_valid rl trg_ruleIds_valid)
+    (strong_equiv : trg.strong_equiv trg2) :
+    trg.backtrackFacts rl trg_ruleIds_valid trg_disjIdx_valid trg_rule_arity_valid =
+      trg2.backtrackFacts rl
+        (PreTrigger.skolem_ruleIds_valid_of_strong_equiv strong_equiv trg_ruleIds_valid)
+        (PreTrigger.skolem_disjIdx_valid_of_strong_equiv strong_equiv trg_ruleIds_valid trg_disjIdx_valid)
+        (PreTrigger.skolem_rule_arity_valid_of_strong_equiv strong_equiv trg_ruleIds_valid trg_rule_arity_valid) := by
+  unfold backtrackFacts
+  simp only [PreTrigger.mapped_body_eq_of_strong_equiv strong_equiv, List.append_cancel_left_eq]
 
 theorem ChaseBranch.trigger_ruleIds_valid_of_loaded (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) :
     ∀ (rl : RuleList sig), (∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) -> ∀ (trg : PreTrigger sig), trg.loaded node.fact -> trg.skolem_ruleIds_valid rl := by
