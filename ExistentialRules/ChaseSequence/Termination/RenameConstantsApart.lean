@@ -190,6 +190,15 @@ def GroundTerm.rename_constants_apart
         simp
   ⟩
 
+omit [DecidableEq sig.P] in theorem GroundTerm.rename_constants_apart_constants_fresh
+    [GetFreshRepresentant sig.C]
+    (term : GroundTerm sig)
+    (forbidden_constants : List sig.C) :
+    ∀ c, c ∈ (term.rename_constants_apart forbidden_constants).constants -> c ∉ forbidden_constants := by
+  intro c c_mem
+  apply PreGroundTerm.rename_constants_apart_leaves_fresh
+  exact c_mem
+
 theorem GroundTerm.rename_constants_apart_preserves_ruleId_validity [GetFreshRepresentant sig.C] (term : GroundTerm sig) (forbidden_constants : List sig.C) :
     ∀ rl, GroundTerm.skolem_ruleIds_valid rl term -> GroundTerm.skolem_ruleIds_valid rl (GroundTerm.rename_constants_apart term forbidden_constants) := by
   intro rl valid
@@ -211,317 +220,159 @@ theorem GroundTerm.rename_constants_apart_preserves_rule_arity_validity [GetFres
   apply PreGroundTerm.rename_constants_apart_preserves_rule_arity_validity
   exact valid
 
+def GroundSubstitution.rename_constants_apart_for_vars [GetFreshRepresentant sig.C] (subs : GroundSubstitution sig) (forbidden_constants : List sig.C) : List sig.V -> GroundSubstitution sig
+| .nil => subs
+| .cons hd tl =>
+  let renamed_term_for_hd := (subs hd).rename_constants_apart forbidden_constants
+  let new_forbidden := forbidden_constants ++ renamed_term_for_hd.constants
+  fun v => if v = hd then renamed_term_for_hd else
+    subs.rename_constants_apart_for_vars new_forbidden tl v
+
+omit [DecidableEq sig.P] in theorem GroundSubstitution.rename_constants_apart_for_vars_constants_fresh
+    [GetFreshRepresentant sig.C]
+    (subs : GroundSubstitution sig)
+    (forbidden_constants : List sig.C)
+    (vars : List sig.V) :
+    ∀ v ∈ vars, ∀ c ∈ (subs.rename_constants_apart_for_vars forbidden_constants vars v).constants, c ∉ forbidden_constants := by
+  induction vars generalizing forbidden_constants with
+  | nil => intros; contradiction
+  | cons hd tl ih =>
+    intro v v_mem c c_mem
+    cases Decidable.em (v = hd) with
+    | inl v_eq_hd =>
+      simp only [rename_constants_apart_for_vars, v_eq_hd, ↓reduceIte] at c_mem
+      apply GroundTerm.rename_constants_apart_constants_fresh
+      exact c_mem
+    | inr v_neq_hd =>
+      have v_mem : v ∈ tl := by cases v_mem; contradiction; assumption
+      simp only [rename_constants_apart_for_vars, v_neq_hd, ↓reduceIte] at c_mem
+      let new_forbidden := forbidden_constants ++ ((subs hd).rename_constants_apart forbidden_constants).constants
+      specialize ih new_forbidden v v_mem c c_mem
+      intro contra
+      apply ih
+      simp [new_forbidden, contra]
+
+theorem GroundSubstitution.rename_constants_apart_for_vars_preserves_ruleId_validity [GetFreshRepresentant sig.C] (subs : GroundSubstitution sig) (forbidden_constants : List sig.C) (vars : List sig.V) :
+    ∀ rl, ∀ v ∈ vars, (subs v).skolem_ruleIds_valid rl -> (subs.rename_constants_apart_for_vars forbidden_constants vars v).skolem_ruleIds_valid rl := by
+  intro rl v
+  induction vars generalizing forbidden_constants with
+  | nil => intros; contradiction
+  | cons hd tl ih =>
+    intro v_mem
+    rw [List.mem_cons] at v_mem
+    cases Decidable.em (v = hd) with
+    | inl v_eq =>
+      simp only [rename_constants_apart_for_vars, v_eq, ↓reduceIte]
+      apply GroundTerm.rename_constants_apart_preserves_ruleId_validity
+    | inr v_neq =>
+      simp only [rename_constants_apart_for_vars, v_neq, ↓reduceIte]
+      apply ih
+      cases v_mem with
+      | inl v_mem => contradiction
+      | inr v_mem => exact v_mem
+
+theorem GroundSubstitution.rename_constants_apart_for_vars_preserves_disjIdx_validity [GetFreshRepresentant sig.C] (subs : GroundSubstitution sig) (forbidden_constants : List sig.C) (vars : List sig.V) :
+    ∀ rl, ∀ v, (v_mem : v ∈ vars) -> (h : (subs v).skolem_ruleIds_valid rl) -> (subs v).skolem_disjIdx_valid rl h -> (subs.rename_constants_apart_for_vars forbidden_constants vars v).skolem_disjIdx_valid rl (subs.rename_constants_apart_for_vars_preserves_ruleId_validity forbidden_constants vars rl v v_mem h) := by
+  intro rl v
+  induction vars generalizing forbidden_constants with
+  | nil => intros; contradiction
+  | cons hd tl ih =>
+    intro v_mem
+    rw [List.mem_cons] at v_mem
+    cases Decidable.em (v = hd) with
+    | inl v_eq =>
+      simp only [rename_constants_apart_for_vars, v_eq, ↓reduceIte]
+      apply GroundTerm.rename_constants_apart_preserves_disjIdx_validity
+    | inr v_neq =>
+      simp only [rename_constants_apart_for_vars, v_neq, ↓reduceIte]
+      apply ih
+      cases v_mem with
+      | inl v_mem => contradiction
+      | inr v_mem => exact v_mem
+
+theorem GroundSubstitution.rename_constants_apart_for_vars_preserves_rule_arity_validity [GetFreshRepresentant sig.C] (subs : GroundSubstitution sig) (forbidden_constants : List sig.C) (vars : List sig.V) :
+    ∀ rl, ∀ v, (v_mem : v ∈ vars) -> (h : (subs v).skolem_ruleIds_valid rl) -> (subs v).skolem_rule_arity_valid rl h -> (subs.rename_constants_apart_for_vars forbidden_constants vars v).skolem_rule_arity_valid rl (subs.rename_constants_apart_for_vars_preserves_ruleId_validity forbidden_constants vars rl v v_mem h) := by
+  intro rl v
+  induction vars generalizing forbidden_constants with
+  | nil => intros; contradiction
+  | cons hd tl ih =>
+    intro v_mem
+    rw [List.mem_cons] at v_mem
+    cases Decidable.em (v = hd) with
+    | inl v_eq =>
+      simp only [rename_constants_apart_for_vars, v_eq, ↓reduceIte]
+      apply GroundTerm.rename_constants_apart_preserves_rule_arity_validity
+    | inr v_neq =>
+      simp only [rename_constants_apart_for_vars, v_neq, ↓reduceIte]
+      apply ih
+      cases v_mem with
+      | inl v_mem => contradiction
+      | inr v_mem => exact v_mem
+
+
 def PreTrigger.rename_constants_apart [GetFreshRepresentant sig.C] (trg : PreTrigger sig) (forbidden_constants : List sig.C) : PreTrigger sig :=
-  let renamed_apart_terms_for_body_vars : List (GroundTerm sig) := trg.rule.body.vars.foldl (fun acc v =>
-    let forbidden_constants_inner := acc.flatMap GroundTerm.constants
-    acc ++ [(trg.subs v).rename_constants_apart (forbidden_constants ++ forbidden_constants_inner)]
-  ) []
+  ⟨trg.rule, trg.subs.rename_constants_apart_for_vars forbidden_constants trg.rule.body.vars.eraseDupsKeepRight⟩
 
-  have length_preserved : ∀ (l : List sig.V) (init : List (GroundTerm sig)), (l.foldl (fun acc v =>
-    let forbidden_constants_inner := acc.flatMap GroundTerm.constants
-    acc ++ [(trg.subs v).rename_constants_apart (forbidden_constants ++ forbidden_constants_inner)]
-  ) init).length = init.length + l.length := by
-    intro l
-    induction l with
-    | nil => simp
-    | cons hd tl ih =>
-      intro init
-      rw [List.foldl_cons]
-      rw [ih]
-      rw [List.length_append, List.length_cons, List.length_cons, List.length_nil, Nat.zero_add, Nat.add_assoc, Nat.add_comm 1]
-
-  ⟨trg.rule, fun x =>
-    if mem : x ∈ trg.rule.body.vars
-    then
-      let idx := trg.rule.body.vars.idxOf x
-      have : idx < renamed_apart_terms_for_body_vars.length := by
-        rw [length_preserved, List.length_nil, Nat.zero_add]
-        apply List.idxOf_lt_length
-        exact mem
-      renamed_apart_terms_for_body_vars[idx]
-    else trg.subs x -- it should not matter what we return here
-  ⟩
-
--- TODO: the following three proofs seem way too complicated; maybe I'm too tired already to see how to simplify; or it's really that bad...
 theorem PreTrigger.rename_constants_apart_preserves_ruleId_validity [GetFreshRepresentant sig.C] (trg : PreTrigger sig) (forbidden_constants : List sig.C) :
     ∀ rl, PreTrigger.skolem_ruleIds_valid rl trg -> PreTrigger.skolem_ruleIds_valid rl (PreTrigger.rename_constants_apart trg forbidden_constants) := by
   intro rl valid
-  simp only [rename_constants_apart, skolem_ruleIds_valid] at *
+  unfold skolem_ruleIds_valid at *
   intro t t_mem
-  rw [List.mem_flatMap] at t_mem
-  rcases t_mem with ⟨f, f_mem, t_mem⟩
-  simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj] at f_mem
-  rw [List.mem_map] at f_mem
-  simp only [GroundSubstitution.apply_function_free_atom] at f_mem
-  rcases f_mem with ⟨a, a_mem, f_eq⟩
-  rw [← f_eq] at t_mem
-  simp only at t_mem
-  rw [List.mem_map] at t_mem
-  rcases t_mem with ⟨voc, voc_mem, t_eq⟩
-  rw [← t_eq]
-  cases voc with
-  | const c =>
-    simp only [GroundSubstitution.apply_var_or_const]
+  rw [mem_terms_mapped_body_iff] at t_mem
+  cases t_mem with
+  | inl t_mem =>
+    rcases t_mem with ⟨c, c_mem, t_eq⟩
+    rw [← t_eq]
     apply GroundTerm.skolem_ruleIds_valid_const
-  | var v =>
-    have : v ∈ trg.rule.body.vars := by
-      unfold FunctionFreeConjunction.vars
-      rw [List.mem_flatMap]
-      exists a
-      constructor
-      . exact a_mem
-      . unfold FunctionFreeAtom.variables
-        apply VarOrConst.mem_filterVars_of_var
-        exact voc_mem
-    simp only [GroundSubstitution.apply_var_or_const, this, ↓reduceDIte]
-
-    have : ∀ (l : List sig.V) (subset : l ⊆ trg.rule.body.vars) (init : List (GroundTerm sig)) (init_valid : ∀ t ∈ init, t.skolem_ruleIds_valid rl) (t : GroundTerm sig), t ∈ (l.foldl (fun acc v =>
-      let forbidden_constants_inner := acc.flatMap GroundTerm.constants
-      acc ++ [(trg.subs v).rename_constants_apart (forbidden_constants ++ forbidden_constants_inner)]
-    ) init) -> t.skolem_ruleIds_valid rl := by
-      intro l
-      induction l with
-      | nil =>
-        intro _ init init_valid t t_mem
-        rw [List.foldl_nil] at t_mem
-        apply init_valid
-        exact t_mem
-      | cons hd tl ih =>
-        intro subset init init_valid t t_mem
-        rw [List.foldl_cons] at t_mem
-        apply ih _ _ _ t
-        . exact t_mem
-        . intro e e_mem; apply subset; simp [e_mem]
-        . intro t t_mem
-          rw [List.mem_append, List.mem_singleton] at t_mem
-          cases t_mem with
-          | inl t_mem => apply init_valid; exact t_mem
-          | inr t_mem =>
-            rw [t_mem]
-            apply GroundTerm.rename_constants_apart_preserves_ruleId_validity
-            apply valid
-            specialize subset List.mem_cons_self
-            unfold FunctionFreeConjunction.vars at subset
-            rw [List.mem_flatMap] at subset
-            rw [List.mem_flatMap]
-            rcases subset with ⟨a, a_mem, hd_mem⟩
-            exists trg.subs.apply_function_free_atom a
-            constructor
-            . apply List.mem_map_of_mem; exact a_mem
-            . simp only [GroundSubstitution.apply_function_free_atom]
-              unfold FunctionFreeAtom.variables at hd_mem
-              rw [List.mem_map]
-              exists VarOrConst.var hd
-              constructor
-              . apply VarOrConst.filterVars_occur_in_original_list; exact hd_mem
-              . simp [GroundSubstitution.apply_var_or_const]
-
-    apply this trg.rule.body.vars _ []
-    . apply List.getElem_mem
-    . simp
-    . simp
+  | inr t_mem =>
+    rcases t_mem with ⟨v, v_mem, t_eq⟩
+    rw [← t_eq]
+    apply trg.subs.rename_constants_apart_for_vars_preserves_ruleId_validity forbidden_constants trg.rule.body.vars.eraseDupsKeepRight rl v
+    . rw [List.mem_eraseDupsKeepRight]; exact v_mem
+    . apply valid
+      rw [mem_terms_mapped_body_iff]
+      apply Or.inr
+      exists v
 
 theorem PreTrigger.rename_constants_apart_preserves_disjIdx_validity [GetFreshRepresentant sig.C] (trg : PreTrigger sig) (forbidden_constants : List sig.C) :
     ∀ rl, (h : PreTrigger.skolem_ruleIds_valid rl trg) -> PreTrigger.skolem_disjIdx_valid rl trg h -> PreTrigger.skolem_disjIdx_valid rl (PreTrigger.rename_constants_apart trg forbidden_constants) (PreTrigger.rename_constants_apart_preserves_ruleId_validity trg forbidden_constants rl h) := by
   intro rl h valid
-  simp only [rename_constants_apart, skolem_ruleIds_valid] at *
+  unfold skolem_disjIdx_valid at *
   intro t t_mem
-  rw [List.mem_flatMap] at t_mem
-  rcases t_mem with ⟨f, f_mem, t_mem⟩
-  simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj] at f_mem
-  rw [List.mem_map] at f_mem
-  simp only [GroundSubstitution.apply_function_free_atom] at f_mem
-  rcases f_mem with ⟨a, a_mem, f_eq⟩
-  rw [← f_eq] at t_mem
-  simp only at t_mem
-  rw [List.mem_map] at t_mem
-  rcases t_mem with ⟨voc, voc_mem, t_eq⟩
-  simp only [← t_eq]
-  cases voc with
-  | const c =>
-    simp only [GroundSubstitution.apply_var_or_const]
+  rw [mem_terms_mapped_body_iff] at t_mem
+  cases t_mem with
+  | inl t_mem =>
+    rcases t_mem with ⟨c, c_mem, t_eq⟩
+    simp only [← t_eq]
     apply GroundTerm.skolem_disjIdx_valid_const
-  | var v =>
-    have : v ∈ trg.rule.body.vars := by
-      unfold FunctionFreeConjunction.vars
-      rw [List.mem_flatMap]
-      exists a
-      constructor
-      . exact a_mem
-      . unfold FunctionFreeAtom.variables
-        apply VarOrConst.mem_filterVars_of_var
-        exact voc_mem
-    simp only [GroundSubstitution.apply_var_or_const, this, ↓reduceDIte]
-
-    have : ∀ (l : List sig.V) (subset : l ⊆ trg.rule.body.vars) (init : List (GroundTerm sig)) (init_h : ∀ t ∈ init, t.skolem_ruleIds_valid rl) (init_valid : ∀ t, (t_mem : t ∈ init) -> t.skolem_disjIdx_valid rl (init_h t t_mem)) (t : GroundTerm sig), (t_h : t.skolem_ruleIds_valid rl) -> t ∈ (l.foldl (fun acc v =>
-      let forbidden_constants_inner := acc.flatMap GroundTerm.constants
-      acc ++ [(trg.subs v).rename_constants_apart (forbidden_constants ++ forbidden_constants_inner)]
-    ) init) -> t.skolem_disjIdx_valid rl t_h := by
-      intro l
-      induction l with
-      | nil =>
-        intro _ init init_h init_valid t t_h t_mem
-        rw [List.foldl_nil] at t_mem
-        apply init_valid
-        exact t_mem
-      | cons hd tl ih =>
-        intro subset init init_h init_valid t t_h t_mem
-        rw [List.foldl_cons] at t_mem
-        apply ih _ _ _ _ t
-        . exact t_mem
-        . intro e e_mem; apply subset; simp [e_mem]
-        . intro t t_mem
-          rw [List.mem_append, List.mem_singleton] at t_mem
-          cases t_mem with
-          | inl t_mem => apply init_h; exact t_mem
-          | inr t_mem =>
-            simp only [t_mem]
-            apply GroundTerm.rename_constants_apart_preserves_ruleId_validity
-            apply h
-            specialize subset List.mem_cons_self
-            unfold FunctionFreeConjunction.vars at subset
-            rw [List.mem_flatMap] at subset
-            rw [List.mem_flatMap]
-            rcases subset with ⟨a, a_mem, hd_mem⟩
-            exists trg.subs.apply_function_free_atom a
-            constructor
-            . apply List.mem_map_of_mem; exact a_mem
-            . simp only [GroundSubstitution.apply_function_free_atom]
-              unfold FunctionFreeAtom.variables at hd_mem
-              rw [List.mem_map]
-              exists VarOrConst.var hd
-              constructor
-              . apply VarOrConst.filterVars_occur_in_original_list; exact hd_mem
-              . simp [GroundSubstitution.apply_var_or_const]
-        . intro t t_mem
-          rw [List.mem_append, List.mem_singleton] at t_mem
-          cases t_mem with
-          | inl t_mem => apply init_valid; exact t_mem
-          | inr t_mem =>
-            simp only [t_mem]
-            apply GroundTerm.rename_constants_apart_preserves_disjIdx_validity
-            apply valid
-            specialize subset List.mem_cons_self
-            unfold FunctionFreeConjunction.vars at subset
-            rw [List.mem_flatMap] at subset
-            rw [List.mem_flatMap]
-            rcases subset with ⟨a, a_mem, hd_mem⟩
-            exists trg.subs.apply_function_free_atom a
-            constructor
-            . apply List.mem_map_of_mem; exact a_mem
-            . simp only [GroundSubstitution.apply_function_free_atom]
-              unfold FunctionFreeAtom.variables at hd_mem
-              rw [List.mem_map]
-              exists VarOrConst.var hd
-              constructor
-              . apply VarOrConst.filterVars_occur_in_original_list; exact hd_mem
-              . simp [GroundSubstitution.apply_var_or_const]
-
-    apply this trg.rule.body.vars _ []
-    . apply List.getElem_mem
-    . simp
-    . simp
-    . simp
+  | inr t_mem =>
+    rcases t_mem with ⟨v, v_mem, t_eq⟩
+    simp only [← t_eq]
+    apply trg.subs.rename_constants_apart_for_vars_preserves_disjIdx_validity forbidden_constants trg.rule.body.vars.eraseDupsKeepRight rl v
+    . rw [List.mem_eraseDupsKeepRight]; exact v_mem
+    . apply valid
+      rw [mem_terms_mapped_body_iff]
+      apply Or.inr
+      exists v
 
 theorem PreTrigger.rename_constants_apart_preserves_rule_arity_validity [GetFreshRepresentant sig.C] (trg : PreTrigger sig) (forbidden_constants : List sig.C) :
     ∀ rl, (h : PreTrigger.skolem_ruleIds_valid rl trg) -> PreTrigger.skolem_rule_arity_valid rl trg h -> PreTrigger.skolem_rule_arity_valid rl (PreTrigger.rename_constants_apart trg forbidden_constants) (PreTrigger.rename_constants_apart_preserves_ruleId_validity trg forbidden_constants rl h) := by
   intro rl h valid
-  simp only [rename_constants_apart, skolem_ruleIds_valid] at *
+  unfold skolem_rule_arity_valid at *
   intro t t_mem
-  rw [List.mem_flatMap] at t_mem
-  rcases t_mem with ⟨f, f_mem, t_mem⟩
-  simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj] at f_mem
-  rw [List.mem_map] at f_mem
-  simp only [GroundSubstitution.apply_function_free_atom] at f_mem
-  rcases f_mem with ⟨a, a_mem, f_eq⟩
-  rw [← f_eq] at t_mem
-  simp only at t_mem
-  rw [List.mem_map] at t_mem
-  rcases t_mem with ⟨voc, voc_mem, t_eq⟩
-  simp only [← t_eq]
-  cases voc with
-  | const c =>
-    simp only [GroundSubstitution.apply_var_or_const]
+  rw [mem_terms_mapped_body_iff] at t_mem
+  cases t_mem with
+  | inl t_mem =>
+    rcases t_mem with ⟨c, c_mem, t_eq⟩
+    simp only [← t_eq]
     apply GroundTerm.skolem_rule_arity_valid_const
-  | var v =>
-    have : v ∈ trg.rule.body.vars := by
-      unfold FunctionFreeConjunction.vars
-      rw [List.mem_flatMap]
-      exists a
-      constructor
-      . exact a_mem
-      . unfold FunctionFreeAtom.variables
-        apply VarOrConst.mem_filterVars_of_var
-        exact voc_mem
-    simp only [GroundSubstitution.apply_var_or_const, this, ↓reduceDIte]
-
-    have : ∀ (l : List sig.V) (subset : l ⊆ trg.rule.body.vars) (init : List (GroundTerm sig)) (init_h : ∀ t ∈ init, t.skolem_ruleIds_valid rl) (init_valid : ∀ t, (t_mem : t ∈ init) -> t.skolem_rule_arity_valid rl (init_h t t_mem)) (t : GroundTerm sig), (t_h : t.skolem_ruleIds_valid rl) -> t ∈ (l.foldl (fun acc v =>
-      let forbidden_constants_inner := acc.flatMap GroundTerm.constants
-      acc ++ [(trg.subs v).rename_constants_apart (forbidden_constants ++ forbidden_constants_inner)]
-    ) init) -> t.skolem_rule_arity_valid rl t_h := by
-      intro l
-      induction l with
-      | nil =>
-        intro _ init init_h init_valid t t_h t_mem
-        rw [List.foldl_nil] at t_mem
-        apply init_valid
-        exact t_mem
-      | cons hd tl ih =>
-        intro subset init init_h init_valid t t_h t_mem
-        rw [List.foldl_cons] at t_mem
-        apply ih _ _ _ _ t
-        . exact t_mem
-        . intro e e_mem; apply subset; simp [e_mem]
-        . intro t t_mem
-          rw [List.mem_append, List.mem_singleton] at t_mem
-          cases t_mem with
-          | inl t_mem => apply init_h; exact t_mem
-          | inr t_mem =>
-            simp only [t_mem]
-            apply GroundTerm.rename_constants_apart_preserves_ruleId_validity
-            apply h
-            specialize subset List.mem_cons_self
-            unfold FunctionFreeConjunction.vars at subset
-            rw [List.mem_flatMap] at subset
-            rw [List.mem_flatMap]
-            rcases subset with ⟨a, a_mem, hd_mem⟩
-            exists trg.subs.apply_function_free_atom a
-            constructor
-            . apply List.mem_map_of_mem; exact a_mem
-            . simp only [GroundSubstitution.apply_function_free_atom]
-              unfold FunctionFreeAtom.variables at hd_mem
-              rw [List.mem_map]
-              exists VarOrConst.var hd
-              constructor
-              . apply VarOrConst.filterVars_occur_in_original_list; exact hd_mem
-              . simp [GroundSubstitution.apply_var_or_const]
-        . intro t t_mem
-          rw [List.mem_append, List.mem_singleton] at t_mem
-          cases t_mem with
-          | inl t_mem => apply init_valid; exact t_mem
-          | inr t_mem =>
-            simp only [t_mem]
-            apply GroundTerm.rename_constants_apart_preserves_rule_arity_validity
-            apply valid
-            specialize subset List.mem_cons_self
-            unfold FunctionFreeConjunction.vars at subset
-            rw [List.mem_flatMap] at subset
-            rw [List.mem_flatMap]
-            rcases subset with ⟨a, a_mem, hd_mem⟩
-            exists trg.subs.apply_function_free_atom a
-            constructor
-            . apply List.mem_map_of_mem; exact a_mem
-            . simp only [GroundSubstitution.apply_function_free_atom]
-              unfold FunctionFreeAtom.variables at hd_mem
-              rw [List.mem_map]
-              exists VarOrConst.var hd
-              constructor
-              . apply VarOrConst.filterVars_occur_in_original_list; exact hd_mem
-              . simp [GroundSubstitution.apply_var_or_const]
-
-    apply this trg.rule.body.vars _ []
-    . apply List.getElem_mem
-    . simp
-    . simp
-    . simp
+  | inr t_mem =>
+    rcases t_mem with ⟨v, v_mem, t_eq⟩
+    simp only [← t_eq]
+    apply trg.subs.rename_constants_apart_for_vars_preserves_rule_arity_validity forbidden_constants trg.rule.body.vars.eraseDupsKeepRight rl v
+    . rw [List.mem_eraseDupsKeepRight]; exact v_mem
+    . apply valid
+      rw [mem_terms_mapped_body_iff]
+      apply Or.inr
+      exists v
 

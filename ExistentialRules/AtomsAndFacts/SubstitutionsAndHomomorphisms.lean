@@ -160,24 +160,48 @@ section GroundSubstitutionInteractionWithGroundTermMapping
 
   variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
 
-  theorem GroundSubstitution.apply_var_or_const_compose (s : GroundSubstitution sig)
-      (h : GroundTermMapping sig) (id_on_const : h.isIdOnConstants) :
-      ∀ (voc : VarOrConst sig), GroundSubstitution.apply_var_or_const (h ∘ s) voc = h (s.apply_var_or_const voc) := by
-    intro voc
+  theorem GroundSubstitution.apply_var_or_const_compose (s : GroundSubstitution sig) (h : GroundTermMapping sig) :
+      ∀ (voc : VarOrConst sig), (∀ d, voc = VarOrConst.const d -> h (GroundTerm.const d) = GroundTerm.const d) -> GroundSubstitution.apply_var_or_const (h ∘ s) voc = h (s.apply_var_or_const voc) := by
+    intro voc id_on_const
     unfold GroundSubstitution.apply_var_or_const
     cases voc with
     | var v => simp
     | const c =>
       simp only
-      rw [id_on_const (GroundTerm.const c)]
+      rw [id_on_const]
+      rfl
+
+  theorem GroundSubstitution.apply_var_or_const_compose_of_isIdOnConstants (s : GroundSubstitution sig)
+      (h : GroundTermMapping sig) (id_on_const : h.isIdOnConstants) :
+      ∀ (voc : VarOrConst sig), GroundSubstitution.apply_var_or_const (h ∘ s) voc = h (s.apply_var_or_const voc) := by
+    intro voc
+    apply apply_var_or_const_compose
+    intro d _
+    rw [id_on_const (GroundTerm.const d)]
 
   variable [DecidableEq sig.P]
 
-  theorem GroundSubstitution.apply_function_free_atom_compose (s : GroundSubstitution sig) (h : GroundTermMapping sig) (id_on_const : h.isIdOnConstants) :
-      ∀ (a : FunctionFreeAtom sig), GroundSubstitution.apply_function_free_atom (h ∘ s) a = h.applyFact (s.apply_function_free_atom a) := by
+  theorem GroundSubstitution.apply_function_free_atom_compose (s : GroundSubstitution sig) (h : GroundTermMapping sig) :
+      ∀ (a : FunctionFreeAtom sig), (∀ d ∈ a.constants, h (GroundTerm.const d) = GroundTerm.const d) -> GroundSubstitution.apply_function_free_atom (h ∘ s) a = h.applyFact (s.apply_function_free_atom a) := by
+    intro a id_on_const
     unfold GroundTermMapping.applyFact
     unfold GroundSubstitution.apply_function_free_atom
-    simp [apply_var_or_const_compose _ _ id_on_const]
+    simp only [Fact.mk.injEq, true_and, List.map_map, List.map_inj_left, Function.comp_apply]
+    intro voc voc_mem
+    apply apply_var_or_const_compose
+    intro d d_eq
+    apply id_on_const
+    unfold FunctionFreeAtom.constants
+    apply VarOrConst.mem_filterConsts_of_const
+    rw [d_eq] at voc_mem
+    exact voc_mem
+
+  theorem GroundSubstitution.apply_function_free_atom_compose_of_isIdOnConstants (s : GroundSubstitution sig) (h : GroundTermMapping sig) (id_on_const : h.isIdOnConstants) :
+      ∀ (a : FunctionFreeAtom sig), GroundSubstitution.apply_function_free_atom (h ∘ s) a = h.applyFact (s.apply_function_free_atom a) := by
+    intro a
+    apply apply_function_free_atom_compose
+    intro d _
+    rw [id_on_const (GroundTerm.const d)]
 
 end GroundSubstitutionInteractionWithGroundTermMapping
 
