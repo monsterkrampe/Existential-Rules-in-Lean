@@ -1111,7 +1111,7 @@ section InterplayWithRenamingConstantsApart
     theorem exists_strict_constant_mapping_to_reverse_renaming [GetFreshRepresentant sig.C] (trg trg2 : PreTrigger sig) (trgs_same_skeleton : same_skeleton trg trg2) (forbidden_constants : List sig.C) :
         ∃ (g : StrictConstantMapping sig),
           { rule := trg.rule, subs := g.toConstantMapping.apply_ground_term ∘ (trg.rename_constants_apart forbidden_constants).subs : PreTrigger sig }.strong_equiv trg2 ∧
-          (∀ d, d ∉ ((trg.rename_constants_apart forbidden_constants).mapped_body.flatMap Fact.constants) -> g d = d) := by
+          (∀ d, d ∉ (trg.rule.body.vars.eraseDupsKeepRight.map (trg.rename_constants_apart forbidden_constants).subs).flatMap GroundTerm.constants -> g d = d) := by
       rcases trg.subs.exists_strict_constant_mapping_to_reverse_renaming_for_vars trg2.subs trg.rule.body.vars.eraseDupsKeepRight trg.rule.body.vars.nodup_eraseDupsKeepRight trgs_same_skeleton.right forbidden_constants with ⟨g, g_h⟩
       exists g
       constructor
@@ -1124,30 +1124,7 @@ section InterplayWithRenamingConstantsApart
           exact v_mem
       . intro d d_nmem
         apply g_h.right
-        intro d_mem
-        apply d_nmem
-        rw [List.mem_flatMap] at d_mem
-        rcases d_mem with ⟨t, t_mem, d_mem⟩
-        rw [List.mem_map] at t_mem
-        rcases t_mem with ⟨v, v_mem, t_eq⟩
-        rw [List.mem_eraseDupsKeepRight] at v_mem
-        unfold FunctionFreeConjunction.vars at v_mem
-        rw [List.mem_flatMap] at v_mem
-        rcases v_mem with ⟨a, a_mem, v_mem⟩
-        rw [List.mem_flatMap]
-        exists (trg.rename_constants_apart forbidden_constants).subs.apply_function_free_atom a
-        constructor
-        . apply List.mem_map_of_mem; exact a_mem
-        . simp only [rename_constants_apart, GroundSubstitution.apply_function_free_atom, Fact.constants]
-          rw [List.mem_flatMap]
-          exists t
-          constructor
-          . rw [List.mem_map]
-            exists VarOrConst.var v
-            constructor
-            . apply VarOrConst.filterVars_occur_in_original_list; exact v_mem
-            . rw [← t_eq]; simp [GroundSubstitution.apply_var_or_const]
-          . exact d_mem
+        exact d_nmem
 
   end PreTrigger
 
@@ -1247,6 +1224,13 @@ section InterplayWithBacktracking
       ∀ (g : StrictConstantMapping sig),
         g.toConstantMapping.apply_fact_set (trg.backtrackFacts rl trg_ruleIds_valid trg_disjIdx_valid trg_rule_arity_valid).toSet ⊆
         ({rule := trg.rule, subs := g.toConstantMapping.apply_ground_term ∘ trg.subs : PreTrigger sig}.backtrackFacts rl (trg.compose_strict_constant_mapping_preserves_ruleId_validity g rl trg_ruleIds_valid) (trg.compose_strict_constant_mapping_preserves_disjIdx_validity g rl trg_ruleIds_valid trg_disjIdx_valid) (trg.compose_strict_constant_mapping_preserves_rule_arity_validity g rl trg_ruleIds_valid trg_rule_arity_valid)).toSet := by sorry
+
+  theorem ChaseBranch.backtracking_of_loaded_trigger_in_node [GetFreshRepresentant sig.C] [Inhabited sig.C] (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) :
+      ∀ (rl : RuleList sig), (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) -> ∀ (trg : PreTrigger sig), (trg_loaded : trg.loaded node.fact) ->
+      ∃ (g : StrictConstantMapping sig),
+        g.toConstantMapping.apply_fact_set (trg.backtrackFacts rl (cb.trigger_ruleIds_valid_of_loaded i node eq rl rl_rs_eq trg trg_loaded) (cb.trigger_disjIdx_valid_of_loaded i node eq rl rl_rs_eq trg trg_loaded) (cb.trigger_rule_arity_valid_of_loaded i node eq rl rl_rs_eq trg trg_loaded)).toSet ⊆ node.fact ∧
+        (∀ (d : sig.C), d ∈ (node.fact.val.constants ∪ kb.rules.constants) -> g d = d) := by
+    sorry
 
 end InterplayWithBacktracking
 
