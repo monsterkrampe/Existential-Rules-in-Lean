@@ -231,7 +231,18 @@ theorem BlockingObsoleteness.blocks_corresponding_obs [GetFreshRepresentant sig.
         apply PreTrigger.compose_strict_constant_mapping_preserves_rule_arity_validity
         exact trg_rule_arity_valid
       )
+      (by
+        intro d d_mem contra
+        apply trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart_constants_fresh (rl.rules.flatMap Rule.constants) d d_mem
+        rw [List.mem_flatMap]
+        exists trg.val.rule
+        constructor
+        . rw [rl_rs_eq]
+          exact trg.property
+        . exact contra
+      )
       reverse_renaming_mapping
+      reverse_renaming_mapping_properties.right
     )
 
     apply obs_propagates_under_const_mapping (trg := trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (rl.rules.flatMap Rule.constants))
