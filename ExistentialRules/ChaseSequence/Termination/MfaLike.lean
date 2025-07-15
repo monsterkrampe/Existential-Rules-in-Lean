@@ -989,9 +989,8 @@ namespace KnowledgeBase
 
   theorem deterministicSkolemChaseResult_eq_every_chase_branch_result (kb : KnowledgeBase sig) (det : kb.rules.isDeterministic) : ∀ (cb : ChaseBranch (SkolemObsoleteness sig) kb), cb.result = kb.deterministicSkolemChaseResult := by
     intro cb
-    apply funext
+    apply Set.ext
     intro f
-    apply propext
     unfold ChaseBranch.result
     unfold deterministicSkolemChaseResult
     constructor
@@ -1918,9 +1917,8 @@ namespace RuleSet
           unfold mfaKb
           unfold RuleSet.skolem_functions
           simp only
-          apply funext
+          apply Set.ext
           intro f
-          apply propext
           constructor
           . intro h
             rcases h with ⟨r, r_mem, f_mem⟩

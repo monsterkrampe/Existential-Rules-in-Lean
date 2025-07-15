@@ -430,9 +430,8 @@ namespace Database
     unfold constants
     unfold FactSet.constants
     simp only
-    apply funext
+    apply Set.ext
     intro c
-    rw [eq_iff_iff]
     constructor
     . intro h
       rcases h with ⟨f, f_mem, c_mem⟩

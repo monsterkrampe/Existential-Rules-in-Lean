@@ -198,9 +198,8 @@ theorem ChaseTree.firstResult_is_in_result (ct : ChaseTree obs kb) : ct.firstRes
 theorem ChaseTree.firstResult_is_result_when_deterministic (ct : ChaseTree obs kb) : kb.isDeterministic -> ct.result = fun fs => fs = ct.firstResult := by
   intro h_deterministic
   unfold ChaseTree.result
-  apply funext
+  apply Set.ext
   intro fs
-  rw [eq_iff_iff]
   constructor
   . intro h
     cases h with | intro branch h =>
@@ -343,11 +342,10 @@ theorem ChaseTree.firstResult_is_result_when_deterministic (ct : ChaseTree obs k
                   unfold not_exists_trigger_list at trg_ex'
                   apply FiniteDegreeTree.each_successor_none_of_children_empty
                   exact trg_ex'.right
-        apply funext
+        apply Set.ext
         intro f
         unfold ChaseBranch.result
         unfold ChaseTree.firstResult
-        rw [eq_iff_iff]
         constructor
         . intro h; cases h with | intro n h =>
           exists n
@@ -641,9 +639,8 @@ theorem ChaseBranch.intoTree_same_result (cb : ChaseBranch obs kb) (deterministi
   unfold ChaseBranch.intoTree
   unfold ChaseBranch.result
   unfold ChaseTree.firstResult
-  apply funext
+  apply Set.ext
   intro f
-  rw [eq_iff_iff]
   simp only [FiniteDegreeTree.get, PossiblyInfiniteTree.get]
   constructor
   . intro h

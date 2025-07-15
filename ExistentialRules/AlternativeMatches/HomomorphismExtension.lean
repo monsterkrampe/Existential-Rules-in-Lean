@@ -147,11 +147,9 @@ namespace ChaseBranch
             rw [← f_eq]
             apply subs_contained
             have : (subs.apply_function_free_conj trg'.rule.head[disj_index'.val]).toSet = h'.applyFactSet trg.val.mapped_head[disj_index.val].toSet := by
-              apply funext
+              apply Set.ext
               intro f
-              have mem_toSet := (subs.apply_function_free_conj trg'.rule.head[disj_index'.val]).mem_toSet (e := f)
-              simp only [Set.element] at mem_toSet
-              rw [mem_toSet]
+              rw [List.mem_toSet]
               unfold GroundTermMapping.applyFactSet
               unfold GroundSubstitution.apply_function_free_conj
               unfold PreTrigger.mapped_head

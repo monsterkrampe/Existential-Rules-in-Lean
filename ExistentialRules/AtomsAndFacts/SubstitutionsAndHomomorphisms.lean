@@ -89,12 +89,12 @@ namespace GroundTermMapping
   theorem applyFactSet_compose (g h : GroundTermMapping sig) : applyFactSet (h ∘ g) = (applyFactSet h) ∘ (applyFactSet g) := by
     apply funext
     intro fs
-    apply funext
+    apply Set.ext
     intro f
-    simp [applyFactSet, applyFact_compose]
     constructor
     . intro pre
       rcases pre with ⟨f', f'_mem, f'_eq⟩
+      rw [applyFact_compose, Function.comp_apply] at f'_eq
       exists g.applyFact f'
       constructor
       . exists f'
@@ -105,7 +105,8 @@ namespace GroundTermMapping
       exists f''
       constructor
       . exact f''_mem
-      . rw [f''_eq, f'_eq]
+      . rw [applyFact_compose, Function.comp_apply]
+        rw [f''_eq, f'_eq]
 
   theorem applyPreservesElement (h : GroundTermMapping sig) (f : Fact sig) (fs : FactSet sig) :
       f ∈ fs -> applyFact h f ∈ applyFactSet h fs := by
