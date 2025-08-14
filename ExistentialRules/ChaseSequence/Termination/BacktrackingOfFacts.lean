@@ -177,7 +177,7 @@ mutual
           have : idx < ts.toList.length := by
             have := LawfulBEq.eq_of_beq (Bool.and_eq_true_iff.mp term_arity_ok).left
             rw [this, term_rule_arity_valid.left]
-            apply List.idxOf_lt_length
+            apply List.idxOf_lt_length_of_mem
             exact mem
           ⟨ts.toList[idx], by
             have := (PreGroundTerm.arity_ok_list_iff_arity_ok_each_mem ts).mpr (Bool.and_eq_true_iff.mp term_arity_ok).right
@@ -190,7 +190,7 @@ mutual
             let idx := pure_body_vars.idxOf x
             have : idx < fresh_consts_for_pure_body_vars.val.length := by
               rw [fresh_consts_for_pure_body_vars.property.left]
-              apply List.idxOf_lt_length
+              apply List.idxOf_lt_length_of_mem
               exact mem
             GroundTerm.const fresh_consts_for_pure_body_vars.val[idx]
           else
@@ -274,7 +274,7 @@ theorem PreTrigger.skolem_rule_arity_valid_of_strong_equiv {rl : RuleList sig} {
   unfold skolem_rule_arity_valid; simp only [← PreTrigger.mapped_body_eq_of_strong_equiv strong_equiv]; exact trg_valid
 
 -- TODO: extract this result
-theorem List.getElem_idxOf_of_mem [BEq α] [LawfulBEq α] {l : List α} {e : α} (mem : e ∈ l) : l[l.idxOf e]'(by apply List.idxOf_lt_length; exact mem) = e := by
+theorem List.getElem_idxOf_of_mem [BEq α] [LawfulBEq α] {l : List α} {e : α} (mem : e ∈ l) : l[l.idxOf e]'(by apply List.idxOf_lt_length_of_mem; exact mem) = e := by
   induction l with
   | nil => simp at mem
   | cons hd tl ih =>
@@ -300,7 +300,7 @@ theorem PreTrigger.skolem_ruleIds_remain_valid_in_head (rl : RuleList sig) (trg 
   rcases t_mem with ⟨f, f_mem, t_mem⟩
   rw [List.mem_flatten] at f_mem
   rcases f_mem with ⟨l, l_mem, f_mem⟩
-  let disj_idx : Fin trg.mapped_head.length := ⟨trg.mapped_head.idxOf l, by apply List.idxOf_lt_length; exact l_mem⟩
+  let disj_idx : Fin trg.mapped_head.length := ⟨trg.mapped_head.idxOf l, by apply List.idxOf_lt_length_of_mem; exact l_mem⟩
   let voc : VarOrConst sig := trg.var_or_const_for_result_term disj_idx (by rw [List.getElem_idxOf_of_mem l_mem]; exact f_mem) t_mem
   rw [← trg.apply_on_var_or_const_for_result_term_is_term disj_idx (by rw [List.getElem_idxOf_of_mem l_mem]; exact f_mem) t_mem]
   cases eq : voc with
@@ -364,7 +364,7 @@ theorem PreTrigger.skolem_disjIdx_remains_valid_in_head
   rcases t_mem with ⟨f, f_mem, t_mem⟩
   rw [List.mem_flatten] at f_mem
   rcases f_mem with ⟨l, l_mem, f_mem⟩
-  let disj_idx : Fin trg.mapped_head.length := ⟨trg.mapped_head.idxOf l, by apply List.idxOf_lt_length; exact l_mem⟩
+  let disj_idx : Fin trg.mapped_head.length := ⟨trg.mapped_head.idxOf l, by apply List.idxOf_lt_length_of_mem; exact l_mem⟩
 
   cases t with
   | const c => apply GroundTerm.skolem_disjIdx_valid_const
@@ -476,7 +476,7 @@ theorem PreTrigger.skolem_rule_arity_remains_valid_in_head
   rcases t_mem with ⟨f, f_mem, t_mem⟩
   rw [List.mem_flatten] at f_mem
   rcases f_mem with ⟨l, l_mem, f_mem⟩
-  let disj_idx : Fin trg.mapped_head.length := ⟨trg.mapped_head.idxOf l, by apply List.idxOf_lt_length; exact l_mem⟩
+  let disj_idx : Fin trg.mapped_head.length := ⟨trg.mapped_head.idxOf l, by apply List.idxOf_lt_length_of_mem; exact l_mem⟩
 
   cases t with
   | const c => apply GroundTerm.skolem_rule_arity_valid_const
@@ -607,7 +607,7 @@ theorem PreTrigger.backtrackFacts_eq_of_strong_equiv
         (PreTrigger.skolem_disjIdx_valid_of_strong_equiv strong_equiv trg_ruleIds_valid trg_disjIdx_valid)
         (PreTrigger.skolem_rule_arity_valid_of_strong_equiv strong_equiv trg_ruleIds_valid trg_rule_arity_valid) := by
   unfold backtrackFacts
-  simp only [PreTrigger.mapped_body_eq_of_strong_equiv strong_equiv, List.append_cancel_left_eq]
+  simp only [PreTrigger.mapped_body_eq_of_strong_equiv strong_equiv]
 
 theorem ChaseBranch.term_ruleIds_valid (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) :
     ∀ (rl : RuleList sig), (∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) -> ∀ (term : GroundTerm sig), term ∈ node.fact.val.terms -> term.skolem_ruleIds_valid rl := by

@@ -685,7 +685,7 @@ section SkolemTermValidityPreserved
         | cons hd tl =>
           simp only [StrictConstantMapping.toConstantMapping, ConstantMapping.apply_pre_ground_term]
           simp only [← FiniteTree.mapLeavesList_fromList_eq_fromList_map, FiniteTreeList.toListFromListIsId]
-          simp only [FiniteTree.mapLeavesList, PreGroundTerm.skolem_ruleIds_valid_list]
+          simp only [FiniteTree.mapLeavesList]
           simp only [PreGroundTerm.skolem_disjIdx_valid_list] at valid
           constructor
           . apply apply_pre_ground_term_preserves_disjIdx_validity; exact valid.left
@@ -722,7 +722,7 @@ section SkolemTermValidityPreserved
         | cons hd tl =>
           simp only [StrictConstantMapping.toConstantMapping, ConstantMapping.apply_pre_ground_term]
           simp only [← FiniteTree.mapLeavesList_fromList_eq_fromList_map, FiniteTreeList.toListFromListIsId]
-          simp only [FiniteTree.mapLeavesList, PreGroundTerm.skolem_ruleIds_valid_list]
+          simp only [FiniteTree.mapLeavesList]
           simp only [PreGroundTerm.skolem_rule_arity_valid_list] at valid
           constructor
           . apply apply_pre_ground_term_preserves_rule_arity_validity; exact valid.left

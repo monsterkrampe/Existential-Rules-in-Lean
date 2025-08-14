@@ -209,14 +209,14 @@ theorem GroundTerm.rename_constants_apart_preserves_ruleId_validity [GetFreshRep
 theorem GroundTerm.rename_constants_apart_preserves_disjIdx_validity [GetFreshRepresentant sig.C] (term : GroundTerm sig) (forbidden_constants : List sig.C) :
     ∀ rl, (h : GroundTerm.skolem_ruleIds_valid rl term) -> GroundTerm.skolem_disjIdx_valid rl term h -> GroundTerm.skolem_disjIdx_valid rl (GroundTerm.rename_constants_apart term forbidden_constants) (GroundTerm.rename_constants_apart_preserves_ruleId_validity term forbidden_constants rl h) := by
   intro rl _ valid
-  simp only [rename_constants_apart, skolem_ruleIds_valid] at *
+  simp only [rename_constants_apart] at *
   apply PreGroundTerm.rename_constants_apart_preserves_disjIdx_validity
   exact valid
 
 theorem GroundTerm.rename_constants_apart_preserves_rule_arity_validity [GetFreshRepresentant sig.C] (term : GroundTerm sig) (forbidden_constants : List sig.C) :
     ∀ rl, (h : GroundTerm.skolem_ruleIds_valid rl term) -> GroundTerm.skolem_rule_arity_valid rl term h -> GroundTerm.skolem_rule_arity_valid rl (GroundTerm.rename_constants_apart term forbidden_constants) (GroundTerm.rename_constants_apart_preserves_ruleId_validity term forbidden_constants rl h) := by
   intro rl _ valid
-  simp only [rename_constants_apart, skolem_ruleIds_valid] at *
+  simp only [rename_constants_apart] at *
   apply PreGroundTerm.rename_constants_apart_preserves_rule_arity_validity
   exact valid
 
