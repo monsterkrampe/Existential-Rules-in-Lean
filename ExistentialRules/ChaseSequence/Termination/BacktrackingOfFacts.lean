@@ -147,6 +147,119 @@ theorem GroundTerm.skolem_disjIdx_valid_const (rl : RuleList sig) (c : sig.C) : 
 theorem GroundTerm.skolem_rule_arity_valid_const (rl : RuleList sig) (c : sig.C) : (GroundTerm.const c).skolem_rule_arity_valid rl (skolem_ruleIds_valid_const rl c) := by
   simp [skolem_rule_arity_valid, PreGroundTerm.skolem_rule_arity_valid, GroundTerm.const]
 
+theorem GroundTerm.skolem_ruleIds_valid_list (rl : RuleList sig) (ts : List (GroundTerm sig)) : PreGroundTerm.skolem_ruleIds_valid_list rl (FiniteTreeList.fromList ts.unattach) ↔ ∀ t ∈ ts, t.skolem_ruleIds_valid rl := by
+  induction ts with
+  | nil => simp [FiniteTreeList.fromList, PreGroundTerm.skolem_ruleIds_valid_list]
+  | cons hd tl ih =>
+    simp only [List.unattach, List.map_cons, FiniteTreeList.fromList, PreGroundTerm.skolem_ruleIds_valid_list]
+    simp only [List.unattach] at ih
+    rw [ih]
+    constructor
+    . intro h
+      intro t
+      rw [List.mem_cons]
+      intro t_mem
+      cases t_mem with
+      | inl t_mem => rw [t_mem]; exact h.left
+      | inr t_mem => apply h.right; exact t_mem
+    . intro h
+      constructor
+      . apply h; simp
+      . intro t t_mem; apply h; simp [t_mem]
+
+theorem GroundTerm.skolem_disjIdx_valid_list (rl : RuleList sig) (ts : List (GroundTerm sig)) (ruleIds_valid : ∀ t ∈ ts, t.skolem_ruleIds_valid rl) : PreGroundTerm.skolem_disjIdx_valid_list rl (FiniteTreeList.fromList ts.unattach) (by rw [GroundTerm.skolem_ruleIds_valid_list]; exact ruleIds_valid) ↔ ∀ t, (t_mem : t ∈ ts) -> t.skolem_disjIdx_valid rl (ruleIds_valid t t_mem) := by
+  induction ts with
+  | nil => simp [FiniteTreeList.fromList, PreGroundTerm.skolem_disjIdx_valid_list]
+  | cons hd tl ih =>
+    specialize ih (by intro t t_mem; apply ruleIds_valid; simp [t_mem])
+    simp only [List.unattach, List.map_cons, FiniteTreeList.fromList, PreGroundTerm.skolem_disjIdx_valid_list]
+    simp only [List.unattach] at ih
+    rw [ih]
+    constructor
+    . intro h
+      intro t t_mem
+      rw [List.mem_cons] at t_mem
+      cases t_mem with
+      | inl t_mem => simp only [t_mem]; exact h.left
+      | inr t_mem => apply h.right; exact t_mem
+    . intro h
+      constructor
+      . apply h; simp
+      . intro t t_mem; apply h; simp [t_mem]
+
+theorem GroundTerm.skolem_rule_arity_valid_list (rl : RuleList sig) (ts : List (GroundTerm sig)) (ruleIds_valid : ∀ t ∈ ts, t.skolem_ruleIds_valid rl) : PreGroundTerm.skolem_rule_arity_valid_list rl (FiniteTreeList.fromList ts.unattach) (by rw [GroundTerm.skolem_ruleIds_valid_list]; exact ruleIds_valid) ↔ ∀ t, (t_mem : t ∈ ts) -> t.skolem_rule_arity_valid rl (ruleIds_valid t t_mem) := by
+  induction ts with
+  | nil => simp [FiniteTreeList.fromList, PreGroundTerm.skolem_rule_arity_valid_list]
+  | cons hd tl ih =>
+    specialize ih (by intro t t_mem; apply ruleIds_valid; simp [t_mem])
+    simp only [List.unattach, List.map_cons, FiniteTreeList.fromList, PreGroundTerm.skolem_rule_arity_valid_list]
+    simp only [List.unattach] at ih
+    rw [ih]
+    constructor
+    . intro h
+      intro t t_mem
+      rw [List.mem_cons] at t_mem
+      cases t_mem with
+      | inl t_mem => simp only [t_mem]; exact h.left
+      | inr t_mem => apply h.right; exact t_mem
+    . intro h
+      constructor
+      . apply h; simp
+      . intro t t_mem; apply h; simp [t_mem]
+
+def Rule.fresh_consts_for_pure_body_vars [GetFreshRepresentant sig.C] (r : Rule sig) (forbidden_constants : List sig.C) :=
+  GetFreshRepresentant.fresh_n forbidden_constants r.pure_body_vars.length
+
+theorem Rule.fresh_consts_for_pure_body_vars_idx_retained [GetFreshRepresentant sig.C] {r : Rule sig} {forbidden_constants : List sig.C} {v : sig.V} : (r.fresh_consts_for_pure_body_vars forbidden_constants).val.idxOf ((r.fresh_consts_for_pure_body_vars forbidden_constants).val[r.pure_body_vars.idxOf v]'(by sorry)) = r.pure_body_vars.idxOf v := by sorry
+
+theorem Rule.fresh_consts_pure_body_vars_roundtrip [GetFreshRepresentant sig.C] {r : Rule sig} {forbidden_constants : List sig.C} {v : sig.V} : r.pure_body_vars[(r.fresh_consts_for_pure_body_vars forbidden_constants).val.idxOf ((r.fresh_consts_for_pure_body_vars forbidden_constants).val[r.pure_body_vars.idxOf v]'(by sorry))]'(by sorry) = v := by sorry
+
+def PreGroundTerm.backtrackTrigger
+    [GetFreshRepresentant sig.C]
+    [Inhabited sig.C]
+    (rl : RuleList sig)
+    (term : FiniteTree (SkolemFS sig) sig.C)
+    (term_is_func : ∃ func ts, term = .inner func ts)
+    (term_arity_ok : PreGroundTerm.arity_ok term)
+    (term_ruleIds_valid : PreGroundTerm.skolem_ruleIds_valid rl term)
+    (term_rule_arity_valid : PreGroundTerm.skolem_rule_arity_valid rl term term_ruleIds_valid)
+    (forbidden_constants : List sig.C) :
+    PreTrigger sig :=
+  match term with
+  | .leaf c => by simp at term_is_func -- contradiction
+  | .inner func ts =>
+    let rule : Rule sig := rl.get_by_id func.ruleId term_ruleIds_valid.left
+    let fresh_consts_for_pure_body_vars := rule.fresh_consts_for_pure_body_vars forbidden_constants
+
+    let subs : GroundSubstitution sig := fun x =>
+      if mem : x ∈ rule.frontier
+      then
+        let idx := rule.frontier.idxOf x
+        have : idx < ts.toList.length := by
+          have := LawfulBEq.eq_of_beq (Bool.and_eq_true_iff.mp term_arity_ok).left
+          rw [this, term_rule_arity_valid.left]
+          apply List.idxOf_lt_length_of_mem
+          exact mem
+        ⟨ts.toList[idx], by
+          have := (PreGroundTerm.arity_ok_list_iff_arity_ok_each_mem ts).mpr (Bool.and_eq_true_iff.mp term_arity_ok).right
+          apply this
+          simp
+        ⟩
+      else
+        if mem : x ∈ rule.pure_body_vars
+        then
+          let idx := rule.pure_body_vars.idxOf x
+          have : idx < fresh_consts_for_pure_body_vars.val.length := by
+            rw [fresh_consts_for_pure_body_vars.property.left]
+            apply List.idxOf_lt_length_of_mem
+            exact mem
+          GroundTerm.const fresh_consts_for_pure_body_vars.val[idx]
+        else
+          -- it should not matter what we return here so we also do NOT need to make sure that this does not collide with other constants
+          GroundTerm.const default
+
+    { rule, subs }
+
 mutual
 
   def PreGroundTerm.backtrackFacts
@@ -164,44 +277,15 @@ mutual
     match term with
     | .leaf c => ([], [])
     | .inner func ts =>
-      let recursive_result := PreGroundTerm.backtrackFacts_list rl ts (Bool.and_eq_true_iff.mp term_arity_ok).right term_ruleIds_valid.right term_disjIdx_valid.right term_rule_arity_valid.right forbidden_constants
-
-      let rule : Rule sig := rl.get_by_id func.ruleId term_ruleIds_valid.left
-      let pure_body_vars := rule.body.vars.filter (fun x => x ∉ rule.frontier)
-      let fresh_consts_for_pure_body_vars := GetFreshRepresentant.fresh_n (forbidden_constants ++ recursive_result.snd) pure_body_vars.length
-
-      let subs : GroundSubstitution sig := fun x =>
-        if mem : x ∈ rule.frontier
-        then
-          let idx := rule.frontier.idxOf x
-          have : idx < ts.toList.length := by
-            have := LawfulBEq.eq_of_beq (Bool.and_eq_true_iff.mp term_arity_ok).left
-            rw [this, term_rule_arity_valid.left]
-            apply List.idxOf_lt_length_of_mem
-            exact mem
-          ⟨ts.toList[idx], by
-            have := (PreGroundTerm.arity_ok_list_iff_arity_ok_each_mem ts).mpr (Bool.and_eq_true_iff.mp term_arity_ok).right
-            apply this
-            simp
-          ⟩
-        else
-          if mem : x ∈ pure_body_vars
-          then
-            let idx := pure_body_vars.idxOf x
-            have : idx < fresh_consts_for_pure_body_vars.val.length := by
-              rw [fresh_consts_for_pure_body_vars.property.left]
-              apply List.idxOf_lt_length_of_mem
-              exact mem
-            GroundTerm.const fresh_consts_for_pure_body_vars.val[idx]
-          else
-            -- it should not matter what we return here so we also do NOT need to make sure that this does not collide with other constants
-            GroundTerm.const default
-
-      let trg : PreTrigger sig := { rule, subs }
+      let trg : PreTrigger sig := backtrackTrigger rl (.inner func ts) (by exists func, ts) term_arity_ok term_ruleIds_valid term_rule_arity_valid forbidden_constants
       let disjIdx := func.disjunctIndex
-      have : disjIdx < trg.mapped_head.length := by rw [PreTrigger.length_mapped_head]; exact term_disjIdx_valid.left
+      have : disjIdx < trg.mapped_head.length := by rw [PreTrigger.length_mapped_head]; unfold trg; unfold backtrackTrigger; exact term_disjIdx_valid.left
 
-      ((trg.mapped_body ++ trg.mapped_head[disjIdx]) ++ recursive_result.fst, recursive_result.snd ++ fresh_consts_for_pure_body_vars)
+      let fresh_consts_for_pure_body_vars := trg.rule.fresh_consts_for_pure_body_vars forbidden_constants
+
+      let recursive_result := PreGroundTerm.backtrackFacts_list rl ts (Bool.and_eq_true_iff.mp term_arity_ok).right term_ruleIds_valid.right term_disjIdx_valid.right term_rule_arity_valid.right (forbidden_constants ++ fresh_consts_for_pure_body_vars)
+
+      ((trg.mapped_body ++ trg.mapped_head[disjIdx]) ++ recursive_result.fst, recursive_result.snd ++ fresh_consts_for_pure_body_vars.val)
 
   def PreGroundTerm.backtrackFacts_list
       [GetFreshRepresentant sig.C]
@@ -223,40 +307,150 @@ mutual
 
 end
 
-def GroundTerm.backtrackFacts
-    [GetFreshRepresentant sig.C]
-    [Inhabited sig.C]
-    (rl : RuleList sig)
-    (term : GroundTerm sig)
-    (term_ruleIds_valid : term.skolem_ruleIds_valid rl)
-    (term_disjIdx_valid : term.skolem_disjIdx_valid rl term_ruleIds_valid)
-    (term_rule_arity_valid : term.skolem_rule_arity_valid rl term_ruleIds_valid)
-    (forbidden_constants : List sig.C) : (List (Fact sig)) × (List sig.C) :=
-  PreGroundTerm.backtrackFacts rl term.val term.property term_ruleIds_valid term_disjIdx_valid term_rule_arity_valid forbidden_constants
+mutual
 
-def GroundTerm.backtrackFacts_list
-    [GetFreshRepresentant sig.C]
-    [Inhabited sig.C]
-    (rl : RuleList sig)
-    (terms : List (GroundTerm sig))
-    (terms_ruleIds_valid : ∀ t ∈ terms, t.skolem_ruleIds_valid rl)
-    (terms_disjIdx_valid : ∀ t, (mem : t ∈ terms) -> t.skolem_disjIdx_valid rl (terms_ruleIds_valid t mem))
-    (terms_rule_arity_valid : ∀ t, (mem : t ∈ terms) -> t.skolem_rule_arity_valid rl (terms_ruleIds_valid t mem))
-    (forbidden_constants : List sig.C) : (List (Fact sig)) × (List sig.C) :=
-  match terms with
-  | .nil => ([], [])
-  | .cons hd tl =>
-    have hd_mem : hd ∈ hd :: tl := by simp
-    let result_for_hd := hd.backtrackFacts rl (terms_ruleIds_valid hd hd_mem) (terms_disjIdx_valid hd hd_mem) (terms_rule_arity_valid hd hd_mem) forbidden_constants
+  theorem PreGroundTerm.backtrackFacts_fresh_constants_not_forbidden
+      [GetFreshRepresentant sig.C]
+      [Inhabited sig.C]
+      {rl : RuleList sig}
+      {term : FiniteTree (SkolemFS sig) sig.C}
+      {term_arity_ok : PreGroundTerm.arity_ok term}
+      {term_ruleIds_valid : PreGroundTerm.skolem_ruleIds_valid rl term}
+      {term_disjIdx_valid : PreGroundTerm.skolem_disjIdx_valid rl term term_ruleIds_valid}
+      {term_rule_arity_valid : PreGroundTerm.skolem_rule_arity_valid rl term term_ruleIds_valid}
+      {forbidden_constants : List sig.C} :
+      ∀ c ∈ (PreGroundTerm.backtrackFacts rl term term_arity_ok term_ruleIds_valid term_disjIdx_valid term_rule_arity_valid forbidden_constants).snd, c ∉ forbidden_constants := by
+    intro c c_mem
+    cases term with
+    | leaf _ => simp [backtrackFacts] at c_mem
+    | inner func ts =>
+      simp only [backtrackFacts] at c_mem
+      rw [List.mem_append] at c_mem
+      cases c_mem with
+      | inl c_mem => have := backtrackFacts_list_fresh_constants_not_forbidden c c_mem; intro contra; apply this; rw [List.mem_append]; apply Or.inl; exact contra
+      | inr c_mem =>
+        let trg : PreTrigger sig := backtrackTrigger rl (.inner func ts) (by exists func, ts) term_arity_ok term_ruleIds_valid term_rule_arity_valid forbidden_constants
+        let fresh_consts_for_pure_body_vars := trg.rule.fresh_consts_for_pure_body_vars forbidden_constants
+        apply fresh_consts_for_pure_body_vars.property.right.right
+        exact c_mem
 
-    let recursive_result := backtrackFacts_list rl tl
-      (by intro t t_mem; apply terms_ruleIds_valid; simp [t_mem])
-      (by intro t t_mem; apply terms_disjIdx_valid; simp [t_mem])
-      (by intro t t_mem; apply terms_rule_arity_valid; simp [t_mem])
-      (forbidden_constants ++ result_for_hd.snd)
+  theorem PreGroundTerm.backtrackFacts_list_fresh_constants_not_forbidden
+      [GetFreshRepresentant sig.C]
+      [Inhabited sig.C]
+      {rl : RuleList sig}
+      {terms : FiniteTreeList (SkolemFS sig) sig.C}
+      {terms_arity_ok : PreGroundTerm.arity_ok_list terms}
+      {terms_ruleIds_valid : PreGroundTerm.skolem_ruleIds_valid_list rl terms}
+      {terms_disjIdx_valid : PreGroundTerm.skolem_disjIdx_valid_list rl terms terms_ruleIds_valid}
+      {terms_rule_arity_valid : PreGroundTerm.skolem_rule_arity_valid_list rl terms terms_ruleIds_valid}
+      {forbidden_constants : List sig.C} :
+      ∀ c ∈ (PreGroundTerm.backtrackFacts_list rl terms terms_arity_ok terms_ruleIds_valid terms_disjIdx_valid terms_rule_arity_valid forbidden_constants).snd, c ∉ forbidden_constants := by
+    intro c c_mem
+    cases terms with
+    | nil => simp [backtrackFacts_list] at c_mem
+    | cons hd tl =>
+      simp only [backtrackFacts_list] at c_mem
+      rw [List.mem_append] at c_mem
+      cases c_mem with
+      | inl c_mem => exact backtrackFacts_fresh_constants_not_forbidden c c_mem
+      | inr c_mem => have := backtrackFacts_list_fresh_constants_not_forbidden c c_mem; intro contra; apply this; rw [List.mem_append]; apply Or.inl; exact contra
 
-    (result_for_hd.fst ++ recursive_result.fst, result_for_hd.snd ++ recursive_result.snd)
+end
 
+mutual
+
+  theorem PreGroundTerm.backtrackFacts_constants_in_term_or_fresh
+      [GetFreshRepresentant sig.C]
+      [Inhabited sig.C]
+      {rl : RuleList sig}
+      {term : FiniteTree (SkolemFS sig) sig.C}
+      {term_arity_ok : PreGroundTerm.arity_ok term}
+      {term_ruleIds_valid : PreGroundTerm.skolem_ruleIds_valid rl term}
+      {term_disjIdx_valid : PreGroundTerm.skolem_disjIdx_valid rl term term_ruleIds_valid}
+      {term_rule_arity_valid : PreGroundTerm.skolem_rule_arity_valid rl term term_ruleIds_valid}
+      {forbidden_constants : List sig.C} :
+      ∀ f ∈ (PreGroundTerm.backtrackFacts rl term term_arity_ok term_ruleIds_valid term_disjIdx_valid term_rule_arity_valid forbidden_constants).fst,
+      ∀ c ∈ f.constants,
+        c ∈ term.leaves ∨ c ∈ (PreGroundTerm.backtrackFacts rl term term_arity_ok term_ruleIds_valid term_disjIdx_valid term_rule_arity_valid forbidden_constants).snd := by
+    intro f f_mem c c_mem
+    cases term with
+    | leaf _ => simp [backtrackFacts] at f_mem
+    | inner func ts =>
+      simp only [backtrackFacts] at f_mem
+      rw [List.mem_append] at f_mem
+      cases f_mem with
+      | inl f_mem =>
+        sorry
+      | inr f_mem => sorry
+
+  theorem PreGroundTerm.backtrackFacts_list_constants_in_term_or_fresh
+      [GetFreshRepresentant sig.C]
+      [Inhabited sig.C]
+      {rl : RuleList sig}
+      {terms : FiniteTreeList (SkolemFS sig) sig.C}
+      {terms_arity_ok : PreGroundTerm.arity_ok_list terms}
+      {terms_ruleIds_valid : PreGroundTerm.skolem_ruleIds_valid_list rl terms}
+      {terms_disjIdx_valid : PreGroundTerm.skolem_disjIdx_valid_list rl terms terms_ruleIds_valid}
+      {terms_rule_arity_valid : PreGroundTerm.skolem_rule_arity_valid_list rl terms terms_ruleIds_valid}
+      {forbidden_constants : List sig.C} :
+      ∀ f ∈ (PreGroundTerm.backtrackFacts_list rl terms terms_arity_ok terms_ruleIds_valid terms_disjIdx_valid terms_rule_arity_valid forbidden_constants).fst,
+      ∀ c ∈ f.constants,
+        c ∈ FiniteTree.leavesList terms ∨ c ∈ (PreGroundTerm.backtrackFacts_list rl terms terms_arity_ok terms_ruleIds_valid terms_disjIdx_valid terms_rule_arity_valid forbidden_constants).snd := by
+    intro f f_mem c c_mem
+    cases terms with
+    | nil => sorry
+    | cons hd tl => sorry
+
+end
+
+namespace GroundTerm
+
+  def backtrackTrigger
+      [GetFreshRepresentant sig.C]
+      [Inhabited sig.C]
+      (rl : RuleList sig)
+      (term : GroundTerm sig)
+      (term_is_func : ∃ func ts arity_ok, term = GroundTerm.func func ts arity_ok)
+      (term_ruleIds_valid : term.skolem_ruleIds_valid rl)
+      (term_rule_arity_valid : term.skolem_rule_arity_valid rl term_ruleIds_valid)
+      (forbidden_constants : List sig.C) : PreTrigger sig :=
+    PreGroundTerm.backtrackTrigger rl term.val (by rcases term_is_func with ⟨func, ts, _, eq⟩; exists func, FiniteTreeList.fromList ts.unattach; rw [eq]; rfl) term.property term_ruleIds_valid term_rule_arity_valid forbidden_constants
+
+  def backtrackFacts
+      [GetFreshRepresentant sig.C]
+      [Inhabited sig.C]
+      (rl : RuleList sig)
+      (term : GroundTerm sig)
+      (term_ruleIds_valid : term.skolem_ruleIds_valid rl)
+      (term_disjIdx_valid : term.skolem_disjIdx_valid rl term_ruleIds_valid)
+      (term_rule_arity_valid : term.skolem_rule_arity_valid rl term_ruleIds_valid)
+      (forbidden_constants : List sig.C) : (List (Fact sig)) × (List sig.C) :=
+    PreGroundTerm.backtrackFacts rl term.val term.property term_ruleIds_valid term_disjIdx_valid term_rule_arity_valid forbidden_constants
+
+  def backtrackFacts_list
+      [GetFreshRepresentant sig.C]
+      [Inhabited sig.C]
+      (rl : RuleList sig)
+      (terms : List (GroundTerm sig))
+      (terms_ruleIds_valid : ∀ t ∈ terms, t.skolem_ruleIds_valid rl)
+      (terms_disjIdx_valid : ∀ t, (mem : t ∈ terms) -> t.skolem_disjIdx_valid rl (terms_ruleIds_valid t mem))
+      (terms_rule_arity_valid : ∀ t, (mem : t ∈ terms) -> t.skolem_rule_arity_valid rl (terms_ruleIds_valid t mem))
+      (forbidden_constants : List sig.C) : (List (Fact sig)) × (List sig.C) :=
+    match terms with
+    | .nil => ([], [])
+    | .cons hd tl =>
+      have hd_mem : hd ∈ hd :: tl := by simp
+      let result_for_hd := hd.backtrackFacts rl (terms_ruleIds_valid hd hd_mem) (terms_disjIdx_valid hd hd_mem) (terms_rule_arity_valid hd hd_mem) forbidden_constants
+
+      let recursive_result := backtrackFacts_list rl tl
+        (by intro t t_mem; apply terms_ruleIds_valid; simp [t_mem])
+        (by intro t t_mem; apply terms_disjIdx_valid; simp [t_mem])
+        (by intro t t_mem; apply terms_rule_arity_valid; simp [t_mem])
+        (forbidden_constants ++ result_for_hd.snd)
+
+      (result_for_hd.fst ++ recursive_result.fst, result_for_hd.snd ++ recursive_result.snd)
+
+end GroundTerm
 
 def PreTrigger.skolem_ruleIds_valid (rl : RuleList sig) (trg : PreTrigger sig) : Prop := ∀ t ∈ trg.mapped_body.flatMap Fact.terms, t.skolem_ruleIds_valid rl
 def PreTrigger.skolem_disjIdx_valid (rl : RuleList sig) (trg : PreTrigger sig) (trg_ruleIds_valid : trg.skolem_ruleIds_valid rl) : Prop :=
@@ -293,6 +487,85 @@ theorem List.getElem_idxOf_of_mem [BEq α] [LawfulBEq α] {l : List α} {e : α}
       | inl mem => rw [mem] at neq; simp at neq
       | inr mem => exact mem
 
+theorem PreTrigger.skolem_ruleIds_valid_for_functional_term
+    (rl : RuleList sig)
+    (trg : PreTrigger sig)
+    (rule_mem : trg.rule ∈ rl.rules)
+    (body_valid : trg.skolem_ruleIds_valid rl) :
+    ∀ i v, (trg.functional_term_for_var i v).skolem_ruleIds_valid rl := by
+  intro i v
+  simp only [GroundTerm.skolem_ruleIds_valid, PreGroundTerm.skolem_ruleIds_valid, PreTrigger.functional_term_for_var, GroundTerm.func]
+  constructor
+  . exists trg.rule
+  . rw [GroundTerm.skolem_ruleIds_valid_list rl (trg.rule.frontier.map trg.subs)]
+    intro t t_mem
+    rw [List.mem_map] at t_mem
+    rcases t_mem with ⟨v, v_mem, t_eq⟩
+    apply body_valid
+    rcases trg.rule.frontier_occurs_in_body v v_mem with ⟨a, a_mem, hd_mem⟩
+    rw [List.mem_flatMap]
+    exists trg.subs.apply_function_free_atom a
+    constructor
+    . apply List.mem_map_of_mem; exact a_mem
+    . unfold GroundSubstitution.apply_function_free_atom
+      rw [List.mem_map]
+      exists VarOrConst.var v
+
+theorem PreTrigger.skolem_disjIdx_valid_for_functional_term
+    (rl : RuleList sig)
+    (trg : PreTrigger sig)
+    (rule_mem : trg.rule ∈ rl.rules)
+    (trg_ruleIds_valid : trg.skolem_ruleIds_valid rl)
+    (body_valid : trg.skolem_disjIdx_valid rl trg_ruleIds_valid) :
+    ∀ i v, (i < trg.rule.head.length) -> (trg.functional_term_for_var i v).skolem_disjIdx_valid rl (trg.skolem_ruleIds_valid_for_functional_term rl rule_mem trg_ruleIds_valid i v) := by
+  intro i v i_lt
+  simp only [GroundTerm.skolem_disjIdx_valid, PreGroundTerm.skolem_disjIdx_valid, GroundTerm.func, functional_term_for_var]
+  constructor
+  . unfold SkolemFS.disjunctIndex_valid
+    rw [rl.get_by_id_self _ rule_mem]
+    exact i_lt
+  . have func_ruleIds_valid := trg.skolem_ruleIds_valid_for_functional_term rl rule_mem trg_ruleIds_valid i v
+    rw [GroundTerm.skolem_disjIdx_valid_list rl (trg.rule.frontier.map trg.subs) (by rw [← GroundTerm.skolem_ruleIds_valid_list rl (trg.rule.frontier.map trg.subs)]; exact func_ruleIds_valid.right)]
+    intro t t_mem
+    rw [List.mem_map] at t_mem
+    rcases t_mem with ⟨v, v_mem, t_eq⟩
+    apply body_valid
+    rcases trg.rule.frontier_occurs_in_body v v_mem with ⟨a, a_mem, hd_mem⟩
+    rw [List.mem_flatMap]
+    exists trg.subs.apply_function_free_atom a
+    constructor
+    . apply List.mem_map_of_mem; exact a_mem
+    . unfold GroundSubstitution.apply_function_free_atom
+      rw [List.mem_map]
+      exists VarOrConst.var v
+
+theorem PreTrigger.skolem_rule_arity_valid_for_functional_term
+    (rl : RuleList sig)
+    (trg : PreTrigger sig)
+    (rule_mem : trg.rule ∈ rl.rules)
+    (trg_ruleIds_valid : trg.skolem_ruleIds_valid rl)
+    (body_valid : trg.skolem_rule_arity_valid rl trg_ruleIds_valid) :
+    ∀ i v, (trg.functional_term_for_var i v).skolem_rule_arity_valid rl (trg.skolem_ruleIds_valid_for_functional_term rl rule_mem trg_ruleIds_valid i v) := by
+  intro i v
+  simp only [GroundTerm.func, functional_term_for_var]
+  constructor
+  . unfold SkolemFS.arity_valid
+    rw [rl.get_by_id_self _ rule_mem]
+  . have func_ruleIds_valid := trg.skolem_ruleIds_valid_for_functional_term rl rule_mem trg_ruleIds_valid i v
+    rw [GroundTerm.skolem_rule_arity_valid_list rl (trg.rule.frontier.map trg.subs) (by rw [← GroundTerm.skolem_ruleIds_valid_list rl (trg.rule.frontier.map trg.subs)]; exact func_ruleIds_valid.right)]
+    intro t t_mem
+    rw [List.mem_map] at t_mem
+    rcases t_mem with ⟨v, v_mem, t_eq⟩
+    apply body_valid
+    rcases trg.rule.frontier_occurs_in_body v v_mem with ⟨a, a_mem, hd_mem⟩
+    rw [List.mem_flatMap]
+    exists trg.subs.apply_function_free_atom a
+    constructor
+    . apply List.mem_map_of_mem; exact a_mem
+    . unfold GroundSubstitution.apply_function_free_atom
+      rw [List.mem_map]
+      exists VarOrConst.var v
+
 theorem PreTrigger.skolem_ruleIds_remain_valid_in_head (rl : RuleList sig) (trg : PreTrigger sig) (rule_mem : trg.rule ∈ rl.rules) (body_valid : trg.skolem_ruleIds_valid rl) :
     ∀ t ∈ trg.mapped_head.flatten.flatMap Fact.terms, t.skolem_ruleIds_valid rl := by
   intro t t_mem
@@ -325,32 +598,9 @@ theorem PreTrigger.skolem_ruleIds_remain_valid_in_head (rl : RuleList sig) (trg 
     | inr mem_frontier =>
       unfold voc at eq
       rw [eq, trg.apply_to_var_or_const_non_frontier_var disj_idx.val _ mem_frontier]
-      simp only [GroundTerm.skolem_ruleIds_valid, PreGroundTerm.skolem_ruleIds_valid, PreTrigger.functional_term_for_var, GroundTerm.func]
-      constructor
-      . exists trg.rule
-      . have : ∀ (l : List sig.V), (∀ e ∈ l, e ∈ trg.rule.frontier) -> PreGroundTerm.skolem_ruleIds_valid_list rl (FiniteTreeList.fromList (l.map trg.subs).unattach) := by
-          intro l
-          induction l with
-          | nil => intro _; simp [FiniteTreeList.fromList, PreGroundTerm.skolem_ruleIds_valid_list]
-          | cons hd tl ih =>
-            intro mem_frontier
-            rw [List.map_cons]
-            rw [List.unattach_cons]
-            unfold FiniteTreeList.fromList
-            unfold PreGroundTerm.skolem_ruleIds_valid_list
-            constructor
-            . apply body_valid
-              rcases trg.rule.frontier_occurs_in_body hd (by apply mem_frontier; simp) with ⟨a, a_mem, hd_mem⟩
-              rw [List.mem_flatMap]
-              exists trg.subs.apply_function_free_atom a
-              constructor
-              . apply List.mem_map_of_mem; exact a_mem
-              . unfold GroundSubstitution.apply_function_free_atom
-                rw [List.mem_map]
-                exists VarOrConst.var hd
-            . apply ih; intro e e_mem; apply mem_frontier; simp [e_mem]
-        apply this
-        simp
+      apply skolem_ruleIds_valid_for_functional_term
+      . exact rule_mem
+      . exact body_valid
 
 theorem PreTrigger.skolem_disjIdx_remains_valid_in_head
     (rl : RuleList sig)
@@ -402,67 +652,11 @@ theorem PreTrigger.skolem_disjIdx_remains_valid_in_head
           exists v
         | inr v_mem_frontier =>
           rw [trg.apply_to_var_or_const_non_frontier_var disj_idx.val _ v_mem_frontier] at voc_eq
-          unfold PreTrigger.functional_term_for_var at voc_eq
-          unfold GroundTerm.func at voc_eq
-          rw [Subtype.mk.injEq, FiniteTree.inner.injEq] at voc_eq
-          simp only [GroundTerm.skolem_disjIdx_valid, PreGroundTerm.skolem_disjIdx_valid, GroundTerm.func]
-          constructor
-          . have voc_eq := voc_eq.left
-            unfold SkolemFS.disjunctIndex_valid
-            simp only [← voc_eq]
-            rw [rl.get_by_id_self _ rule_mem]
-            rw [← trg.length_mapped_head]
-            exact disj_idx.isLt
-          . have voc_eq := voc_eq.right
-
-            have : ∀ (l : List sig.V), (∀ e ∈ l, e ∈ trg.rule.frontier) -> PreGroundTerm.skolem_ruleIds_valid_list rl (FiniteTreeList.fromList (l.map trg.subs).unattach) := by
-              intro l
-              induction l with
-              | nil => intro _; simp [FiniteTreeList.fromList, PreGroundTerm.skolem_ruleIds_valid_list]
-              | cons hd tl ih =>
-                intro mem_frontier
-                simp only [List.map_cons]
-                simp only [List.unattach_cons]
-                unfold FiniteTreeList.fromList
-                unfold PreGroundTerm.skolem_ruleIds_valid_list
-                constructor
-                . apply trg_ruleIds_valid
-                  rcases trg.rule.frontier_occurs_in_body hd (by apply mem_frontier; simp) with ⟨a, a_mem, hd_mem⟩
-                  rw [List.mem_flatMap]
-                  exists trg.subs.apply_function_free_atom a
-                  constructor
-                  . apply List.mem_map_of_mem; exact a_mem
-                  . unfold GroundSubstitution.apply_function_free_atom
-                    rw [List.mem_map]
-                    exists VarOrConst.var hd
-                . apply ih; intro e e_mem; apply mem_frontier; simp [e_mem]
-
-            have : ∀ (l : List sig.V), (h : ∀ e ∈ l, e ∈ trg.rule.frontier) -> PreGroundTerm.skolem_disjIdx_valid_list rl (FiniteTreeList.fromList (l.map trg.subs).unattach) (this l h) := by
-              intro l
-              induction l with
-              | nil => intro _; simp [FiniteTreeList.fromList, PreGroundTerm.skolem_disjIdx_valid_list]
-              | cons hd tl ih =>
-                intro mem_frontier
-                simp only [List.map_cons]
-                simp only [List.unattach_cons]
-                unfold FiniteTreeList.fromList
-                unfold PreGroundTerm.skolem_disjIdx_valid_list
-                constructor
-                . apply body_valid
-                  rcases trg.rule.frontier_occurs_in_body hd (by apply mem_frontier; simp) with ⟨a, a_mem, hd_mem⟩
-                  rw [List.mem_flatMap]
-                  exists trg.subs.apply_function_free_atom a
-                  constructor
-                  . apply List.mem_map_of_mem; exact a_mem
-                  . unfold GroundSubstitution.apply_function_free_atom
-                    rw [List.mem_map]
-                    exists VarOrConst.var hd
-                . apply ih; intro e e_mem; apply mem_frontier; simp [e_mem]
-
-            rw [← FiniteTreeList.eqIffFromListEq] at voc_eq
-            simp only [← voc_eq]
-            apply this
-            simp
+          simp only [← voc_eq]
+          apply skolem_disjIdx_valid_for_functional_term
+          . exact rule_mem
+          . exact body_valid
+          . rw [← PreTrigger.length_mapped_head]; exact disj_idx.isLt
 
 theorem PreTrigger.skolem_rule_arity_remains_valid_in_head
     (rl : RuleList sig)
@@ -514,66 +708,39 @@ theorem PreTrigger.skolem_rule_arity_remains_valid_in_head
           exists v
         | inr v_mem_frontier =>
           rw [trg.apply_to_var_or_const_non_frontier_var disj_idx.val _ v_mem_frontier] at voc_eq
-          unfold PreTrigger.functional_term_for_var at voc_eq
-          unfold GroundTerm.func at voc_eq
-          rw [Subtype.mk.injEq, FiniteTree.inner.injEq] at voc_eq
-          simp only [GroundTerm.skolem_rule_arity_valid, PreGroundTerm.skolem_rule_arity_valid, GroundTerm.func]
-          constructor
-          . have voc_eq := voc_eq.left
-            unfold SkolemFS.arity_valid
-            simp only [← voc_eq]
-            rw [rl.get_by_id_self _ rule_mem]
-          . have voc_eq := voc_eq.right
+          simp only [← voc_eq]
+          apply skolem_rule_arity_valid_for_functional_term
+          . exact rule_mem
+          . exact body_valid
 
-            have : ∀ (l : List sig.V), (∀ e ∈ l, e ∈ trg.rule.frontier) -> PreGroundTerm.skolem_ruleIds_valid_list rl (FiniteTreeList.fromList (l.map trg.subs).unattach) := by
-              intro l
-              induction l with
-              | nil => intro _; simp [FiniteTreeList.fromList, PreGroundTerm.skolem_ruleIds_valid_list]
-              | cons hd tl ih =>
-                intro mem_frontier
-                simp only [List.map_cons]
-                simp only [List.unattach_cons]
-                unfold FiniteTreeList.fromList
-                unfold PreGroundTerm.skolem_ruleIds_valid_list
-                constructor
-                . apply trg_ruleIds_valid
-                  rcases trg.rule.frontier_occurs_in_body hd (by apply mem_frontier; simp) with ⟨a, a_mem, hd_mem⟩
-                  rw [List.mem_flatMap]
-                  exists trg.subs.apply_function_free_atom a
-                  constructor
-                  . apply List.mem_map_of_mem; exact a_mem
-                  . unfold GroundSubstitution.apply_function_free_atom
-                    rw [List.mem_map]
-                    exists VarOrConst.var hd
-                . apply ih; intro e e_mem; apply mem_frontier; simp [e_mem]
+def PreTrigger.backtrackTrigger_for_functional_term
+    [GetFreshRepresentant sig.C]
+    [Inhabited sig.C]
+    (rl : RuleList sig)
+    (trg : PreTrigger sig)
+    (trg_rule_mem : trg.rule ∈ rl.rules)
+    (trg_ruleIds_valid : trg.skolem_ruleIds_valid rl)
+    (trg_rule_arity_valid : trg.skolem_rule_arity_valid rl trg_ruleIds_valid)
+    (forbidden_constants : List sig.C)
+    (i : Nat) (v : sig.V) :
+    PreTrigger sig :=
+  ((trg.functional_term_for_var i v).backtrackTrigger rl (by
+    cases eq : trg.functional_term_for_var i v with
+    | const _ => simp [functional_term_for_var, GroundTerm.func, GroundTerm.const] at eq
+    | func func ts arity_ok => exists func, ts, arity_ok
+  ) (by apply trg.skolem_ruleIds_valid_for_functional_term; exact trg_rule_mem; exact trg_ruleIds_valid) (by apply trg.skolem_rule_arity_valid_for_functional_term; exact trg_rule_mem; exact trg_rule_arity_valid) forbidden_constants)
 
-            have : ∀ (l : List sig.V), (h : ∀ e ∈ l, e ∈ trg.rule.frontier) -> PreGroundTerm.skolem_rule_arity_valid_list rl (FiniteTreeList.fromList (l.map trg.subs).unattach) (this l h) := by
-              intro l
-              induction l with
-              | nil => intro _; simp [FiniteTreeList.fromList, PreGroundTerm.skolem_rule_arity_valid_list]
-              | cons hd tl ih =>
-                intro mem_frontier
-                simp only [List.map_cons]
-                simp only [List.unattach_cons]
-                unfold FiniteTreeList.fromList
-                unfold PreGroundTerm.skolem_rule_arity_valid_list
-                constructor
-                . apply body_valid
-                  rcases trg.rule.frontier_occurs_in_body hd (by apply mem_frontier; simp) with ⟨a, a_mem, hd_mem⟩
-                  rw [List.mem_flatMap]
-                  exists trg.subs.apply_function_free_atom a
-                  constructor
-                  . apply List.mem_map_of_mem; exact a_mem
-                  . unfold GroundSubstitution.apply_function_free_atom
-                    rw [List.mem_map]
-                    exists VarOrConst.var hd
-                . apply ih; intro e e_mem; apply mem_frontier; simp [e_mem]
-
-            rw [← FiniteTreeList.eqIffFromListEq] at voc_eq
-            simp only [← voc_eq]
-            apply this
-            simp
-
+theorem PreTrigger.backtrackTrigger_for_functional_term_equiv
+    [GetFreshRepresentant sig.C]
+    [Inhabited sig.C]
+    (rl : RuleList sig)
+    (trg : PreTrigger sig)
+    (trg_rule_mem : trg.rule ∈ rl.rules)
+    (trg_ruleIds_valid : trg.skolem_ruleIds_valid rl)
+    (trg_rule_arity_valid : trg.skolem_rule_arity_valid rl trg_ruleIds_valid)
+    (forbidden_constants : List sig.C) :
+    ∀ i v, (trg.backtrackTrigger_for_functional_term rl trg_rule_mem trg_ruleIds_valid trg_rule_arity_valid forbidden_constants i v).equiv trg := by
+  sorry
 
 def PreTrigger.backtrackFacts
     [GetFreshRepresentant sig.C]
