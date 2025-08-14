@@ -123,6 +123,8 @@ namespace Rule
         apply VarOrConst.filterVars_occur_in_original_list
         exact v_mem
 
+  def pure_body_vars (r : Rule sig) : List sig.V := r.body.vars.filter (fun x => x ∉ r.frontier)
+
   def isDatalog (r : Rule sig) : Bool :=
     r.head.all (fun h => h.vars.all (fun v => v ∈ r.body.vars))
 

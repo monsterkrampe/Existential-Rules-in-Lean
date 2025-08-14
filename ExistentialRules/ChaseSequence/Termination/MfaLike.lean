@@ -2,7 +2,8 @@ import BasicLeanDatastructures.List.Repeat
 
 import ExistentialRules.ChaseSequence.Termination.Basic
 import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts
-import ExistentialRules.ChaseSequence.Termination.ConstantMappings
+import ExistentialRules.ChaseSequence.Termination.ConstantMappings.Basic
+import ExistentialRules.ChaseSequence.Termination.ConstantMappings.InterplayWithBacktracking
 import ExistentialRules.ChaseSequence.Termination.RenameConstantsApart
 import ExistentialRules.Terms.Cyclic
 
@@ -149,7 +150,7 @@ def Trigger.blocked_for_backtracking
   (trg_ruleIds_valid : trg.skolem_ruleIds_valid rl)
   -> (trg_disjIdx_valid : trg.skolem_disjIdx_valid rl trg_ruleIds_valid)
   -> (trg_rule_arity_valid : trg.skolem_rule_arity_valid rl trg_ruleIds_valid)
-  -> (obs.cond trg (trg.backtrackFacts rl trg_ruleIds_valid trg_disjIdx_valid trg_rule_arity_valid).toSet)
+  -> (obs.cond trg (trg.backtrackFacts rl trg_ruleIds_valid trg_disjIdx_valid trg_rule_arity_valid).fst.toSet)
 
 def BlockingObsoleteness [GetFreshRepresentant sig.C] [Inhabited sig.C] (obs : ObsoletenessCondition sig) (rs : RuleSet sig) : MfaObsoletenessCondition sig := {
   cond := fun (trg : PreTrigger sig) _ =>
@@ -212,8 +213,7 @@ theorem BlockingObsoleteness.blocks_corresponding_obs [GetFreshRepresentant sig.
     rw [← obs.preserved_under_equiv (PreTrigger.equiv_of_strong_equiv _ _ reverse_renaming_mapping_properties.left)]
     rw [← PreTrigger.backtrackFacts_eq_of_strong_equiv _ _ _ _ _ _ reverse_renaming_mapping_properties.left]
 
-    apply obs.monotone _ _ _ (
-      PreTrigger.backtracking_under_constant_mapping_subset_of_composing_with_subs
+    have exists_fresh_constant_remapping_such_that_backtrackings_subsume_each_other := PreTrigger.backtracking_under_constant_mapping_subset_of_composing_with_subs
       rl
       (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (rl.rules.flatMap Rule.constants))
       (by
@@ -231,32 +231,79 @@ theorem BlockingObsoleteness.blocks_corresponding_obs [GetFreshRepresentant sig.
         apply PreTrigger.compose_strict_constant_mapping_preserves_rule_arity_validity
         exact trg_rule_arity_valid
       )
-      (by
-        intro d d_mem contra
-        apply trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart_constants_fresh (rl.rules.flatMap Rule.constants) d d_mem
-        rw [List.mem_flatMap]
-        exists trg.val.rule
-        constructor
-        . rw [rl_rs_eq]
-          exact trg.property
-        . exact contra
-      )
+      (by rw [rl_rs_eq]; exact trg.property)
       reverse_renaming_mapping
-      reverse_renaming_mapping_properties.right
-    )
+      (by
+        intro d d_mem
+        apply reverse_renaming_mapping_properties.right
+        intro contra
+        apply trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart_constants_fresh (rl.rules.flatMap Rule.constants) d contra
+        exact d_mem
+      )
+
+    rcases exists_fresh_constant_remapping_such_that_backtrackings_subsume_each_other with ⟨fresh_constant_remapping, fresh_constant_remapping_id, fresh_constant_remapping_subsumes⟩
+
+    apply obs.monotone _ _ _ fresh_constant_remapping_subsumes
+
+    have equiv : { rule := trg_with_constant_mapping_applied_but_not_renamed_apart.rule, subs := reverse_renaming_mapping.toConstantMapping.apply_ground_term ∘ (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (rl.rules.flatMap Rule.constants)).subs : PreTrigger sig }.equiv { rule := trg_with_constant_mapping_applied_but_not_renamed_apart.rule, subs := (StrictConstantMapping.toConstantMapping (fun c => if c ∈ (PreTrigger.backtrackFacts rl (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (rl.rules.flatMap Rule.constants)) (by apply PreTrigger.rename_constants_apart_preserves_ruleId_validity; apply PreTrigger.compose_strict_constant_mapping_preserves_ruleId_validity; exact trg_ruleIds_valid) (by apply PreTrigger.rename_constants_apart_preserves_disjIdx_validity; apply PreTrigger.compose_strict_constant_mapping_preserves_disjIdx_validity; exact trg_disjIdx_valid) (by apply PreTrigger.rename_constants_apart_preserves_rule_arity_validity; apply PreTrigger.compose_strict_constant_mapping_preserves_rule_arity_validity; exact trg_rule_arity_valid)).snd then fresh_constant_remapping c else reverse_renaming_mapping c)).apply_ground_term ∘ (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (rl.rules.flatMap Rule.constants)).subs : PreTrigger sig } := by
+      simp only [PreTrigger.equiv, true_and]
+      intro v v_mem
+      simp only [Function.comp_apply]
+      apply ConstantMapping.apply_ground_term_congr_left
+      intro d d_mem
+      simp only [StrictConstantMapping.toConstantMapping, PreTrigger.backtrackFacts]
+      split
+      case a.isFalse heq => rfl
+      case a.isTrue heq =>
+        apply False.elim
+        apply GroundTerm.backtrackFacts_list_fresh_constants_not_forbidden d heq
+        rw [List.mem_append]
+        apply Or.inl
+        rcases Rule.frontier_occurs_in_body _ _ v_mem with ⟨a, a_mem, v_mem⟩
+        rw [List.mem_flatMap]
+        exists (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (rl.rules.flatMap Rule.constants)).subs.apply_function_free_atom a
+        constructor
+        . simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj]
+          rw [List.mem_map]
+          exists a
+        . unfold Fact.constants
+          rw [List.mem_flatMap]
+          exists (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (rl.rules.flatMap Rule.constants)).subs.apply_var_or_const (.var v)
+          simp only [GroundSubstitution.apply_function_free_atom, GroundSubstitution.apply_var_or_const]
+          constructor
+          . rw [List.mem_map]
+            exists .var v
+          . exact d_mem
+
+    rw [obs.preserved_under_equiv equiv]
 
     apply obs_propagates_under_const_mapping (trg := trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (rl.rules.flatMap Rule.constants))
     . intro c c_mem
       simp only [StrictConstantMapping.toConstantMapping, GroundTerm.const, Subtype.mk.injEq, FiniteTree.leaf.injEq]
-      apply reverse_renaming_mapping_properties.right
-      intro contra
-      apply trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart_constants_fresh (rl.rules.flatMap Rule.constants) c
-      . exact contra
-      . rw [List.mem_flatMap]
-        exists (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (rl.rules.flatMap Rule.constants)).rule
+      rw [fresh_constant_remapping_id]
+      . split
+        case isTrue heq => rfl
+        case isFalse heq =>
+          apply reverse_renaming_mapping_properties.right
+          intro contra
+          apply trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart_constants_fresh (rl.rules.flatMap Rule.constants) c
+          . exact contra
+          . rw [List.mem_flatMap]
+            exists (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (rl.rules.flatMap Rule.constants)).rule
+            constructor
+            . rw [rl_rs_eq]
+              exact trg.property
+            . apply Rule.head_constants_subset_constants
+              exact c_mem
+      . intro contra
+        simp only [PreTrigger.backtrackFacts] at contra
+        apply GroundTerm.backtrackFacts_list_fresh_constants_not_forbidden c contra
+        rw [List.mem_append]
+        apply Or.inr
+        rw [List.mem_flatMap]
+        exists trg.val.rule
         constructor
-        . rw [rl_rs_eq]
-          exact trg.property
+        . rw [rl_rs_eq]; exact trg.property
         . apply Rule.head_constants_subset_constants
           exact c_mem
     . exact blocked
@@ -271,10 +318,9 @@ theorem BlockingObsoleteness.blocks_corresponding_obs [GetFreshRepresentant sig.
   rcases cb.backtracking_of_loaded_trigger_in_node step node eq_node rl rl_rs_eq trg.val loaded with ⟨g, g_h⟩
 
   have blocked := obs_propagates_under_const_mapping
-    (g := g.toConstantMapping)
+    (g := g)
     (by
       intro c c_mem
-      simp only [StrictConstantMapping.toConstantMapping, GroundTerm.const, Subtype.mk.injEq, FiniteTree.leaf.injEq]
       apply g_h.right
       apply Or.inr
       apply RuleSet.head_constants_subset_constants
@@ -285,48 +331,24 @@ theorem BlockingObsoleteness.blocks_corresponding_obs [GetFreshRepresentant sig.
     )
     blocked
 
-  have equiv : trg.val.equiv {rule := trg.val.rule, subs := g.toConstantMapping.apply_ground_term ∘ trg.val.subs} := by
+  have equiv : trg.val.equiv {rule := trg.val.rule, subs := g.apply_ground_term ∘ trg.val.subs} := by
     unfold PreTrigger.equiv
     constructor
     . rfl
     . intro v v_mem
-
-      have : ∀ t, (∀ c ∈ t.constants, c ∈ node.fact.val.constants) -> g.toConstantMapping.apply_ground_term t = t := by
-        intro t
-        induction t with
-        | const c =>
-          intro c_mem
-          simp only [ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, StrictConstantMapping.toConstantMapping, GroundTerm.const, Subtype.mk.injEq, FiniteTree.mapLeaves, FiniteTree.leaf.injEq]
-          apply g_h.right
-          apply Or.inl
-          apply c_mem
-          simp [GroundTerm.constants_const]
-        | func fs ts arity_ok ih =>
-          intro cs_mem
-          simp only [ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, GroundTerm.func, FiniteTree.mapLeaves, Subtype.mk.injEq, FiniteTree.inner.injEq, true_and]
-          rw [FiniteTree.mapLeavesList_fromList_eq_fromList_map]
-          rw [← FiniteTreeList.eqIffFromListEq]
-          apply List.map_id_of_id_on_all_mem
-          intro pgt pgt_mem
-          rcases List.mem_unattach.mp pgt_mem with ⟨_, t_mem⟩
-          specialize ih _ t_mem
-          simp only [ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, Subtype.mk.injEq] at ih
-          apply ih
-          intro c c_mem
-          apply cs_mem
-          rw [GroundTerm.constants_func]
-          apply List.mem_flatMap_of_mem
-          . exact t_mem
-          . exact c_mem
-
       simp only [Function.comp_apply]
-      rw [this]
-      intro c c_mem
-      rcases trg.val.rule.frontier_occurs_in_body _ v_mem with ⟨a, a_mem, v_mem⟩
+
+      conv => left; rw [← ConstantMapping.apply_ground_term_id (trg.val.subs v)]
+      apply ConstantMapping.apply_ground_term_congr_left
+      intro d d_mem
+      simp only [ConstantMapping.id]
+      rw [g_h.right]
+      apply Or.inl
+      rcases trg.val.rule.frontier_occurs_in_body v v_mem with ⟨a, a_mem, v_mem'⟩
+      rw [List.mem_toSet, List.mem_flatMap]
       exists trg.val.subs.apply_function_free_atom a
       constructor
-      . apply loaded
-        rw [List.mem_toSet]
+      . simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj]
         apply List.mem_map_of_mem
         exact a_mem
       . unfold Fact.constants
@@ -335,8 +357,8 @@ theorem BlockingObsoleteness.blocks_corresponding_obs [GetFreshRepresentant sig.
         constructor
         . simp only [GroundSubstitution.apply_function_free_atom]
           rw [List.mem_map]
-          exists VarOrConst.var v
-        . exact c_mem
+          exists .var v
+        . exact d_mem
 
   rw [obs.preserved_under_equiv equiv]
 

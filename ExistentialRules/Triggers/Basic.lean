@@ -358,13 +358,8 @@ namespace PreTrigger
         apply VarOrConst.mem_filterVars_of_var
         exact v_mem
 
-  theorem mapped_body_eq_of_strong_equiv {trg1 trg2 : PreTrigger sig} : trg1.strong_equiv trg2 -> trg1.mapped_body = trg2.mapped_body := by
-    intro equiv
-    unfold mapped_body
-    rw [equiv.left]
-    unfold GroundSubstitution.apply_function_free_conj
-    rw [List.map_inj_left]
-    intro a a_mem
+  theorem subs_apply_function_free_atom_eq_of_strong_equiv {trg1 trg2 : PreTrigger sig} : trg1.strong_equiv trg2 -> ∀ a, a ∈ trg1.rule.body -> trg1.subs.apply_function_free_atom a = trg2.subs.apply_function_free_atom a := by
+    intro equiv a a_mem
     unfold GroundSubstitution.apply_function_free_atom
     simp only [Fact.mk.injEq, true_and]
     rw [List.map_inj_left]
@@ -378,19 +373,24 @@ namespace PreTrigger
       rw [List.mem_flatMap]
       exists a
       constructor
-      . rw [equiv.left]; exact a_mem
+      . exact a_mem
       . apply VarOrConst.mem_filterVars_of_var
         exact voc_mem
 
-  theorem result_eq_of_equiv (trg1 trg2 : PreTrigger sig) : trg1.equiv trg2 -> trg1.mapped_head = trg2.mapped_head := by
-    unfold equiv
-    intro h
-    unfold mapped_head
-    rw [h.left]
-    rw [List.map_inj_left]
-    intro e e_mem
+  theorem mapped_body_eq_of_strong_equiv {trg1 trg2 : PreTrigger sig} : trg1.strong_equiv trg2 -> trg1.mapped_body = trg2.mapped_body := by
+    intro equiv
+    unfold mapped_body
+    rw [equiv.left]
+    unfold GroundSubstitution.apply_function_free_conj
     rw [List.map_inj_left]
     intro a a_mem
+    apply subs_apply_function_free_atom_eq_of_strong_equiv
+    . exact equiv
+    . rw [equiv.left]; exact a_mem
+
+  theorem apply_to_function_free_atom_eq_of_equiv (trg1 trg2 : PreTrigger sig) : trg1.equiv trg2 -> ∀ (i : Nat), ∀ a, trg1.apply_to_function_free_atom i a = trg2.apply_to_function_free_atom i a := by
+    unfold equiv
+    intro h i a
     unfold apply_to_function_free_atom
     simp only [Fact.mk.injEq, true_and]
     rw [List.map_inj_left]
@@ -415,6 +415,18 @@ namespace PreTrigger
           rw [List.map_inj_left]
           exact h.right
         simp only [this]
+
+  theorem result_eq_of_equiv (trg1 trg2 : PreTrigger sig) : trg1.equiv trg2 -> trg1.mapped_head = trg2.mapped_head := by
+    unfold equiv
+    intro h
+    unfold mapped_head
+    rw [h.left]
+    rw [List.map_inj_left]
+    intro e e_mem
+    rw [List.map_inj_left]
+    intro a a_mem
+    apply apply_to_function_free_atom_eq_of_equiv
+    exact h
 
   theorem satisfied_preserved_of_equiv {trg1 trg2 : PreTrigger sig} : trg1.equiv trg2 -> ∀ {fs}, trg1.satisfied fs ↔ trg2.satisfied fs := by
     intro equiv fs

@@ -1,4 +1,3 @@
-import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts
 import ExistentialRules.ChaseSequence.Termination.RenameConstantsApart
 import ExistentialRules.Triggers.Basic
 
@@ -18,7 +17,31 @@ namespace ConstantMapping
 
   variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
 
+  def id : ConstantMapping sig := fun c => .const c
+
   def apply_pre_ground_term (g : ConstantMapping sig) (t : PreGroundTerm sig) : PreGroundTerm sig := t.mapLeaves (fun c => (g c).val)
+
+  mutual
+
+    theorem apply_pre_ground_term_id (t : PreGroundTerm sig) : id.apply_pre_ground_term t = t := by
+      cases t with
+      | leaf c => rfl
+      | inner f ts =>
+        unfold apply_pre_ground_term
+        unfold FiniteTree.mapLeaves
+        simp only [FiniteTree.inner.injEq, true_and]
+        apply apply_pre_ground_term_list_id
+
+    theorem apply_pre_ground_term_list_id (ts : FiniteTreeList (SkolemFS sig) sig.C) : FiniteTree.mapLeavesList (fun c => (id c).val) ts = ts := by
+      cases ts with
+      | nil => rfl
+      | cons hd tl =>
+        unfold FiniteTree.mapLeavesList
+        have := apply_pre_ground_term_id hd
+        unfold apply_pre_ground_term at this
+        rw [this, apply_pre_ground_term_list_id]
+
+  end
 
   mutual
 
@@ -56,7 +79,36 @@ namespace ConstantMapping
 
   end
 
+  -- naming inspired by List.map_congr_left
+  theorem apply_pre_ground_term_congr_left (g g2 : ConstantMapping sig) (t : PreGroundTerm sig) : (∀ c ∈ t.leaves, g c = g2 c) -> g.apply_pre_ground_term t = g2.apply_pre_ground_term t := by
+    intro h
+    unfold ConstantMapping.apply_pre_ground_term
+    apply FiniteTree.mapLeavesEqIfMapEqOnLeaves
+    apply List.map_congr_left
+    intro c c_mem
+    specialize h c c_mem
+    rw [h]
+
   def apply_ground_term (g : ConstantMapping sig) (t : GroundTerm sig) : GroundTerm sig := ⟨g.apply_pre_ground_term t.val, g.apply_pre_ground_term_arity_ok t.val t.property⟩
+
+  theorem apply_ground_term_constant (g : ConstantMapping sig) : ∀ c, g.apply_ground_term (.const c) = g c := by
+    intro c
+    simp [apply_ground_term, apply_pre_ground_term, FiniteTree.mapLeaves, GroundTerm.const]
+
+  theorem apply_ground_term_func (g : ConstantMapping sig) : ∀ func ts arity_ok, g.apply_ground_term (.func func ts arity_ok) = .func func (ts.map g.apply_ground_term) (by rw [List.length_map]; exact arity_ok) := by
+    intro func ts arity_ok
+    simp only [GroundTerm.func, ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves]
+    simp only [Subtype.mk.injEq, FiniteTree.inner.injEq, true_and]
+    rw [FiniteTree.mapLeavesList_fromList_eq_fromList_map, ← FiniteTreeList.eqIffFromListEq]
+    unfold List.unattach
+    rw [List.map_map, List.map_map]
+    rw [List.map_inj_left]
+    intro t t_mem
+    simp only [Function.comp_apply, ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term]
+
+  theorem apply_ground_term_id (t : GroundTerm sig) : id.apply_ground_term t = t := by
+    unfold apply_ground_term
+    simp [apply_pre_ground_term_id]
 
   theorem apply_ground_term_swap_apply_skolem_term (g : ConstantMapping sig) (subs : GroundSubstitution sig) : ∀ t, (∀ c, t ≠ SkolemTerm.const c) -> g.apply_ground_term (subs.apply_skolem_term t) = GroundSubstitution.apply_skolem_term (g.apply_ground_term ∘ subs) t := by
     intro t
@@ -82,6 +134,14 @@ namespace ConstantMapping
       rw [List.map_map]
       rfl
 
+  -- naming inspired by List.map_congr_left
+  theorem apply_ground_term_congr_left (g g2 : ConstantMapping sig) (t : GroundTerm sig) : (∀ c ∈ t.constants, g c = g2 c) -> g.apply_ground_term t = g2.apply_ground_term t := by
+    intro h
+    unfold ConstantMapping.apply_ground_term
+    simp only [Subtype.mk.injEq]
+    apply apply_pre_ground_term_congr_left
+    exact h
+
 
   variable [DecidableEq sig.P]
 
@@ -90,6 +150,13 @@ namespace ConstantMapping
     terms := f.terms.map g.apply_ground_term
     arity_ok := by rw [List.length_map]; exact f.arity_ok
   }
+
+  theorem apply_fact_id (f : Fact sig) : id.apply_fact f = f := by
+    unfold apply_fact
+    rw [Fact.mk.injEq]
+    constructor
+    . rfl
+    . apply List.map_id_of_id_on_all_mem; intros; apply apply_ground_term_id
 
   theorem apply_fact_eq_groundTermMapping_applyFact (g : ConstantMapping sig) (f : Fact sig) : g.apply_fact f = GroundTermMapping.applyFact g.apply_ground_term f := by
     simp [apply_fact, GroundTermMapping.applyFact]
@@ -123,6 +190,22 @@ namespace ConstantMapping
         apply VarOrConst.mem_filterConsts_of_const
         exact voc_mem
 
+  -- naming inspired by List.map_congr_left
+  theorem apply_fact_congr_left (g g2 : ConstantMapping sig) (f : Fact sig) : (∀ c ∈ f.constants, g c = g2 c) -> g.apply_fact f = g2.apply_fact f := by
+    intro h
+    unfold ConstantMapping.apply_fact
+    rw [Fact.mk.injEq]
+    constructor
+    . rfl
+    apply List.map_congr_left
+    intro t t_mem
+    apply apply_ground_term_congr_left
+    intro c c_mem
+    apply h
+    unfold Fact.constants
+    rw [List.mem_flatMap]
+    exists t
+
   def apply_fact_set (g : ConstantMapping sig) (fs : FactSet sig) : FactSet sig := fun f => ∃ f', f' ∈ fs ∧ f = g.apply_fact f'
 
   theorem apply_fact_mem_apply_fact_set_of_mem (g : ConstantMapping sig) (f : Fact sig) (fs : FactSet sig) : f ∈ fs -> g.apply_fact f ∈ g.apply_fact_set fs := by
@@ -150,6 +233,26 @@ namespace StrictConstantMapping
         rw [ih]
       )
 
+
+  mutual
+
+    theorem map_leaves_eq_leaves_mapLeaves (g : StrictConstantMapping sig) (t : PreGroundTerm sig) : t.leaves.map g = (t.mapLeaves (fun c => (g.toConstantMapping c).val)).leaves := by
+      cases t with
+      | leaf c => simp [FiniteTree.leaves, FiniteTree.mapLeaves, toConstantMapping, GroundTerm.const]
+      | inner func ts =>
+        simp only [FiniteTree.leaves, FiniteTree.mapLeaves]
+        apply map_leavesList_eq_leavesList_mapLeavesList
+
+    theorem map_leavesList_eq_leavesList_mapLeavesList (g : StrictConstantMapping sig) (ts : FiniteTreeList (SkolemFS sig) sig.C) : (FiniteTree.leavesList ts).map g = FiniteTree.leavesList (FiniteTree.mapLeavesList (fun c => (g.toConstantMapping c).val) ts) := by
+      cases ts with
+      | nil => simp [FiniteTree.leavesList, FiniteTree.mapLeavesList]
+      | cons hd tl =>
+        simp only [FiniteTree.leavesList, FiniteTree.mapLeavesList]
+        rw [List.map_append]
+        rw [map_leaves_eq_leaves_mapLeaves]
+        rw [map_leavesList_eq_leavesList_mapLeavesList]
+
+  end
 
   variable [DecidableEq sig.P]
 
@@ -1236,127 +1339,4 @@ section InterplayWithObsoletenessCondition
           exists a
 
 end InterplayWithObsoletenessCondition
-
-section InterplayWithBacktracking
-
-  variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [DecidableEq sig.P]
-
-  theorem GroundTerm.backtrackFacts_list_under_constant_mapping_subset_of_composing_with_subs
-      [GetFreshRepresentant sig.C]
-      [Inhabited sig.C]
-      (rl : RuleList sig)
-      (terms : List (GroundTerm sig))
-      (terms_ruleIds_valid : ∀ t ∈ terms, t.skolem_ruleIds_valid rl)
-      (terms_disjIdx_valid : ∀ t, (mem : t ∈ terms) -> t.skolem_disjIdx_valid rl (terms_ruleIds_valid t mem))
-      (terms_rule_arity_valid : ∀ t, (mem : t ∈ terms) -> t.skolem_rule_arity_valid rl (terms_ruleIds_valid t mem))
-      (forbidden_constants : List sig.C) :
-      ∀ (g : StrictConstantMapping sig), (∀ d, d ∉ terms.flatMap GroundTerm.constants -> g d = d) ->
-        g.toConstantMapping.apply_fact_set (backtrackFacts_list rl terms terms_ruleIds_valid terms_disjIdx_valid terms_rule_arity_valid forbidden_constants).fst.toSet ⊆
-        (backtrackFacts_list rl (terms.map g.toConstantMapping.apply_ground_term)
-          (by intro t t_mem; rw [List.mem_map] at t_mem; rcases t_mem with ⟨t', t'_mem, t_eq⟩; rw [← t_eq]; apply g.apply_ground_term_preserves_ruleId_validity; apply terms_ruleIds_valid; exact t'_mem)
-          (by intro t t_mem; rw [List.mem_map] at t_mem; rcases t_mem with ⟨t', t'_mem, t_eq⟩; simp only [← t_eq]; apply g.apply_ground_term_preserves_disjIdx_validity; apply terms_disjIdx_valid; exact t'_mem)
-          (by intro t t_mem; rw [List.mem_map] at t_mem; rcases t_mem with ⟨t', t'_mem, t_eq⟩; simp only [← t_eq]; apply g.apply_ground_term_preserves_rule_arity_validity; apply terms_rule_arity_valid; exact t'_mem)
-        forbidden_constants -- FIXME: the forbidden constants need to be adjusted under g somehow (see use in theorem below)
-        ).fst.toSet := by
-    sorry
-
-  theorem PreTrigger.backtracking_under_constant_mapping_subset_of_composing_with_subs
-      [GetFreshRepresentant sig.C]
-      [Inhabited sig.C]
-      (rl : RuleList sig)
-      (trg : PreTrigger sig)
-      (trg_ruleIds_valid : trg.skolem_ruleIds_valid rl)
-      (trg_disjIdx_valid : trg.skolem_disjIdx_valid rl trg_ruleIds_valid)
-      (trg_rule_arity_valid : trg.skolem_rule_arity_valid rl trg_ruleIds_valid)
-      (mappeds_variables_no_rule_constants : (∀ d, d ∈ (trg.rule.body.vars.eraseDupsKeepRight.map trg.subs).flatMap GroundTerm.constants -> d ∉ trg.rule.constants)) :
-      ∀ (g : StrictConstantMapping sig), (∀ d, d ∉ (trg.rule.body.vars.eraseDupsKeepRight.map trg.subs).flatMap GroundTerm.constants -> g d = d) ->
-        -- FIXME: before applying g, we need to potentially apply a remapping on fresh constants to make this work; we should state that such a mapping exists and show it; needs to be stated in above theorem too
-        g.toConstantMapping.apply_fact_set (trg.backtrackFacts rl trg_ruleIds_valid trg_disjIdx_valid trg_rule_arity_valid).toSet ⊆
-        ({rule := trg.rule, subs := g.toConstantMapping.apply_ground_term ∘ trg.subs : PreTrigger sig}.backtrackFacts rl (trg.compose_strict_constant_mapping_preserves_ruleId_validity g rl trg_ruleIds_valid) (trg.compose_strict_constant_mapping_preserves_disjIdx_validity g rl trg_ruleIds_valid trg_disjIdx_valid) (trg.compose_strict_constant_mapping_preserves_rule_arity_validity g rl trg_ruleIds_valid trg_rule_arity_valid)).toSet := by
-    intro g g_id
-    intro f f_mem
-    rcases f_mem with ⟨f', f'_mem, f_eq⟩
-    rw [List.mem_toSet] at *
-    unfold backtrackFacts at *
-    rw [List.mem_append] at *
-    cases f'_mem with
-    | inl f'_mem =>
-      apply Or.inl
-      simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj] at *
-      rw [List.mem_map] at *
-      rcases f'_mem with ⟨a, a_mem, f'_eq⟩
-      exists a
-      constructor
-      . exact a_mem
-      . rw [GroundSubstitution.apply_function_free_atom_compose]
-        . rw [f'_eq, f_eq]
-          rfl
-        . intro d d_mem
-          simp only [ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, StrictConstantMapping.toConstantMapping, GroundTerm.const, Subtype.mk.injEq, FiniteTree.mapLeaves, FiniteTree.leaf.injEq]
-          apply g_id
-          intro contra
-          apply mappeds_variables_no_rule_constants _ contra
-          unfold Rule.constants
-          rw [List.mem_append]
-          apply Or.inl
-          unfold FunctionFreeConjunction.consts
-          rw [List.mem_flatMap]
-          exists a
-    | inr f'_mem =>
-      apply Or.inr
-      -- TODO: show result for underlying implementation on backtrackFacts_list
-      sorry
-
-
-
-
-
-  -- TODO: I don't think the following will work nicely; I guess we should show this for pregroundterms first with mutual results and probably we do not induce on the chase step there but likely only require a case distinction (if even)
-  theorem ChaseBranch.backtracking_of_term_in_node [GetFreshRepresentant sig.C] [Inhabited sig.C] (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) (forbidden_constants : List sig.C) :
-      ∀ (rl : RuleList sig), (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) -> ∀ (term : GroundTerm sig), (term_mem : term ∈ node.fact.val.terms) ->
-      ∃ (g : StrictConstantMapping sig),
-        g.toConstantMapping.apply_fact_set (term.backtrackFacts rl (cb.term_ruleIds_valid i node eq rl rl_rs_eq term term_mem) (cb.term_disjIdx_valid i node eq rl rl_rs_eq term term_mem) (cb.term_rule_arity_valid i node eq rl rl_rs_eq term term_mem) forbidden_constants).fst.toSet ⊆ node.fact ∧
-        (∀ (d : sig.C), d ∈ (node.fact.val.constants ∪ kb.rules.constants) -> g d = d) := by
-    intro rl rl_rs_eq term term_mem
-    let backtracking := term.backtrackFacts rl (cb.term_ruleIds_valid i node eq rl rl_rs_eq term term_mem) (cb.term_disjIdx_valid i node eq rl rl_rs_eq term term_mem) (cb.term_rule_arity_valid i node eq rl rl_rs_eq term term_mem) forbidden_constants
-    induction i generalizing node term with
-    | zero =>
-      rw [cb.database_first] at eq
-      injection eq with eq
-      rw [← eq] at term_mem
-      simp only at term_mem
-      unfold FactSet.terms at term_mem
-      rcases term_mem with ⟨f, f_mem, term_mem⟩
-      rcases kb.db.toFactSet.property.right f f_mem term term_mem with ⟨_, t_eq⟩
-      exists id
-      constructor
-      . intro f' f'_mem
-        rcases f'_mem with ⟨f'', f''_mem, f'_mem⟩
-        rw [List.mem_toSet] at f''_mem
-        simp only [t_eq, GroundTerm.backtrackFacts, PreGroundTerm.backtrackFacts, GroundTerm.const] at f''_mem
-        simp at f''_mem
-      . simp
-    | succ i ih =>
-      rw [cb.origin_trg_result_yields_next_node_fact i node eq] at term_mem
-      unfold FactSet.terms at term_mem
-      rcases term_mem with ⟨f, f_mem, term_mem⟩
-      cases f_mem with
-      | inl f_mem =>
-        rcases ih (cb.prev_node i (by simp [eq])) (by apply cb.prev_node_eq) term (by exists f) with ⟨g, g_h⟩
-        exists g
-        constructor
-        . sorry
-        . sorry
-      | inr f_mem =>
-        sorry
-
-  theorem ChaseBranch.backtracking_of_loaded_trigger_in_node [GetFreshRepresentant sig.C] [Inhabited sig.C] (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) :
-      ∀ (rl : RuleList sig), (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) -> ∀ (trg : PreTrigger sig), (trg_loaded : trg.loaded node.fact) ->
-      ∃ (g : StrictConstantMapping sig),
-        g.toConstantMapping.apply_fact_set (trg.backtrackFacts rl (cb.trigger_ruleIds_valid_of_loaded i node eq rl rl_rs_eq trg trg_loaded) (cb.trigger_disjIdx_valid_of_loaded i node eq rl rl_rs_eq trg trg_loaded) (cb.trigger_rule_arity_valid_of_loaded i node eq rl rl_rs_eq trg trg_loaded)).toSet ⊆ node.fact ∧
-        (∀ (d : sig.C), d ∈ (node.fact.val.constants ∪ kb.rules.constants) -> g d = d) := by
-    intro rl rl_rs_eq trg trg_loaded
-    sorry
-
-end InterplayWithBacktracking
 
