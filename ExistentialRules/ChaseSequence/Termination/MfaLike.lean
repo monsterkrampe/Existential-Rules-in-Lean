@@ -2,7 +2,8 @@ import BasicLeanDatastructures.List.Repeat
 
 import ExistentialRules.ChaseSequence.Termination.Basic
 import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts
-import ExistentialRules.ChaseSequence.Termination.ConstantMappings
+import ExistentialRules.ChaseSequence.Termination.ConstantMappings.Basic
+import ExistentialRules.ChaseSequence.Termination.ConstantMappings.InterplayWithBacktracking
 import ExistentialRules.ChaseSequence.Termination.RenameConstantsApart
 import ExistentialRules.Terms.Cyclic
 
@@ -271,10 +272,9 @@ theorem BlockingObsoleteness.blocks_corresponding_obs [GetFreshRepresentant sig.
   rcases cb.backtracking_of_loaded_trigger_in_node step node eq_node rl rl_rs_eq trg.val loaded with ⟨g, g_h⟩
 
   have blocked := obs_propagates_under_const_mapping
-    (g := g.toConstantMapping)
+    (g := g)
     (by
       intro c c_mem
-      simp only [StrictConstantMapping.toConstantMapping, GroundTerm.const, Subtype.mk.injEq, FiniteTree.leaf.injEq]
       apply g_h.right
       apply Or.inr
       apply RuleSet.head_constants_subset_constants
@@ -285,48 +285,24 @@ theorem BlockingObsoleteness.blocks_corresponding_obs [GetFreshRepresentant sig.
     )
     blocked
 
-  have equiv : trg.val.equiv {rule := trg.val.rule, subs := g.toConstantMapping.apply_ground_term ∘ trg.val.subs} := by
+  have equiv : trg.val.equiv {rule := trg.val.rule, subs := g.apply_ground_term ∘ trg.val.subs} := by
     unfold PreTrigger.equiv
     constructor
     . rfl
     . intro v v_mem
-
-      have : ∀ t, (∀ c ∈ t.constants, c ∈ node.fact.val.constants) -> g.toConstantMapping.apply_ground_term t = t := by
-        intro t
-        induction t with
-        | const c =>
-          intro c_mem
-          simp only [ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, StrictConstantMapping.toConstantMapping, GroundTerm.const, Subtype.mk.injEq, FiniteTree.mapLeaves, FiniteTree.leaf.injEq]
-          apply g_h.right
-          apply Or.inl
-          apply c_mem
-          simp [GroundTerm.constants_const]
-        | func fs ts arity_ok ih =>
-          intro cs_mem
-          simp only [ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, GroundTerm.func, FiniteTree.mapLeaves, Subtype.mk.injEq, FiniteTree.inner.injEq, true_and]
-          rw [FiniteTree.mapLeavesList_fromList_eq_fromList_map]
-          rw [← FiniteTreeList.eqIffFromListEq]
-          apply List.map_id_of_id_on_all_mem
-          intro pgt pgt_mem
-          rcases List.mem_unattach.mp pgt_mem with ⟨_, t_mem⟩
-          specialize ih _ t_mem
-          simp only [ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, Subtype.mk.injEq] at ih
-          apply ih
-          intro c c_mem
-          apply cs_mem
-          rw [GroundTerm.constants_func]
-          apply List.mem_flatMap_of_mem
-          . exact t_mem
-          . exact c_mem
-
       simp only [Function.comp_apply]
-      rw [this]
-      intro c c_mem
-      rcases trg.val.rule.frontier_occurs_in_body _ v_mem with ⟨a, a_mem, v_mem⟩
+
+      conv => left; rw [← ConstantMapping.apply_ground_term_id (trg.val.subs v)]
+      apply ConstantMapping.apply_ground_term_congr_left
+      intro d d_mem
+      simp only [ConstantMapping.id]
+      rw [g_h.right]
+      apply Or.inl
+      rcases trg.val.rule.frontier_occurs_in_body v v_mem with ⟨a, a_mem, v_mem'⟩
+      rw [List.mem_toSet, List.mem_flatMap]
       exists trg.val.subs.apply_function_free_atom a
       constructor
-      . apply loaded
-        rw [List.mem_toSet]
+      . simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj]
         apply List.mem_map_of_mem
         exact a_mem
       . unfold Fact.constants
@@ -335,8 +311,8 @@ theorem BlockingObsoleteness.blocks_corresponding_obs [GetFreshRepresentant sig.
         constructor
         . simp only [GroundSubstitution.apply_function_free_atom]
           rw [List.mem_map]
-          exists VarOrConst.var v
-        . exact c_mem
+          exists .var v
+        . exact d_mem
 
   rw [obs.preserved_under_equiv equiv]
 
