@@ -131,8 +131,8 @@ namespace Function
     | cons hd tl ih =>
       simp [image]
       cases Decidable.em (f hd ∈ image f tl) with
-      | inl hd_mem => simp [image, hd_mem]; cases a_mem; exact hd_mem; apply ih; assumption
-      | inr hd_not_mem => simp [image, hd_not_mem]; cases a_mem; apply Or.inl; rfl; apply Or.inr; apply ih; assumption
+      | inl hd_mem => simp [hd_mem]; cases a_mem; exact hd_mem; apply ih; assumption
+      | inr hd_not_mem => simp [hd_not_mem]; cases a_mem; apply Or.inl; rfl; apply Or.inr; apply ih; assumption
 
   theorem nodup_image [DecidableEq β] (f : α -> β) (domain : List α) : (image f domain).Nodup := by
     induction domain with

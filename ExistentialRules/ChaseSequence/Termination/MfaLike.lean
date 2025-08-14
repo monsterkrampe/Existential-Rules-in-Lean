@@ -1791,7 +1791,6 @@ namespace RuleSet
             constructor
             . -- since f occur in the trigger result, its predicate occurs in the rule and must therefore occur in the ruleset
               let origin := node.origin.get (cb.origin_isSome n eq_node)
-              simp only [List.get_eq_getElem] at f_mem
               rw [List.mem_toSet] at f_mem
               simp only [ChaseNode.origin_result, PreTrigger.mapped_head] at f_mem
               simp at f_mem

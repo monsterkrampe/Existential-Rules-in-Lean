@@ -611,8 +611,8 @@ namespace ChaseBranch
     rw [Option.is_some_and_iff] at prop_step
     rcases prop_step with ⟨node, eq, prop_step⟩
 
-    let prev_node := cb.prev_node (step-1) (by rw [Nat.sub_add_cancel (by omega)]; simp [step_ne_0, eq])
-    have eq2 := cb.prev_node_eq (step-1) (by rw [Nat.sub_add_cancel (by omega)]; simp [step_ne_0, eq])
+    let prev_node := cb.prev_node (step-1) (by rw [Nat.sub_add_cancel (by omega)]; simp [eq])
+    have eq2 := cb.prev_node_eq (step-1) (by rw [Nat.sub_add_cancel (by omega)]; simp [eq])
 
     specialize smallest ⟨step-1, by apply Nat.sub_one_lt; exact step_ne_0⟩
 

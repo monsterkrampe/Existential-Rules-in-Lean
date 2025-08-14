@@ -106,7 +106,7 @@ namespace PreTrigger
     constructor
     . constructor
       . intro t; cases eq : t with
-        | const c => simp [GroundTerm.const, h_alt, eq]
+        | const c => simp [GroundTerm.const, h_alt]
         | func _ _ => simp [GroundTerm.func]
       . exact this
     constructor

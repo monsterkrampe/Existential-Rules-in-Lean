@@ -446,7 +446,7 @@ def ChaseBranch.intoTree (cb : ChaseBranch obs kb) (deterministic : kb.isDetermi
           rw [PossiblyInfiniteTree.getElem_children_eq_get]
           unfold PossiblyInfiniteTree.get
           cases eq2 : l.all (fun e => e = 0) with
-          | false => simp [eq2, eq]; intro k; have isLt := k.isLt; simp at isLt
+          | false => simp [eq2]; intro k; have isLt := k.isLt; simp at isLt
           | true => simp [eq2, eq]; intro k; have isLt := k.isLt; simp at isLt
         | some _ =>
           cases eq2 : l.all (fun e => e = 0) with

@@ -62,10 +62,10 @@ namespace PreTrigger
         apply VarOrConst.skolemize_injective trg.rule.id i trg.rule.frontier
         apply trg.subs.apply_skolem_term_injective_on_func_of_frontier_eq
         . unfold VarOrConst.skolemize
-          simp only [v_not_in_frontier, u_front, ↓reduceIte]
+          simp only [v_not_in_frontier, ↓reduceIte]
           rfl
         . unfold VarOrConst.skolemize
-          simp only [v_not_in_frontier, u_front, ↓reduceIte]
+          simp only [u_front, ↓reduceIte]
           rfl
         . exact apply_eq
 

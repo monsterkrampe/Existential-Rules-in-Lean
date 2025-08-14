@@ -46,7 +46,7 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
   let obs_for_m_subs := Classical.choose h_head_index_for_m_subs
   let h_obs_at_head_index_for_m_subs := Classical.choose_spec h_head_index_for_m_subs
 
-  let result_index_for_trg : Fin trg.val.mapped_head.length := ⟨head_index_for_m_subs.val, by unfold PreTrigger.mapped_head; simp [List.length_zipIdx_with_lt]; exact head_index_for_m_subs.isLt⟩
+  let result_index_for_trg : Fin trg.val.mapped_head.length := ⟨head_index_for_m_subs.val, by unfold PreTrigger.mapped_head; simp; exact head_index_for_m_subs.isLt⟩
 
   let next_hom : GroundTermMapping sig := fun t =>
     match t.val with
@@ -68,7 +68,7 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
   have next_hom_id_const : next_hom.isIdOnConstants := by
     intro term
     cases eq : term with
-    | const c => simp [GroundTerm.const, next_hom, eq]
+    | const c => simp [GroundTerm.const, next_hom]
     | func _ _ => simp [GroundTerm.func]
 
   ⟨(head_index_for_m_subs.val::prev_path, next_hom), by
@@ -129,10 +129,10 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
         exists fact
       cases eq : ground_term with
       | const c =>
-        simp only [GroundTerm.const, next_hom, eq]
+        simp only [GroundTerm.const, next_hom]
         apply GroundTermMapping.apply_constant_is_id_of_isIdOnConstants prev_cond_r.left c
       | func _ _ =>
-        simp only [GroundTerm.func, next_hom, eq]
+        simp only [GroundTerm.func, next_hom]
         split
         . rfl
         . simp only [eq, GroundTerm.func] at this
@@ -277,7 +277,7 @@ noncomputable def inductive_homomorphism (ct : ChaseTree obs kb) (m : FactSet si
     cases el_in_set with | intro f hf =>
       apply m_is_model.left
       simp [Set.element]
-      have : f = el := by have hfr := hf.right; simp [GroundTermMapping.applyFact, List.map_id'] at hfr; exact hfr
+      have : f = el := by have hfr := hf.right; simp [GroundTermMapping.applyFact] at hfr; exact hfr
       rw [this] at hf
       exact hf.left
 ⟩

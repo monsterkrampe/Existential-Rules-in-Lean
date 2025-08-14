@@ -247,7 +247,7 @@ namespace ChaseBranch
     | .none =>
       ⟨prev_hom.val, by
         cases eq2 : cb.branch.infinite_list (k + (step_width + 1)) with
-        | none => simp [eq2, Option.is_none_or]
+        | none => simp [Option.is_none_or]
         | some _ =>
           have no_holes := cb.branch.no_holes (k + (step_width + 1))
           rw [eq2] at no_holes
@@ -269,7 +269,7 @@ namespace ChaseBranch
     split
     . simp
     case h_2 _ _ node' eq =>
-      simp only [Option.is_none_or]
+      simp only
       induction j with
       | zero => intros; rfl
       | succ j ih =>
@@ -419,7 +419,7 @@ namespace ChaseBranch
                   have target_h_same := extended_hom_same_on_all_following_extensions cb det k node eq h hom (j - k) (i - j)
                   have : cb.branch.infinite_list (k + (j - k)) = cb.branch.infinite_list j := by rw [Nat.add_sub_of_le (Nat.le_of_lt gt)]
                   simp only [this] at target_h_same
-                  simp only [Nat.add_sub_of_le (Nat.le_of_lt gt), eq3, Option.is_none_or] at target_h_same
+                  simp only [eq3, Option.is_none_or] at target_h_same
                   specialize target_h_same ⟨t, t_arity_ok⟩
                   have : (j - k + (i - j)) = i - k := by omega
                   rw [this] at target_h_same
