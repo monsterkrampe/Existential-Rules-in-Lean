@@ -310,7 +310,7 @@ theorem BlockingObsoleteness.blocks_corresponding_obs [GetFreshRepresentant sig.
           intro pgt pgt_mem
           rcases List.mem_unattach.mp pgt_mem with ⟨_, t_mem⟩
           specialize ih _ t_mem
-          simp only [ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, GroundTerm.func, FiniteTree.mapLeaves, Subtype.mk.injEq, FiniteTree.inner.injEq, true_and] at ih
+          simp only [ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, Subtype.mk.injEq] at ih
           apply ih
           intro c c_mem
           apply cs_mem
@@ -1207,7 +1207,7 @@ namespace RuleSet
                     intro voc voc_mem
                     cases voc with
                     | var v =>
-                      simp [GroundSubstitution.apply_var_or_const, StrictConstantMapping.apply_var_or_const]
+                      simp [GroundSubstitution.apply_var_or_const]
                     | const c =>
                       simp only [Function.comp_apply, GroundSubstitution.apply_var_or_const, ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, StrictConstantMapping.toConstantMapping, GroundTerm.const]
                       apply Subtype.eq
