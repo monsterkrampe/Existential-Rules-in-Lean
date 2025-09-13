@@ -47,6 +47,10 @@ section StructuralDefs
     rules : Set (Rule sig)
     id_unique : ∀ r1 r2, r1 ∈ rules ∧ r2 ∈ rules ∧ r1.id = r2.id -> r1 = r2
 
+  structure RuleList where
+    rules : List (Rule sig)
+    id_unique : ∀ r1 r2, r1 ∈ rules ∧ r2 ∈ rules ∧ r1.id = r2.id -> r1 = r2
+
   abbrev FactSet := Set (Fact sig)
 
   abbrev Database := { X : Set (FunctionFreeFact sig) // X.finite }
@@ -221,6 +225,27 @@ namespace RuleSet
       . rw [eq]; assumption
 
 end RuleSet
+
+namespace RuleList
+
+  def get_by_id (rl : RuleList sig) (id : Nat) (id_mem : ∃ r ∈ rl.rules, r.id = id) : Rule sig :=
+    (rl.rules.find? (fun r => r.id = id)).get (by simp [id_mem])
+
+  theorem get_by_id_mem (rl : RuleList sig) (id : Nat) (id_mem : ∃ r ∈ rl.rules, r.id = id) : rl.get_by_id id id_mem ∈ rl.rules := by unfold get_by_id; apply List.get_find?_mem
+
+  theorem get_by_id_self (rl : RuleList sig) (r : Rule sig) (mem : r ∈ rl.rules) : rl.get_by_id r.id (by exists r) = r := by
+    apply rl.id_unique
+    constructor
+    . apply List.get_find?_mem
+    constructor
+    . exact mem
+    . unfold get_by_id
+      have eq : rl.rules.find? (fun r' => r'.id = r.id) = some ((rl.rules.find? (fun r' => r'.id = r.id)).get (by rw [List.find?_isSome]; exists r; constructor; exact mem; simp)) := by simp
+      apply of_decide_eq_true
+      apply List.find?_some eq
+
+end RuleList
+
 
 namespace KnowledgeBase
 

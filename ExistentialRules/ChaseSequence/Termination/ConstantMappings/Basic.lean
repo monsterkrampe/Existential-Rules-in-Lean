@@ -1,3 +1,4 @@
+import BasicLeanDatastructures.GetFreshInhabitant
 import ExistentialRules.ChaseSequence.Termination.RenameConstantsApart
 import ExistentialRules.Triggers.Basic
 
@@ -984,7 +985,7 @@ section InterplayWithRenamingConstantsApart
 
     mutual
 
-      theorem exists_strict_constant_mapping_to_reverse_renaming [GetFreshRepresentant sig.C] (term term2 : FiniteTree (SkolemFS sig) sig.C) (terms_same_skeleton : same_skeleton term term2) (forbidden_constants : List sig.C) :
+      theorem exists_strict_constant_mapping_to_reverse_renaming [GetFreshInhabitant sig.C] (term term2 : FiniteTree (SkolemFS sig) sig.C) (terms_same_skeleton : same_skeleton term term2) (forbidden_constants : List sig.C) :
           ∃ (g : StrictConstantMapping sig),
             g.toConstantMapping.apply_pre_ground_term (PreGroundTerm.rename_constants_apart term forbidden_constants) = term2 ∧
             (∀ d, d ∉ (PreGroundTerm.rename_constants_apart term forbidden_constants).leaves -> g d = d) := by
@@ -992,7 +993,7 @@ section InterplayWithRenamingConstantsApart
         | leaf c =>
           cases term2 with
           | leaf c' =>
-            exists (fun d => if GetFreshRepresentant.fresh forbidden_constants = d then c' else d); simp [PreGroundTerm.rename_constants_apart, StrictConstantMapping.toConstantMapping, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, GroundTerm.const]
+            exists (fun d => if GetFreshInhabitant.fresh forbidden_constants = d then c' else d); simp [PreGroundTerm.rename_constants_apart, StrictConstantMapping.toConstantMapping, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, GroundTerm.const]
             simp only [FiniteTree.leaves, List.mem_singleton]
             intro _ contra1 contra2
             rw [contra2] at contra1
@@ -1017,7 +1018,7 @@ section InterplayWithRenamingConstantsApart
                 rw [FiniteTreeList.toListFromListIsId]
             . unfold FiniteTree.leaves; exact g_id
 
-      theorem exists_strict_constant_mapping_to_reverse_renaming_list [GetFreshRepresentant sig.C] (terms terms2 : FiniteTreeList (SkolemFS sig) sig.C) (terms_same_skeleton : same_skeleton_list terms terms2) (forbidden_constants : List sig.C) :
+      theorem exists_strict_constant_mapping_to_reverse_renaming_list [GetFreshInhabitant sig.C] (terms terms2 : FiniteTreeList (SkolemFS sig) sig.C) (terms_same_skeleton : same_skeleton_list terms terms2) (forbidden_constants : List sig.C) :
           ∃ (g : StrictConstantMapping sig),
             (PreGroundTerm.rename_constants_apart_list terms forbidden_constants).toList.map (fun term => g.toConstantMapping.apply_pre_ground_term term) = terms2.toList ∧
             (∀ d, d ∉ FiniteTree.leavesList (PreGroundTerm.rename_constants_apart_list terms forbidden_constants) -> g d = d) := by
@@ -1084,7 +1085,7 @@ section InterplayWithRenamingConstantsApart
 
     theorem same_skeleton_under_strict_constant_mapping (term : GroundTerm sig) (g : StrictConstantMapping sig) : term.same_skeleton (g.toConstantMapping.apply_ground_term term) := by unfold same_skeleton; apply PreGroundTerm.same_skeleton_under_strict_constant_mapping
 
-    theorem exists_strict_constant_mapping_to_reverse_renaming [GetFreshRepresentant sig.C] (term term2 : GroundTerm sig) (terms_same_skeleton : same_skeleton term term2) (forbidden_constants : List sig.C) :
+    theorem exists_strict_constant_mapping_to_reverse_renaming [GetFreshInhabitant sig.C] (term term2 : GroundTerm sig) (terms_same_skeleton : same_skeleton term term2) (forbidden_constants : List sig.C) :
         ∃ (g : StrictConstantMapping sig),
           g.toConstantMapping.apply_ground_term (term.rename_constants_apart forbidden_constants) = term2 ∧
           (∀ d, d ∉ (term.rename_constants_apart forbidden_constants).constants -> g d = d) := by
@@ -1119,7 +1120,7 @@ section InterplayWithRenamingConstantsApart
       | cons hd tl ih => unfold same_skeleton_for_vars; constructor; apply GroundTerm.same_skeleton_under_strict_constant_mapping; exact ih
 
     -- NOTE: induction over vars for rename_constants_apart_for_vars does not work nicely without assuming that the vars do not contain duplicates
-    theorem exists_strict_constant_mapping_to_reverse_renaming_for_vars [GetFreshRepresentant sig.C] (subs subs2 : GroundSubstitution sig) (vars : List sig.V) (vars_nodup : vars.Nodup) (subs_same_skeleton : same_skeleton_for_vars subs subs2 vars) (forbidden_constants : List sig.C) :
+    theorem exists_strict_constant_mapping_to_reverse_renaming_for_vars [GetFreshInhabitant sig.C] (subs subs2 : GroundSubstitution sig) (vars : List sig.V) (vars_nodup : vars.Nodup) (subs_same_skeleton : same_skeleton_for_vars subs subs2 vars) (forbidden_constants : List sig.C) :
         ∃ (g : StrictConstantMapping sig),
           (∀ v ∈ vars, g.toConstantMapping.apply_ground_term (subs.rename_constants_apart_for_vars forbidden_constants vars v) = subs2 v) ∧
           (∀ d, d ∉ ((vars.map (subs.rename_constants_apart_for_vars forbidden_constants vars)).flatMap GroundTerm.constants) -> g d = d) := by
@@ -1239,7 +1240,7 @@ section InterplayWithRenamingConstantsApart
       unfold same_skeleton
       simp [GroundSubstitution.same_skeleton_for_vars_under_strict_constant_mapping]
 
-    theorem exists_strict_constant_mapping_to_reverse_renaming [GetFreshRepresentant sig.C] (trg trg2 : PreTrigger sig) (trgs_same_skeleton : same_skeleton trg trg2) (forbidden_constants : List sig.C) :
+    theorem exists_strict_constant_mapping_to_reverse_renaming [GetFreshInhabitant sig.C] (trg trg2 : PreTrigger sig) (trgs_same_skeleton : same_skeleton trg trg2) (forbidden_constants : List sig.C) :
         ∃ (g : StrictConstantMapping sig),
           { rule := trg.rule, subs := g.toConstantMapping.apply_ground_term ∘ (trg.rename_constants_apart forbidden_constants).subs : PreTrigger sig }.strong_equiv trg2 ∧
           (∀ d, d ∉ (trg.rule.body.vars.eraseDupsKeepRight.map (trg.rename_constants_apart forbidden_constants).subs).flatMap GroundTerm.constants -> g d = d) := by

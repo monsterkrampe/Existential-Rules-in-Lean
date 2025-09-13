@@ -142,7 +142,7 @@ theorem DeterministicSkolemObsoleteness.blocks_each_obs (obs : ObsoletenessCondi
       simp only [StrictConstantMapping.apply_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term, ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, StrictConstantMapping.toConstantMapping, GroundTerm.const]
 
 def Trigger.blocked_for_backtracking
-    [GetFreshRepresentant sig.C]
+    [GetFreshInhabitant sig.C]
     [Inhabited sig.C]
     {obs : LaxObsoletenessCondition sig}
     (trg : Trigger obs)
@@ -152,7 +152,7 @@ def Trigger.blocked_for_backtracking
   -> (trg_rule_arity_valid : trg.skolem_rule_arity_valid rl trg_ruleIds_valid)
   -> (obs.cond trg (trg.backtrackFacts rl trg_ruleIds_valid trg_disjIdx_valid trg_rule_arity_valid).fst.toSet)
 
-def BlockingObsoleteness [GetFreshRepresentant sig.C] [Inhabited sig.C] (obs : ObsoletenessCondition sig) (rs : RuleSet sig) : MfaObsoletenessCondition sig := {
+def BlockingObsoleteness [GetFreshInhabitant sig.C] [Inhabited sig.C] (obs : ObsoletenessCondition sig) (rs : RuleSet sig) : MfaObsoletenessCondition sig := {
   cond := fun (trg : PreTrigger sig) _ =>
     ∀ (rl : RuleList sig), (∀ r, r ∈ rl.rules ↔ r ∈ rs.rules) ->
       let trg' := trg.rename_constants_apart (rl.rules.flatMap Rule.constants)
@@ -165,7 +165,7 @@ def BlockingObsoleteness [GetFreshRepresentant sig.C] [Inhabited sig.C] (obs : O
     exact h
 }
 
-theorem BlockingObsoleteness.blocks_corresponding_obs [GetFreshRepresentant sig.C] [Inhabited sig.C]
+theorem BlockingObsoleteness.blocks_corresponding_obs [GetFreshInhabitant sig.C] [Inhabited sig.C]
     (obs : ObsoletenessCondition sig) (obs_propagates_under_const_mapping : obs.propagates_under_constant_mapping)
     (rs : RuleSet sig) (rs_finite : rs.rules.finite) (special_const : sig.C) :
     (BlockingObsoleteness obs rs).blocks_obs obs rs special_const := by
@@ -1567,7 +1567,7 @@ namespace RuleSet
       rs.isMfa rs_finite (DeterministicSkolemObsoleteness sig) -> rs.terminates obs :=
     rs.terminates_of_isMfa rs_finite (DeterministicSkolemObsoleteness sig) (DeterministicSkolemObsoleteness.blocks_each_obs obs default rs)
 
-  theorem terminates_of_isMfa_with_BlockingObsoleteness [GetFreshRepresentant sig.C] [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.rules.finite) (obs : ObsoletenessCondition sig) (obs_propagates_under_const_mapping : obs.propagates_under_constant_mapping) :
+  theorem terminates_of_isMfa_with_BlockingObsoleteness [GetFreshInhabitant sig.C] [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.rules.finite) (obs : ObsoletenessCondition sig) (obs_propagates_under_const_mapping : obs.propagates_under_constant_mapping) :
       rs.isMfa rs_finite (BlockingObsoleteness obs rs) -> rs.terminates obs :=
     rs.terminates_of_isMfa rs_finite (BlockingObsoleteness obs rs) (BlockingObsoleteness.blocks_corresponding_obs obs obs_propagates_under_const_mapping rs rs_finite default)
 

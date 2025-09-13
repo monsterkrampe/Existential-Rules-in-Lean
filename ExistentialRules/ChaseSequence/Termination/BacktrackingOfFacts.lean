@@ -1,79 +1,7 @@
+import BasicLeanDatastructures.GetFreshInhabitant
 import ExistentialRules.ChaseSequence.Termination.Basic
 
--- Gets a fresh element of the type that does not occur in the given list
-class GetFreshRepresentant (t : Type u) where
-  fresh (l : List t) : { e : t // e ∉ l }
-
-def GetFreshRepresentant.fresh_n {t : Type u} [GetFreshRepresentant t] (l : List t) (n : Nat) :
-    { l' : List t // l'.length = n ∧ l'.Nodup ∧ ∀ e ∈ l', e ∉ l } :=
-  match n with
-  | .zero => ⟨[], by simp⟩
-  | .succ n =>
-    let rec_res := GetFreshRepresentant.fresh_n l n
-    let fresh_e := GetFreshRepresentant.fresh (rec_res.val ++ l)
-    ⟨fresh_e.val :: rec_res.val, by
-      constructor
-      . simp [rec_res.property.left]
-      constructor
-      . rw [List.nodup_cons]
-        constructor
-        . intro contra
-          apply fresh_e.property
-          rw [List.mem_append]
-          apply Or.inl
-          exact contra
-        . exact rec_res.property.right.left
-      . intro e e_mem
-        rw [List.mem_cons] at e_mem
-        cases e_mem with
-        | inr e_mem => apply rec_res.property.right.right; exact e_mem
-        | inl e_mem =>
-          intro contra
-          apply fresh_e.property
-          rw [List.mem_append]
-          apply Or.inr
-          rw [e_mem] at contra
-          exact contra
-    ⟩
-
--- Just using Nat as an example / proof of concept here
-def Nat.fresh (l : List Nat) : { n : Nat // n ∉ l} :=
-  ⟨(l.max?.getD 0).succ, by
-    intro contra
-    have le : (l.max?.getD 0).succ ≤ l.max?.getD 0 := List.le_max?_getD_of_mem contra
-    rw [Nat.succ_le] at le
-    simp at le
-  ⟩
-
-instance : GetFreshRepresentant Nat where
-  fresh := Nat.fresh
-
--- #eval GetFreshRepresentant.fresh_n [2,27,6,3] 5
-
-
-structure RuleList (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] where
-  rules : List (Rule sig)
-  id_unique : ∀ r1 r2, r1 ∈ rules ∧ r2 ∈ rules ∧ r1.id = r2.id -> r1 = r2
-
-
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
-
-
-def RuleList.get_by_id (rl : RuleList sig) (id : Nat) (id_mem : ∃ r ∈ rl.rules, r.id = id) : Rule sig :=
-  (rl.rules.find? (fun r => r.id = id)).get (by simp [id_mem])
-
-theorem RuleList.get_by_id_mem (rl : RuleList sig) (id : Nat) (id_mem : ∃ r ∈ rl.rules, r.id = id) : rl.get_by_id id id_mem ∈ rl.rules := by unfold get_by_id; apply List.get_find?_mem
-
-theorem RuleList.get_by_id_self (rl : RuleList sig) (r : Rule sig) (mem : r ∈ rl.rules) : rl.get_by_id r.id (by exists r) = r := by
-  apply rl.id_unique
-  constructor
-  . apply List.get_find?_mem
-  constructor
-  . exact mem
-  . unfold get_by_id
-    have eq : rl.rules.find? (fun r' => r'.id = r.id) = some ((rl.rules.find? (fun r' => r'.id = r.id)).get (by rw [List.find?_isSome]; exists r; constructor; exact mem; simp)) := by simp
-    apply of_decide_eq_true
-    apply List.find?_some eq
 
 def SkolemFS.ruleId_valid (sfs : SkolemFS sig) (rl : RuleList sig) : Prop :=
   ∃ r ∈ rl.rules, r.id = sfs.ruleId
@@ -209,69 +137,16 @@ theorem GroundTerm.skolem_rule_arity_valid_list (rl : RuleList sig) (ts : List (
       . apply h; simp
       . intro t t_mem; apply h; simp [t_mem]
 
-def Rule.fresh_consts_for_pure_body_vars [GetFreshRepresentant sig.C] (r : Rule sig) (forbidden_constants : List sig.C) :=
-  GetFreshRepresentant.fresh_n forbidden_constants r.pure_body_vars.length
+def Rule.fresh_consts_for_pure_body_vars [GetFreshInhabitant sig.C] (r : Rule sig) (forbidden_constants : List sig.C) :=
+  GetFreshInhabitant.fresh_n forbidden_constants r.pure_body_vars.length
 
-def Rule.length_fresh_consts_for_pure_body_vars [GetFreshRepresentant sig.C] {r : Rule sig} {forbidden_constants : List sig.C} : (r.fresh_consts_for_pure_body_vars forbidden_constants).val.length = r.pure_body_vars.length := (r.fresh_consts_for_pure_body_vars forbidden_constants).property.left
+def Rule.length_fresh_consts_for_pure_body_vars [GetFreshInhabitant sig.C] {r : Rule sig} {forbidden_constants : List sig.C} : (r.fresh_consts_for_pure_body_vars forbidden_constants).val.length = r.pure_body_vars.length := (r.fresh_consts_for_pure_body_vars forbidden_constants).property.left
 
--- TODO: extract this result
-theorem List.getElem_eq_getElem_of_idx_eq {l : List α} {i j : Nat} {i_lt : i < l.length} (idx_eq : i = j) : l[i] = l[j] := by simp [idx_eq]
-
--- TODO: extract this result
-theorem List.getElem_idxOf_of_mem [BEq α] [LawfulBEq α] {l : List α} {e : α} (mem : e ∈ l) : l[l.idxOf e]'(by apply List.idxOf_lt_length_of_mem; exact mem) = e := by
-  induction l with
-  | nil => simp at mem
-  | cons hd tl ih =>
-    unfold List.idxOf
-    unfold List.findIdx
-    unfold List.findIdx.go
-    cases Decidable.em (hd == e) with
-    | inl eq => simp only [eq, cond_true]; rw [List.getElem_cons_zero]; apply LawfulBEq.eq_of_beq eq
-    | inr neq =>
-      simp only [neq, cond_false]
-      simp only [List.findIdx_cons.findIdx_go_succ]
-      rw [List.getElem_cons_succ]
-      apply ih
-      rw [List.mem_cons] at mem
-      cases mem with
-      | inl mem => rw [mem] at neq; simp at neq
-      | inr mem => exact mem
-
--- TODO: extract this result
-theorem List.idxOf_getElem [DecidableEq α] {l : List α} {i : Nat} {lt : i < l.length} (nodup : l.Nodup) : l.idxOf l[i] = i := by
-  induction l generalizing i with
-  | nil => simp at lt
-  | cons hd tl ih =>
-    rw [List.getElem_cons, List.idxOf_cons]
-    cases Decidable.em (i = 0) with
-    | inl i_eq => simp [i_eq]
-    | inr i_eq =>
-      rw [List.nodup_cons] at nodup
-      simp only [i_eq, ↓reduceDIte]
-      have i_lt_tl : i - 1 < tl.length := by
-        apply Nat.sub_one_lt_of_le
-        . apply Nat.zero_lt_of_ne_zero; exact i_eq
-        . apply Nat.le_of_lt_succ; exact lt
-      have : hd ≠ tl[i-1] := by
-        intro contra
-        apply nodup.left
-        rw [contra]
-        apply List.getElem_mem
-      have : ¬ hd == tl[i-1] := by
-        intro beq
-        apply this
-        apply LawfulBEq.eq_of_beq
-        exact beq
-      simp only [this, cond_false]
-      rw [ih]
-      . apply Nat.sub_one_add_one; exact i_eq
-      . exact nodup.right
-
-theorem Rule.fresh_consts_for_pure_body_vars_idx_retained [GetFreshRepresentant sig.C] {r : Rule sig} {forbidden_constants : List sig.C} {v : sig.V} {v_mem : v ∈ r.pure_body_vars} : (r.fresh_consts_for_pure_body_vars forbidden_constants).val.idxOf ((r.fresh_consts_for_pure_body_vars forbidden_constants).val[r.pure_body_vars.idxOf v]'(by rw [(r.fresh_consts_for_pure_body_vars forbidden_constants).property.left, List.idxOf_lt_length_iff]; exact v_mem)) = r.pure_body_vars.idxOf v := by
+theorem Rule.fresh_consts_for_pure_body_vars_idx_retained [GetFreshInhabitant sig.C] {r : Rule sig} {forbidden_constants : List sig.C} {v : sig.V} {v_mem : v ∈ r.pure_body_vars} : (r.fresh_consts_for_pure_body_vars forbidden_constants).val.idxOf ((r.fresh_consts_for_pure_body_vars forbidden_constants).val[r.pure_body_vars.idxOf v]'(by rw [(r.fresh_consts_for_pure_body_vars forbidden_constants).property.left, List.idxOf_lt_length_iff]; exact v_mem)) = r.pure_body_vars.idxOf v := by
   rw [List.idxOf_getElem]
   exact (r.fresh_consts_for_pure_body_vars forbidden_constants).property.right.left
 
-theorem Rule.fresh_consts_pure_body_vars_roundtrip [GetFreshRepresentant sig.C] {r : Rule sig} {forbidden_constants : List sig.C} {v : sig.V} {v_mem : v ∈ r.pure_body_vars} : r.pure_body_vars[(r.fresh_consts_for_pure_body_vars forbidden_constants).val.idxOf ((r.fresh_consts_for_pure_body_vars forbidden_constants).val[r.pure_body_vars.idxOf v]'(by rw [(r.fresh_consts_for_pure_body_vars forbidden_constants).property.left, List.idxOf_lt_length_iff]; exact v_mem))]'(by rw [fresh_consts_for_pure_body_vars_idx_retained, List.idxOf_lt_length_iff]; exact v_mem; exact v_mem) = v := by
+theorem Rule.fresh_consts_pure_body_vars_roundtrip [GetFreshInhabitant sig.C] {r : Rule sig} {forbidden_constants : List sig.C} {v : sig.V} {v_mem : v ∈ r.pure_body_vars} : r.pure_body_vars[(r.fresh_consts_for_pure_body_vars forbidden_constants).val.idxOf ((r.fresh_consts_for_pure_body_vars forbidden_constants).val[r.pure_body_vars.idxOf v]'(by rw [(r.fresh_consts_for_pure_body_vars forbidden_constants).property.left, List.idxOf_lt_length_iff]; exact v_mem))]'(by rw [fresh_consts_for_pure_body_vars_idx_retained, List.idxOf_lt_length_iff]; exact v_mem; exact v_mem) = v := by
   rw [List.getElem_eq_getElem_of_idx_eq]
   . rw [List.getElem_idxOf_of_mem]
     exact v_mem
@@ -279,7 +154,7 @@ theorem Rule.fresh_consts_pure_body_vars_roundtrip [GetFreshRepresentant sig.C] 
     exact v_mem
 
 def PreGroundTerm.backtrackTrigger
-    [GetFreshRepresentant sig.C]
+    [GetFreshInhabitant sig.C]
     [Inhabited sig.C]
     (rl : RuleList sig)
     (term : FiniteTree (SkolemFS sig) sig.C)
@@ -327,7 +202,7 @@ def PreGroundTerm.backtrackTrigger
 mutual
 
   def PreGroundTerm.backtrackFacts
-      [GetFreshRepresentant sig.C]
+      [GetFreshInhabitant sig.C]
       [Inhabited sig.C]
       (rl : RuleList sig)
       (term : FiniteTree (SkolemFS sig) sig.C)
@@ -352,7 +227,7 @@ mutual
       ((trg.mapped_body ++ trg.mapped_head[disjIdx]) ++ recursive_result.fst, recursive_result.snd ++ fresh_consts_for_pure_body_vars.val)
 
   def PreGroundTerm.backtrackFacts_list
-      [GetFreshRepresentant sig.C]
+      [GetFreshInhabitant sig.C]
       [Inhabited sig.C]
       (rl : RuleList sig)
       (terms : FiniteTreeList (SkolemFS sig) sig.C)
@@ -374,7 +249,7 @@ end
 mutual
 
   theorem PreGroundTerm.backtrackFacts_fresh_constants_not_forbidden
-      [GetFreshRepresentant sig.C]
+      [GetFreshInhabitant sig.C]
       [Inhabited sig.C]
       {rl : RuleList sig}
       {term : FiniteTree (SkolemFS sig) sig.C}
@@ -399,7 +274,7 @@ mutual
         exact c_mem
 
   theorem PreGroundTerm.backtrackFacts_list_fresh_constants_not_forbidden
-      [GetFreshRepresentant sig.C]
+      [GetFreshInhabitant sig.C]
       [Inhabited sig.C]
       {rl : RuleList sig}
       {terms : FiniteTreeList (SkolemFS sig) sig.C}
@@ -424,7 +299,7 @@ end
 mutual
 
   theorem PreGroundTerm.backtrackFacts_constants_in_rules_or_term_or_fresh
-      [GetFreshRepresentant sig.C]
+      [GetFreshInhabitant sig.C]
       [Inhabited sig.C]
       {rl : RuleList sig}
       {term : FiniteTree (SkolemFS sig) sig.C}
@@ -567,7 +442,7 @@ mutual
           | inr c_mem => apply Or.inr; rw [List.mem_append]; apply Or.inl; exact c_mem
 
   theorem PreGroundTerm.backtrackFacts_list_constants_in_rules_or_term_or_fresh
-      [GetFreshRepresentant sig.C]
+      [GetFreshInhabitant sig.C]
       [Inhabited sig.C]
       {rl : RuleList sig}
       {terms : FiniteTreeList (SkolemFS sig) sig.C}
@@ -608,7 +483,7 @@ end
 namespace GroundTerm
 
   def backtrackTrigger
-      [GetFreshRepresentant sig.C]
+      [GetFreshInhabitant sig.C]
       [Inhabited sig.C]
       (rl : RuleList sig)
       (term : GroundTerm sig)
@@ -619,7 +494,7 @@ namespace GroundTerm
     PreGroundTerm.backtrackTrigger rl term.val (by rcases term_is_func with ⟨func, ts, _, eq⟩; exists func, FiniteTreeList.fromList ts.unattach; rw [eq]; rfl) term.property term_ruleIds_valid term_rule_arity_valid forbidden_constants
 
   def backtrackFacts
-      [GetFreshRepresentant sig.C]
+      [GetFreshInhabitant sig.C]
       [Inhabited sig.C]
       (rl : RuleList sig)
       (term : GroundTerm sig)
@@ -630,7 +505,7 @@ namespace GroundTerm
     PreGroundTerm.backtrackFacts rl term.val term.property term_ruleIds_valid term_disjIdx_valid term_rule_arity_valid forbidden_constants
 
   def backtrackFacts_list
-      [GetFreshRepresentant sig.C]
+      [GetFreshInhabitant sig.C]
       [Inhabited sig.C]
       (rl : RuleList sig)
       (terms : List (GroundTerm sig))
@@ -653,7 +528,7 @@ namespace GroundTerm
       (result_for_hd.fst ++ recursive_result.fst, result_for_hd.snd ++ recursive_result.snd)
 
   theorem backtrackFacts_fresh_constants_not_forbidden
-      [GetFreshRepresentant sig.C]
+      [GetFreshInhabitant sig.C]
       [Inhabited sig.C]
       {rl : RuleList sig}
       {term : GroundTerm sig}
@@ -668,7 +543,7 @@ namespace GroundTerm
     exact c_mem
 
   theorem backtrackFacts_list_fresh_constants_not_forbidden
-      [GetFreshRepresentant sig.C]
+      [GetFreshInhabitant sig.C]
       [Inhabited sig.C]
       {rl : RuleList sig}
       {terms : List (GroundTerm sig)}
@@ -694,7 +569,7 @@ namespace GroundTerm
         exact contra
 
   theorem backtrackFacts_constants_in_rules_or_term_or_fresh
-      [GetFreshRepresentant sig.C]
+      [GetFreshInhabitant sig.C]
       [Inhabited sig.C]
       {rl : RuleList sig}
       {term : GroundTerm sig}
@@ -716,7 +591,7 @@ namespace GroundTerm
       | inr c_mem => apply Or.inr; exact c_mem
 
   theorem backtrackFacts_list_constants_in_rules_or_term_or_fresh
-      [GetFreshRepresentant sig.C]
+      [GetFreshInhabitant sig.C]
       [Inhabited sig.C]
       {rl : RuleList sig}
       {terms : List (GroundTerm sig)}
@@ -995,7 +870,7 @@ theorem PreTrigger.skolem_rule_arity_remains_valid_in_head
           . exact body_valid
 
 def PreTrigger.backtrackTrigger_for_functional_term
-    [GetFreshRepresentant sig.C]
+    [GetFreshInhabitant sig.C]
     [Inhabited sig.C]
     (rl : RuleList sig)
     (trg : PreTrigger sig)
@@ -1012,7 +887,7 @@ def PreTrigger.backtrackTrigger_for_functional_term
   ) (by apply trg.skolem_ruleIds_valid_for_functional_term; exact trg_rule_mem; exact trg_ruleIds_valid) (by apply trg.skolem_rule_arity_valid_for_functional_term; exact trg_rule_mem; exact trg_rule_arity_valid) forbidden_constants)
 
 theorem PreTrigger.backtrackTrigger_for_functional_term_equiv
-    [GetFreshRepresentant sig.C]
+    [GetFreshInhabitant sig.C]
     [Inhabited sig.C]
     (rl : RuleList sig)
     (trg : PreTrigger sig)
@@ -1037,7 +912,7 @@ theorem PreTrigger.backtrackTrigger_for_functional_term_equiv
     exact u_mem
 
 def PreTrigger.backtrackFacts
-    [GetFreshRepresentant sig.C]
+    [GetFreshInhabitant sig.C]
     [Inhabited sig.C]
     (rl : RuleList sig)
     (trg : PreTrigger sig)
@@ -1049,7 +924,7 @@ def PreTrigger.backtrackFacts
   (trg.mapped_body ++ backtrack_result.fst, backtrack_result.snd)
 
 theorem PreTrigger.backtrackFacts_eq_of_strong_equiv
-    [GetFreshRepresentant sig.C]
+    [GetFreshInhabitant sig.C]
     [Inhabited sig.C]
     (rl : RuleList sig)
     (trg trg2 : PreTrigger sig)

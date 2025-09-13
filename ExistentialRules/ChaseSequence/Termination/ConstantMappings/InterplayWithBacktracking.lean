@@ -1,29 +1,6 @@
 import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts
 import ExistentialRules.ChaseSequence.Termination.ConstantMappings.Basic
 
--- TODO: extract this result
-theorem List.append_eq_append_of_parts_eq (as bs cs ds : List α) : as = cs -> bs = ds -> as ++ bs = cs ++ ds := by
-  intro eq eq2
-  rw [eq, eq2]
-
--- TODO: extract this result
-theorem List.append_left_same_length_of_append_eq_append_of_right_same_length {as bs cs ds : List α} : as ++ bs = cs ++ ds -> bs.length = ds.length -> as.length = cs.length := by
-  induction as generalizing cs with
-  | nil => cases cs with | nil => simp | cons _ _ => simp only [List.nil_append]; intro eq eq2; rw [eq, Nat.eq_iff_le_and_ge] at eq2; have contra := eq2.left; simp only [List.length_append, List.length_cons] at contra; rw [Nat.add_assoc] at contra; apply False.elim; apply Nat.not_succ_le_self; rw [Nat.succ_eq_one_add]; exact Nat.le_of_add_left_le contra
-  | cons a as ih =>
-    cases cs with
-    | nil =>
-      intro eq eq2
-      have : (a :: as ++ bs).length = ([] ++ ds).length := by rw [eq]
-      simp only [List.nil_append, List.length_append, List.length_cons] at this
-      rw [Nat.add_assoc, eq2, Nat.eq_iff_le_and_ge] at this; apply False.elim; apply Nat.not_succ_le_self; rw [Nat.succ_eq_one_add]; exact Nat.le_of_add_left_le this.left
-    | cons c cs =>
-      intro eq eq2
-      rw [List.length_cons, @ih cs]
-      . simp
-      . rw [List.cons_append, List.cons_append, List.cons_eq_cons] at eq; exact eq.right
-      . exact eq2
-
 section InterplayWithBacktracking
 
   variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [DecidableEq sig.P]
@@ -31,7 +8,7 @@ section InterplayWithBacktracking
   mutual
 
     theorem PreGroundTerm.backtrackFacts_under_strict_constant_mapping_same_number_of_fresh_constants
-        [GetFreshRepresentant sig.C]
+        [GetFreshInhabitant sig.C]
         [Inhabited sig.C]
         (rl : RuleList sig)
         (term : FiniteTree (SkolemFS sig) sig.C)
@@ -59,7 +36,7 @@ section InterplayWithBacktracking
         rw [backtrackFacts_list_under_strict_constant_mapping_same_number_of_fresh_constants]
 
     theorem PreGroundTerm.backtrackFacts_list_under_strict_constant_mapping_same_number_of_fresh_constants
-        [GetFreshRepresentant sig.C]
+        [GetFreshInhabitant sig.C]
         [Inhabited sig.C]
         (rl : RuleList sig)
         (terms : FiniteTreeList (SkolemFS sig) sig.C)
@@ -96,7 +73,7 @@ section InterplayWithBacktracking
   end
 
   theorem GroundTerm.backtrackFacts_under_constant_mapping_exists_fresh_constant_remapping
-      [GetFreshRepresentant sig.C]
+      [GetFreshInhabitant sig.C]
       [Inhabited sig.C]
       (rl : RuleList sig)
       (term : GroundTerm sig)
@@ -468,7 +445,7 @@ section InterplayWithBacktracking
           rw [combined_remapping_on_fresh_is_fresh2]
 
   theorem GroundTerm.backtrackFacts_under_constant_mapping_subset_of_composing_with_subs
-      [GetFreshRepresentant sig.C]
+      [GetFreshInhabitant sig.C]
       [Inhabited sig.C]
       (rl : RuleList sig)
       (term : GroundTerm sig)
@@ -601,8 +578,6 @@ section InterplayWithBacktracking
                       exact t_mem)
                   (forbidden_constants.map inner_g)
                 ).snd) ->
-            /-   ∃ (fresh_constant_remapping : StrictConstantMapping sig), -/
-            /-   (∀ d ∉ inner_backtracking.snd, fresh_constant_remapping d = d) ∧ -/
               ((StrictConstantMapping.toConstantMapping (fun c => if c ∈ inner_backtracking.snd then fresh_constant_remapping c else inner_g c)).apply_fact_set inner_backtracking.fst.toSet ⊆
                 (PreGroundTerm.backtrackFacts_list rl (sublist.unattach.map inner_g.toConstantMapping.apply_pre_ground_term)
                   (by rw [← PreGroundTerm.arity_ok_list_iff_arity_ok_each_mem]; intro t t_mem; rw [FiniteTreeList.fromListToListIsId, List.mem_map] at t_mem; rcases t_mem with ⟨s, s_mem, t_eq⟩; rw [← t_eq]; apply ConstantMapping.apply_pre_ground_term_arity_ok; rw [List.mem_unattach] at s_mem; rcases s_mem with ⟨h, _⟩; exact h)
@@ -1176,7 +1151,7 @@ section InterplayWithBacktracking
       . exact fresh_constant_remapping_h.right
 
   theorem GroundTerm.backtrackFacts_list_under_constant_mapping_subset_of_composing_with_subs
-      [GetFreshRepresentant sig.C]
+      [GetFreshInhabitant sig.C]
       [Inhabited sig.C]
       (rl : RuleList sig)
       (terms : List (GroundTerm sig))
@@ -1408,7 +1383,7 @@ section InterplayWithBacktracking
                 simp [this]
 
   theorem PreTrigger.backtracking_under_constant_mapping_subset_of_composing_with_subs
-      [GetFreshRepresentant sig.C]
+      [GetFreshInhabitant sig.C]
       [Inhabited sig.C]
       (rl : RuleList sig)
       (trg : PreTrigger sig)
@@ -1564,7 +1539,7 @@ section InterplayWithBacktracking
           intro d d_mem
           simp only [StrictConstantMapping.toConstantMapping, backtracking, backtrackFacts, forbidden_constants]
 
-  theorem ChaseBranch.backtracking_of_term_in_node [GetFreshRepresentant sig.C] [Inhabited sig.C] (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) :
+  theorem ChaseBranch.backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C] (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) :
       ∀ (rl : RuleList sig), (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) ->
       ∀ (term : GroundTerm sig), (term_mem : term ∈ node.fact.val.terms) ->
       ∀ (forbidden_constants : List sig.C),
@@ -2048,7 +2023,7 @@ section InterplayWithBacktracking
               apply Or.inl
               exact d_mem
 
-  theorem ChaseBranch.backtracking_of_term_list_in_node [GetFreshRepresentant sig.C] [Inhabited sig.C] (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) :
+  theorem ChaseBranch.backtracking_of_term_list_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C] (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) :
       ∀ (rl : RuleList sig), (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) ->
       ∀ (terms : List (GroundTerm sig)), (terms_mem : terms.toSet ⊆ node.fact.val.terms) ->
       ∀ (forbidden_constants : List sig.C),
@@ -2152,7 +2127,7 @@ section InterplayWithBacktracking
         . apply g_hd_h.right; exact d_mem
         . apply g_tl_h.right; rw [List.mem_append]; apply Or.inl; exact d_mem
 
-  theorem ChaseBranch.backtracking_of_loaded_trigger_in_node [GetFreshRepresentant sig.C] [Inhabited sig.C] (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) :
+  theorem ChaseBranch.backtracking_of_loaded_trigger_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C] (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) :
       ∀ (rl : RuleList sig), (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) ->
       ∀ (trg : PreTrigger sig), (trg_loaded : trg.loaded node.fact) ->
       ∃ (g : ConstantMapping sig),
