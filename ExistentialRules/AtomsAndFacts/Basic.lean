@@ -47,6 +47,10 @@ section StructuralDefs
     rules : Set (Rule sig)
     id_unique : ∀ r1 r2, r1 ∈ rules ∧ r2 ∈ rules ∧ r1.id = r2.id -> r1 = r2
 
+  structure RuleList where
+    rules : List (Rule sig)
+    id_unique : ∀ r1 r2, r1 ∈ rules ∧ r2 ∈ rules ∧ r1.id = r2.id -> r1 = r2
+
   abbrev FactSet := Set (Fact sig)
 
   abbrev Database := { X : Set (FunctionFreeFact sig) // X.finite }
@@ -123,6 +127,8 @@ namespace Rule
         apply VarOrConst.filterVars_occur_in_original_list
         exact v_mem
 
+  def pure_body_vars (r : Rule sig) : List sig.V := r.body.vars.filter (fun x => x ∉ r.frontier)
+
   def isDatalog (r : Rule sig) : Bool :=
     r.head.all (fun h => h.vars.all (fun v => v ∈ r.body.vars))
 
@@ -130,7 +136,11 @@ namespace Rule
 
   def predicates (r : Rule sig) : List sig.P := r.body.predicates ++ (r.head.flatMap FunctionFreeConjunction.predicates)
 
+  def constants (r : Rule sig) : List sig.C := r.body.consts ++ r.head.flatMap (fun conj => conj.consts)
+
   def head_constants (r : Rule sig) : List sig.C := r.head.flatMap (fun conj => conj.consts)
+
+  theorem head_constants_subset_constants (r : Rule sig) : r.head_constants ⊆ r.constants := by apply List.subset_append_right
 
   def skolem_functions (r : Rule sig) : List (SkolemFS sig) := r.head.zipIdx.flatMap (fun (head, i) =>
     (head.vars.filter (fun v => !(v ∈ r.frontier))).map (fun v => { ruleId := r.id, disjunctIndex := i, var := v, arity := r.frontier.length })
@@ -158,6 +168,22 @@ namespace RuleSet
       . rw [← eq]; assumption
       . rw [eq]; assumption
 
+  def constants (rs : RuleSet sig) : Set sig.C := fun c => ∃ r, r ∈ rs.rules ∧ c ∈ r.constants
+
+  theorem constants_finite_of_finite (rs : RuleSet sig) : rs.rules.finite -> rs.constants.finite := by
+    intro finite
+    rcases finite with ⟨l, nodup, eq⟩
+    exists (l.flatMap Rule.constants).eraseDupsKeepRight
+    constructor
+    . apply List.nodup_eraseDupsKeepRight
+    . intro c
+      rw [List.mem_eraseDupsKeepRight]
+      unfold constants
+      simp only [List.mem_flatMap]
+      constructor <;> (intro h; rcases h with ⟨r, h⟩; exists r)
+      . rw [← eq]; assumption
+      . rw [eq]; assumption
+
   def head_constants (rs : RuleSet sig) : Set sig.C := fun c => ∃ r, r ∈ rs.rules ∧ c ∈ r.head_constants
 
   theorem head_constants_finite_of_finite (rs : RuleSet sig) : rs.rules.finite -> rs.head_constants.finite := by
@@ -173,6 +199,14 @@ namespace RuleSet
       constructor <;> (intro h; rcases h with ⟨r, h⟩; exists r)
       . rw [← eq]; assumption
       . rw [eq]; assumption
+
+  theorem head_constants_subset_constants (rs : RuleSet sig) : rs.head_constants ⊆ rs.constants := by
+    intro c c_mem
+    rcases c_mem with ⟨r, r_mem, c_mem⟩
+    exists r
+    constructor
+    . exact r_mem
+    . apply Rule.head_constants_subset_constants; exact c_mem
 
   def skolem_functions (rs : RuleSet sig) : Set (SkolemFS sig) := fun f => ∃ r, r ∈ rs.rules ∧ f ∈ r.skolem_functions
 
@@ -191,6 +225,27 @@ namespace RuleSet
       . rw [eq]; assumption
 
 end RuleSet
+
+namespace RuleList
+
+  def get_by_id (rl : RuleList sig) (id : Nat) (id_mem : ∃ r ∈ rl.rules, r.id = id) : Rule sig :=
+    (rl.rules.find? (fun r => r.id = id)).get (by simp [id_mem])
+
+  theorem get_by_id_mem (rl : RuleList sig) (id : Nat) (id_mem : ∃ r ∈ rl.rules, r.id = id) : rl.get_by_id id id_mem ∈ rl.rules := by unfold get_by_id; apply List.get_find?_mem
+
+  theorem get_by_id_self (rl : RuleList sig) (r : Rule sig) (mem : r ∈ rl.rules) : rl.get_by_id r.id (by exists r) = r := by
+    apply rl.id_unique
+    constructor
+    . apply List.get_find?_mem
+    constructor
+    . exact mem
+    . unfold get_by_id
+      have eq : rl.rules.find? (fun r' => r'.id = r.id) = some ((rl.rules.find? (fun r' => r'.id = r.id)).get (by rw [List.find?_isSome]; exists r; constructor; exact mem; simp)) := by simp
+      apply of_decide_eq_true
+      apply List.find?_some eq
+
+end RuleList
+
 
 namespace KnowledgeBase
 
@@ -328,11 +383,11 @@ namespace FactSet
     let overapproximation : FactSet sig := fun f => f.predicate ∈ fs.predicates ∧ (∀ t, t ∈ f.terms -> t ∈ fs.terms)
     have overapproximation_fin : overapproximation.finite := by
       exists (preds.flatMap (fun p =>
-        (all_term_lists_of_length terms (sig.arity p)).attach.map (fun ⟨ts, mem⟩ =>
+        (all_lists_of_length terms (sig.arity p)).attach.map (fun ⟨ts, mem⟩ =>
           {
             predicate := p
             terms := ts
-            arity_ok := ((mem_all_term_lists_of_length terms (sig.arity p) ts).mp mem).left
+            arity_ok := ((mem_all_lists_of_length terms (sig.arity p) ts).mp mem).left
           }
         )
       )).eraseDupsKeepRight
@@ -349,7 +404,7 @@ namespace FactSet
           constructor
           . rw [preds_eq] at pred_mem
             exact pred_mem
-          . rw [mem_all_term_lists_of_length] at ts_mem
+          . rw [mem_all_lists_of_length] at ts_mem
             intro t t_mem
             rw [← terms_eq]
             apply ts_mem.right
@@ -361,7 +416,7 @@ namespace FactSet
           . rw [preds_eq]; exact pred_mem
           . exists f.terms
             exists (by
-              rw [mem_all_term_lists_of_length]
+              rw [mem_all_lists_of_length]
               constructor
               . exact f.arity_ok
               . intro t t_mem; rw [terms_eq]; apply ts_mem; exact t_mem

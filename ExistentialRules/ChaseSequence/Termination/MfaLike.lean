@@ -1,701 +1,384 @@
 import BasicLeanDatastructures.List.Repeat
 
 import ExistentialRules.ChaseSequence.Termination.Basic
+import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts
+import ExistentialRules.ChaseSequence.Termination.ConstantMappings.Basic
+import ExistentialRules.ChaseSequence.Termination.ConstantMappings.InterplayWithBacktracking
+import ExistentialRules.ChaseSequence.Termination.RenameConstantsApart
 import ExistentialRules.Terms.Cyclic
-
-section Defs
-
-  variable (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
-
-  -- This is essentially the same as a GroundSubstitution only that it maps constants instead of variables
-  abbrev ConstantMapping := sig.C -> GroundTerm sig
-
-  abbrev StrictConstantMapping := sig.C -> sig.C
-
-  abbrev UniformConstantMapping (c : sig.C) : StrictConstantMapping sig := fun _ => c
-
-end Defs
-
-
-namespace ConstantMapping
-
-  variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
-
-  def apply_pre_ground_term (g : ConstantMapping sig) (t : PreGroundTerm sig) : PreGroundTerm sig := t.mapLeaves (fun c => (g c).val)
-
-  mutual
-
-    theorem apply_pre_ground_term_arity_ok (g : ConstantMapping sig) (t : FiniteTree (SkolemFS sig) sig.C) (arity_ok : PreGroundTerm.arity_ok t) : PreGroundTerm.arity_ok (g.apply_pre_ground_term t) := by
-      cases t with
-      | leaf c =>
-        unfold apply_pre_ground_term
-        unfold FiniteTree.mapLeaves
-        exact (g c).property
-      | inner f ts =>
-        unfold PreGroundTerm.arity_ok at arity_ok
-        rw [Bool.and_eq_true] at arity_ok
-        unfold apply_pre_ground_term
-        unfold FiniteTree.mapLeaves
-        unfold PreGroundTerm.arity_ok
-        rw [Bool.and_eq_true]
-        constructor
-        . rw [FiniteTree.length_mapLeavesList]
-          exact arity_ok.left
-        . apply apply_pre_ground_term_list_arity_ok
-          exact arity_ok.right
-
-    theorem apply_pre_ground_term_list_arity_ok (g : ConstantMapping sig) (ts : FiniteTreeList (SkolemFS sig) sig.C) (arity_ok : PreGroundTerm.arity_ok_list ts) : PreGroundTerm.arity_ok_list (FiniteTree.mapLeavesList (fun c => (g c).val) ts) := by
-      cases ts with
-      | nil => simp [FiniteTree.mapLeavesList, PreGroundTerm.arity_ok_list]
-      | cons hd tl =>
-        unfold PreGroundTerm.arity_ok_list at arity_ok
-        rw [Bool.and_eq_true] at arity_ok
-        unfold FiniteTree.mapLeavesList
-        unfold PreGroundTerm.arity_ok_list
-        rw [Bool.and_eq_true]
-        constructor
-        . apply apply_pre_ground_term_arity_ok; exact arity_ok.left
-        . apply apply_pre_ground_term_list_arity_ok; exact arity_ok.right
-
-  end
-
-  def apply_ground_term (g : ConstantMapping sig) (t : GroundTerm sig) : GroundTerm sig := ⟨g.apply_pre_ground_term t.val, g.apply_pre_ground_term_arity_ok t.val t.property⟩
-
-  theorem apply_ground_term_swap_apply_skolem_term (g : ConstantMapping sig) (subs : GroundSubstitution sig) : ∀ t, (∀ c, t ≠ SkolemTerm.const c) -> g.apply_ground_term (subs.apply_skolem_term t) = GroundSubstitution.apply_skolem_term (g.apply_ground_term ∘ subs) t := by
-    intro t
-    cases t with
-    | var v =>
-      intros
-      unfold GroundSubstitution.apply_skolem_term
-      simp
-    | const c => simp
-    | func f ts =>
-      intros
-      conv => left; unfold ConstantMapping.apply_ground_term; unfold GroundSubstitution.apply_skolem_term
-      conv => right; unfold GroundSubstitution.apply_skolem_term
-      unfold GroundTerm.func
-      simp only [apply_pre_ground_term, FiniteTree.mapLeaves]
-      simp
-      rw [FiniteTree.mapLeavesList_fromList_eq_fromList_map]
-      apply congrArg
-      unfold ConstantMapping.apply_ground_term
-      unfold List.unattach
-      rw [List.map_map]
-      rw [List.map_map]
-      rw [List.map_map]
-      rfl
-
-
-  variable [DecidableEq sig.P]
-
-  def apply_fact (g : ConstantMapping sig) (f : Fact sig) : Fact sig := {
-    predicate := f.predicate
-    terms := f.terms.map g.apply_ground_term
-    arity_ok := by rw [List.length_map]; exact f.arity_ok
-  }
-
-  theorem apply_fact_swap_apply_to_function_free_atom (g : ConstantMapping sig) (trg : PreTrigger sig) (a : FunctionFreeAtom sig) (h : ∃ c, (∀ d, g d = c) ∧ (∀ d, VarOrConst.const d ∈ a.terms -> c = GroundTerm.const d)) : ∀ i, g.apply_fact (trg.apply_to_function_free_atom i a) = PreTrigger.apply_to_function_free_atom { rule := trg.rule, subs := g.apply_ground_term ∘ trg.subs } i a := by
-    intro i
-    unfold PreTrigger.apply_to_function_free_atom
-    unfold ConstantMapping.apply_fact
-    unfold PreTrigger.apply_to_var_or_const
-    unfold PreTrigger.skolemize_var_or_const
-    simp
-    intro voc voc_mem
-    cases voc with
-    | var v =>
-      rw [ConstantMapping.apply_ground_term_swap_apply_skolem_term]
-      intro c contra
-      simp [VarOrConst.skolemize] at contra
-      split at contra <;> contradiction
-    | const d =>
-      unfold VarOrConst.skolemize
-      unfold GroundSubstitution.apply_skolem_term
-      unfold ConstantMapping.apply_ground_term
-      unfold ConstantMapping.apply_pre_ground_term
-      unfold FiniteTree.mapLeaves
-      unfold GroundTerm.const
-      apply Subtype.eq
-      simp only
-      rcases h with ⟨c, g_eq, mem_a_eq⟩
-      rw [g_eq]
-      rw [mem_a_eq d]
-      . simp [GroundTerm.const]
-      . exact voc_mem
-
-  def apply_fact_set (g : ConstantMapping sig) (fs : FactSet sig) : FactSet sig := fun f => ∃ f', f' ∈ fs ∧ f = g.apply_fact f'
-
-  theorem apply_fact_mem_apply_fact_set_of_mem (g : ConstantMapping sig) (f : Fact sig) (fs : FactSet sig) : f ∈ fs -> g.apply_fact f ∈ g.apply_fact_set fs := by
-    intro f_mem
-    exists f
-
-end ConstantMapping
-
-namespace StrictConstantMapping
-
-  variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
-
-  def toConstantMapping (g : StrictConstantMapping sig) : ConstantMapping sig := fun c => GroundTerm.const (g c)
-
-  def apply_var_or_const (g : StrictConstantMapping sig) : VarOrConst sig -> VarOrConst sig
-  | .var v => .var v
-  | .const c => .const (g c)
-
-  theorem apply_var_or_const_filterVars_eq (g : StrictConstantMapping sig) (vocs : List (VarOrConst sig)) : VarOrConst.filterVars (vocs.map g.apply_var_or_const) = VarOrConst.filterVars vocs := by
-    induction vocs with
-    | nil => simp
-    | cons hd tl ih =>
-      cases hd <;> (
-        simp only [List.map_cons, VarOrConst.filterVars, StrictConstantMapping.apply_var_or_const]
-        rw [ih]
-      )
-
-
-  variable [DecidableEq sig.P]
-
-  def apply_function_free_atom (g : StrictConstantMapping sig) (a : FunctionFreeAtom sig) : FunctionFreeAtom sig := {
-    predicate := a.predicate
-    terms := a.terms.map g.apply_var_or_const
-    arity_ok := by rw [List.length_map]; exact a.arity_ok
-  }
-
-  theorem apply_function_free_atom_vars_eq (g : StrictConstantMapping sig) (a : FunctionFreeAtom sig) : (g.apply_function_free_atom a).variables = a.variables := by
-    unfold apply_function_free_atom
-    unfold FunctionFreeAtom.variables
-    simp only
-    rw [apply_var_or_const_filterVars_eq]
-
-  def apply_function_free_conj (g : StrictConstantMapping sig) (conj : FunctionFreeConjunction sig) : FunctionFreeConjunction sig := conj.map g.apply_function_free_atom
-
-  theorem apply_function_free_conj_vars_eq (g : StrictConstantMapping sig) (conj : FunctionFreeConjunction sig) : (g.apply_function_free_conj conj).vars = conj.vars := by
-    unfold apply_function_free_conj
-    unfold FunctionFreeConjunction.vars
-    unfold List.flatMap
-    rw [List.map_map]
-    have : conj.map (FunctionFreeAtom.variables ∘ g.apply_function_free_atom) = conj.map FunctionFreeAtom.variables := by
-      simp only [List.map_inj_left]
-      intro a a_mem
-      rw [Function.comp_apply]
-      apply apply_function_free_atom_vars_eq
-    rw [this]
-
-  def apply_rule (g : StrictConstantMapping sig) (rule : Rule sig) : Rule sig := {
-    id := rule.id
-    body := g.apply_function_free_conj rule.body
-    head := rule.head.map g.apply_function_free_conj
-  }
-
-  theorem apply_rule_id_eq (g : StrictConstantMapping sig) (rule : Rule sig) : (g.apply_rule rule).id = rule.id := by simp [apply_rule]
-
-  theorem apply_rule_frontier_eq (g : StrictConstantMapping sig) (rule : Rule sig) : (g.apply_rule rule).frontier = rule.frontier := by
-    unfold apply_rule
-    unfold Rule.frontier
-    rw [apply_function_free_conj_vars_eq]
-    apply List.filter_eq_of_all_eq
-    intro e e_mem
-    simp only [List.any_eq, decide_eq_decide, decide_eq_true_eq, List.mem_map]
-    constructor
-    . intro h
-      rcases h with ⟨applied, h, mem_applied⟩
-      rcases h with ⟨conj, conj_mem, h⟩
-      exists conj
-      constructor
-      . exact conj_mem
-      . rw [← h] at mem_applied
-        rw [apply_function_free_conj_vars_eq] at mem_applied
-        exact mem_applied
-    . intro h
-      rcases h with ⟨conj, conj_mem, h⟩
-      exists g.apply_function_free_conj conj
-      constructor
-      . exists conj
-      . rw [apply_function_free_conj_vars_eq]
-        exact h
-
-  theorem apply_rule_skolem_functions_eq (g : StrictConstantMapping sig) (rule : Rule sig) : (g.apply_rule rule).skolem_functions = rule.skolem_functions := by
-    unfold Rule.skolem_functions
-    rw [apply_rule_id_eq]
-    rw [apply_rule_frontier_eq]
-    simp only
-    unfold List.flatMap
-    apply List.flatten_eq_of_eq
-
-    apply List.ext_getElem
-    . rw [List.length_map]
-      rw [List.length_map]
-      rw [List.length_zipIdx]
-      rw [List.length_zipIdx]
-      unfold apply_rule
-      rw [List.length_map]
-    . intro n n_le1 n_le2
-      simp only [List.getElem_map, List.getElem_zipIdx]
-      apply List.map_eq_of_eq
-      apply List.filter_eq_of_eq
-      unfold apply_rule
-      rw [List.getElem_map]
-      rw [StrictConstantMapping.apply_function_free_conj_vars_eq]
-
-end StrictConstantMapping
-
-section ArgumentsForImages
-
-  namespace StrictConstantMapping
-
-    variable {sig : Signature} [DecidableEq sig.C]
-
-    def arguments_for_constant (g : StrictConstantMapping sig) (possible_constants : List sig.C) (c : sig.C) : List sig.C :=
-      possible_constants.filter (fun d => g d = c)
-
-    theorem apply_to_arguments_yields_original_constant (g : StrictConstantMapping sig) (possible_constants : List sig.C) (c : sig.C) :
-        ∀ arg, arg ∈ g.arguments_for_constant possible_constants c ↔ (arg ∈ possible_constants ∧ g arg = c) := by
-      intro arg
-      unfold arguments_for_constant
-      simp
-
-    variable [DecidableEq sig.V]
-
-    mutual
-      def arguments_for_pre_term (g : StrictConstantMapping sig) (possible_constants : List sig.C) : FiniteTree (SkolemFS sig) sig.C -> List (PreGroundTerm sig)
-      | .leaf c => (g.arguments_for_constant possible_constants c).map (fun arg => .leaf arg)
-      | .inner func ts =>
-        (g.arguments_for_pre_term_list possible_constants ts).map (fun ts =>
-          .inner func (FiniteTreeList.fromList ts)
-        )
-      def arguments_for_pre_term_list (g : StrictConstantMapping sig) (possible_constants : List sig.C) : FiniteTreeList (SkolemFS sig) sig.C -> List (List (PreGroundTerm sig))
-      | .nil => [[]]
-      | .cons hd tl =>
-        let arguments_tail := g.arguments_for_pre_term_list possible_constants tl
-        (g.arguments_for_pre_term possible_constants hd).flatMap (fun arg =>
-          arguments_tail.map (fun arg_list =>
-            arg :: arg_list
-          )
-        )
-    end
-
-    mutual
-      theorem apply_to_arguments_yields_original_pre_term (g : StrictConstantMapping sig) (possible_constants : List sig.C) (term : FiniteTree (SkolemFS sig) sig.C) :
-          ∀ arg, arg ∈ g.arguments_for_pre_term possible_constants term ↔ ((∀ c, c ∈ arg.leaves -> c ∈ possible_constants) ∧ g.toConstantMapping.apply_pre_ground_term arg = term) := by
-        intro arg
-        constructor
-        . intro h
-          cases term with
-          | leaf c =>
-            unfold arguments_for_pre_term at h
-            rw [List.mem_map] at h
-            rcases h with ⟨a, a_mem, arg_eq⟩
-            rw [apply_to_arguments_yields_original_constant] at a_mem
-            constructor
-            . intro d d_mem
-              rw [← arg_eq] at d_mem
-              unfold FiniteTree.leaves at d_mem
-              simp at d_mem
-              rw [d_mem]
-              exact a_mem.left
-            . rw [← arg_eq]
-              unfold ConstantMapping.apply_pre_ground_term
-              unfold FiniteTree.mapLeaves
-              unfold toConstantMapping
-              rw [a_mem.right]
-              rfl
-          | inner func ts =>
-            unfold arguments_for_pre_term at h
-            rw [List.mem_map] at h
-            rcases h with ⟨a, a_mem, arg_eq⟩
-            rw [apply_to_arguments_yields_original_pre_term_list] at a_mem
-            constructor
-            . intro d d_mem
-              rw [← arg_eq] at d_mem
-              unfold FiniteTree.leaves at d_mem
-              apply a_mem.left
-              exact d_mem
-            . rw [← arg_eq]
-              unfold ConstantMapping.apply_pre_ground_term
-              unfold FiniteTree.mapLeaves
-              rw [a_mem.right]
-        . intro h
-          cases term with
-          | leaf c =>
-            unfold arguments_for_pre_term
-            rw [List.mem_map]
-            cases arg with
-            | leaf d =>
-              exists d
-              rw [apply_to_arguments_yields_original_constant]
-              constructor
-              . constructor
-                . apply h.left
-                  unfold FiniteTree.leaves
-                  simp
-                . have r := h.right
-                  unfold ConstantMapping.apply_pre_ground_term at r
-                  unfold toConstantMapping at r
-                  unfold FiniteTree.mapLeaves at r
-                  injection r with r
-              . rfl
-            | inner func args =>
-              have contra := h.right
-              simp [ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves] at contra
-          | inner func ts =>
-            unfold arguments_for_pre_term
-            rw [List.mem_map]
-            cases arg with
-            | leaf d =>
-              have contra := h.right
-              simp [ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, toConstantMapping, GroundTerm.const] at contra
-            | inner func' args =>
-              exists args
-              rw [apply_to_arguments_yields_original_pre_term_list]
-              constructor
-              . constructor
-                . intro d d_mem
-                  apply h.left
-                  unfold FiniteTree.leaves
-                  rw [FiniteTreeList.toListFromListIsId] at d_mem
-                  exact d_mem
-                . have r := h.right
-                  unfold ConstantMapping.apply_pre_ground_term at r
-                  unfold FiniteTree.mapLeaves at r
-                  injection r with func_eq args_eq
-                  rw [FiniteTreeList.toListFromListIsId]
-                  exact args_eq
-              . have r := h.right
-                unfold ConstantMapping.apply_pre_ground_term at r
-                unfold FiniteTree.mapLeaves at r
-                injection r with func_eq args_eq
-                rw [FiniteTreeList.toListFromListIsId]
-                rw [func_eq]
-
-      theorem apply_to_arguments_yields_original_pre_term_list (g : StrictConstantMapping sig) (possible_constants : List sig.C) (ts : FiniteTreeList (SkolemFS sig) sig.C) :
-          ∀ args, args ∈ g.arguments_for_pre_term_list possible_constants ts ↔ ((∀ c, c ∈ (FiniteTree.leavesList (FiniteTreeList.fromList args)) -> c ∈ possible_constants) ∧ ((FiniteTree.mapLeavesList (fun leaf => g.toConstantMapping leaf) (FiniteTreeList.fromList args)) = ts)) := by
-        intro args
-        constructor
-        . intro h
-          cases ts with
-          | nil =>
-            simp [arguments_for_pre_term_list] at h
-            rw [h]
-            simp [FiniteTreeList.fromList, FiniteTree.mapLeavesList, FiniteTree.leavesList]
-          | cons hd tl =>
-            unfold arguments_for_pre_term_list at h
-            rw [List.mem_flatMap] at h
-            rcases h with ⟨hd_arg, hd_arg_mem, args_mem⟩
-            rw [List.mem_map] at args_mem
-            rcases args_mem with ⟨tl_args, tl_args_mem, args_eq⟩
-            rw [apply_to_arguments_yields_original_pre_term] at hd_arg_mem
-            rw [apply_to_arguments_yields_original_pre_term_list] at tl_args_mem
-            rw [← args_eq]
-            constructor
-            . intro d d_mem
-              unfold FiniteTreeList.fromList at d_mem
-              unfold FiniteTree.leavesList at d_mem
-              rw [List.mem_append] at d_mem
-              cases d_mem with
-              | inl d_mem => apply hd_arg_mem.left; exact d_mem
-              | inr d_mem => apply tl_args_mem.left; exact d_mem
-            . unfold FiniteTreeList.fromList
-              unfold FiniteTree.mapLeavesList
-              unfold ConstantMapping.apply_pre_ground_term at hd_arg_mem
-              rw [hd_arg_mem.right]
-              rw [tl_args_mem.right]
-        . intro h
-          cases ts with
-          | nil =>
-            cases args with
-            | nil => simp [arguments_for_pre_term_list]
-            | cons hd_arg tl_arg =>
-              have r := h.right
-              simp [FiniteTreeList.fromList, FiniteTree.mapLeavesList] at r
-          | cons hd tl =>
-            cases args with
-            | nil =>
-              have r := h.right
-              simp [FiniteTreeList.fromList, FiniteTree.mapLeavesList] at r
-            | cons hd_arg tl_arg =>
-              unfold arguments_for_pre_term_list
-              unfold FiniteTreeList.fromList at h
-              unfold FiniteTree.leavesList at h
-              unfold FiniteTree.mapLeavesList at h
-              rw [List.mem_flatMap]
-              exists hd_arg
-              constructor
-              . rw [apply_to_arguments_yields_original_pre_term]
-                constructor
-                . intro d d_mem
-                  apply h.left
-                  rw [List.mem_append]
-                  apply Or.inl
-                  exact d_mem
-                . injection h.right
-              . rw [List.mem_map]
-                exists tl_arg
-                simp only [and_true]
-                rw [apply_to_arguments_yields_original_pre_term_list]
-                constructor
-                . intro d d_mem
-                  apply h.left
-                  rw [List.mem_append]
-                  apply Or.inr
-                  exact d_mem
-                . injection h.right
-    end
-
-    theorem arguments_for_pre_term_list_length_preserved (g : StrictConstantMapping sig) (possible_constants : List sig.C) (ts : FiniteTreeList (SkolemFS sig) sig.C) :
-        ∀ res, res ∈ (g.arguments_for_pre_term_list possible_constants ts) -> res.length = ts.toList.length := by
-      cases ts with
-      | nil => simp [arguments_for_pre_term_list, FiniteTreeList.toList]
-      | cons hd tl =>
-        intro res res_mem
-        unfold arguments_for_pre_term_list at res_mem
-        rw [List.mem_flatMap] at res_mem
-        rcases res_mem with ⟨arg, arg_for_hd, res_mem⟩
-        rw [List.mem_map] at res_mem
-        rcases res_mem with ⟨args, args_for_tl, res_mem⟩
-        rw [← res_mem]
-        unfold FiniteTreeList.toList
-        rw [List.length_cons]
-        rw [List.length_cons]
-        rw [Nat.add_right_cancel_iff]
-        exact g.arguments_for_pre_term_list_length_preserved possible_constants tl args args_for_tl
-
-    mutual
-
-      theorem arguments_for_pre_term_arity_ok (g : StrictConstantMapping sig) (possible_constants : List sig.C) (t : FiniteTree (SkolemFS sig) sig.C) (arity_ok : PreGroundTerm.arity_ok t) : ∀ t', t' ∈ (g.arguments_for_pre_term possible_constants t) -> PreGroundTerm.arity_ok t' := by
-        intro t' t'_mem
-        unfold arguments_for_pre_term at t'_mem
-        cases t with
-        | leaf c =>
-          rw [List.mem_map] at t'_mem
-          rcases t'_mem with ⟨d, d_mem, t'_eq⟩
-          rw [← t'_eq]
-          simp [PreGroundTerm.arity_ok]
-        | inner f ts =>
-          unfold PreGroundTerm.arity_ok at arity_ok
-          rw [Bool.and_eq_true] at arity_ok
-          rw [List.mem_map] at t'_mem
-          rcases t'_mem with ⟨ts', ts'_mem, t'_eq⟩
-          rw [← t'_eq]
-          simp only [PreGroundTerm.arity_ok]
-          rw [Bool.and_eq_true]
-          constructor
-          . rw [FiniteTreeList.fromListToListIsId]
-            rw [g.arguments_for_pre_term_list_length_preserved possible_constants ts ts' ts'_mem]
-            exact arity_ok.left
-          . apply g.arguments_for_pre_term_list_arity_ok possible_constants ts _ ts' ts'_mem
-            exact arity_ok.right
-
-      theorem arguments_for_pre_term_list_arity_ok (g : StrictConstantMapping sig) (possible_constants : List sig.C) (ts : FiniteTreeList (SkolemFS sig) sig.C) (arity_ok : PreGroundTerm.arity_ok_list ts) : ∀ ts', ts' ∈ (g.arguments_for_pre_term_list possible_constants ts) -> PreGroundTerm.arity_ok_list (FiniteTreeList.fromList ts') := by
-        intro ts' ts'_mem
-        cases ts with
-        | nil => simp [arguments_for_pre_term_list] at ts'_mem; rw [ts'_mem]; simp [FiniteTreeList.fromList, PreGroundTerm.arity_ok_list]
-        | cons hd tl =>
-          unfold PreGroundTerm.arity_ok_list at arity_ok
-          rw [Bool.and_eq_true] at arity_ok
-          unfold arguments_for_pre_term_list at ts'_mem
-          simp only [List.mem_flatMap, List.mem_map] at ts'_mem
-          rcases ts'_mem with ⟨arg_hd, arg_hd_mem, arg_tl, arg_tl_mem, ts'_eq⟩
-          rw [← ts'_eq]
-          unfold FiniteTreeList.fromList
-          unfold PreGroundTerm.arity_ok_list
-          rw [Bool.and_eq_true]
-          constructor
-          . apply g.arguments_for_pre_term_arity_ok possible_constants hd _ _ arg_hd_mem
-            exact arity_ok.left
-          . apply g.arguments_for_pre_term_list_arity_ok possible_constants tl _ _ arg_tl_mem
-            exact arity_ok.right
-
-    end
-
-    def arguments_for_term_list (g : StrictConstantMapping sig) (possible_constants : List sig.C) (ts : List (GroundTerm sig)) : List (List (GroundTerm sig)) :=
-      (g.arguments_for_pre_term_list possible_constants (FiniteTreeList.fromList ts.unattach)).attach.map (fun ⟨ts', mem⟩ =>
-        have arity_ok := g.arguments_for_pre_term_list_arity_ok possible_constants (FiniteTreeList.fromList ts.unattach) (by
-          rw [← PreGroundTerm.arity_ok_list_iff_arity_ok_each_mem]
-          intro t t_mem
-          rw [FiniteTreeList.fromListToListIsId] at t_mem
-          unfold List.unattach at t_mem
-          rw [List.mem_map] at t_mem
-          rcases t_mem with ⟨t', _, t_eq⟩
-          rw [← t_eq]
-          exact t'.property
-        ) ts' mem
-
-        ts'.attach.map (fun ⟨t, mem⟩ =>
-          ⟨t, by
-            rw [← PreGroundTerm.arity_ok_list_iff_arity_ok_each_mem] at arity_ok
-            apply arity_ok
-            rw [FiniteTreeList.fromListToListIsId]
-            exact mem
-          ⟩
-        )
-      )
-
-    theorem apply_to_arguments_yields_original_term_list (g : StrictConstantMapping sig) (possible_constants : List sig.C) (ts : List (GroundTerm sig)) :
-        ∀ args, args ∈ g.arguments_for_term_list possible_constants ts ↔ ((∀ c, c ∈ (args.flatMap GroundTerm.constants) -> c ∈ possible_constants) ∧ (args.map (fun arg => g.toConstantMapping.apply_ground_term arg) = ts)) := by
-      intro args
-
-      have := g.apply_to_arguments_yields_original_pre_term_list possible_constants (FiniteTreeList.fromList ts.unattach)
-
-      unfold arguments_for_term_list
-      constructor
-      . intro h
-        simp at h
-        rcases h with ⟨args', h, eq⟩
-        rw [← List.pmap_eq_map_attach] at eq
-        rw [← eq]
-
-        rw [this] at h
-        rw [FiniteTree.mapLeavesList_fromList_eq_fromList_map] at h
-        rw [← FiniteTreeList.eqIffFromListEq] at h
-        constructor
-        . intro c c_mem
-          rw [List.mem_flatMap] at c_mem
-          rcases c_mem with ⟨t, t_mem, c_mem⟩
-          rw [List.mem_pmap] at t_mem
-          rcases t_mem with ⟨t, t_mem, eq⟩
-          unfold GroundTerm.constants at c_mem
-          rw [← eq] at c_mem
-          apply h.left
-          rw [FiniteTree.mem_leavesList]
-          exists t
-          constructor
-          . rw [FiniteTreeList.fromListToListIsId]; exact t_mem
-          . exact c_mem
-        . rw [← List.eq_iff_unattach_eq]
-          simp only [← h.right]
-          unfold ConstantMapping.apply_ground_term
-          unfold ConstantMapping.apply_pre_ground_term
-          rw [List.map_pmap]
-          unfold List.unattach
-          rw [List.map_pmap]
-          rw [List.pmap_eq_map]
-      . intro h
-        simp
-        exists args.unattach
-        exists (by
-          rw [this]
-          constructor
-          . intro c c_mem
-            rw [FiniteTree.mem_leavesList] at c_mem
-            rcases c_mem with ⟨t, t_mem, c_mem⟩
-            rw [FiniteTreeList.fromListToListIsId] at t_mem
-            unfold List.unattach at t_mem
-            rw [List.mem_map] at t_mem
-            rcases t_mem with ⟨t', t'_mem, t_mem⟩
-            apply h.left
-            rw [List.mem_flatMap]
-            exists t'
-            constructor
-            . exact t'_mem
-            . unfold GroundTerm.constants
-              rw [← t_mem] at c_mem
-              exact c_mem
-          . rw [← h.right]
-            rw [FiniteTree.mapLeavesList_fromList_eq_fromList_map]
-            rw [← FiniteTreeList.eqIffFromListEq]
-            unfold ConstantMapping.apply_ground_term
-            unfold ConstantMapping.apply_pre_ground_term
-            unfold List.unattach
-            simp
-        )
-        rw [← List.pmap_eq_map_attach]
-        rw [← List.eq_iff_unattach_eq]
-        unfold List.unattach
-        rw [List.map_pmap]
-        rw [List.pmap_eq_map]
-        simp
-
-    variable [DecidableEq sig.P]
-
-    def arguments_for_fact (g : StrictConstantMapping sig) (possible_constants : List sig.C) (f : Fact sig) : List (Fact sig) :=
-      (g.arguments_for_term_list possible_constants f.terms).attach.map (fun ⟨ts, mem⟩ =>
-        {
-          predicate := f.predicate
-          terms := ts
-          arity_ok := by
-            unfold arguments_for_term_list at mem
-            rw [List.mem_map] at mem
-            rcases mem with ⟨ts', ts'_mem, ts_eq⟩
-            rw [← ts_eq]
-            simp only [List.length_map, List.length_attach]
-            rw [g.arguments_for_pre_term_list_length_preserved possible_constants (FiniteTreeList.fromList f.terms.unattach) ts'.val _]
-            . rw [FiniteTreeList.fromListToListIsId, List.length_unattach]
-              exact f.arity_ok
-            . unfold List.attach at ts'_mem
-              unfold List.attachWith at ts'_mem
-              rw [List.mem_pmap] at ts'_mem
-              rcases ts'_mem with ⟨_, ts'_mem, eq⟩
-              rw [← eq]
-              exact ts'_mem
-        }
-      )
-
-    theorem apply_to_arguments_yields_original_fact (g : StrictConstantMapping sig) (possible_constants : List sig.C) (f : Fact sig) :
-        ∀ arg, arg ∈ g.arguments_for_fact possible_constants f ↔ ((∀ c, c ∈ arg.constants -> c ∈ possible_constants) ∧ g.toConstantMapping.apply_fact arg = f) := by
-      intro arg
-      unfold arguments_for_fact
-      simp only [List.mem_map, List.mem_attach, true_and, Subtype.exists]
-
-      have := g.apply_to_arguments_yields_original_term_list possible_constants f.terms
-
-      constructor
-      . intro h
-        rcases h with ⟨ts, mem, arg_eq⟩
-        rw [← arg_eq]
-        unfold ConstantMapping.apply_fact
-        rw [Fact.mk.injEq]
-        simp only [true_and]
-
-        specialize this ts
-        rw [this] at mem
-        exact mem
-      . intro h
-        specialize this arg.terms
-        exists arg.terms
-        exists (by
-          apply this.mpr
-          constructor
-          . exact h.left
-          . have r := h.right
-            unfold ConstantMapping.apply_fact at r
-            rw [Fact.mk.injEq] at r
-            exact r.right
-        )
-        have r := h.right
-        unfold ConstantMapping.apply_fact at r
-        rw [Fact.mk.injEq] at r
-        rw [Fact.mk.injEq]
-        constructor
-        . rw [← r.left]
-        . rfl
-
-  end StrictConstantMapping
-
-end ArgumentsForImages
-
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
-def DeterministicSkolemObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] : LaxObsoletenessCondition sig := {
-  cond := fun (trg : PreTrigger sig) (F : FactSet sig) => ∀ i : Fin trg.mapped_head.length, trg.mapped_head[i.val].toSet ⊆ F
+-- TODO: check if can avoid the noncomputable definition; this could work by passing a mapping with the necessary property around and eventually show that such a mapping exists for finite rule sets; not sure if this is better than this though
+-- NOTE: this is only used to state some theorems, hence its ok for it to be uncomputable
+noncomputable def RuleSet.mfaConstantMapping (rs : RuleSet sig) (special_const : sig.C) : StrictConstantMapping sig :=
+  fun c =>
+    have : Decidable (c ∈ rs.constants) := Classical.propDecidable (c ∈ rs.constants)
+    if (c ∈ rs.constants) then c else special_const
+
+theorem RuleSet.mfaConstantMapping_id_on_rs_constants (rs : RuleSet sig) (special_const : sig.C) : ∀ (c : sig.C), c ∈ rs.constants -> rs.mfaConstantMapping special_const c = c := by
+  intro c c_mem
+  simp [mfaConstantMapping, c_mem]
+
+theorem RuleSet.mfaConstantMapping_id_on_atom_from_rule (rs : RuleSet sig) (special_const : sig.C) (r : Rule sig) (r_mem : r ∈ rs.rules) : ∀ a, a ∈ r.body ++ r.head.flatten -> (rs.mfaConstantMapping special_const).apply_function_free_atom a = a := by
+  intro a a_mem
+  unfold StrictConstantMapping.apply_function_free_atom
+  rw [FunctionFreeAtom.mk.injEq]
+  constructor
+  . rfl
+  . apply List.map_id_of_id_on_all_mem
+    intro voc voc_mem
+    cases voc with
+    | var v => simp [StrictConstantMapping.apply_var_or_const]
+    | const s =>
+      simp only [StrictConstantMapping.apply_var_or_const]
+      rw [VarOrConst.const.injEq]
+      apply mfaConstantMapping_id_on_rs_constants
+      exists r
+      constructor
+      . exact r_mem
+      . rw [List.mem_append] at a_mem
+        unfold Rule.constants
+        rw [List.mem_append]
+        cases a_mem with
+        | inl a_mem =>
+          apply Or.inl
+          unfold FunctionFreeConjunction.consts
+          rw [List.mem_flatMap]
+          exists a
+          constructor
+          . exact a_mem
+          . apply VarOrConst.mem_filterConsts_of_const; exact voc_mem
+        | inr a_mem =>
+          rw [List.mem_flatten] at a_mem
+          rcases a_mem with ⟨head, head_mem, a_mem⟩
+          apply Or.inr
+          rw [List.mem_flatMap]
+          exists head
+          constructor
+          . exact head_mem
+          . unfold FunctionFreeConjunction.consts
+            rw [List.mem_flatMap]
+            exists a
+            constructor
+            . exact a_mem
+            . apply VarOrConst.mem_filterConsts_of_const; exact voc_mem
+
+structure MfaObsoletenessCondition (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] extends LaxObsoletenessCondition sig
+
+instance {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] : Coe (MfaObsoletenessCondition sig) (LaxObsoletenessCondition sig) where
+  coe obs := { cond := obs.cond, monotone := obs.monotone }
+
+def MfaObsoletenessCondition.blocks_obs (mfa_obs : MfaObsoletenessCondition sig) (obs : ObsoletenessCondition sig) (rs : RuleSet sig) (special_const : sig.C) : Prop :=
+  ∀ {db : Database sig} (cb : ChaseBranch obs ⟨db, rs⟩) (step : Nat) (trg : RTrigger obs rs) (fs : FactSet sig),
+  (∃ (i : Fin trg.val.mapped_head.length), ¬ ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact_set trg.val.mapped_head[i.val].toSet) ⊆ fs) ->
+  (mfa_obs.cond { rule := trg.val.rule, subs := (rs.mfaConstantMapping special_const).toConstantMapping.apply_ground_term ∘ trg.val.subs } fs) ->
+  (cb.branch.infinite_list step).is_none_or (fun node =>
+    trg.val.loaded node.fact ->
+    obs.cond trg.val node.fact
+  )
+
+def DeterministicSkolemObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] : MfaObsoletenessCondition sig := {
+  cond := fun (trg : PreTrigger sig) (F : FactSet sig) => trg.mapped_head.length > 0 ∧ ∀ i : Fin trg.mapped_head.length, trg.mapped_head[i.val].toSet ⊆ F
   monotone := by
-    intro trg A B A_sub_B head_sub_A i
-    apply Set.subset_trans
-    . apply head_sub_A
-    . apply A_sub_B
+    intro trg A B A_sub_B
+    simp only [and_imp]
+    intro length_gt head_sub_A
+    constructor
+    . exact length_gt
+    . intro i
+      apply Set.subset_trans
+      . apply head_sub_A
+      . apply A_sub_B
 }
+
+theorem DeterministicSkolemObsoleteness.blocks_each_obs (obs : ObsoletenessCondition sig) (special_const : sig.C) : ∀ rs, (DeterministicSkolemObsoleteness sig).blocks_obs obs rs special_const := by
+  intro rs _ _ _ trg fs f_not_in_prev cond
+  rcases f_not_in_prev with ⟨disj_index, f_not_in_prev⟩
+  apply False.elim
+  apply f_not_in_prev
+
+  intro f' f'_mem
+  rcases f'_mem with ⟨f, f_mem, f'_mem⟩
+
+  unfold DeterministicSkolemObsoleteness at cond
+  apply cond.right ⟨disj_index.val, by
+    have isLt := disj_index.isLt
+    unfold PreTrigger.mapped_head
+    simp only [List.length_map, List.length_zipIdx]
+    simp only [PreTrigger.length_mapped_head] at isLt
+    exact isLt
+  ⟩
+
+  rw [List.mem_toSet]
+  unfold PreTrigger.mapped_head
+  simp
+  unfold PreTrigger.mapped_head at f_mem
+  rw [List.mem_toSet, List.getElem_map, List.mem_map] at f_mem
+  rcases f_mem with ⟨a, a_mem, f_eq⟩
+  rw [List.get_eq_getElem, List.getElem_zipIdx] at a_mem
+  rw [List.get_eq_getElem, List.getElem_zipIdx] at f_eq
+  exists (rs.mfaConstantMapping special_const).apply_function_free_atom a
+  constructor
+  . rw [rs.mfaConstantMapping_id_on_atom_from_rule _ trg.val.rule trg.property]
+    . exact a_mem
+    . rw [List.mem_append]
+      apply Or.inr
+      apply List.mem_flatten_of_mem _ a_mem
+      apply List.getElem_mem
+  . rw [f'_mem, ← f_eq]
+    simp only [ConstantMapping.apply_fact, PreTrigger.apply_to_function_free_atom, StrictConstantMapping.apply_function_free_atom, PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, Fact.mk.injEq, true_and, List.map_map, List.map_inj_left, Function.comp_apply]
+    intro voc voc_mem
+    cases voc with
+    | var v =>
+      simp only [StrictConstantMapping.apply_var_or_const]
+      rw [← ConstantMapping.apply_ground_term_swap_apply_skolem_term]
+      . rw [Nat.zero_add]
+      . intros
+        unfold VarOrConst.skolemize
+        simp only
+        split <;> simp
+    | const c =>
+      simp only [StrictConstantMapping.apply_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term, ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, StrictConstantMapping.toConstantMapping, GroundTerm.const]
+
+def Trigger.blocked_for_backtracking
+    [GetFreshInhabitant sig.C]
+    [Inhabited sig.C]
+    {obs : LaxObsoletenessCondition sig}
+    (trg : Trigger obs)
+    (rl : RuleList sig) : Prop :=
+  (trg_ruleIds_valid : trg.skolem_ruleIds_valid rl)
+  -> (trg_disjIdx_valid : trg.skolem_disjIdx_valid rl trg_ruleIds_valid)
+  -> (trg_rule_arity_valid : trg.skolem_rule_arity_valid rl trg_ruleIds_valid)
+  -> (obs.cond trg (trg.backtrackFacts rl trg_ruleIds_valid trg_disjIdx_valid trg_rule_arity_valid).fst.toSet)
+
+def BlockingObsoleteness [GetFreshInhabitant sig.C] [Inhabited sig.C] (obs : ObsoletenessCondition sig) (rs : RuleSet sig) : MfaObsoletenessCondition sig := {
+  cond := fun (trg : PreTrigger sig) _ =>
+    ∀ (rl : RuleList sig), (∀ r, r ∈ rl.rules ↔ r ∈ rs.rules) ->
+      let trg' := trg.rename_constants_apart (rl.rules.flatMap Rule.constants)
+      let trg'' : Trigger obs := { rule := trg'.rule, subs := trg'.subs }
+      trg''.blocked_for_backtracking rl
+  monotone := by
+    -- trivial since the condition does not depend on the passed fact set
+    intro trg A B A_sub_B
+    intro h
+    exact h
+}
+
+theorem BlockingObsoleteness.blocks_corresponding_obs [GetFreshInhabitant sig.C] [Inhabited sig.C]
+    (obs : ObsoletenessCondition sig) (obs_propagates_under_const_mapping : obs.propagates_under_constant_mapping)
+    (rs : RuleSet sig) (rs_finite : rs.rules.finite) (special_const : sig.C) :
+    (BlockingObsoleteness obs rs).blocks_obs obs rs special_const := by
+  intro db cb step trg _ _ blocked
+  rw [Option.is_none_or_iff]
+  intro node eq_node loaded
+  simp only [BlockingObsoleteness] at blocked
+
+  rcases rs_finite with ⟨rl, rl_nodup, rl_rs_eq⟩
+  let rl : RuleList sig := ⟨rl, by intro r1 r2 h; apply rs.id_unique; rw [← rl_rs_eq]; rw [← rl_rs_eq]; exact h⟩
+
+  have blocked : trg.val.blocked_for_backtracking rl := by
+    -- should follow from original blocked and should be its own result
+    -- it also relates to one theorem/lemma from the DMFA paper if I remember correctly
+    -- not sure what to do about the rule adjustment though, maybe it just works?
+    intro trg_ruleIds_valid trg_disjIdx_valid trg_rule_arity_valid
+
+    let trg_with_constant_mapping_applied_but_not_renamed_apart : PreTrigger sig := { rule := trg.val.rule, subs := (rs.mfaConstantMapping special_const).toConstantMapping.apply_ground_term ∘ trg.val.subs }
+
+    specialize blocked rl rl_rs_eq
+    specialize blocked (by
+      apply PreTrigger.rename_constants_apart_preserves_ruleId_validity
+      apply PreTrigger.compose_strict_constant_mapping_preserves_ruleId_validity
+      exact trg_ruleIds_valid
+    )
+    specialize blocked (by
+      apply PreTrigger.rename_constants_apart_preserves_disjIdx_validity
+      apply PreTrigger.compose_strict_constant_mapping_preserves_disjIdx_validity
+      exact trg_disjIdx_valid
+    )
+    specialize blocked (by
+      apply PreTrigger.rename_constants_apart_preserves_rule_arity_validity
+      apply PreTrigger.compose_strict_constant_mapping_preserves_rule_arity_validity
+      exact trg_rule_arity_valid
+    )
+    simp only at blocked
+
+    have exists_strict_constant_mapping_reversing_renaming :=
+      trg_with_constant_mapping_applied_but_not_renamed_apart.exists_strict_constant_mapping_to_reverse_renaming
+        trg.val.toPreTrigger
+        (by apply PreTrigger.same_skeleton_symm; apply PreTrigger.same_skeleton_under_strict_constant_mapping)
+        (rl.rules.flatMap Rule.constants)
+    rcases exists_strict_constant_mapping_reversing_renaming with ⟨reverse_renaming_mapping, reverse_renaming_mapping_properties⟩
+
+    rw [← obs.preserved_under_equiv (PreTrigger.equiv_of_strong_equiv _ _ reverse_renaming_mapping_properties.left)]
+    rw [← PreTrigger.backtrackFacts_eq_of_strong_equiv _ _ _ _ _ _ reverse_renaming_mapping_properties.left]
+
+    have exists_fresh_constant_remapping_such_that_backtrackings_subsume_each_other := PreTrigger.backtracking_under_constant_mapping_subset_of_composing_with_subs
+      rl
+      (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (rl.rules.flatMap Rule.constants))
+      (by
+        apply PreTrigger.rename_constants_apart_preserves_ruleId_validity
+        apply PreTrigger.compose_strict_constant_mapping_preserves_ruleId_validity
+        exact trg_ruleIds_valid
+      )
+      (by
+        apply PreTrigger.rename_constants_apart_preserves_disjIdx_validity
+        apply PreTrigger.compose_strict_constant_mapping_preserves_disjIdx_validity
+        exact trg_disjIdx_valid
+      )
+      (by
+        apply PreTrigger.rename_constants_apart_preserves_rule_arity_validity
+        apply PreTrigger.compose_strict_constant_mapping_preserves_rule_arity_validity
+        exact trg_rule_arity_valid
+      )
+      (by rw [rl_rs_eq]; exact trg.property)
+      reverse_renaming_mapping
+      (by
+        intro d d_mem
+        apply reverse_renaming_mapping_properties.right
+        intro contra
+        apply trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart_constants_fresh (rl.rules.flatMap Rule.constants) d contra
+        exact d_mem
+      )
+
+    rcases exists_fresh_constant_remapping_such_that_backtrackings_subsume_each_other with ⟨fresh_constant_remapping, fresh_constant_remapping_id, fresh_constant_remapping_subsumes⟩
+
+    apply obs.monotone _ _ _ fresh_constant_remapping_subsumes
+
+    have equiv : { rule := trg_with_constant_mapping_applied_but_not_renamed_apart.rule, subs := reverse_renaming_mapping.toConstantMapping.apply_ground_term ∘ (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (rl.rules.flatMap Rule.constants)).subs : PreTrigger sig }.equiv { rule := trg_with_constant_mapping_applied_but_not_renamed_apart.rule, subs := (StrictConstantMapping.toConstantMapping (fun c => if c ∈ (PreTrigger.backtrackFacts rl (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (rl.rules.flatMap Rule.constants)) (by apply PreTrigger.rename_constants_apart_preserves_ruleId_validity; apply PreTrigger.compose_strict_constant_mapping_preserves_ruleId_validity; exact trg_ruleIds_valid) (by apply PreTrigger.rename_constants_apart_preserves_disjIdx_validity; apply PreTrigger.compose_strict_constant_mapping_preserves_disjIdx_validity; exact trg_disjIdx_valid) (by apply PreTrigger.rename_constants_apart_preserves_rule_arity_validity; apply PreTrigger.compose_strict_constant_mapping_preserves_rule_arity_validity; exact trg_rule_arity_valid)).snd then fresh_constant_remapping c else reverse_renaming_mapping c)).apply_ground_term ∘ (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (rl.rules.flatMap Rule.constants)).subs : PreTrigger sig } := by
+      simp only [PreTrigger.equiv, true_and]
+      intro v v_mem
+      simp only [Function.comp_apply]
+      apply ConstantMapping.apply_ground_term_congr_left
+      intro d d_mem
+      simp only [StrictConstantMapping.toConstantMapping, PreTrigger.backtrackFacts]
+      split
+      case a.isFalse heq => rfl
+      case a.isTrue heq =>
+        apply False.elim
+        apply GroundTerm.backtrackFacts_list_fresh_constants_not_forbidden d heq
+        rw [List.mem_append]
+        apply Or.inl
+        rcases Rule.frontier_occurs_in_body _ _ v_mem with ⟨a, a_mem, v_mem⟩
+        rw [List.mem_flatMap]
+        exists (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (rl.rules.flatMap Rule.constants)).subs.apply_function_free_atom a
+        constructor
+        . simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj]
+          rw [List.mem_map]
+          exists a
+        . unfold Fact.constants
+          rw [List.mem_flatMap]
+          exists (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (rl.rules.flatMap Rule.constants)).subs.apply_var_or_const (.var v)
+          simp only [GroundSubstitution.apply_function_free_atom, GroundSubstitution.apply_var_or_const]
+          constructor
+          . rw [List.mem_map]
+            exists .var v
+          . exact d_mem
+
+    rw [obs.preserved_under_equiv equiv]
+
+    apply obs_propagates_under_const_mapping (trg := trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (rl.rules.flatMap Rule.constants))
+    . intro c c_mem
+      simp only [StrictConstantMapping.toConstantMapping, GroundTerm.const, Subtype.mk.injEq, FiniteTree.leaf.injEq]
+      rw [fresh_constant_remapping_id]
+      . split
+        case isTrue heq => rfl
+        case isFalse heq =>
+          apply reverse_renaming_mapping_properties.right
+          intro contra
+          apply trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart_constants_fresh (rl.rules.flatMap Rule.constants) c
+          . exact contra
+          . rw [List.mem_flatMap]
+            exists (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (rl.rules.flatMap Rule.constants)).rule
+            constructor
+            . rw [rl_rs_eq]
+              exact trg.property
+            . apply Rule.head_constants_subset_constants
+              exact c_mem
+      . intro contra
+        simp only [PreTrigger.backtrackFacts] at contra
+        apply GroundTerm.backtrackFacts_list_fresh_constants_not_forbidden c contra
+        rw [List.mem_append]
+        apply Or.inr
+        rw [List.mem_flatMap]
+        exists trg.val.rule
+        constructor
+        . rw [rl_rs_eq]; exact trg.property
+        . apply Rule.head_constants_subset_constants
+          exact c_mem
+    . exact blocked
+
+  simp only [Trigger.blocked_for_backtracking] at blocked
+
+  specialize blocked (by apply cb.trigger_ruleIds_valid_of_loaded step node eq_node rl rl_rs_eq; exact loaded)
+  specialize blocked (by apply cb.trigger_disjIdx_valid_of_loaded step node eq_node rl rl_rs_eq; exact loaded)
+  specialize blocked (by apply cb.trigger_rule_arity_valid_of_loaded step node eq_node rl rl_rs_eq; exact loaded)
+
+
+  rcases cb.backtracking_of_loaded_trigger_in_node step node eq_node rl rl_rs_eq trg.val loaded with ⟨g, g_h⟩
+
+  have blocked := obs_propagates_under_const_mapping
+    (g := g)
+    (by
+      intro c c_mem
+      apply g_h.right
+      apply Or.inr
+      apply RuleSet.head_constants_subset_constants
+      exists trg.val.rule
+      constructor
+      . exact trg.property
+      . exact c_mem
+    )
+    blocked
+
+  have equiv : trg.val.equiv {rule := trg.val.rule, subs := g.apply_ground_term ∘ trg.val.subs} := by
+    unfold PreTrigger.equiv
+    constructor
+    . rfl
+    . intro v v_mem
+      simp only [Function.comp_apply]
+
+      conv => left; rw [← ConstantMapping.apply_ground_term_id (trg.val.subs v)]
+      apply ConstantMapping.apply_ground_term_congr_left
+      intro d d_mem
+      simp only [ConstantMapping.id]
+      rw [g_h.right]
+      apply Or.inl
+      rcases trg.val.rule.frontier_occurs_in_body v v_mem with ⟨a, a_mem, v_mem'⟩
+      rw [List.mem_toSet, List.mem_flatMap]
+      exists trg.val.subs.apply_function_free_atom a
+      constructor
+      . simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj]
+        apply List.mem_map_of_mem
+        exact a_mem
+      . unfold Fact.constants
+        rw [List.mem_flatMap]
+        exists trg.val.subs v
+        constructor
+        . simp only [GroundSubstitution.apply_function_free_atom]
+          rw [List.mem_map]
+          exists .var v
+        . exact d_mem
+
+  rw [obs.preserved_under_equiv equiv]
+
+  apply obs.monotone _ _ _ _ blocked
+  exact g_h.left
+
 
 namespace KnowledgeBase
 
-  def parallelSkolemChase (kb : KnowledgeBase sig) : InfiniteList (FactSet sig)
+  def parallelSkolemChase (kb : KnowledgeBase sig) (obs : LaxObsoletenessCondition sig) : InfiniteList (FactSet sig)
   | .zero => kb.db.toFactSet
   | .succ n =>
-    let prev_step := parallelSkolemChase kb n
+    let prev_step := parallelSkolemChase kb obs n
     fun f =>
       f ∈ prev_step ∨
-      (∃ (trg : RTrigger (DeterministicSkolemObsoleteness sig) kb.rules),
+      (∃ (trg : RTrigger obs kb.rules),
         trg.val.active prev_step ∧
         ∃ (i : Fin trg.val.mapped_head.length), f ∈ trg.val.mapped_head[i.val])
 
-  theorem parallelSkolemChase_subset_all_following (kb : KnowledgeBase sig) (n m : Nat) : kb.parallelSkolemChase n ⊆ kb.parallelSkolemChase (n+m) := by
+  theorem parallelSkolemChase_subset_all_following (kb : KnowledgeBase sig) (obs : LaxObsoletenessCondition sig) (n m : Nat) : kb.parallelSkolemChase obs n ⊆ kb.parallelSkolemChase obs (n+m) := by
     induction m with
     | zero => apply Set.subset_refl
     | succ m ih =>
@@ -706,8 +389,8 @@ namespace KnowledgeBase
       apply ih
       exact f_mem
 
-  theorem parallelSkolemChase_predicates (kb : KnowledgeBase sig) :
-      ∀ n, (kb.parallelSkolemChase n).predicates ⊆ (kb.rules.predicates ∪ kb.db.toFactSet.val.predicates) := by
+  theorem parallelSkolemChase_predicates (kb : KnowledgeBase sig) (obs : LaxObsoletenessCondition sig) :
+      ∀ n, (kb.parallelSkolemChase obs n).predicates ⊆ (kb.rules.predicates ∪ kb.db.toFactSet.val.predicates) := by
     intro n
     induction n with
     | zero =>
@@ -746,8 +429,8 @@ namespace KnowledgeBase
             . rw [← p_mem, ← f_mem]
               simp [PreTrigger.apply_to_function_free_atom]
 
-  theorem parallelSkolemChase_constants (kb : KnowledgeBase sig) :
-      ∀ n, (kb.parallelSkolemChase n).constants ⊆ (kb.rules.head_constants ∪ kb.db.constants) := by
+  theorem parallelSkolemChase_constants (kb : KnowledgeBase sig) (obs : LaxObsoletenessCondition sig) :
+      ∀ n, (kb.parallelSkolemChase obs n).constants ⊆ (kb.rules.head_constants ∪ kb.db.constants) := by
     intro n
     induction n with
     | zero =>
@@ -859,8 +542,8 @@ namespace KnowledgeBase
                 exists (VarOrConst.var v)
               . exact c_mem
 
-  theorem parallelSkolemChase_functions (kb : KnowledgeBase sig) :
-      ∀ n, (kb.parallelSkolemChase n).function_symbols ⊆ (kb.rules.skolem_functions) := by
+  theorem parallelSkolemChase_functions (kb : KnowledgeBase sig) (obs : LaxObsoletenessCondition sig) :
+      ∀ n, (kb.parallelSkolemChase obs n).function_symbols ⊆ (kb.rules.skolem_functions) := by
     intro n
     induction n with
     | zero =>
@@ -985,9 +668,9 @@ namespace KnowledgeBase
                 . rw [← tree_mem] at func_mem
                   exact func_mem
 
-  def deterministicSkolemChaseResult (kb : KnowledgeBase sig) : FactSet sig := fun f => ∃ n, f ∈ parallelSkolemChase kb n
+  def deterministicSkolemChaseResult (kb : KnowledgeBase sig) (obs : LaxObsoletenessCondition sig) : FactSet sig := fun f => ∃ n, f ∈ parallelSkolemChase kb obs n
 
-  theorem deterministicSkolemChaseResult_eq_every_chase_branch_result (kb : KnowledgeBase sig) (det : kb.rules.isDeterministic) : ∀ (cb : ChaseBranch (SkolemObsoleteness sig) kb), cb.result = kb.deterministicSkolemChaseResult := by
+  theorem deterministicSkolemChaseResult_eq_every_chase_branch_result (kb : KnowledgeBase sig) (det : kb.rules.isDeterministic) : ∀ (cb : ChaseBranch (SkolemObsoleteness sig) kb), cb.result = kb.deterministicSkolemChaseResult (DeterministicSkolemObsoleteness sig) := by
     intro cb
     apply Set.ext
     intro f
@@ -1013,11 +696,12 @@ namespace KnowledgeBase
           exact ih
         | inr h =>
           let prev_node := cb.prev_node n (by simp [eq_node])
-          have : ∃ n, prev_node.fact.val ⊆ kb.parallelSkolemChase n := by
+
+          have : ∃ n, prev_node.fact.val ⊆ kb.parallelSkolemChase (DeterministicSkolemObsoleteness sig) n := by
             have prev_finite := prev_node.fact.property
             rcases prev_finite with ⟨prev_l, _, prev_l_eq⟩
 
-            have : ∀ (l : List (Fact sig)), (∀ e, e ∈ l -> e ∈  prev_node.fact.val) -> ∃ n, (∀ e, e ∈ l -> e ∈ kb.parallelSkolemChase n) := by
+            have : ∀ (l : List (Fact sig)), (∀ e, e ∈ l -> e ∈  prev_node.fact.val) -> ∃ n, (∀ e, e ∈ l -> e ∈ kb.parallelSkolemChase (DeterministicSkolemObsoleteness sig) n) := by
               intro l l_sub
               induction l with
               | nil => exists 0; intro e; simp
@@ -1040,7 +724,7 @@ namespace KnowledgeBase
                   | inr f_mem =>
                     rcases Nat.exists_eq_add_of_le le with ⟨diff, le⟩
                     rw [le]
-                    apply kb.parallelSkolemChase_subset_all_following n_from_ih diff
+                    apply kb.parallelSkolemChase_subset_all_following (DeterministicSkolemObsoleteness sig) n_from_ih diff
                     apply from_ih; exact f_mem
                 | inr lt =>
                   simp at lt
@@ -1053,7 +737,7 @@ namespace KnowledgeBase
                   | inl f_mem =>
                     rcases Nat.exists_eq_add_of_le le with ⟨diff, le⟩
                     rw [le]
-                    apply kb.parallelSkolemChase_subset_all_following n_from_hd diff
+                    apply kb.parallelSkolemChase_subset_all_following (DeterministicSkolemObsoleteness sig) n_from_hd diff
                     rw [f_mem]; exact from_hd
 
             specialize this prev_l (by intro f; exact (prev_l_eq f).mp)
@@ -1068,7 +752,7 @@ namespace KnowledgeBase
           unfold parallelSkolemChase
 
           -- TODO: would be Decidable if we define sets in the parallelSkolemChase to be finite
-          cases Classical.em (f ∈ kb.parallelSkolemChase n) with
+          cases Classical.em (f ∈ kb.parallelSkolemChase (DeterministicSkolemObsoleteness sig) n) with
           | inl mem => apply Or.inl; exact mem
           | inr not_mem =>
             apply Or.inr
@@ -1083,7 +767,7 @@ namespace KnowledgeBase
                 . exact prev_subs
               . intro contra
                 apply not_mem
-                apply contra origin.snd
+                apply contra.right origin.snd
                 exact h
             . rw [List.mem_toSet] at h
               exists origin.snd
@@ -1254,28 +938,28 @@ namespace KnowledgeBase
             simp only [i_zero] at f_mem
             exact f_mem
 
-  theorem deterministicSkolemChaseResult_predicates (kb : KnowledgeBase sig) :
-      kb.deterministicSkolemChaseResult.predicates ⊆ (kb.rules.predicates ∪ kb.db.toFactSet.val.predicates) := by
+  theorem deterministicSkolemChaseResult_predicates (kb : KnowledgeBase sig) (obs : LaxObsoletenessCondition sig) :
+      (kb.deterministicSkolemChaseResult obs).predicates ⊆ (kb.rules.predicates ∪ kb.db.toFactSet.val.predicates) := by
     intro p p_mem
     rcases p_mem with ⟨f, f_mem, p_mem⟩
     rcases f_mem with ⟨n, f_mem⟩
-    apply kb.parallelSkolemChase_predicates n
+    apply kb.parallelSkolemChase_predicates obs n
     exists f
 
-  theorem deterministicSkolemChaseResult_constants (kb : KnowledgeBase sig) :
-      kb.deterministicSkolemChaseResult.constants ⊆ (kb.rules.head_constants ∪ kb.db.constants) := by
+  theorem deterministicSkolemChaseResult_constants (kb : KnowledgeBase sig) (obs : LaxObsoletenessCondition sig) :
+      (kb.deterministicSkolemChaseResult obs).constants ⊆ (kb.rules.head_constants ∪ kb.db.constants) := by
     intro c c_mem
     rcases c_mem with ⟨f, f_mem, c_mem⟩
     rcases f_mem with ⟨n, f_mem⟩
-    apply kb.parallelSkolemChase_constants n
+    apply kb.parallelSkolemChase_constants obs n
     exists f
 
-  theorem deterministicSkolemChaseResult_functions (kb : KnowledgeBase sig) :
-      kb.deterministicSkolemChaseResult.function_symbols ⊆ (kb.rules.skolem_functions) := by
+  theorem deterministicSkolemChaseResult_functions (kb : KnowledgeBase sig) (obs : LaxObsoletenessCondition sig) :
+      (kb.deterministicSkolemChaseResult obs).function_symbols ⊆ (kb.rules.skolem_functions) := by
     intro func func_mem
     rcases func_mem with ⟨f, f_mem, func_mem⟩
     rcases f_mem with ⟨n, f_mem⟩
-    apply kb.parallelSkolemChase_functions n
+    apply kb.parallelSkolemChase_functions obs n
     exists f
 
 end KnowledgeBase
@@ -1283,64 +967,65 @@ end KnowledgeBase
 namespace RuleSet
 
   def criticalInstance (rs : RuleSet sig) (finite : rs.rules.finite) (special_const : sig.C) : Database sig :=
-    ⟨fun f => f.predicate ∈ rs.predicates ∧ ∀ t, t ∈ f.terms -> t = special_const, by
+    ⟨fun f => f.predicate ∈ rs.predicates ∧ ∀ t, t ∈ f.terms -> (t = special_const ∨ t ∈ rs.constants), by
+      -- TODO: this is very close to part of the proof of FactSet.finite_of_preds_finite_of_terms_finite
+      -- but we cannot use it since our set is not Set (Fact sig) but Set (FunctionFreeFact sig)...
+      -- maybe we can generalize this someday
+
       have preds_finite := rs.predicates_finite_of_finite finite
-      rcases preds_finite with ⟨l, nodup, eq⟩
-      exists (l.map (fun p => {
-        predicate := p
-        terms := List.repeat special_const (sig.arity p)
-        arity_ok := by rw [List.length_repeat]
-      })).eraseDupsKeepRight
+      rcases preds_finite with ⟨l_preds, _, preds_eq⟩
+      have consts_finite := rs.constants_finite_of_finite finite
+      rcases consts_finite with ⟨l_consts, _, consts_eq⟩
+
+      exists (l_preds.flatMap (fun p =>
+        (all_lists_of_length (special_const :: l_consts) (sig.arity p)).attach.map (fun ⟨ts, mem⟩ =>
+          {
+            predicate := p
+            terms := ts
+            arity_ok := ((mem_all_lists_of_length (special_const :: l_consts) (sig.arity p) ts).mp mem).left
+          }
+        )
+      )).eraseDupsKeepRight
+
       constructor
       . apply List.nodup_eraseDupsKeepRight
       . intro f
         rw [List.mem_eraseDupsKeepRight]
-        simp [Set.element]
+        simp only [List.mem_flatMap, List.mem_map, List.mem_attach, true_and, Subtype.exists]
         constructor
         . intro h
-          rcases h with ⟨p, p_mem, f_eq⟩
+          rcases h with ⟨pred, pred_mem, ts, ts_mem, f_eq⟩
           rw [← f_eq]
-          rw [eq] at p_mem
           constructor
-          . exact p_mem
-          . intro t
-            apply List.mem_repeat
+          . rw [preds_eq] at pred_mem
+            exact pred_mem
+          . rw [mem_all_lists_of_length] at ts_mem
+            intro t t_mem
+            rw [← consts_eq]
+            rw [← List.mem_cons]
+            apply ts_mem.right
+            exact t_mem
         . intro h
+          rcases h with ⟨pred_mem, ts_mem⟩
           exists f.predicate
           constructor
-          . rw [eq]; exact h.left
-          . rw [FunctionFreeFact.mk.injEq]
-            simp only [true_and]
-            rw [List.repeat_eq_iff_all_val]
-            constructor
-            . exact f.arity_ok
-            . exact h.right
+          . rw [preds_eq]; exact pred_mem
+          . exists f.terms
+            exists (by
+              rw [mem_all_lists_of_length]
+              constructor
+              . exact f.arity_ok
+              . intro t t_mem; rw [List.mem_cons]; rw [consts_eq]; apply ts_mem; exact t_mem
+            )
     ⟩
 
   def mfaKb (rs : RuleSet sig) (finite : rs.rules.finite) (special_const : sig.C) : KnowledgeBase sig := {
-    rules := {
-      rules := fun r => ∃ r', r' ∈ rs.rules ∧ r = (UniformConstantMapping sig special_const).apply_rule r'
-      id_unique := by
-        intro r1 r2 h
-        rcases h with ⟨r1_mem, r2_mem, id_eq⟩
-        rcases r1_mem with ⟨r1', r1'_mem, r1_eq⟩
-        rcases r2_mem with ⟨r2', r2'_mem, r2_eq⟩
-        have : r1' = r2' := by
-          apply rs.id_unique
-          constructor
-          . exact r1'_mem
-          constructor
-          . exact r2'_mem
-          rw [r1_eq, r2_eq] at id_eq
-          simp only [StrictConstantMapping.apply_rule] at id_eq
-          exact id_eq
-        rw [r1_eq, this, r2_eq]
-    }
+    rules := rs
     db := criticalInstance rs finite special_const
   }
 
   theorem mfaKb_db_constants (rs : RuleSet sig) (finite : rs.rules.finite) (special_const : sig.C) :
-      ∀ c, c ∈ (rs.mfaKb finite special_const).db.constants.val -> c = special_const := by
+      ∀ c, c ∈ (rs.mfaKb finite special_const).db.constants.val -> (c = special_const ∨ c ∈ rs.constants) := by
     intro c c_mem
     unfold mfaKb at c_mem
     unfold criticalInstance at c_mem
@@ -1350,48 +1035,11 @@ namespace RuleSet
     apply f_mem.right
     exact c_mem
 
-  theorem mfaKb_rules_head_constants (rs : RuleSet sig) (finite : rs.rules.finite) (special_const : sig.C) :
-      ∀ c, c ∈ (rs.mfaKb finite special_const).rules.head_constants -> c = special_const := by
-    intro c c_mem
-    unfold RuleSet.head_constants at c_mem
-    rcases c_mem with ⟨r, r_mem, c_mem⟩
-    unfold mfaKb at r_mem
-    rcases r_mem with ⟨r', r'_mem, r_eq⟩
-    rw [r_eq] at c_mem
-    unfold Rule.head_constants at c_mem
-    rw [List.mem_flatMap] at c_mem
-    rcases c_mem with ⟨conj, conj_mem, c_mem⟩
-    unfold StrictConstantMapping.apply_rule at conj_mem
-    rw [List.mem_map] at conj_mem
-    rcases conj_mem with ⟨conj', conj'_mem, conj_eq⟩
-    rw [← conj_eq] at c_mem
-    unfold StrictConstantMapping.apply_function_free_conj at c_mem
-    unfold FunctionFreeConjunction.consts at c_mem
-    rw [List.mem_flatMap] at c_mem
-    rcases c_mem with ⟨a, a_mem, c_mem⟩
-    rw [List.mem_map] at a_mem
-    rcases a_mem with ⟨b, b_mem, a_eq⟩
-    rw [← a_eq] at c_mem
-    unfold StrictConstantMapping.apply_function_free_atom at c_mem
-    unfold FunctionFreeAtom.constants at c_mem
-    simp only at c_mem
-    have c_mem := VarOrConst.filterConsts_occur_in_original_list _ _ c_mem
-    rw [List.mem_map] at c_mem
-    rcases c_mem with ⟨voc, voc_mem, c_mem⟩
-    unfold StrictConstantMapping.apply_var_or_const at c_mem
-    cases voc with
-    | var v => simp at c_mem
-    | const d =>
-      simp only at c_mem
-      unfold UniformConstantMapping at c_mem
-      injection c_mem with c_mem
-      rw [c_mem]
+  def mfaSet (rs : RuleSet sig) (finite : rs.rules.finite) (special_const : sig.C) (obs : MfaObsoletenessCondition sig) : FactSet sig :=
+    (rs.mfaKb finite special_const).deterministicSkolemChaseResult obs
 
-  def mfaSet (rs : RuleSet sig) (finite : rs.rules.finite) (special_const : sig.C) : FactSet sig :=
-    (rs.mfaKb finite special_const).deterministicSkolemChaseResult
-
-  theorem mfaSet_contains_every_chase_step_for_every_kb_expect_for_facts_with_predicates_not_from_rs (rs : RuleSet sig) (finite : rs.rules.finite) (special_const : sig.C) : ∀ {db : Database sig} (cb : ChaseBranch obs { rules := rs, db := db }) (n : Nat), (cb.branch.infinite_list n).is_none_or (fun node => ∀ f, f.predicate ∈ rs.predicates -> f ∈ node.fact.val -> ((UniformConstantMapping sig special_const).toConstantMapping.apply_fact f) ∈ (rs.mfaSet finite special_const)) := by
-    intro db cb n
+  theorem mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_predicates_not_from_rs (rs : RuleSet sig) (finite : rs.rules.finite) (special_const : sig.C) (mfa_obs : MfaObsoletenessCondition sig) : ∀ {db : Database sig} {obs : ObsoletenessCondition sig}, (mfa_obs.blocks_obs obs rs special_const) -> ∀ (cb : ChaseBranch obs { rules := rs, db := db }) (n : Nat), (cb.branch.infinite_list n).is_none_or (fun node => ∀ f, f.predicate ∈ rs.predicates -> f ∈ node.fact.val -> ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact f) ∈ (rs.mfaSet finite special_const mfa_obs)) := by
+    intro db obs blocks cb n
     induction n with
     | zero =>
       rw [cb.database_first, Option.is_none_or]
@@ -1404,7 +1052,7 @@ namespace RuleSet
       unfold criticalInstance
       simp only
 
-      have every_t_special_const : ∀ t, t ∈ ((UniformConstantMapping sig special_const).toConstantMapping.apply_fact f).terms -> t = GroundTerm.const special_const := by
+      have every_t_const : ∀ t, t ∈ ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact f).terms -> ∃ c, t = GroundTerm.const c ∧ (c = special_const ∨ c ∈ rs.constants) := by
         intro t t_mem
         unfold ConstantMapping.apply_fact at t_mem
         simp only [List.mem_map] at t_mem
@@ -1414,25 +1062,30 @@ namespace RuleSet
         specialize isFunctionFree _ f_mem
         specialize isFunctionFree _ s_mem
         rcases isFunctionFree with ⟨c, s_eq⟩
-        rw [← t_eq, s_eq]
-        simp [ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, StrictConstantMapping.toConstantMapping, GroundTerm.const]
-      have f_func_free : ((UniformConstantMapping sig special_const).toConstantMapping.apply_fact f).isFunctionFree := by
+        exists (rs.mfaConstantMapping special_const) c
+        constructor
+        . rw [← t_eq, s_eq]
+          simp [StrictConstantMapping.toConstantMapping, ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, GroundTerm.const]
+        . cases Classical.em (c ∈ rs.constants) with
+          | inl c_mem => apply Or.inr; simp [mfaConstantMapping, c_mem]
+          | inr c_mem => apply Or.inl; simp [mfaConstantMapping, c_mem]
+      have f_func_free : ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact f).isFunctionFree := by
         intro t t_mem
-        exists special_const
-        apply every_t_special_const
-        exact t_mem
+        rcases every_t_const t t_mem with ⟨c, t_eq, _⟩
+        exists c
 
-      exists ((UniformConstantMapping sig special_const).toConstantMapping.apply_fact f).toFunctionFreeFact f_func_free
+      exists ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact f).toFunctionFreeFact f_func_free
       constructor
       . unfold Fact.toFunctionFreeFact
         constructor
         . exact f_predicate
-        . simp
+        . simp only [List.mem_map, List.mem_attach, true_and, Subtype.exists, forall_exists_index]
           intro c t t_arity_ok t_mem c_eq
-          specialize every_t_special_const ⟨t, t_arity_ok⟩ t_mem
+          specialize every_t_const ⟨t, t_arity_ok⟩ t_mem
+          rcases every_t_const with ⟨d, d_eq, goal⟩
           rw [← c_eq]
-          simp only [every_t_special_const]
-          simp [GroundTerm.const, GroundTerm.toConst]
+          simp only [d_eq]
+          simp [GroundTerm.const, GroundTerm.toConst, goal]
       . rw [Fact.toFact_after_toFunctionFreeFact_is_id]
     | succ n ih =>
       rw [Option.is_none_or_iff]
@@ -1450,7 +1103,7 @@ namespace RuleSet
         unfold RuleSet.mfaSet
         unfold KnowledgeBase.deterministicSkolemChaseResult
 
-        have : ∃ n, ∀ f, f.predicate ∈ rs.predicates -> f ∈ prev_node.fact.val -> ((UniformConstantMapping sig special_const).toConstantMapping.apply_fact f) ∈ (rs.mfaKb finite special_const).parallelSkolemChase n := by
+        have : ∃ n, ∀ f, f.predicate ∈ rs.predicates -> f ∈ prev_node.fact.val -> ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact f) ∈ (rs.mfaKb finite special_const).parallelSkolemChase mfa_obs n := by
           let kb := rs.mfaKb finite special_const
           let prev_filtered : FactSet sig := fun f => f.predicate ∈ rs.predicates ∧ f ∈ prev_node.fact.val
           have prev_finite : prev_filtered.finite := by
@@ -1466,7 +1119,7 @@ namespace RuleSet
               simp [preds_l_eq, Set.element, And.comm]
           rcases prev_finite with ⟨prev_l, _, prev_l_eq⟩
 
-          have : ∀ (l : List (Fact sig)), (∀ e, e ∈ l -> e.predicate ∈ rs.predicates ∧ e ∈ prev_node.fact.val) -> ∃ n, (∀ e, e ∈ l -> ((UniformConstantMapping sig special_const).toConstantMapping.apply_fact e) ∈ (kb.parallelSkolemChase n)) := by
+          have : ∀ (l : List (Fact sig)), (∀ e, e ∈ l -> e.predicate ∈ rs.predicates ∧ e ∈ prev_node.fact.val) -> ∃ n, (∀ e, e ∈ l -> ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact e) ∈ (kb.parallelSkolemChase mfa_obs n)) := by
             intro l l_sub
             induction l with
             | nil => exists 0; intro e; simp
@@ -1487,7 +1140,7 @@ namespace RuleSet
                 | inr f_mem =>
                   rcases Nat.exists_eq_add_of_le le with ⟨diff, le⟩
                   rw [le]
-                  apply kb.parallelSkolemChase_subset_all_following n_from_ih diff
+                  apply kb.parallelSkolemChase_subset_all_following mfa_obs n_from_ih diff
                   apply from_ih; exact f_mem
               | inr lt =>
                 simp at lt
@@ -1500,7 +1153,7 @@ namespace RuleSet
                 | inl f_mem =>
                   rcases Nat.exists_eq_add_of_le le with ⟨diff, le⟩
                   rw [le]
-                  apply kb.parallelSkolemChase_subset_all_following n_from_hd diff
+                  apply kb.parallelSkolemChase_subset_all_following mfa_obs n_from_hd diff
                   rw [f_mem]; exact from_hd
 
           specialize this prev_l (by
@@ -1510,8 +1163,8 @@ namespace RuleSet
             exact f_mem
           )
 
-          rcases this with ⟨n, this⟩
-          exists n
+          rcases this with ⟨m, this⟩
+          exists m
           intro f f_pred f_mem
           specialize this f (by
             rw [prev_l_eq]
@@ -1522,8 +1175,8 @@ namespace RuleSet
           )
           exact this
 
-        rcases this with ⟨n, prev_node_subs_parallel_chase⟩
-        exists (n+1)
+        rcases this with ⟨m, prev_node_subs_parallel_chase⟩
+        exists (m+1)
         unfold KnowledgeBase.parallelSkolemChase
         simp only [Set.element]
 
@@ -1534,27 +1187,17 @@ namespace RuleSet
         let trg := origin.fst
         let disj_index := origin.snd
 
-        let adjusted_trg : RTrigger (DeterministicSkolemObsoleteness sig) (rs.mfaKb finite special_const).rules := ⟨⟨(UniformConstantMapping sig special_const).apply_rule trg.val.rule, (UniformConstantMapping sig special_const).toConstantMapping.apply_ground_term ∘ trg.val.subs⟩, by
-          simp only [RuleSet.mfaKb]
-          exists trg.val.rule
-          constructor
-          . exact trg.property
-          . rfl
-        ⟩
+        let adjusted_trg : RTrigger mfa_obs (rs.mfaKb finite special_const).rules := ⟨⟨trg.val.rule, (rs.mfaConstantMapping special_const).toConstantMapping.apply_ground_term ∘ trg.val.subs⟩, trg.property⟩
 
         exists adjusted_trg
         constructor
         . constructor
-          . apply Set.subset_trans (b := fun f => f.predicate ∈ rs.predicates ∧ f ∈ ((UniformConstantMapping sig special_const).toConstantMapping.apply_fact_set prev_node.fact.val))
+          . apply Set.subset_trans (b := fun f => f.predicate ∈ rs.predicates ∧ f ∈ ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact_set prev_node.fact.val))
             . intro f f_mem
               rw [List.mem_toSet] at f_mem
               simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj, List.mem_map] at f_mem
               rcases f_mem with ⟨a, a_mem, f_eq⟩
               unfold adjusted_trg at a_mem
-              unfold StrictConstantMapping.apply_rule at a_mem
-              unfold StrictConstantMapping.apply_function_free_conj at a_mem
-              simp only [List.mem_map] at a_mem
-              rcases a_mem with ⟨a', a'_mem, a_eq⟩
               simp only [Set.element]
               constructor
               . rw [← f_eq]
@@ -1568,30 +1211,42 @@ namespace RuleSet
                   apply Or.inl
                   unfold FunctionFreeConjunction.predicates
                   rw [List.mem_map]
-                  exists a'
-                  constructor
-                  . exact a'_mem
-                  . rw [← a_eq]
-                    simp [StrictConstantMapping.apply_function_free_atom]
-              . exists trg.val.subs.apply_function_free_atom a'
+                  exists a
+              . exists trg.val.subs.apply_function_free_atom a
                 constructor
                 . apply (cb.origin_trg_is_active _ _ eq_node).left
                   rw [List.mem_toSet]
                   simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj, List.mem_map]
-                  exists a'
+                  exists a
                 . rw [← f_eq]
                   unfold ConstantMapping.apply_fact
                   unfold GroundSubstitution.apply_function_free_atom
-
-                  -- we need to apply g to every constant in every rule in rs to achieve this
-                  rw [← a_eq]
-                  simp [StrictConstantMapping.apply_function_free_atom]
-                  intro voc voc_mem
-                  cases voc with
-                  | var v =>
-                    simp [adjusted_trg, GroundSubstitution.apply_var_or_const, StrictConstantMapping.apply_var_or_const]
-                  | const c =>
-                    simp [GroundSubstitution.apply_var_or_const, StrictConstantMapping.apply_var_or_const, ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, StrictConstantMapping.toConstantMapping, GroundTerm.const]
+                  rw [Fact.mk.injEq]
+                  constructor
+                  . rfl
+                  . simp only [adjusted_trg, List.map_map]
+                    rw [List.map_inj_left]
+                    intro voc voc_mem
+                    cases voc with
+                    | var v =>
+                      simp [GroundSubstitution.apply_var_or_const]
+                    | const c =>
+                      simp only [Function.comp_apply, GroundSubstitution.apply_var_or_const, ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, StrictConstantMapping.toConstantMapping, GroundTerm.const]
+                      apply Subtype.eq
+                      simp only [FiniteTree.leaf.injEq]
+                      rw [rs.mfaConstantMapping_id_on_rs_constants]
+                      exists trg.val.rule
+                      constructor
+                      . exact trg.property
+                      unfold Rule.constants
+                      rw [List.mem_append]
+                      apply Or.inl
+                      unfold FunctionFreeConjunction.consts
+                      rw [List.mem_flatMap]
+                      exists a
+                      constructor
+                      . exact a_mem
+                      . apply VarOrConst.mem_filterConsts_of_const; exact voc_mem
             . intro f f_mem
               rcases f_mem with ⟨f_pred, f', f'_mem, f_eq⟩
               rw [f_eq]
@@ -1601,47 +1256,20 @@ namespace RuleSet
                 exact f_pred
               . exact f'_mem
           . intro contra
-            simp only [DeterministicSkolemObsoleteness] at contra
-            apply f_not_in_prev
-            apply contra ⟨disj_index.val, by
-              have isLt := disj_index.isLt
-              simp only [PreTrigger.length_mapped_head]
-              unfold adjusted_trg
-              unfold StrictConstantMapping.apply_rule
-              simp only [List.length_map]
-              simp only [PreTrigger.length_mapped_head] at isLt
-              exact isLt
-            ⟩
-            rw [List.mem_toSet]
-            unfold PreTrigger.mapped_head
-            simp
-            unfold ChaseNode.origin_result at f_mem
-            unfold PreTrigger.mapped_head at f_mem
-            simp at f_mem
-            rw [List.mem_toSet, List.mem_map] at f_mem
-            rcases f_mem with ⟨a, a_mem, f_eq⟩
+            have contra := blocks cb n trg _ (by
+              exists disj_index
+              intro contra
+              apply f_not_in_prev
+              apply contra
+              apply ConstantMapping.apply_fact_mem_apply_fact_set_of_mem
+              exact f_mem
+            ) contra
+            rw [ChaseBranch.prev_node_eq _ _ (by simp [eq_node])] at contra
+            simp only [Option.is_none_or] at contra
+            specialize contra (cb.origin_trg_is_active _ _ eq_node).left
 
-            exists (UniformConstantMapping sig special_const).apply_function_free_atom a
-            constructor
-            . unfold adjusted_trg
-              unfold StrictConstantMapping.apply_rule
-              unfold StrictConstantMapping.apply_function_free_conj
-              simp only [List.getElem_map, List.mem_map]
-              exists a
-            . rw [← f_eq]
-              simp only [ConstantMapping.apply_fact, PreTrigger.apply_to_function_free_atom, StrictConstantMapping.apply_function_free_atom, PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, Fact.mk.injEq, true_and, List.map_map, List.map_inj_left, Function.comp_apply]
-              intro voc voc_mem
-              cases voc with
-              | var v =>
-                simp only [StrictConstantMapping.apply_var_or_const]
-                rw [← ConstantMapping.apply_ground_term_swap_apply_skolem_term]
-                . rw [StrictConstantMapping.apply_rule_id_eq, StrictConstantMapping.apply_rule_frontier_eq]
-                . intros
-                  unfold VarOrConst.skolemize
-                  simp only
-                  split <;> simp
-              | const c =>
-                simp only [StrictConstantMapping.apply_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term, ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, StrictConstantMapping.toConstantMapping, GroundTerm.const]
+            apply (cb.origin_trg_is_active _ _ eq_node).right
+            exact contra
         . rw [List.mem_toSet] at f_mem
           unfold ChaseNode.origin_result at f_mem
           unfold PreTrigger.mapped_head at f_mem
@@ -1652,8 +1280,6 @@ namespace RuleSet
             have isLt := disj_index.isLt
             simp only [PreTrigger.length_mapped_head]
             unfold adjusted_trg
-            unfold StrictConstantMapping.apply_rule
-            simp only [List.length_map]
             simp only [PreTrigger.length_mapped_head] at isLt
             exact isLt
           ⟩
@@ -1661,13 +1287,14 @@ namespace RuleSet
           unfold PreTrigger.mapped_head
           simp
 
-          exists (UniformConstantMapping sig special_const).apply_function_free_atom a
+          exists (rs.mfaConstantMapping special_const).apply_function_free_atom a
           constructor
-          . unfold adjusted_trg
-            unfold StrictConstantMapping.apply_rule
-            unfold StrictConstantMapping.apply_function_free_conj
-            simp only [List.getElem_map, List.mem_map]
-            exists a
+          . rw [rs.mfaConstantMapping_id_on_atom_from_rule _ adjusted_trg.val.rule adjusted_trg.property]
+            . exact a_mem
+            . rw [List.mem_append]
+              apply Or.inr
+              apply List.mem_flatten_of_mem _ a_mem
+              apply List.getElem_mem
           . rw [← f_eq]
             simp only [ConstantMapping.apply_fact, PreTrigger.apply_to_function_free_atom, StrictConstantMapping.apply_function_free_atom, PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, Fact.mk.injEq, true_and, List.map_map, List.map_inj_left, Function.comp_apply]
             intro voc voc_mem
@@ -1675,16 +1302,15 @@ namespace RuleSet
             | var v =>
               simp only [StrictConstantMapping.apply_var_or_const]
               rw [← ConstantMapping.apply_ground_term_swap_apply_skolem_term]
-              . rw [StrictConstantMapping.apply_rule_id_eq, StrictConstantMapping.apply_rule_frontier_eq]
-              . intros
-                unfold VarOrConst.skolemize
-                simp only
-                split <;> simp
+              intros
+              unfold VarOrConst.skolemize
+              simp only
+              split <;> simp
             | const c =>
               simp only [StrictConstantMapping.apply_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term, ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, StrictConstantMapping.toConstantMapping, GroundTerm.const]
 
-  theorem filtered_cb_result_subset_mfaSet (rs : RuleSet sig) (finite : rs.rules.finite) (special_const : sig.C) : ∀ {db : Database sig} (cb : ChaseBranch obs { rules := rs, db := db }), ((UniformConstantMapping sig special_const).toConstantMapping.apply_fact_set (fun f => f.predicate ∈ rs.predicates ∧ f ∈ cb.result)) ⊆ (rs.mfaSet finite special_const) := by
-    intro db cb f f_mem
+  theorem filtered_cb_result_subset_mfaSet (rs : RuleSet sig) (finite : rs.rules.finite) (special_const : sig.C) (mfa_obs : MfaObsoletenessCondition sig) : ∀ {db : Database sig} {obs : ObsoletenessCondition sig}, (mfa_obs.blocks_obs obs rs special_const) -> ∀ (cb : ChaseBranch obs { rules := rs, db := db }), ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact_set (fun f => f.predicate ∈ rs.predicates ∧ f ∈ cb.result)) ⊆ (rs.mfaSet finite special_const mfa_obs) := by
+    intro db obs blocks cb f f_mem
 
     rcases f_mem with ⟨f', f'_mem, f_eq⟩
     rcases f'_mem with ⟨f'_pred, f'_mem⟩
@@ -1694,16 +1320,16 @@ namespace RuleSet
     cases eq : cb.branch.infinite_list n with
     | none => simp [eq, Option.is_some_and] at f'_mem
     | some node =>
-      have := rs.mfaSet_contains_every_chase_step_for_every_kb_expect_for_facts_with_predicates_not_from_rs finite special_const cb n
+      have := rs.mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_predicates_not_from_rs finite special_const mfa_obs blocks cb n
       rw [eq, Option.is_none_or] at this
       apply this
       . exact f'_pred
       . rw [eq, Option.is_some_and] at f'_mem
         exact f'_mem
 
-  theorem terminates_of_mfaSet_finite [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.rules.finite) :
-      (rs.mfaSet rs_finite Inhabited.default).finite -> rs.terminates obs := by
-    intro mfa_finite
+  theorem terminates_of_mfaSet_finite [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.rules.finite) (mfa_obs : MfaObsoletenessCondition sig) :
+      ∀ {obs : ObsoletenessCondition sig}, (mfa_obs.blocks_obs obs rs Inhabited.default) -> (rs.mfaSet rs_finite Inhabited.default mfa_obs).finite -> rs.terminates obs := by
+    intro obs blocks mfa_finite
     unfold RuleSet.terminates
     intro db
     unfold KnowledgeBase.terminates
@@ -1714,8 +1340,8 @@ namespace RuleSet
 
     let res_filtered : FactSet sig := fun f => f.predicate ∈ rs.predicates ∧ f ∈ cb.result
     have res_filtered_finite : res_filtered.finite := by
-      have : ((UniformConstantMapping sig Inhabited.default).toConstantMapping.apply_fact_set (fun f => f.predicate ∈ rs.predicates ∧ f ∈ cb.result)).finite :=
-        Set.finite_of_subset_finite mfa_finite (rs.filtered_cb_result_subset_mfaSet rs_finite Inhabited.default cb)
+      have : ((rs.mfaConstantMapping Inhabited.default).toConstantMapping.apply_fact_set (fun f => f.predicate ∈ rs.predicates ∧ f ∈ cb.result)).finite :=
+        Set.finite_of_subset_finite mfa_finite (rs.filtered_cb_result_subset_mfaSet rs_finite Inhabited.default mfa_obs blocks cb)
 
       rcases this with ⟨l, _, l_eq⟩
 
@@ -1726,9 +1352,9 @@ namespace RuleSet
       have rs_constants_finite : rs_constants.finite := RuleSet.head_constants_finite_of_finite _ rs_finite
       rcases rs_constants_finite with ⟨l_rs_c, _, l_rs_c_eq⟩
 
-      let arguments : FactSet sig := fun f => (∀ c, c ∈ f.constants -> (c ∈ l_db_c ++ l_rs_c)) ∧ ((UniformConstantMapping sig default).toConstantMapping.apply_fact f) ∈ ((UniformConstantMapping sig default).toConstantMapping.apply_fact_set res_filtered)
+      let arguments : FactSet sig := fun f => (∀ c, c ∈ f.constants -> (c ∈ l_db_c ++ l_rs_c)) ∧ ((rs.mfaConstantMapping default).toConstantMapping.apply_fact f) ∈ ((rs.mfaConstantMapping default).toConstantMapping.apply_fact_set res_filtered)
       have arguments_fin : arguments.finite := by
-        exists (l.flatMap (fun f => (UniformConstantMapping sig default).arguments_for_fact (l_db_c ++ l_rs_c) f)).eraseDupsKeepRight
+        exists (l.flatMap (fun f => (rs.mfaConstantMapping default).arguments_for_fact (l_db_c ++ l_rs_c) f)).eraseDupsKeepRight
         constructor
         . apply List.nodup_eraseDupsKeepRight
         . intro f
@@ -1737,22 +1363,22 @@ namespace RuleSet
           . intro h
             rcases h with ⟨f', f'_mem, f_mem⟩
             rw [l_eq] at f'_mem
-            have : f' = (UniformConstantMapping sig default).toConstantMapping.apply_fact f := by
-              have := (UniformConstantMapping sig default).apply_to_arguments_yields_original_fact (l_db_c ++ l_rs_c) f'
+            have : f' = (rs.mfaConstantMapping default).toConstantMapping.apply_fact f := by
+              have := (rs.mfaConstantMapping default).apply_to_arguments_yields_original_fact (l_db_c ++ l_rs_c) f'
               rw [((this _).mp _).right]
               exact f_mem
             rw [this] at f'_mem
             constructor
-            . have := (UniformConstantMapping sig default).apply_to_arguments_yields_original_fact (l_db_c ++ l_rs_c) f' f
+            . have := (rs.mfaConstantMapping default).apply_to_arguments_yields_original_fact (l_db_c ++ l_rs_c) f' f
               apply (this.mp _).left
               exact f_mem
             . exact f'_mem
           . intro h
-            exists (UniformConstantMapping sig default).toConstantMapping.apply_fact f
+            exists (rs.mfaConstantMapping default).toConstantMapping.apply_fact f
             constructor
             . rw [l_eq]
               exact h.right
-            . rw [(UniformConstantMapping sig default).apply_to_arguments_yields_original_fact (l_db_c ++ l_rs_c)]
+            . rw [(rs.mfaConstantMapping default).apply_to_arguments_yields_original_fact (l_db_c ++ l_rs_c)]
               simp only [and_true]
               exact h.left
 
@@ -1831,41 +1457,18 @@ namespace RuleSet
     . exact db.toFactSet.property.left
     . exact res_filtered_finite
 
-  def isMfa [Inhabited sig.C] (rs : RuleSet sig) (finite : rs.rules.finite) : Prop :=
-    ∀ t, t ∈ (rs.mfaSet finite default).terms -> ¬ PreGroundTerm.cyclic t.val
+  def isMfa [Inhabited sig.C] (rs : RuleSet sig) (finite : rs.rules.finite) (mfa_obs : MfaObsoletenessCondition sig) : Prop :=
+    ∀ t, t ∈ (rs.mfaSet finite default mfa_obs).terms -> ¬ PreGroundTerm.cyclic t.val
 
-  theorem terminates_of_isMfa [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.rules.finite) :
-      rs.isMfa rs_finite -> rs.terminates obs := by
-    intro isMfa
-    apply rs.terminates_of_mfaSet_finite rs_finite
+  theorem terminates_of_isMfa [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.rules.finite) (mfa_obs : MfaObsoletenessCondition sig) :
+      ∀ {obs : ObsoletenessCondition sig}, (mfa_obs.blocks_obs obs rs Inhabited.default) -> rs.isMfa rs_finite mfa_obs -> rs.terminates obs := by
+    intro obs blocks isMfa
+    apply rs.terminates_of_mfaSet_finite rs_finite mfa_obs blocks
     apply FactSet.finite_of_preds_finite_of_terms_finite
-    . apply Set.finite_of_subset_finite _ (KnowledgeBase.deterministicSkolemChaseResult_predicates (rs.mfaKb rs_finite default))
+    . apply Set.finite_of_subset_finite _ (KnowledgeBase.deterministicSkolemChaseResult_predicates (rs.mfaKb rs_finite default) mfa_obs)
       apply Set.union_finite_of_both_finite
       . apply RuleSet.predicates_finite_of_finite
-        unfold mfaKb
-        simp only
-        rcases rs_finite with ⟨l, _, l_eq⟩
-        exists (l.map (UniformConstantMapping sig default).apply_rule).eraseDupsKeepRight
-        constructor
-        . apply List.nodup_eraseDupsKeepRight
-        . intro r
-          rw [List.mem_eraseDupsKeepRight]
-          rw [List.mem_map]
-          constructor
-          . intro h
-            rcases h with ⟨r', r'_mem, r_eq⟩
-            exists r'
-            constructor
-            . rw [← l_eq]
-              exact r'_mem
-            . rw [r_eq]
-          . intro h
-            rcases h with ⟨r', r'_mem, r_eq⟩
-            exists r'
-            constructor
-            . rw [l_eq]
-              exact r'_mem
-            . rw [r_eq]
+        exact rs_finite
       . have prop := (rs.mfaKb rs_finite default).db.toFactSet.property.left
         rcases prop with ⟨l, _, l_eq⟩
         exists (l.map (fun f => f.predicate)).eraseDupsKeepRight
@@ -1891,18 +1494,21 @@ namespace RuleSet
               exact f_mem
             . exact p_eq
     . unfold RuleSet.isMfa at isMfa
+      let consts := rs.constants
+      have consts_finite := rs.constants_finite_of_finite rs_finite
+      rcases consts_finite with ⟨l_consts, l_consts_nodup, consts_eq⟩
       let funcs : Set (SkolemFS sig) := rs.skolem_functions
       have funcs_finite : funcs.finite := rs.skolem_functions_finite_of_finite rs_finite
       rcases funcs_finite with ⟨l_funcs, l_funcs_nodup, funcs_eq⟩
-      let overapproximation : Set (GroundTerm sig) := fun t => (t.val.depth ≤ l_funcs.length + 1 ∧ (∀ c, c ∈ t.val.leaves -> c = default) ∧ (∀ func, func ∈ t.val.innerLabels -> func ∈ l_funcs))
+      let overapproximation : Set (GroundTerm sig) := fun t => (t.val.depth ≤ l_funcs.length + 1 ∧ (∀ c, c ∈ t.val.leaves -> c = default ∨ c ∈ l_consts) ∧ (∀ func, func ∈ t.val.innerLabels -> func ∈ l_funcs))
       have overapproximation_finite : overapproximation.finite := by
-        exists (all_terms_limited_by_depth [default] l_funcs (l_funcs.length + 1)).eraseDupsKeepRight
+        exists (all_terms_limited_by_depth (default :: l_consts) l_funcs (l_funcs.length + 1)).eraseDupsKeepRight
         constructor
         . apply List.nodup_eraseDupsKeepRight
         . intro t
           rw [List.mem_eraseDupsKeepRight]
           rw [mem_all_terms_limited_by_depth]
-          simp only [overapproximation, List.mem_singleton]
+          simp only [overapproximation, List.mem_cons]
           rfl
       apply Set.finite_of_subset_finite overapproximation_finite
       intro t t_mem
@@ -1911,31 +1517,6 @@ namespace RuleSet
         intro func func_mem
         rw [funcs_eq]
         unfold funcs
-
-        have : rs.skolem_functions = (rs.mfaKb rs_finite default).rules.skolem_functions := by
-          unfold mfaKb
-          unfold RuleSet.skolem_functions
-          simp only
-          apply Set.ext
-          intro f
-          constructor
-          . intro h
-            rcases h with ⟨r, r_mem, f_mem⟩
-            exists (UniformConstantMapping sig default).apply_rule r
-            constructor
-            . exists r
-            . rw [StrictConstantMapping.apply_rule_skolem_functions_eq]
-              exact f_mem
-          . intro h
-            rcases h with ⟨r, r_mem, f_mem⟩
-            rcases r_mem with ⟨r', r'_mem, r_mem⟩
-            exists r'
-            constructor
-            . exact r'_mem
-            . rw [r_mem] at f_mem
-              rw [StrictConstantMapping.apply_rule_skolem_functions_eq] at f_mem
-              exact f_mem
-        rw [this]
 
         apply (KnowledgeBase.deterministicSkolemChaseResult_functions (rs.mfaKb rs_finite default))
         rcases t_mem with ⟨f, f_mem, t_mem⟩
@@ -1960,7 +1541,7 @@ namespace RuleSet
       constructor
       . intro c c_mem
 
-        have := (KnowledgeBase.deterministicSkolemChaseResult_constants (rs.mfaKb rs_finite default))
+        have := (KnowledgeBase.deterministicSkolemChaseResult_constants (rs.mfaKb rs_finite default) mfa_obs)
         specialize this c (by
           unfold FactSet.constants
           rcases t_mem with ⟨f, f_mem, t_mem⟩
@@ -1971,14 +1552,24 @@ namespace RuleSet
             rw [List.mem_flatMap]
             exists t
         )
+        rw [consts_eq]
         cases this with
         | inl this =>
-          apply rs.mfaKb_rules_head_constants rs_finite default
+          apply Or.inr
+          apply RuleSet.head_constants_subset_constants
           exact this
         | inr this =>
           apply rs.mfaKb_db_constants rs_finite default
           exact this
       . exact this
+
+  theorem terminates_of_isMfa_with_DeterministicSkolemObsoleteness [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.rules.finite) :
+      rs.isMfa rs_finite (DeterministicSkolemObsoleteness sig) -> rs.terminates obs :=
+    rs.terminates_of_isMfa rs_finite (DeterministicSkolemObsoleteness sig) (DeterministicSkolemObsoleteness.blocks_each_obs obs default rs)
+
+  theorem terminates_of_isMfa_with_BlockingObsoleteness [GetFreshInhabitant sig.C] [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.rules.finite) (obs : ObsoletenessCondition sig) (obs_propagates_under_const_mapping : obs.propagates_under_constant_mapping) :
+      rs.isMfa rs_finite (BlockingObsoleteness obs rs) -> rs.terminates obs :=
+    rs.terminates_of_isMfa rs_finite (BlockingObsoleteness obs rs) (BlockingObsoleteness.blocks_corresponding_obs obs obs_propagates_under_const_mapping rs rs_finite default)
 
 end RuleSet
 

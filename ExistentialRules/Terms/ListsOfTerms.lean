@@ -1,57 +1,7 @@
+import BasicLeanDatastructures.List.AllListsOfLength
 import ExistentialRules.Terms.Basic
 
 variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
-
-def all_term_lists_of_length (candidate_terms : List (GroundTerm sig)) : Nat -> List (List (GroundTerm sig))
-| .zero => [[]]
-| .succ n =>
-  let prev_terms := all_term_lists_of_length candidate_terms n
-  candidate_terms.flatMap (fun t =>
-    prev_terms.map (fun ts =>
-      t :: ts
-    )
-  )
-
-theorem mem_all_term_lists_of_length (candidate_terms : List (GroundTerm sig)) (length : Nat) : ∀ ts, ts ∈ (all_term_lists_of_length candidate_terms length) ↔ (ts.length = length ∧ (∀ t, t ∈ ts -> t ∈ candidate_terms)) := by
-  induction length with
-  | zero => intro ts; unfold all_term_lists_of_length; simp; intro eq t _ mem; rw [eq] at mem; simp at mem
-  | succ length ih =>
-    intro ts
-    unfold all_term_lists_of_length
-    simp only [List.mem_flatMap, List.mem_map]
-
-    constructor
-    . intro h
-      rcases h with ⟨t, t_mem, prev, prev_mem, ts_eq⟩
-      rw [← ts_eq]
-      specialize ih prev
-      have ih := ih.mp prev_mem
-      constructor
-      . rw [List.length_cons, ih.left]
-      . intro t' t'_mem
-        rw [List.mem_cons] at t'_mem
-        cases t'_mem with
-        | inl t'_mem => rw [t'_mem]; apply t_mem
-        | inr t'_mem => apply ih.right; exact t'_mem
-    . intro h
-      cases ts with
-      | nil => simp at h
-      | cons hd tl =>
-        exists hd
-        constructor
-        . apply h.right
-          simp
-        . exists tl
-          constructor
-          . rw [ih]
-            constructor
-            . have l := h.left
-              rw [List.length_cons, Nat.add_right_cancel_iff] at l
-              exact l
-            . intro t t_mem
-              apply h.right
-              simp [t_mem]
-          . rfl
 
 def all_terms_limited_by_depth (constants : List sig.C) (funcs : List (SkolemFS sig)) : Nat -> List (GroundTerm sig)
 | 0 => []
@@ -59,9 +9,9 @@ def all_terms_limited_by_depth (constants : List sig.C) (funcs : List (SkolemFS 
 | .succ (.succ depth) =>
   let prev := all_terms_limited_by_depth constants funcs (.succ depth)
   funcs.flatMap (fun func =>
-    (all_term_lists_of_length prev func.arity).attach.map (fun ⟨ts, mem⟩ =>
+    (all_lists_of_length prev func.arity).attach.map (fun ⟨ts, mem⟩ =>
       GroundTerm.func func ts (by
-        rw [mem_all_term_lists_of_length] at mem
+        rw [mem_all_lists_of_length] at mem
         exact mem.left
       )
     )
@@ -198,7 +148,7 @@ theorem mem_all_terms_limited_by_depth (constants : List sig.C) (funcs : List (S
           unfold List.attachWith at ts_mem
           rw [List.mem_pmap] at ts_mem
           rcases ts_mem with ⟨ts_val, ts_mem, ts_eq⟩
-          rw [mem_all_term_lists_of_length] at ts_mem
+          rw [mem_all_lists_of_length] at ts_mem
 
           rw [GroundTerm.depth_func]
           rw [GroundTerm.constants_func]
@@ -292,8 +242,8 @@ theorem mem_all_terms_limited_by_depth (constants : List sig.C) (funcs : List (S
             . apply funcs_mem
               simp
 
-            have ts_mem : ts ∈ all_term_lists_of_length (all_terms_limited_by_depth constants funcs depth.succ) t_func.arity := by
-              rw [mem_all_term_lists_of_length]
+            have ts_mem : ts ∈ all_lists_of_length (all_terms_limited_by_depth constants funcs depth.succ) t_func.arity := by
+              rw [mem_all_lists_of_length]
               constructor
               . have prop := t.property
                 unfold PreGroundTerm.arity_ok at prop
