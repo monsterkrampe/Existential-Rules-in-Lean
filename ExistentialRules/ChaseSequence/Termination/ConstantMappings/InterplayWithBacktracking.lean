@@ -1679,7 +1679,7 @@ section InterplayWithBacktracking
                 . intro _ e_mem
                   simp only [List.unattach_nil, FiniteTreeList.fromList, PreGroundTerm.backtrackFacts_list, List.toSet] at e_mem
                   rcases e_mem with ⟨_, f_mem, _⟩
-                  simp [Set.element, Set.empty] at f_mem
+                  simp [Membership.mem, Set.empty] at f_mem
                 . intros; rfl
               | cons hd tl inner_ih =>
                 rw [List.flatMap_cons, List.append_subset] at forbidden_constants_subsumes_term

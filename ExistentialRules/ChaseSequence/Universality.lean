@@ -272,17 +272,17 @@ noncomputable def inductive_homomorphism (ct : ChaseTree obs kb) (m : FactSet si
   constructor
   . unfold GroundTermMapping.isIdOnConstants; intro gt; cases gt <;> simp [GroundTerm.const, GroundTerm.func]
   . intro el
-    simp [Set.element]
     intro el_in_set
     cases el_in_set with | intro f hf =>
       apply m_is_model.left
-      simp [Set.element]
       have : f = el := by have hfr := hf.right; simp [GroundTermMapping.applyFact] at hfr; exact hfr
       rw [this] at hf
       exact hf.left
 ⟩
 | .succ j =>
-  let ⟨(prev_path, prev_hom), prev_cond⟩ := inductive_homomorphism ct m m_is_model j
+  let prev_path := (inductive_homomorphism ct m m_is_model j).val.fst
+  let prev_hom := (inductive_homomorphism ct m m_is_model j).val.snd
+  let prev_cond := (inductive_homomorphism ct m m_is_model j).property
   let prev_node := ct.tree.get prev_path
 
   match prev_node_eq : prev_node with
@@ -311,42 +311,49 @@ theorem inductive_homomorphism_with_prev_node_and_trg_path_not_empty (ct : Chase
   unfold inductive_homomorphism_with_prev_node_and_trg
   simp
 
-theorem inductive_homomorphism_path_not_empty {ct : ChaseTree obs kb} : ∀ n, (inductive_homomorphism ct m m_is_model (n+1)).val.1 ≠ [] := by
-  intro n
-  unfold inductive_homomorphism
-  split
-  simp
-  split
-  . simp
+theorem inductive_homomorphism_with_prev_node_path_not_empty (ct : ChaseTree obs kb) (m : FactSet sig) (m_is_model : m.modelsKb kb) (prev_depth : Nat) (prev_result : InductiveHomomorphismResult ct m prev_depth) (prev_node_unwrapped : ChaseNode obs kb.rules) (prev_node_eq : ct.tree.get prev_result.val.fst = some prev_node_unwrapped) : (inductive_homomorphism_with_prev_node ct m m_is_model prev_depth prev_result prev_node_unwrapped prev_node_eq).val.1 ≠ [] := by
   unfold inductive_homomorphism_with_prev_node
-  simp
+  simp only
   split
   . simp
   apply inductive_homomorphism_with_prev_node_and_trg_path_not_empty
 
+theorem inductive_homomorphism_path_not_empty {ct : ChaseTree obs kb} : ∀ n, (inductive_homomorphism ct m m_is_model (n+1)).val.1 ≠ [] := by
+  intro n
+  unfold inductive_homomorphism
+  simp only
+  split
+  . simp
+  apply inductive_homomorphism_with_prev_node_path_not_empty
+
 theorem inductive_homomorphism_with_prev_node_and_trg_path_extends_prev (ct : ChaseTree obs kb) (m : FactSet sig) (m_is_model : m.modelsKb kb) (prev_depth : Nat) (prev_result : InductiveHomomorphismResult ct m prev_depth) (prev_node_unwrapped : ChaseNode obs kb.rules) (prev_node_eq : ct.tree.get prev_result.val.fst = some prev_node_unwrapped) (trg_ex : exists_trigger_list obs kb.rules prev_node_unwrapped (ct.tree.children prev_result.val.fst)) : (inductive_homomorphism_with_prev_node_and_trg ct m m_is_model prev_depth prev_result prev_node_unwrapped prev_node_eq trg_ex).val.1 = ((inductive_homomorphism_with_prev_node_and_trg ct m m_is_model prev_depth prev_result prev_node_unwrapped prev_node_eq trg_ex).val.1.head (by apply inductive_homomorphism_with_prev_node_and_trg_path_not_empty)) :: prev_result.val.fst := by
-  conv => left; rw [List.head_cons_tail_of_ne_nil (inductive_homomorphism_with_prev_node_and_trg_path_not_empty ct m m_is_model prev_depth prev_result prev_node_unwrapped prev_node_eq trg_ex)]
-  simp
   unfold inductive_homomorphism_with_prev_node_and_trg
   simp
+
+theorem inductive_homomorphism_with_prev_node_path_extends_prev (ct : ChaseTree obs kb) (m : FactSet sig) (m_is_model : m.modelsKb kb) (prev_depth : Nat) (prev_result : InductiveHomomorphismResult ct m prev_depth) (prev_node_unwrapped : ChaseNode obs kb.rules) (prev_node_eq : ct.tree.get prev_result.val.fst = some prev_node_unwrapped) : (inductive_homomorphism_with_prev_node ct m m_is_model prev_depth prev_result prev_node_unwrapped prev_node_eq).val.1 = ((inductive_homomorphism_with_prev_node ct m m_is_model prev_depth prev_result prev_node_unwrapped prev_node_eq).val.1.head (by apply inductive_homomorphism_with_prev_node_path_not_empty)) :: prev_result.val.fst := by
+  conv => left; rw [List.head_cons_tail_of_ne_nil (inductive_homomorphism_with_prev_node_path_not_empty ct m m_is_model prev_depth prev_result prev_node_unwrapped prev_node_eq)]
+  rw [List.cons.injEq]
+  constructor
+  . rfl
+  . unfold inductive_homomorphism_with_prev_node
+    simp only
+    split
+    . rfl
+    . rw [inductive_homomorphism_with_prev_node_and_trg_path_extends_prev]
+      rfl
 
 theorem inductive_homomorphism_path_extends_prev {ct : ChaseTree obs kb} : ∀ n, (inductive_homomorphism ct m m_is_model (n+1)).val.1 = ((inductive_homomorphism ct m m_is_model (n+1)).val.1.head (by apply inductive_homomorphism_path_not_empty)) :: (inductive_homomorphism ct m m_is_model n).val.1 := by
   intro n
   conv => left; rw [List.head_cons_tail_of_ne_nil (inductive_homomorphism_path_not_empty n)]
-  simp
-  conv => left; unfold inductive_homomorphism
-  split
-  case _ prev_path _ _ heq =>
-    have : prev_path = (inductive_homomorphism ct m m_is_model n).val.1 := by rw [heq]
-    simp
+  rw [List.cons.injEq]
+  constructor
+  . rfl
+  . conv => left; unfold inductive_homomorphism
+    simp only
     split
-    . simp; exact this
-    unfold inductive_homomorphism_with_prev_node
-    simp
-    split
-    . simp; exact this
-    unfold inductive_homomorphism_with_prev_node_and_trg
-    simp; exact this
+    . rfl
+    . rw [inductive_homomorphism_with_prev_node_path_extends_prev]
+      rfl
 
 theorem inductive_homomorphism_path_extends_all_prev {ct : ChaseTree obs kb} : ∀ n d, (inductive_homomorphism ct m m_is_model (n+d)).val.1 = ((inductive_homomorphism ct m m_is_model (n+d)).val.1.take d) ++ (inductive_homomorphism ct m m_is_model n).val.1 := by
   intro n d
@@ -644,7 +651,6 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
             . apply ct.fairness_leaves
               unfold FiniteDegreeTree.leaves
               unfold PossiblyInfiniteTree.leaves
-              simp only [Set.element]
               exists (inductive_homomorphism_shortcut n).val.fst
               constructor
               . simp only [nodes, path] at eq; exact eq
@@ -770,8 +776,6 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
   exists global_h
   constructor
   . unfold ChaseTree.result
-    unfold Set.element
-    simp
     exists branch
     simp [result]
     unfold ChaseTree.branches
@@ -779,8 +783,6 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
     unfold PossiblyInfiniteTree.branches
     unfold InfiniteTreeSkeleton.branches
     unfold InfiniteTreeSkeleton.branches_through
-    unfold Set.element
-    simp
     exists indices
     constructor
     . intro n
@@ -812,11 +814,9 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
     . intro f hf
       simp only [result] at hf
       unfold ChaseBranch.result at hf
-      unfold Set.element at hf
       unfold GroundTermMapping.applyFactSet at hf
       cases hf with | intro e he =>
         let ⟨hel, her⟩ := he
-        simp only [Set.element] at hel
         cases hel with | intro n hn =>
           simp only [branch, nodes] at hn
           rw [← her]
@@ -835,6 +835,5 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
             have : (inductive_homomorphism_shortcut n).val.snd.applyFactSet node.fact ⊆ m := property.right
             unfold Set.subset at this
             apply this
-            simp [Set.element, GroundTermMapping.applyFactSet]
             exists e
 

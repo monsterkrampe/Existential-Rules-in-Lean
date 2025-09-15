@@ -9,12 +9,11 @@ variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
 -- TODO: split up the proofs to get rid of this
 set_option maxHeartbeats 400000
 
-def ChaseTree.firstResult (ct : ChaseTree obs kb) : FactSet sig := fun f => ∃ n, (ct.tree.get (List.repeat 0 n)).is_some_and (fun node => f ∈ node.fact)
+def ChaseTree.firstResult (ct : ChaseTree obs kb) : FactSet sig := fun f => ∃ n, (ct.tree.get (List.repeat 0 n)).is_some_and (fun node => f ∈ node.fact.val)
 
 theorem ChaseTree.firstResult_is_in_result (ct : ChaseTree obs kb) : ct.firstResult ∈ ct.result := by
   unfold firstResult
   unfold result
-  unfold Set.element
   let firstBranch : ChaseBranch obs kb := {
     branch := {
       infinite_list := fun n => ct.tree.get (List.repeat 0 n)
@@ -56,7 +55,6 @@ theorem ChaseTree.firstResult_is_in_result (ct : ChaseTree obs kb) : ct.firstRes
                 have : node ∈ ct.tree.leaves := by
                   unfold FiniteDegreeTree.leaves
                   unfold PossiblyInfiniteTree.leaves
-                  simp only [Set.element]
                   exists (List.repeat 0 n)
                   constructor
                   . exact eq
@@ -109,7 +107,6 @@ theorem ChaseTree.firstResult_is_in_result (ct : ChaseTree obs kb) : ct.firstRes
             . apply ct.fairness_leaves
               unfold FiniteDegreeTree.leaves
               unfold PossiblyInfiniteTree.leaves
-              simp only [Set.element]
               exists (List.repeat 0 n)
               constructor
               . simp only [FiniteDegreeTree.get] at eq; exact eq
@@ -172,7 +169,6 @@ theorem ChaseTree.firstResult_is_in_result (ct : ChaseTree obs kb) : ct.firstRes
     unfold PossiblyInfiniteTree.branches
     unfold InfiniteTreeSkeleton.branches
     unfold InfiniteTreeSkeleton.branches_through
-    simp only [Set.element]
     let nodes : InfiniteList Nat := fun _ => 0
     exists nodes
     constructor
@@ -209,7 +205,6 @@ theorem ChaseTree.firstResult_is_result_when_deterministic (ct : ChaseTree obs k
       unfold FiniteDegreeTree.branches at branch_in_ct
       unfold PossiblyInfiniteTree.branches at branch_in_ct
       unfold InfiniteTreeSkeleton.branches at branch_in_ct
-      simp only [Set.element] at branch_in_ct
       cases branch_in_ct with | intro nodes branch_in_ct =>
         have : ∀ n, (branch.branch.infinite_list (n+1)).is_none_or (fun _ => nodes n = 0) := by
           intro n
@@ -378,7 +373,6 @@ theorem ChaseTree.firstResult_is_result_when_deterministic (ct : ChaseTree obs k
   . intro h
     have firstResult_is_in_result := ct.firstResult_is_in_result
     unfold ChaseTree.result at firstResult_is_in_result
-    simp only [Set.element] at firstResult_is_in_result
     rw [h]
     exact firstResult_is_in_result
 
@@ -391,7 +385,6 @@ theorem deterministicChaseTreeResultUniversallyModelsKb (ct : ChaseTree obs kb) 
     cases chaseTreeResultIsUniversal ct m m_is_model with | intro fs h' =>
       cases h' with | intro hom h' =>
         rw [ct.firstResult_is_result_when_deterministic h] at h'
-        simp only [Set.element] at h'
         exists hom
         rw [← h'.left]
         exact h'.right

@@ -78,7 +78,6 @@ section GeneralResults
               . exact hl.left
               . intro e
                 rw [hl.right e]
-                simp [Set.element]
                 constructor
                 . intro e_in_node
                   exists n
@@ -106,7 +105,6 @@ section GeneralResults
       . intro h
         rcases h with ⟨l, h⟩
         unfold ChaseBranch.result at h
-        simp only [Set.element] at h
         unfold ChaseBranch.terminates
 
         have : ∀ (l : List (Fact sig)), (∀ e, e ∈ l -> ∃ n, (branch.branch.infinite_list n).is_some_and (fun fs => e ∈ fs.fact.val)) ->
@@ -348,7 +346,7 @@ section GeneralResults
             have spec := Classical.choose_spec p
             injection b_eq with b_eq
             rw [← b_eq]
-            simp [Set.element]
+            simp only [Membership.mem]
             rw [spec]
             apply (l_eq b).mp
             exact b_mem

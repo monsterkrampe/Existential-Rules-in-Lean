@@ -58,15 +58,10 @@ theorem mem_all_terms_limited_by_depth (constants : List sig.C) (funcs : List (S
             cases m with
             | zero =>
               rw [List.max?_eq_some_iff] at eq
-              . have contra := eq.left
-                rw [List.mem_map] at contra
-                rcases contra with ⟨t, t_mem, contra⟩
-                cases t <;> simp [GroundTerm.depth_const, GroundTerm.depth_func] at contra
-              . simp
-              . intro a b; cases Decidable.em (a ≤ b) with
-                | inl le => apply Or.inr; apply Nat.max_eq_right; exact le
-                | inr le => apply Or.inl; apply Nat.max_eq_left; apply Nat.le_of_not_le; exact le
-              . intros; apply Nat.max_le
+              have contra := eq.left
+              rw [List.mem_map] at contra
+              rcases contra with ⟨t, t_mem, contra⟩
+              cases t <;> simp [GroundTerm.depth_const, GroundTerm.depth_func] at contra
             | succ m =>
               rw [eq, Nat.add_comm] at contra
               simp at contra
@@ -176,7 +171,6 @@ theorem mem_all_terms_limited_by_depth (constants : List sig.C) (funcs : List (S
                 rw [← d_mem]
                 apply depth_ts
                 exact t_mem
-              . intros; apply Nat.max_le
               . exact eq
           constructor
           . exact this.right.left
@@ -220,15 +214,10 @@ theorem mem_all_terms_limited_by_depth (constants : List sig.C) (funcs : List (S
                 | some m =>
                   rw [eq, Option.getD_some, ← Nat.succ_eq_add_one] at depth_le
                   rw [List.max?_eq_some_iff] at eq
-                  . rw [← depth_le]
-                    apply eq.right
-                    rw [List.mem_map]
-                    exists t
-                  . simp
-                  . intro a b; cases Decidable.em (a ≤ b) with
-                    | inl le => apply Or.inr; apply Nat.max_eq_right; exact le
-                    | inr le => apply Or.inl; apply Nat.max_eq_left; apply Nat.le_of_not_le; exact le
-                  . intros; apply Nat.max_le
+                  rw [← depth_le]
+                  apply eq.right
+                  rw [List.mem_map]
+                  exists t
               constructor
               . exact consts_mem
               . intro func func_mem

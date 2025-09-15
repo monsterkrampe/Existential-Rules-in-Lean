@@ -32,7 +32,7 @@ def exists_trigger_opt_fs (obs : ObsoletenessCondition sig) (rules : RuleSet sig
           unfold Set.union
           rw [l_eq]
           simp only [List.mem_toSet]
-          simp [Set.element]
+          rfl
     ⟩
     origin := some ⟨trg, i⟩
     fact_contains_origin_result := by simp [Option.is_none_or]; apply Set.subset_union_of_subset_right; apply Set.subset_refl
@@ -56,7 +56,7 @@ def exists_trigger_list_condition (obs : ObsoletenessCondition sig) (rules : Rul
           rw [l_eq]
           simp only [List.mem_toSet]
           rw [← h]
-          simp [Set.element]
+          rfl
     ⟩
     origin := some ⟨trg, i⟩
     fact_contains_origin_result := by
@@ -98,7 +98,7 @@ namespace ChaseBranch
   variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
 
   def result (cb : ChaseBranch obs kb) : FactSet sig :=
-    fun f => ∃ n : Nat, (cb.branch.infinite_list n).is_some_and (fun fs => f ∈ fs.fact)
+    fun f => ∃ n : Nat, (cb.branch.infinite_list n).is_some_and (fun fs => f ∈ fs.fact.val)
 
   theorem predecessor_isSome_of_isSome (cb : ChaseBranch obs kb) (i : Nat) (isSome : (cb.branch.infinite_list (i + 1)).isSome) :
       (cb.branch.infinite_list i).isSome := by
@@ -416,7 +416,7 @@ namespace ChaseBranch
 
   theorem funcTermForExisVarInChaseMeansTriggerIsUsed (cb : ChaseBranch obs kb) (i : Nat) {node : ChaseNode obs kb.rules} (eq : cb.branch.infinite_list i = some node)
       (trg : RTrigger obs kb.rules) (trg_idx : Fin trg.val.mapped_head.length) {v : sig.V} (v_front : ¬ v ∈ trg.val.rule.frontier)
-      (term_in_node : ∃ (f : Fact sig), f ∈ node.fact ∧ (trg.val.functional_term_for_var trg_idx.val v) ∈ f.terms) :
+      (term_in_node : ∃ (f : Fact sig), f ∈ node.fact.val ∧ (trg.val.functional_term_for_var trg_idx.val v) ∈ f.terms) :
       ∃ drop_number : Fin i, (cb.branch.infinite_list (i - drop_number.val)).is_some_and (fun prev_node => prev_node.origin.is_some_and (fun origin => trg.equiv origin.fst ∧ trg_idx.val = origin.snd.val)) := by
     induction i generalizing node with
     | zero =>
@@ -433,7 +433,7 @@ namespace ChaseBranch
       simp [PreTrigger.functional_term_for_var, GroundTerm.func, GroundTerm.const] at func_free
     | succ i ih =>
       let prev_node := (cb.prev_node i (by simp [eq]))
-      cases Classical.em (∃ (f : Fact sig), f ∈ prev_node.fact ∧ (trg.val.functional_term_for_var trg_idx.val v) ∈ f.terms) with
+      cases Classical.em (∃ (f : Fact sig), f ∈ prev_node.fact.val ∧ (trg.val.functional_term_for_var trg_idx.val v) ∈ f.terms) with
       | inl term_in_prev_node =>
         rcases ih (by apply cb.prev_node_eq) term_in_prev_node with ⟨drop, ih⟩
         exists ⟨drop.val + 1, by simp⟩
@@ -503,7 +503,7 @@ namespace ChaseBranch
 
   theorem funcTermForExisVarInChaseMeansTriggerResultOccurs (cb : ChaseBranch obs kb) (i : Nat) {node : ChaseNode obs kb.rules} (eq : cb.branch.infinite_list i = some node)
       (trg : RTrigger obs kb.rules) (trg_idx : Fin trg.val.mapped_head.length) {v : sig.V} (v_front : ¬ v ∈ trg.val.rule.frontier)
-      (term_in_node : ∃ (f : Fact sig), f ∈ node.fact ∧ (trg.val.functional_term_for_var trg_idx.val v) ∈ f.terms) :
+      (term_in_node : ∃ (f : Fact sig), f ∈ node.fact.val ∧ (trg.val.functional_term_for_var trg_idx.val v) ∈ f.terms) :
       trg.val.mapped_head[trg_idx.val].toSet ⊆ node.fact.val := by
     rcases cb.funcTermForExisVarInChaseMeansTriggerIsUsed i eq trg trg_idx v_front term_in_node with ⟨drop, h⟩
     rw [Option.is_some_and_iff] at h
@@ -704,7 +704,7 @@ namespace ChaseTree
 
   theorem funcTermForExisVarInChaseMeansTriggerIsUsed (ct : ChaseTree obs kb) (path : List Nat) {node : ChaseNode obs kb.rules} (eq : ct.tree.get path = some node)
       (trg : RTrigger obs kb.rules) (trg_idx : Fin trg.val.mapped_head.length) {v : sig.V} (v_front : ¬ v ∈ trg.val.rule.frontier)
-      (term_in_node : ∃ (f : Fact sig), f ∈ node.fact ∧ (trg.val.functional_term_for_var trg_idx.val v) ∈ f.terms) :
+      (term_in_node : ∃ (f : Fact sig), f ∈ node.fact.val ∧ (trg.val.functional_term_for_var trg_idx.val v) ∈ f.terms) :
       ∃ drop_number : Fin path.length, (ct.tree.get (path.drop drop_number.val)).is_some_and (fun prev_node => prev_node.origin.is_some_and (fun origin => trg.equiv origin.fst ∧ trg_idx.val = origin.snd.val)) := by
     induction path generalizing node with
     | nil =>
@@ -721,7 +721,7 @@ namespace ChaseTree
       simp [PreTrigger.functional_term_for_var, GroundTerm.func, GroundTerm.const] at func_free
     | cons i path ih =>
       let prev_node := (ct.prev_node path i (by simp [eq]))
-      cases Classical.em (∃ (f : Fact sig), f ∈ prev_node.fact ∧ (trg.val.functional_term_for_var trg_idx.val v) ∈ f.terms) with
+      cases Classical.em (∃ (f : Fact sig), f ∈ prev_node.fact.val ∧ (trg.val.functional_term_for_var trg_idx.val v) ∈ f.terms) with
       | inl term_in_prev_node =>
         rcases ih (by apply ct.prev_node_eq) term_in_prev_node with ⟨drop, ih⟩
         exists ⟨drop.val + 1, by simp⟩
@@ -789,7 +789,7 @@ namespace ChaseTree
 
   theorem funcTermForExisVarInChaseMeansTriggerResultOccurs (ct : ChaseTree obs kb) (path : List Nat) {node : ChaseNode obs kb.rules} (eq : ct.tree.get path = some node)
       (trg : RTrigger obs kb.rules) (trg_idx : Fin trg.val.mapped_head.length) {v : sig.V} (v_front : ¬ v ∈ trg.val.rule.frontier)
-      (term_in_node : ∃ (f : Fact sig), f ∈ node.fact ∧ (trg.val.functional_term_for_var trg_idx.val v) ∈ f.terms) :
+      (term_in_node : ∃ (f : Fact sig), f ∈ node.fact.val ∧ (trg.val.functional_term_for_var trg_idx.val v) ∈ f.terms) :
       trg.val.mapped_head[trg_idx.val].toSet ⊆ node.fact.val := by
     rcases ct.funcTermForExisVarInChaseMeansTriggerIsUsed path eq trg trg_idx v_front term_in_node with ⟨drop, h⟩
     rw [Option.is_some_and_iff] at h

@@ -1116,7 +1116,8 @@ namespace RuleSet
               rw [List.mem_eraseDupsKeepRight, List.mem_filter]
               rw [prev_l_eq]
               unfold prev_filtered
-              simp [preds_l_eq, Set.element, And.comm]
+              simp only [preds_l_eq, decide_eq_true_eq, And.comm]
+              rfl
           rcases prev_finite with ⟨prev_l, _, prev_l_eq⟩
 
           have : ∀ (l : List (Fact sig)), (∀ e, e ∈ l -> e.predicate ∈ rs.predicates ∧ e ∈ prev_node.fact.val) -> ∃ n, (∀ e, e ∈ l -> ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact e) ∈ (kb.parallelSkolemChase mfa_obs n)) := by
@@ -1178,7 +1179,7 @@ namespace RuleSet
         rcases this with ⟨m, prev_node_subs_parallel_chase⟩
         exists (m+1)
         unfold KnowledgeBase.parallelSkolemChase
-        simp only [Set.element]
+        simp only [instMembershipSet]
 
         rw [Classical.or_iff_not_imp_left]
         intro f_not_in_prev
@@ -1198,7 +1199,6 @@ namespace RuleSet
               simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj, List.mem_map] at f_mem
               rcases f_mem with ⟨a, a_mem, f_eq⟩
               unfold adjusted_trg at a_mem
-              simp only [Set.element]
               constructor
               . rw [← f_eq]
                 simp only [GroundSubstitution.apply_function_free_atom]

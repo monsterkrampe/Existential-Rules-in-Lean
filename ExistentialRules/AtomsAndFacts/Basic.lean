@@ -434,7 +434,7 @@ end FactSet
 namespace Database
 
   def constants (db : Database sig) : { C : Set sig.C // C.finite } := ⟨
-    fun c => ∃ (f : FunctionFreeFact sig), f ∈ db ∧ c ∈ f.terms,
+    fun c => ∃ (f : FunctionFreeFact sig), f ∈ db.val ∧ c ∈ f.terms,
     by
       rcases db.property with ⟨l, _, l_eq⟩
       exists (l.flatMap (fun f => f.terms)).eraseDupsKeepRight
@@ -470,7 +470,7 @@ namespace Database
         rw [List.mem_eraseDupsKeepRight]
         rw [List.mem_map]
         simp only [l_eq]
-        simp [Set.element]
+        rfl
     ),
     (by
       intro f f_mem

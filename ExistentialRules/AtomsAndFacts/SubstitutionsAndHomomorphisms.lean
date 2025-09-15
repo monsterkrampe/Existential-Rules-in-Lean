@@ -111,7 +111,6 @@ namespace GroundTermMapping
   theorem applyPreservesElement (h : GroundTermMapping sig) (f : Fact sig) (fs : FactSet sig) :
       f ∈ fs -> applyFact h f ∈ applyFactSet h fs := by
     intro hf
-    simp [Set.element] at *
     unfold applyFactSet
     exists f
 
