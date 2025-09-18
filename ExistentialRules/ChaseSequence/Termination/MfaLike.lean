@@ -74,8 +74,8 @@ def MfaObsoletenessCondition.blocks_obs (mfa_obs : MfaObsoletenessCondition sig)
   (∃ (i : Fin trg.val.mapped_head.length), ¬ ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact_set trg.val.mapped_head[i.val].toSet) ⊆ fs) ->
   (mfa_obs.cond { rule := trg.val.rule, subs := (rs.mfaConstantMapping special_const).toConstantMapping.apply_ground_term ∘ trg.val.subs } fs) ->
   (cb.branch.infinite_list step).is_none_or (fun node =>
-    trg.val.loaded node.fact ->
-    obs.cond trg.val node.fact
+    trg.val.loaded node.facts ->
+    obs.cond trg.val node.facts
   )
 
 def DeterministicSkolemObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] : MfaObsoletenessCondition sig := {
@@ -687,7 +687,7 @@ namespace KnowledgeBase
         -- should be easy enough: get n from induction hypothesis and then use n+1
         rw [Option.is_some_and_iff] at h
         rcases h with ⟨node, eq_node, h⟩
-        rw [cb.origin_trg_result_yields_next_node_fact n node eq_node] at h
+        rw [cb.origin_trg_result_yields_next_node_facts n node eq_node] at h
         cases h with
         | inl h =>
           specialize ih f
@@ -697,11 +697,11 @@ namespace KnowledgeBase
         | inr h =>
           let prev_node := cb.prev_node n (by simp [eq_node])
 
-          have : ∃ n, prev_node.fact.val ⊆ kb.parallelSkolemChase (DeterministicSkolemObsoleteness sig) n := by
-            have prev_finite := prev_node.fact.property
+          have : ∃ n, prev_node.facts.val ⊆ kb.parallelSkolemChase (DeterministicSkolemObsoleteness sig) n := by
+            have prev_finite := prev_node.facts.property
             rcases prev_finite with ⟨prev_l, _, prev_l_eq⟩
 
-            have : ∀ (l : List (Fact sig)), (∀ e, e ∈ l -> e ∈  prev_node.fact.val) -> ∃ n, (∀ e, e ∈ l -> e ∈ kb.parallelSkolemChase (DeterministicSkolemObsoleteness sig) n) := by
+            have : ∀ (l : List (Fact sig)), (∀ e, e ∈ l -> e ∈  prev_node.facts.val) -> ∃ n, (∀ e, e ∈ l -> e ∈ kb.parallelSkolemChase (DeterministicSkolemObsoleteness sig) n) := by
               intro l l_sub
               induction l with
               | nil => exists 0; intro e; simp
@@ -762,7 +762,7 @@ namespace KnowledgeBase
             . unfold Trigger.active
               constructor
               . unfold PreTrigger.loaded
-                apply Set.subset_trans (b := prev_node.fact.val)
+                apply Set.subset_trans (b := prev_node.facts.val)
                 . exact (cb.origin_trg_is_active _ _ eq_node).left
                 . exact prev_subs
               . intro contra
@@ -786,8 +786,8 @@ namespace KnowledgeBase
         | inr h =>
           rcases h with ⟨trg, trg_active, f_mem⟩
 
-          have trg_loaded_somewhere : ∃ n, (cb.branch.infinite_list n).is_some_and (fun node => trg.val.loaded node.fact.val) := by
-            have : ∀ (l : List (Fact sig)), (∀ e, e ∈ l -> e ∈ trg.val.mapped_body) -> ∃ n, (cb.branch.infinite_list n).is_some_and (fun node => (∀ e, e ∈ l -> e ∈ node.fact.val)) := by
+          have trg_loaded_somewhere : ∃ n, (cb.branch.infinite_list n).is_some_and (fun node => trg.val.loaded node.facts.val) := by
+            have : ∀ (l : List (Fact sig)), (∀ e, e ∈ l -> e ∈ trg.val.mapped_body) -> ∃ n, (cb.branch.infinite_list n).is_some_and (fun node => (∀ e, e ∈ l -> e ∈ node.facts.val)) := by
               intro l l_sub
               induction l with
               | nil => exists 0; rw [cb.database_first, Option.is_some_and]; simp
@@ -870,7 +870,7 @@ namespace KnowledgeBase
             unfold Trigger.active at trg_not_active
             simp only [not_and, Classical.not_not] at trg_not_active
 
-            have trg_loaded : trg.val.loaded node_fairness.fact.val := by
+            have trg_loaded : trg.val.loaded node_fairness.facts.val := by
               intro f f_mem
               rcases Nat.exists_eq_add_of_le le with ⟨diff, le⟩
               have subsetAllFollowing := ChaseBranch.stepIsSubsetOfAllFollowing cb loaded_n _ eq_node_loaded diff
@@ -1038,7 +1038,7 @@ namespace RuleSet
   def mfaSet (rs : RuleSet sig) (finite : rs.rules.finite) (special_const : sig.C) (obs : MfaObsoletenessCondition sig) : FactSet sig :=
     (rs.mfaKb finite special_const).deterministicSkolemChaseResult obs
 
-  theorem mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_predicates_not_from_rs (rs : RuleSet sig) (finite : rs.rules.finite) (special_const : sig.C) (mfa_obs : MfaObsoletenessCondition sig) : ∀ {db : Database sig} {obs : ObsoletenessCondition sig}, (mfa_obs.blocks_obs obs rs special_const) -> ∀ (cb : ChaseBranch obs { rules := rs, db := db }) (n : Nat), (cb.branch.infinite_list n).is_none_or (fun node => ∀ f, f.predicate ∈ rs.predicates -> f ∈ node.fact.val -> ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact f) ∈ (rs.mfaSet finite special_const mfa_obs)) := by
+  theorem mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_predicates_not_from_rs (rs : RuleSet sig) (finite : rs.rules.finite) (special_const : sig.C) (mfa_obs : MfaObsoletenessCondition sig) : ∀ {db : Database sig} {obs : ObsoletenessCondition sig}, (mfa_obs.blocks_obs obs rs special_const) -> ∀ (cb : ChaseBranch obs { rules := rs, db := db }) (n : Nat), (cb.branch.infinite_list n).is_none_or (fun node => ∀ f, f.predicate ∈ rs.predicates -> f ∈ node.facts.val -> ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact f) ∈ (rs.mfaSet finite special_const mfa_obs)) := by
     intro db obs blocks cb n
     induction n with
     | zero =>
@@ -1092,7 +1092,7 @@ namespace RuleSet
       intro node eq_node
       rw [cb.prev_node_eq n (by simp [eq_node]), Option.is_none_or] at ih
       intro f f_predicate f_mem
-      rw [cb.origin_trg_result_yields_next_node_fact _ _ eq_node] at f_mem
+      rw [cb.origin_trg_result_yields_next_node_facts _ _ eq_node] at f_mem
       cases f_mem with
       | inl f_mem =>
         apply ih
@@ -1103,11 +1103,11 @@ namespace RuleSet
         unfold RuleSet.mfaSet
         unfold KnowledgeBase.deterministicSkolemChaseResult
 
-        have : ∃ n, ∀ f, f.predicate ∈ rs.predicates -> f ∈ prev_node.fact.val -> ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact f) ∈ (rs.mfaKb finite special_const).parallelSkolemChase mfa_obs n := by
+        have : ∃ n, ∀ f, f.predicate ∈ rs.predicates -> f ∈ prev_node.facts.val -> ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact f) ∈ (rs.mfaKb finite special_const).parallelSkolemChase mfa_obs n := by
           let kb := rs.mfaKb finite special_const
-          let prev_filtered : FactSet sig := fun f => f.predicate ∈ rs.predicates ∧ f ∈ prev_node.fact.val
+          let prev_filtered : FactSet sig := fun f => f.predicate ∈ rs.predicates ∧ f ∈ prev_node.facts.val
           have prev_finite : prev_filtered.finite := by
-            rcases prev_node.fact.property with ⟨prev_l, _, prev_l_eq⟩
+            rcases prev_node.facts.property with ⟨prev_l, _, prev_l_eq⟩
             rcases (RuleSet.predicates_finite_of_finite _ finite) with ⟨preds_l, _, preds_l_eq⟩
             exists (prev_l.filter (fun f => f.predicate ∈ preds_l)).eraseDupsKeepRight
             constructor
@@ -1120,7 +1120,7 @@ namespace RuleSet
               rfl
           rcases prev_finite with ⟨prev_l, _, prev_l_eq⟩
 
-          have : ∀ (l : List (Fact sig)), (∀ e, e ∈ l -> e.predicate ∈ rs.predicates ∧ e ∈ prev_node.fact.val) -> ∃ n, (∀ e, e ∈ l -> ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact e) ∈ (kb.parallelSkolemChase mfa_obs n)) := by
+          have : ∀ (l : List (Fact sig)), (∀ e, e ∈ l -> e.predicate ∈ rs.predicates ∧ e ∈ prev_node.facts.val) -> ∃ n, (∀ e, e ∈ l -> ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact e) ∈ (kb.parallelSkolemChase mfa_obs n)) := by
             intro l l_sub
             induction l with
             | nil => exists 0; intro e; simp
@@ -1193,7 +1193,7 @@ namespace RuleSet
         exists adjusted_trg
         constructor
         . constructor
-          . apply Set.subset_trans (b := fun f => f.predicate ∈ rs.predicates ∧ f ∈ ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact_set prev_node.fact.val))
+          . apply Set.subset_trans (b := fun f => f.predicate ∈ rs.predicates ∧ f ∈ ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact_set prev_node.facts.val))
             . intro f f_mem
               rw [List.mem_toSet] at f_mem
               simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj, List.mem_map] at f_mem
@@ -1398,14 +1398,14 @@ namespace RuleSet
         exact f_mem
 
     have res_sub_db_and_filtered : cb.result ⊆ db.toFactSet.val ∪ res_filtered := by
-      have each_step_sub_db_and_filtered : ∀ n, (cb.branch.infinite_list n).is_none_or (fun node => node.fact.val ⊆ db.toFactSet.val ∪ res_filtered) := by
+      have each_step_sub_db_and_filtered : ∀ n, (cb.branch.infinite_list n).is_none_or (fun node => node.facts.val ⊆ db.toFactSet.val ∪ res_filtered) := by
         intro n
         induction n with
         | zero => rw [cb.database_first, Option.is_none_or]; intro f f_mem; apply Or.inl; exact f_mem
         | succ n ih =>
           rw [Option.is_none_or_iff]
           intro node eq_node
-          rw [cb.origin_trg_result_yields_next_node_fact n node eq_node]
+          rw [cb.origin_trg_result_yields_next_node_facts n node eq_node]
           intro f f_mem
           cases f_mem with
           | inl f_mem =>
@@ -1437,7 +1437,7 @@ namespace RuleSet
                 exists a
             . exists (n+1)
               rw [eq_node, Option.is_some_and]
-              rw [cb.origin_trg_result_yields_next_node_fact n node eq_node]
+              rw [cb.origin_trg_result_yields_next_node_facts n node eq_node]
               apply Or.inr
               exact f_mem
 

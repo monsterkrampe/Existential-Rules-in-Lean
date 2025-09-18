@@ -1530,12 +1530,12 @@ section InterplayWithBacktracking
 
   theorem ChaseBranch.backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C] (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) :
       ∀ (rl : RuleList sig), (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) ->
-      ∀ (term : GroundTerm sig), (term_mem : term ∈ node.fact.val.terms) ->
+      ∀ (term : GroundTerm sig), (term_mem : term ∈ node.facts.val.terms) ->
       ∀ (forbidden_constants : List sig.C),
         term.constants ⊆ forbidden_constants ->
         (rl.rules.flatMap Rule.constants) ⊆ forbidden_constants ->
       ∃ (g : ConstantMapping sig),
-        g.apply_fact_set (term.backtrackFacts rl (cb.term_ruleIds_valid i node eq rl rl_rs_eq term term_mem) (cb.term_disjIdx_valid i node eq rl rl_rs_eq term term_mem) (cb.term_rule_arity_valid i node eq rl rl_rs_eq term term_mem) forbidden_constants).fst.toSet ⊆ node.fact.val ∧
+        g.apply_fact_set (term.backtrackFacts rl (cb.term_ruleIds_valid i node eq rl rl_rs_eq term term_mem) (cb.term_disjIdx_valid i node eq rl rl_rs_eq term term_mem) (cb.term_rule_arity_valid i node eq rl rl_rs_eq term term_mem) forbidden_constants).fst.toSet ⊆ node.facts.val ∧
         (∀ (d : sig.C), d ∈ forbidden_constants -> g d = .const d) := by
     intro rl rl_rs_eq term term_mem forbidden_constants forbidden_constants_subsumes_term forbidden_constants_subsumes_rules
     let backtracking := term.backtrackFacts rl (cb.term_ruleIds_valid i node eq rl rl_rs_eq term term_mem) (cb.term_disjIdx_valid i node eq rl rl_rs_eq term term_mem) (cb.term_rule_arity_valid i node eq rl rl_rs_eq term term_mem) forbidden_constants
@@ -1557,7 +1557,7 @@ section InterplayWithBacktracking
         simp at f''_mem
       . simp
     | succ i ih =>
-      rw [cb.origin_trg_result_yields_next_node_fact i node eq] at term_mem
+      rw [cb.origin_trg_result_yields_next_node_facts i node eq] at term_mem
       unfold FactSet.terms at term_mem
       rcases term_mem with ⟨f, f_mem, term_mem⟩
       cases f_mem with
@@ -1565,7 +1565,7 @@ section InterplayWithBacktracking
         rcases ih (cb.prev_node i (by simp [eq])) (by apply cb.prev_node_eq) term (by exists f) forbidden_constants forbidden_constants_subsumes_term forbidden_constants_subsumes_rules with ⟨g, g_h⟩
         exists g
         constructor
-        . rw [cb.origin_trg_result_yields_next_node_fact i node eq]
+        . rw [cb.origin_trg_result_yields_next_node_facts i node eq]
           apply Set.subset_union_of_subset_left
           exact g_h.left
         . exact g_h.right
@@ -1617,7 +1617,7 @@ section InterplayWithBacktracking
             ) forbidden_constants forbidden_constants_subsumes_term forbidden_constants_subsumes_rules with ⟨g, g_h⟩
             exists g
             constructor
-            . rw [cb.origin_trg_result_yields_next_node_fact i node eq]
+            . rw [cb.origin_trg_result_yields_next_node_facts i node eq]
               apply Set.subset_union_of_subset_left
               exact g_h.left
             . exact g_h.right
@@ -1669,7 +1669,7 @@ section InterplayWithBacktracking
                       apply this
                       apply sub
                       exact t_mem)
-                  forbidden_constants).fst.toSet ⊆ node.fact.val) ∧
+                  forbidden_constants).fst.toSet ⊆ node.facts.val) ∧
                 (∀ (d : sig.C), d ∈ forbidden_constants → g d = .const d) := by
               intro sublist sub forbidden_constants forbidden_constants_subsumes_term forbidden_constants_subsumes_rules
               induction sublist generalizing forbidden_constants with
@@ -1745,7 +1745,7 @@ section InterplayWithBacktracking
                         . rw [List.mem_append]; apply Or.inl; exact this
                         . exact this
                     rw [f_eq, this]
-                    rw [cb.origin_trg_result_yields_next_node_fact i node eq]
+                    rw [cb.origin_trg_result_yields_next_node_facts i node eq]
                     apply Or.inl
                     apply g_hd_h.left
                     apply ConstantMapping.apply_fact_mem_apply_fact_set_of_mem
@@ -1905,7 +1905,7 @@ section InterplayWithBacktracking
               rw [List.mem_append] at f_mem
               cases f_mem with
               | inl f_mem =>
-                rw [cb.origin_trg_result_yields_next_node_fact i node eq]
+                rw [cb.origin_trg_result_yields_next_node_facts i node eq]
 
                 rw [List.mem_append] at f_mem
                 cases f_mem with
@@ -2014,12 +2014,12 @@ section InterplayWithBacktracking
 
   theorem ChaseBranch.backtracking_of_term_list_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C] (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) :
       ∀ (rl : RuleList sig), (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) ->
-      ∀ (terms : List (GroundTerm sig)), (terms_mem : terms.toSet ⊆ node.fact.val.terms) ->
+      ∀ (terms : List (GroundTerm sig)), (terms_mem : terms.toSet ⊆ node.facts.val.terms) ->
       ∀ (forbidden_constants : List sig.C),
         (terms.flatMap GroundTerm.constants) ⊆ forbidden_constants ->
         (rl.rules.flatMap Rule.constants) ⊆ forbidden_constants ->
       ∃ (g : ConstantMapping sig),
-        g.apply_fact_set (GroundTerm.backtrackFacts_list rl terms (by intro t t_mem; apply cb.term_ruleIds_valid i node eq rl rl_rs_eq t; apply terms_mem; rw [List.mem_toSet]; exact t_mem) (by intro t t_mem; apply cb.term_disjIdx_valid i node eq rl rl_rs_eq t; apply terms_mem; rw [List.mem_toSet]; exact t_mem) (by intro t t_mem; apply cb.term_rule_arity_valid i node eq rl rl_rs_eq t; apply terms_mem; rw [List.mem_toSet]; exact t_mem) forbidden_constants).fst.toSet ⊆ node.fact.val ∧
+        g.apply_fact_set (GroundTerm.backtrackFacts_list rl terms (by intro t t_mem; apply cb.term_ruleIds_valid i node eq rl rl_rs_eq t; apply terms_mem; rw [List.mem_toSet]; exact t_mem) (by intro t t_mem; apply cb.term_disjIdx_valid i node eq rl rl_rs_eq t; apply terms_mem; rw [List.mem_toSet]; exact t_mem) (by intro t t_mem; apply cb.term_rule_arity_valid i node eq rl rl_rs_eq t; apply terms_mem; rw [List.mem_toSet]; exact t_mem) forbidden_constants).fst.toSet ⊆ node.facts.val ∧
         (∀ (d : sig.C), d ∈ forbidden_constants -> g d = .const d) := by
     intro rl rl_rs_eq terms terms_mem forbidden_constants forbidden_constants_subsumes_terms forbidden_constants_subsumes_rules
     induction terms generalizing forbidden_constants with
@@ -2035,7 +2035,7 @@ section InterplayWithBacktracking
     | cons hd tl ih =>
       rw [List.flatMap_cons, List.append_subset] at forbidden_constants_subsumes_terms
 
-      have hd_mem : hd ∈ node.fact.val.terms := by apply terms_mem; simp [List.mem_toSet]
+      have hd_mem : hd ∈ node.facts.val.terms := by apply terms_mem; simp [List.mem_toSet]
 
       rcases cb.backtracking_of_term_in_node i node eq rl rl_rs_eq hd hd_mem forbidden_constants forbidden_constants_subsumes_terms.left forbidden_constants_subsumes_rules with ⟨g_hd, g_hd_h⟩
 
@@ -2118,9 +2118,9 @@ section InterplayWithBacktracking
 
   theorem ChaseBranch.backtracking_of_loaded_trigger_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C] (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) :
       ∀ (rl : RuleList sig), (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) ->
-      ∀ (trg : PreTrigger sig), (trg_loaded : trg.loaded node.fact) ->
+      ∀ (trg : PreTrigger sig), (trg_loaded : trg.loaded node.facts) ->
       ∃ (g : ConstantMapping sig),
-        g.apply_fact_set (trg.backtrackFacts rl (cb.trigger_ruleIds_valid_of_loaded i node eq rl rl_rs_eq trg trg_loaded) (cb.trigger_disjIdx_valid_of_loaded i node eq rl rl_rs_eq trg trg_loaded) (cb.trigger_rule_arity_valid_of_loaded i node eq rl rl_rs_eq trg trg_loaded)).fst.toSet ⊆ node.fact.val ∧
+        g.apply_fact_set (trg.backtrackFacts rl (cb.trigger_ruleIds_valid_of_loaded i node eq rl rl_rs_eq trg trg_loaded) (cb.trigger_disjIdx_valid_of_loaded i node eq rl rl_rs_eq trg trg_loaded) (cb.trigger_rule_arity_valid_of_loaded i node eq rl rl_rs_eq trg trg_loaded)).fst.toSet ⊆ node.facts.val ∧
         (∀ (d : sig.C), d ∈ ((trg.mapped_body.flatMap Fact.constants).toSet ∪ kb.rules.constants) -> g d = .const d) := by
     intro rl rl_rs_eq trg trg_loaded
     have := cb.backtracking_of_term_list_in_node i node eq rl rl_rs_eq (trg.mapped_body.flatMap Fact.terms)

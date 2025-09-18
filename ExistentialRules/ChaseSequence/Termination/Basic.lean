@@ -71,7 +71,7 @@ section GeneralResults
           cases eq : branch.branch.infinite_list n with
           | none => rw [eq] at h; simp at h
           | some node =>
-            cases node.fact.property with | intro l hl =>
+            cases node.facts.property with | intro l hl =>
               exists l
               unfold ChaseBranch.result
               constructor
@@ -107,8 +107,8 @@ section GeneralResults
         unfold ChaseBranch.result at h
         unfold ChaseBranch.terminates
 
-        have : ∀ (l : List (Fact sig)), (∀ e, e ∈ l -> ∃ n, (branch.branch.infinite_list n).is_some_and (fun fs => e ∈ fs.fact.val)) ->
-            (∃ n, (branch.branch.infinite_list n).is_some_and (fun fs => ∀ e, e ∈ l -> e ∈ fs.fact.val)) := by
+        have : ∀ (l : List (Fact sig)), (∀ e, e ∈ l -> ∃ n, (branch.branch.infinite_list n).is_some_and (fun fs => e ∈ fs.facts.val)) ->
+            (∃ n, (branch.branch.infinite_list n).is_some_and (fun fs => ∀ e, e ∈ l -> e ∈ fs.facts.val)) := by
           intro l
           induction l with
           | nil => simp; exists 0; rw [branch.database_first]; simp [Option.is_some_and]

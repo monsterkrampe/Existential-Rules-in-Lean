@@ -941,7 +941,7 @@ theorem PreTrigger.backtrackFacts_eq_of_strong_equiv
   simp only [PreTrigger.mapped_body_eq_of_strong_equiv strong_equiv]
 
 theorem ChaseBranch.term_ruleIds_valid (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) :
-    ∀ (rl : RuleList sig), (∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) -> ∀ (term : GroundTerm sig), term ∈ node.fact.val.terms -> term.skolem_ruleIds_valid rl := by
+    ∀ (rl : RuleList sig), (∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) -> ∀ (term : GroundTerm sig), term ∈ node.facts.val.terms -> term.skolem_ruleIds_valid rl := by
   intro rl rl_rs_eq term term_mem
   induction i generalizing node term with
   | zero =>
@@ -955,7 +955,7 @@ theorem ChaseBranch.term_ruleIds_valid (cb : ChaseBranch obs kb) (i : Nat) (node
     rw [t_eq]
     apply GroundTerm.skolem_ruleIds_valid_const
   | succ i ih =>
-    rw [cb.origin_trg_result_yields_next_node_fact i node eq] at term_mem
+    rw [cb.origin_trg_result_yields_next_node_facts i node eq] at term_mem
     unfold FactSet.terms at term_mem
     rcases term_mem with ⟨f, f_mem, term_mem⟩
     cases f_mem with
@@ -984,7 +984,7 @@ theorem ChaseBranch.term_ruleIds_valid (cb : ChaseBranch obs kb) (i : Nat) (node
         . exact term_mem
 
 theorem ChaseBranch.trigger_ruleIds_valid_of_loaded (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) :
-    ∀ (rl : RuleList sig), (∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) -> ∀ (trg : PreTrigger sig), trg.loaded node.fact -> trg.skolem_ruleIds_valid rl := by
+    ∀ (rl : RuleList sig), (∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) -> ∀ (trg : PreTrigger sig), trg.loaded node.facts -> trg.skolem_ruleIds_valid rl := by
   intro rl rl_rs_eq trg trg_loaded
   intro t t_mem_body
   rw [List.mem_flatMap] at t_mem_body
@@ -994,7 +994,7 @@ theorem ChaseBranch.trigger_ruleIds_valid_of_loaded (cb : ChaseBranch obs kb) (i
   exists f
 
 theorem ChaseBranch.term_disjIdx_valid_aux (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) :
-    ∀ (rl : RuleList sig), (∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) -> ∀ (term : GroundTerm sig), term ∈ node.fact.val.terms -> (h : term.skolem_ruleIds_valid rl) -> term.skolem_disjIdx_valid rl h := by
+    ∀ (rl : RuleList sig), (∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) -> ∀ (term : GroundTerm sig), term ∈ node.facts.val.terms -> (h : term.skolem_ruleIds_valid rl) -> term.skolem_disjIdx_valid rl h := by
   intro rl rl_rs_eq term term_mem term_ruleIds_valid
   induction i generalizing node term with
   | zero =>
@@ -1008,7 +1008,7 @@ theorem ChaseBranch.term_disjIdx_valid_aux (cb : ChaseBranch obs kb) (i : Nat) (
     simp only [t_eq]
     apply GroundTerm.skolem_disjIdx_valid_const
   | succ i ih =>
-    rw [cb.origin_trg_result_yields_next_node_fact i node eq] at term_mem
+    rw [cb.origin_trg_result_yields_next_node_facts i node eq] at term_mem
     unfold FactSet.terms at term_mem
     rcases term_mem with ⟨f, f_mem, term_mem⟩
     cases f_mem with
@@ -1038,9 +1038,9 @@ theorem ChaseBranch.term_disjIdx_valid_aux (cb : ChaseBranch obs kb) (i : Nat) (
           . exact f_mem
         . exact term_mem
 
-theorem ChaseBranch.term_disjIdx_valid (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) (rl : RuleList sig) (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) (term : GroundTerm sig) (term_mem : term ∈ node.fact.val.terms) : term.skolem_disjIdx_valid rl (cb.term_ruleIds_valid i node eq rl rl_rs_eq term term_mem) := cb.term_disjIdx_valid_aux i node eq rl rl_rs_eq term term_mem (cb.term_ruleIds_valid i node eq rl rl_rs_eq term term_mem)
+theorem ChaseBranch.term_disjIdx_valid (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) (rl : RuleList sig) (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) (term : GroundTerm sig) (term_mem : term ∈ node.facts.val.terms) : term.skolem_disjIdx_valid rl (cb.term_ruleIds_valid i node eq rl rl_rs_eq term term_mem) := cb.term_disjIdx_valid_aux i node eq rl rl_rs_eq term term_mem (cb.term_ruleIds_valid i node eq rl rl_rs_eq term term_mem)
 
-theorem ChaseBranch.trigger_disjIdx_valid_of_loaded (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) (rl : RuleList sig) (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) (trg : PreTrigger sig) (trg_loaded : trg.loaded node.fact) : trg.skolem_disjIdx_valid rl (cb.trigger_ruleIds_valid_of_loaded i node eq rl rl_rs_eq trg trg_loaded) := by
+theorem ChaseBranch.trigger_disjIdx_valid_of_loaded (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) (rl : RuleList sig) (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) (trg : PreTrigger sig) (trg_loaded : trg.loaded node.facts) : trg.skolem_disjIdx_valid rl (cb.trigger_ruleIds_valid_of_loaded i node eq rl rl_rs_eq trg trg_loaded) := by
   intro t t_mem_body
   rw [List.mem_flatMap] at t_mem_body
   rcases t_mem_body with ⟨f, f_mem, t_mem⟩
@@ -1049,7 +1049,7 @@ theorem ChaseBranch.trigger_disjIdx_valid_of_loaded (cb : ChaseBranch obs kb) (i
   exists f
 
 theorem ChaseBranch.term_rule_arity_valid_aux (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) :
-    ∀ (rl : RuleList sig), (∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) -> ∀ (term : GroundTerm sig), term ∈ node.fact.val.terms -> (h : term.skolem_ruleIds_valid rl) -> term.skolem_rule_arity_valid rl h := by
+    ∀ (rl : RuleList sig), (∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) -> ∀ (term : GroundTerm sig), term ∈ node.facts.val.terms -> (h : term.skolem_ruleIds_valid rl) -> term.skolem_rule_arity_valid rl h := by
   intro rl rl_rs_eq term term_mem term_ruleIds_valid
   induction i generalizing node term with
   | zero =>
@@ -1063,7 +1063,7 @@ theorem ChaseBranch.term_rule_arity_valid_aux (cb : ChaseBranch obs kb) (i : Nat
     simp only [t_eq]
     apply GroundTerm.skolem_rule_arity_valid_const
   | succ i ih =>
-    rw [cb.origin_trg_result_yields_next_node_fact i node eq] at term_mem
+    rw [cb.origin_trg_result_yields_next_node_facts i node eq] at term_mem
     unfold FactSet.terms at term_mem
     rcases term_mem with ⟨f, f_mem, term_mem⟩
     cases f_mem with
@@ -1093,9 +1093,9 @@ theorem ChaseBranch.term_rule_arity_valid_aux (cb : ChaseBranch obs kb) (i : Nat
           . exact f_mem
         . exact term_mem
 
-theorem ChaseBranch.term_rule_arity_valid (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) (rl : RuleList sig) (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) (term : GroundTerm sig) (term_mem : term ∈ node.fact.val.terms) : term.skolem_rule_arity_valid rl (cb.term_ruleIds_valid i node eq rl rl_rs_eq term term_mem) := cb.term_rule_arity_valid_aux i node eq rl rl_rs_eq term term_mem (cb.term_ruleIds_valid i node eq rl rl_rs_eq term term_mem)
+theorem ChaseBranch.term_rule_arity_valid (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) (rl : RuleList sig) (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) (term : GroundTerm sig) (term_mem : term ∈ node.facts.val.terms) : term.skolem_rule_arity_valid rl (cb.term_ruleIds_valid i node eq rl rl_rs_eq term term_mem) := cb.term_rule_arity_valid_aux i node eq rl rl_rs_eq term term_mem (cb.term_ruleIds_valid i node eq rl rl_rs_eq term term_mem)
 
-theorem ChaseBranch.trigger_rule_arity_valid_of_loaded (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) (rl : RuleList sig) (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) (trg : PreTrigger sig) (trg_loaded : trg.loaded node.fact) : trg.skolem_rule_arity_valid rl (cb.trigger_ruleIds_valid_of_loaded i node eq rl rl_rs_eq trg trg_loaded) := by
+theorem ChaseBranch.trigger_rule_arity_valid_of_loaded (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) (rl : RuleList sig) (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) (trg : PreTrigger sig) (trg_loaded : trg.loaded node.facts) : trg.skolem_rule_arity_valid rl (cb.trigger_ruleIds_valid_of_loaded i node eq rl rl_rs_eq trg trg_loaded) := by
   intro t t_mem_body
   rw [List.mem_flatMap] at t_mem_body
   rcases t_mem_body with ⟨f, f_mem, t_mem⟩

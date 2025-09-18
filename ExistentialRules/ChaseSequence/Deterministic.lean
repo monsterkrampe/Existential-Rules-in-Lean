@@ -9,7 +9,7 @@ variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
 -- TODO: split up the proofs to get rid of this
 set_option maxHeartbeats 400000
 
-def ChaseTree.firstResult (ct : ChaseTree obs kb) : FactSet sig := fun f => ∃ n, (ct.tree.get (List.repeat 0 n)).is_some_and (fun node => f ∈ node.fact.val)
+def ChaseTree.firstResult (ct : ChaseTree obs kb) : FactSet sig := fun f => ∃ n, (ct.tree.get (List.repeat 0 n)).is_some_and (fun node => f ∈ node.facts.val)
 
 theorem ChaseTree.firstResult_is_in_result (ct : ChaseTree obs kb) : ct.firstResult ∈ ct.result := by
   unfold firstResult
@@ -59,8 +59,8 @@ theorem ChaseTree.firstResult_is_in_result (ct : ChaseTree obs kb) : ct.firstRes
                   constructor
                   . exact eq
                   . rw [← ct.tree.children_eq_lifted_children, this]; rfl
-                have not_active : ¬ trg.val.active node.fact := by apply ct.fairness_leaves; exact this
-                have active : trg.val.active node.fact := trg_ex.left
+                have not_active : ¬ trg.val.active node.facts := by apply ct.fairness_leaves; exact this
+                have active : trg.val.active node.facts := trg_ex.left
                 contradiction
               | succ _ =>
                 have length_aux_1 : 0 < trg.val.mapped_head.length := by

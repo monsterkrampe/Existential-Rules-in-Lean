@@ -4,8 +4,8 @@ variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq 
 
 namespace ChaseBranch
 
-  noncomputable def extend_hom_to_next_step_internal (cb : ChaseBranch obs kb) (det : kb.isDeterministic) (k : Nat) (node : ChaseNode obs kb.rules) (node_k : cb.branch.infinite_list k = some node) (h : GroundTermMapping sig) (hom : h.isHomomorphism node.fact cb.result) (node' : ChaseNode obs kb.rules) (node_k_succ : cb.branch.infinite_list (k + 1) = node') :
-      { h' : GroundTermMapping sig // (∀ t, t ∈ node.fact.val.terms -> h' t = h t) ∧ h'.isHomomorphism node'.fact cb.result } :=
+  noncomputable def extend_hom_to_next_step_internal (cb : ChaseBranch obs kb) (det : kb.isDeterministic) (k : Nat) (node : ChaseNode obs kb.rules) (node_k : cb.branch.infinite_list k = some node) (h : GroundTermMapping sig) (hom : h.isHomomorphism node.facts cb.result) (node' : ChaseNode obs kb.rules) (node_k_succ : cb.branch.infinite_list (k + 1) = node') :
+      { h' : GroundTermMapping sig // (∀ t, t ∈ node.facts.val.terms -> h' t = h t) ∧ h'.isHomomorphism node'.facts cb.result } :=
     have : exists_trigger_opt_fs obs kb.rules node (cb.branch.infinite_list (k + 1)) := by
       have trg_ex := cb.triggers_exist k
       rw [node_k] at trg_ex
@@ -22,7 +22,7 @@ namespace ChaseBranch
 
     let trg' : PreTrigger sig := ⟨trg.val.rule, h ∘ trg.val.subs⟩
     have trg'_loaded : trg'.loaded cb.result := by
-      apply Set.subset_trans (b := h.applyFactSet node.fact)
+      apply Set.subset_trans (b := h.applyFactSet node.facts)
       . apply PreTrigger.term_mapping_preserves_loadedness
         . exact hom.left
         . exact trg_active.left
@@ -112,13 +112,13 @@ namespace ChaseBranch
             rw [vars_eq] at v_not_in_as
             contradiction
 
-    have h'_is_h_on_terms_in_node : ∀ t, t ∈ node.fact.val.terms -> h' t = h t := by
+    have h'_is_h_on_terms_in_node : ∀ t, t ∈ node.facts.val.terms -> h' t = h t := by
       intro t t_mem
       unfold h'
       rw [List.find?_eq_none.mpr]
       simp
       intro v v_head v_not_frontier contra
-      have : trg.val.mapped_head[disj_index.val].toSet ⊆ node.fact := by
+      have : trg.val.mapped_head[disj_index.val].toSet ⊆ node.facts := by
         apply cb.funcTermForExisVarInChaseMeansTriggerResultOccurs _ node_k trg disj_index v_not_frontier
         unfold FactSet.terms at t_mem
         rcases t_mem with ⟨f, f_mem, t_mem⟩
@@ -204,21 +204,21 @@ namespace ChaseBranch
             exists f
     ⟩
 
-  noncomputable def extend_hom_to_next_step (cb : ChaseBranch obs kb) (det : kb.isDeterministic) (k : Nat) (node : ChaseNode obs kb.rules) (node_k : cb.branch.infinite_list k = some node) (h : GroundTermMapping sig) (hom : h.isHomomorphism node.fact cb.result) :
+  noncomputable def extend_hom_to_next_step (cb : ChaseBranch obs kb) (det : kb.isDeterministic) (k : Nat) (node : ChaseNode obs kb.rules) (node_k : cb.branch.infinite_list k = some node) (h : GroundTermMapping sig) (hom : h.isHomomorphism node.facts cb.result) :
       GroundTermMapping sig :=
     match eq : cb.branch.infinite_list (k + 1) with
     | .none => h
     | .some node' =>
       (extend_hom_to_next_step_internal cb det k node node_k h hom node' eq).val
 
-  theorem extend_hom_to_next_step_eq (cb : ChaseBranch obs kb) (det : kb.isDeterministic) (k : Nat) (node : ChaseNode obs kb.rules) (node_k : cb.branch.infinite_list k = some node) (h : GroundTermMapping sig) (hom : h.isHomomorphism node.fact cb.result) :
+  theorem extend_hom_to_next_step_eq (cb : ChaseBranch obs kb) (det : kb.isDeterministic) (k : Nat) (node : ChaseNode obs kb.rules) (node_k : cb.branch.infinite_list k = some node) (h : GroundTermMapping sig) (hom : h.isHomomorphism node.facts cb.result) :
       extend_hom_to_next_step cb det k node node_k h hom = match eq : cb.branch.infinite_list (k + 1) with
       | .none => h
       | .some node' => (extend_hom_to_next_step_internal cb det k node node_k h hom node' eq).val := by
     unfold extend_hom_to_next_step
     simp
 
-  theorem extended_hom_same_on_next_extensions (cb : ChaseBranch obs kb) (det : kb.isDeterministic) (k : Nat) (node : ChaseNode obs kb.rules) (node_k : cb.branch.infinite_list k = some node) (h : GroundTermMapping sig) (hom : h.isHomomorphism node.fact cb.result) : ∀ t, t ∈ node.fact.val.terms -> extend_hom_to_next_step cb det k node node_k h hom t = h t := by
+  theorem extended_hom_same_on_next_extensions (cb : ChaseBranch obs kb) (det : kb.isDeterministic) (k : Nat) (node : ChaseNode obs kb.rules) (node_k : cb.branch.infinite_list k = some node) (h : GroundTermMapping sig) (hom : h.isHomomorphism node.facts cb.result) : ∀ t, t ∈ node.facts.val.terms -> extend_hom_to_next_step cb det k node node_k h hom t = h t := by
     intro t t_mem
     rw [extend_hom_to_next_step_eq]
     split
@@ -228,7 +228,7 @@ namespace ChaseBranch
       rw [result.property.left]
       exact t_mem
 
-  theorem extended_hom_isHomomorphism_on_next_extensions (cb : ChaseBranch obs kb) (det : kb.isDeterministic) (k : Nat) (node : ChaseNode obs kb.rules) (node_k : cb.branch.infinite_list k = some node) (h : GroundTermMapping sig) (hom : h.isHomomorphism node.fact cb.result) : (cb.branch.infinite_list (k + 1)).is_none_or (fun node' => (extend_hom_to_next_step cb det k node node_k h hom).isHomomorphism node'.fact cb.result) := by
+  theorem extended_hom_isHomomorphism_on_next_extensions (cb : ChaseBranch obs kb) (det : kb.isDeterministic) (k : Nat) (node : ChaseNode obs kb.rules) (node_k : cb.branch.infinite_list k = some node) (h : GroundTermMapping sig) (hom : h.isHomomorphism node.facts cb.result) : (cb.branch.infinite_list (k + 1)).is_none_or (fun node' => (extend_hom_to_next_step cb det k node node_k h hom).isHomomorphism node'.facts cb.result) := by
     rw [extend_hom_to_next_step_eq]
     split
     case h_1 eq => simp [eq, Option.is_none_or]
@@ -237,8 +237,8 @@ namespace ChaseBranch
       let result := extend_hom_to_next_step_internal cb det k node node_k h hom node' eq
       exact result.property.right
 
-  noncomputable def extend_hom_to_any_following_step (cb : ChaseBranch obs kb) (det : kb.isDeterministic) (k : Nat) (node : ChaseNode obs kb.rules) (node_k : cb.branch.infinite_list k = some node) (h : GroundTermMapping sig) (hom : h.isHomomorphism node.fact cb.result) : (step_width : Nat) ->
-    { h' : GroundTermMapping sig // (cb.branch.infinite_list (k+step_width)).is_none_or (fun node' => h'.isHomomorphism node'.fact cb.result) }
+  noncomputable def extend_hom_to_any_following_step (cb : ChaseBranch obs kb) (det : kb.isDeterministic) (k : Nat) (node : ChaseNode obs kb.rules) (node_k : cb.branch.infinite_list k = some node) (h : GroundTermMapping sig) (hom : h.isHomomorphism node.facts cb.result) : (step_width : Nat) ->
+    { h' : GroundTermMapping sig // (cb.branch.infinite_list (k+step_width)).is_none_or (fun node' => h'.isHomomorphism node'.facts cb.result) }
   | .zero => ⟨h, by simp [node_k, Option.is_none_or]; exact hom⟩
   | .succ step_width =>
     let prev_hom := extend_hom_to_any_following_step cb det k node node_k h hom step_width
@@ -263,7 +263,7 @@ namespace ChaseBranch
         exact property
       ), by apply extended_hom_isHomomorphism_on_next_extensions⟩
 
-  theorem extended_hom_same_on_all_following_extensions (cb : ChaseBranch obs kb) (det : kb.isDeterministic) (k : Nat) (node : ChaseNode obs kb.rules) (node_k : cb.branch.infinite_list k = some node) (h : GroundTermMapping sig) (hom : h.isHomomorphism node.fact cb.result) : ∀ (i j : Nat), (cb.branch.infinite_list (k + i)).is_none_or (fun node' => ∀ t, t ∈ node'.fact.val.terms -> (extend_hom_to_any_following_step cb det k node node_k h hom (i + j)).val t = (extend_hom_to_any_following_step cb det k node node_k h hom i).val t) := by
+  theorem extended_hom_same_on_all_following_extensions (cb : ChaseBranch obs kb) (det : kb.isDeterministic) (k : Nat) (node : ChaseNode obs kb.rules) (node_k : cb.branch.infinite_list k = some node) (h : GroundTermMapping sig) (hom : h.isHomomorphism node.facts cb.result) : ∀ (i j : Nat), (cb.branch.infinite_list (k + i)).is_none_or (fun node' => ∀ t, t ∈ node'.facts.val.terms -> (extend_hom_to_any_following_step cb det k node node_k h hom (i + j)).val t = (extend_hom_to_any_following_step cb det k node node_k h hom i).val t) := by
     intro i j
     simp [Option.is_none_or]
     split
@@ -295,8 +295,8 @@ namespace ChaseBranch
             . exact t_mem
 
   theorem hom_for_step_extendable_result (cb : ChaseBranch obs kb) (det : kb.isDeterministic) (k : Nat) (h : GroundTermMapping sig) :
-      (cb.branch.infinite_list k).is_none_or (fun node => h.isHomomorphism node.fact cb.result ->
-      ∃ (h' : GroundTermMapping sig), (∀ t, t ∈ node.fact.val.terms -> h' t = h t) ∧ h'.isHomomorphism cb.result cb.result) := by
+      (cb.branch.infinite_list k).is_none_or (fun node => h.isHomomorphism node.facts cb.result ->
+      ∃ (h' : GroundTermMapping sig), (∀ t, t ∈ node.facts.val.terms -> h' t = h t) ∧ h'.isHomomorphism cb.result cb.result) := by
     cases eq : cb.branch.infinite_list k with
     | none => simp [Option.is_none_or]
     | some node =>
@@ -336,7 +336,7 @@ namespace ChaseBranch
               exact target_hom.left (GroundTerm.const c)
         . rfl
 
-      have apply_uniform_in_step : ∀ i, (cb.branch.infinite_list i).is_none_or (fun node => ∀ f, f ∈ node.fact.val -> global_h.applyFact f = (target_h (i - k)).val.applyFact f) := by
+      have apply_uniform_in_step : ∀ i, (cb.branch.infinite_list i).is_none_or (fun node => ∀ f, f ∈ node.facts.val -> global_h.applyFact f = (target_h (i - k)).val.applyFact f) := by
         intro i
         cases eq2 : cb.branch.infinite_list i with
         | none => simp [Option.is_none_or]
