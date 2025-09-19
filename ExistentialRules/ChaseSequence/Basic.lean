@@ -29,9 +29,8 @@ def exists_trigger_opt_fs (obs : ObsoletenessCondition sig) (rules : RuleSet sig
         . intro e
           unfold new_list
           rw [List.mem_eraseDupsKeepRight, List.mem_append]
-          unfold Set.union
           rw [l_eq]
-          simp only [List.mem_toSet]
+          simp only [Union.union, List.mem_toSet]
           rfl
     ⟩
     origin := some ⟨trg, i⟩
@@ -52,9 +51,8 @@ def exists_trigger_list_condition (obs : ObsoletenessCondition sig) (rules : Rul
         . intro e
           unfold new_list
           rw [List.mem_eraseDupsKeepRight, List.mem_append]
-          unfold Set.union
           rw [l_eq]
-          simp only [List.mem_toSet]
+          simp only [Union.union, List.mem_toSet]
           rw [← h]
           rfl
     ⟩
@@ -185,7 +183,7 @@ namespace ChaseBranch
         apply Set.subset_union_of_subset_left
         apply Set.subset_refl
 
-  theorem stepIsSubsetOfResult (cb : ChaseBranch obs kb) : ∀ n : Nat, (cb.branch.infinite_list n).is_none_or (fun fs => fs.facts ⊆ cb.result) := by
+  theorem stepIsSubsetOfResult (cb : ChaseBranch obs kb) : ∀ n : Nat, (cb.branch.infinite_list n).is_none_or (fun fs => fs.facts.val ⊆ cb.result) := by
     intro n
     unfold Option.is_none_or
 

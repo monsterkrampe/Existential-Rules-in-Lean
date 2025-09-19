@@ -6,7 +6,7 @@ namespace FactSet
   variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
   def modelsDb (fs : FactSet sig) (db : Database sig) : Prop :=
-    db.toFactSet ⊆ fs
+    db.toFactSet.val ⊆ fs
 
   def modelsRule (fs : FactSet sig) (rule : Rule sig) : Prop :=
     ∀ (s : GroundSubstitution sig),

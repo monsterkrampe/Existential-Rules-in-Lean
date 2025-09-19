@@ -82,7 +82,7 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
     intro next_node next_node_eq
     constructor
     . exact next_hom_id_const
-    have next_node_results_from_trg : next_node.facts = prev_node_unwrapped.facts ∪ trg.val.mapped_head[result_index_for_trg.val].toSet := by
+    have next_node_results_from_trg : next_node.facts = prev_node_unwrapped.facts.val ∪ trg.val.mapped_head[result_index_for_trg.val].toSet := by
       have length_eq_helper_1 : trg.val.rule.head.length = trg.val.mapped_head.zipIdx_with_lt.attach.length := by
         rw [List.length_attach, List.length_zipIdx_with_lt]
         unfold PreTrigger.mapped_head
@@ -833,7 +833,6 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
             simp only [path] at eq
             rw [eq] at property; simp [Option.is_none_or] at property
             have : (inductive_homomorphism_shortcut n).val.snd.applyFactSet node.facts ⊆ m := property.right
-            unfold Set.subset at this
             apply this
             exists e
 
