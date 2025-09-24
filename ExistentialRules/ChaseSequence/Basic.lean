@@ -541,6 +541,166 @@ namespace ChaseTree
 
   variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
 
+  def chase_branch_for_tree_branch (ct : ChaseTree obs kb) (branch : PossiblyInfiniteList (ChaseNode obs kb.rules)) (branch_mem : branch ∈ ct.tree.branches) : ChaseBranch obs kb := {
+    branch := branch,
+    database_first := by
+      rcases branch_mem with ⟨nodes, ⟨nodes_mem, nodes_maximal⟩, branch_eq⟩
+      unfold InfiniteTreeSkeleton.branch_addresses_through at nodes_mem
+      rw [List.length_nil] at nodes_mem
+      have branch_eq2 : ∀ n, branch.infinite_list n = ct.tree.get (nodes.take n).reverse := by intro n; rw [branch_eq]; rfl
+
+      rw [branch_eq2]
+      rw [nodes_mem]
+      rw [ct.database_first]
+    triggers_exist := by
+      rcases branch_mem with ⟨nodes, ⟨nodes_mem, nodes_maximal⟩, branch_eq⟩
+      unfold InfiniteTreeSkeleton.branch_addresses_through at nodes_mem
+      rw [List.length_nil] at nodes_mem
+      have branch_eq2 : ∀ n, branch.infinite_list n = ct.tree.get (nodes.take n).reverse := by intro n; rw [branch_eq]; rfl
+
+      intro n
+      rw [Option.is_none_or_iff]
+      intro node node_eq
+      have trg_ex := ct.triggers_exist (nodes.take n).reverse
+      rw [Option.is_none_or_iff] at trg_ex
+      specialize trg_ex node (by rw [← branch_eq2, node_eq])
+      cases trg_ex with
+      | inl trg_ex =>
+        apply Or.inl
+        rcases trg_ex with ⟨trg, trg_ex⟩
+        exists trg
+        constructor
+        . exact trg_ex.left
+        . cases Decidable.em (nodes n < trg.val.rule.head.length) with
+          | inl n_lt_head_length =>
+            have length_aux_1 : nodes n < trg.val.mapped_head.length := by
+              rw [trg.val.length_mapped_head]
+              exact n_lt_head_length
+            have length_aux_2 : nodes n < (ct.tree.children (nodes.take n).reverse).length := by
+              rw [← trg_ex.right]
+              rw [List.length_map, List.length_attach, List.length_zipIdx_with_lt]
+              exact length_aux_1
+            exists ⟨nodes n, length_aux_1⟩
+            rw [branch_eq2]
+            simp only [InfiniteList.take, List.reverse_append, List.reverse_cons, List.reverse_nil, List.nil_append, List.singleton_append]
+            rw [← ct.tree.getElem_children_eq_get (nodes.take n).reverse ⟨nodes n, length_aux_2⟩]
+            rw [Option.some_inj]
+            simp only [← trg_ex.right]
+            rw [List.getElem_map, ChaseNode.mk.injEq, List.getElem_attach, Subtype.mk.injEq]
+            rw [List.zipIdx_with_lt_getElem_fst_eq_getElem]
+            rw [List.zipIdx_with_lt_getElem_snd_eq_index]
+            constructor
+            . rfl
+            . rfl
+          | inr n_lt_head_length =>
+            have : ct.tree.get (nodes n :: (nodes.take n).reverse) = none := by
+              unfold FiniteDegreeTree.get
+              rw [← PossiblyInfiniteTree.getElem_children_eq_get, ← FiniteDegreeTree.getElem_children_eq_getElem_lifted_children]
+              apply List.getElem?_eq_none
+              apply Nat.le_of_not_lt
+              rw [← trg_ex.right]
+              rw [List.length_map, List.length_attach, List.length_zipIdx_with_lt, trg.val.length_mapped_head]
+              exact n_lt_head_length
+            have : ct.tree.children (nodes.take n).reverse = [] := by
+              apply ct.tree.children_empty_of_first_successor_none
+              apply nodes_maximal
+              simp only [InfiniteList.take, List.reverse_append, List.reverse_cons, List.reverse_nil, List.nil_append, List.singleton_append]
+              exact this
+            have : node ∈ ct.tree.leaves := by
+              unfold FiniteDegreeTree.leaves
+              unfold PossiblyInfiniteTree.leaves
+              exists (nodes.take n).reverse
+              constructor
+              . rw [branch_eq2] at node_eq
+                exact node_eq
+              . rw [← ct.tree.children_eq_lifted_children, this]; rfl
+            have not_active : ¬ trg.val.active node.facts := by apply ct.fairness_leaves; exact this
+            have active : trg.val.active node.facts := trg_ex.left
+            contradiction
+      | inr trg_ex =>
+        apply Or.inr
+        constructor
+        . exact trg_ex.left
+        . rw [branch_eq2]
+          simp only [InfiniteList.take, List.reverse_append, List.reverse_cons, List.reverse_nil, List.nil_append, List.singleton_append]
+          apply ct.tree.each_successor_none_of_children_empty
+          exact trg_ex.right
+    fairness := by
+      rcases branch_mem with ⟨nodes, ⟨nodes_mem, nodes_maximal⟩, branch_eq⟩
+      unfold InfiniteTreeSkeleton.branch_addresses_through at nodes_mem
+      rw [List.length_nil] at nodes_mem
+      have branch_eq2 : ∀ n, branch.infinite_list n = ct.tree.get (nodes.take n).reverse := by intro n; rw [branch_eq]; rfl
+
+      intro trg
+      -- Case Distinction: Is branch finite?
+      cases Classical.em (∃ n : Nat, ct.tree.get (nodes.take n).reverse ≠ none ∧ ∀ m : Nat, m > n -> ct.tree.get (nodes.take m).reverse = none) with
+      | inl h =>
+        rcases h with ⟨n, h⟩
+        exists n
+        constructor
+        . rw [Option.is_some_and_iff]
+          rcases Option.ne_none_iff_exists'.mp h.left with ⟨node, node_eq⟩
+          exists node
+          constructor
+          . rw [branch_eq2]; exact node_eq
+          . apply ct.fairness_leaves
+            exists (nodes.take n).reverse
+            constructor
+            . exact node_eq
+            . apply ct.tree.tree.children_empty_of_first_successor_none
+              apply nodes_maximal
+              apply h.right
+              simp
+        . intro m m_gt
+          rw [branch_eq2]
+          rw [h.right m m_gt]
+          simp [Option.is_none_or]
+      | inr h =>
+        have h : ∀ n, ct.tree.get (nodes.take n).reverse ≠ none := by
+          intro n contra
+          induction n with
+          | zero => simp only [InfiniteList.take] at contra; rw [List.reverse_nil, ct.database_first] at contra; contradiction
+          | succ n ih =>
+            apply h
+            exists n
+            constructor
+            . exact ih
+            . intro m m_gt
+              apply Option.decidableEqNone.byContradiction
+              intro neq_none
+              apply ct.tree.tree.no_orphans (nodes.take m).reverse neq_none ⟨(nodes.take (n+1)).reverse, by
+                exists ((nodes.skip (n+1)).take (m - (n+1))).reverse
+                rw [← List.reverse_append]
+                cases Decidable.em (n + 1 < m) with
+                | inl lt => rw [InfiniteList.combine_skip_take nodes m ⟨n + 1, lt⟩]
+                | inr le =>
+                  have : n + 1 = m := by
+                    apply Nat.eq_of_lt_succ_of_not_lt
+                    . apply Nat.succ_lt_succ; exact m_gt
+                    . exact le
+                  rw [this]
+                  simp only [Nat.sub_self, InfiniteList.take, List.append_nil]⟩
+              exact contra
+        rcases ct.fairness_infinite_branches trg with ⟨i, fairness⟩
+        exists i
+        constructor
+        . rcases Option.ne_none_iff_exists'.mp (h i) with ⟨node, node_eq⟩
+          rw [branch_eq2, Option.is_some_and_iff]
+          exists node
+          constructor
+          . exact node_eq
+          . specialize fairness (nodes.take i).reverse (by rw [List.length_reverse, InfiniteList.length_take]; simp)
+            rw [Option.is_none_or_iff] at fairness
+            apply fairness
+            exact node_eq
+        . intro j j_gt
+          rw [branch_eq2]
+          apply fairness
+          rw [List.length_reverse, InfiniteList.length_take]
+          apply Nat.le_of_lt
+          exact j_gt
+  }
+
   def branches (ct : ChaseTree obs kb) : Set (ChaseBranch obs kb) := fun branch =>
     branch.branch ∈ ct.tree.branches
 

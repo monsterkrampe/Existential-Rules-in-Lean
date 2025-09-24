@@ -590,122 +590,26 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
         ⟩
       exact no_orphans
   }
-  let branch : ChaseBranch obs kb := {
-    branch := nodes
-    database_first := by
-      simp only [nodes, path, inductive_homomorphism_shortcut]
-      unfold inductive_homomorphism
-      simp
-      rw [ct.database_first]
-    triggers_exist := by
+  have nodes_is_tree_branch : nodes ∈ ct.tree.branches := by
+    exists indices
+    constructor
+    . constructor
+      . rfl
+      . intro n eq_none
+        rw [indices_aux_result] at eq_none
+        rw [indices_aux_result]
+        apply FiniteDegreeTree.each_successor_none_of_children_empty
+        apply inductive_homomorphism_tree_get_path_none_means_layer_empty n
+        exact eq_none
+    . simp only [nodes, path]
+      unfold PossiblyInfiniteTree.branch_for_address
+      unfold InfiniteTreeSkeleton.branch_for_address
+      simp only [PossiblyInfiniteList.eq_iff_same_on_all_indices]
       intro n
-      cases eq : nodes.infinite_list n with
-      | none => simp [Option.is_none_or]
-      | some node =>
-        simp [Option.is_none_or]
-        simp only [nodes, path]
-        simp only [nodes, path] at eq
-        have ex_trg := ct.triggers_exist (inductive_homomorphism_shortcut n).val.1
-        rw [eq] at ex_trg
-        simp [Option.is_none_or] at ex_trg
-        cases ex_trg with
-        | inl ex_trg =>
-          apply Or.inl
-          unfold exists_trigger_opt_fs
-          unfold exists_trigger_list at ex_trg
-          let trg := Classical.choose ex_trg
-          let h := Classical.choose_spec ex_trg
-          exists trg
-          constructor
-          . exact h.left
-          let i : Fin trg.val.mapped_head.length := ⟨((inductive_homomorphism_shortcut (n+1)).val.fst.head (inductive_homomorphism_path_not_empty n)), inductive_homomorphism_latest_index_lt_trg_result_length n node (by rw [← eq]) ex_trg⟩
-          let i' : Fin (ct.tree.children (inductive_homomorphism_shortcut n).val.1).length := ⟨i.val, by rw [← h.right]; simp; rw [List.length_zipIdx_with_lt]; exact i.isLt⟩
-          exists i
-          rw [inductive_homomorphism_path_extends_prev]
-          rw [← ct.tree.getElem_children_eq_get _ i']
-          simp only [← h.right]
-          simp
-          constructor
-          . rw [List.zipIdx_with_lt_getElem_fst_eq_getElem]
-          . rw [List.zipIdx_with_lt_getElem_snd_eq_index]; constructor <;> rfl
-        | inr ex_trg =>
-          apply Or.inr
-          unfold not_exists_trigger_opt_fs
-          unfold not_exists_trigger_list at ex_trg
-          constructor
-          . exact ex_trg.left
-          rw [inductive_homomorphism_path_extends_prev]
-          apply ct.tree.each_successor_none_of_children_empty
-          exact ex_trg.right
-    fairness := by
-      intro trg
-      cases Classical.em (∃ n : Nat, nodes.infinite_list n ≠ none ∧ ∀ m : Nat, m > n -> nodes.infinite_list m = none) with
-      | inl h =>
-        cases h with | intro n hn =>
-          exists n
-          cases eq : nodes.infinite_list n with
-          | none => rw [eq] at hn; simp at hn
-          | some node =>
-            simp [Option.is_some_and]
-            constructor
-            . apply ct.fairness_leaves
-              unfold FiniteDegreeTree.leaves
-              unfold PossiblyInfiniteTree.leaves
-              exists (inductive_homomorphism_shortcut n).val.fst
-              constructor
-              . simp only [nodes, path] at eq; exact eq
-              . unfold PossiblyInfiniteList.empty
-                unfold PossiblyInfiniteTree.children
-                unfold InfiniteTreeSkeleton.children
-                simp
-                apply funext
-                have next_none := hn.right (n+1) (by simp)
-                have children_empty := inductive_homomorphism_tree_get_path_none_means_layer_empty n next_none
-                have all_none := ct.tree.each_successor_none_of_children_empty _ children_empty
-                unfold FiniteDegreeTree.get at all_none
-                unfold PossiblyInfiniteTree.get at all_none
-                exact all_none
-            . intro m hm
-              have m_eq := hn.right m hm
-              rw [m_eq]
-              simp [Option.is_none_or]
-      | inr h =>
-        have h : ¬ ∃ n : Nat, nodes.infinite_list n = none := by
-          simp at h
-          simp
-          intro n
-          induction n with
-          | zero => simp [nodes, path, inductive_homomorphism_shortcut, inductive_homomorphism]; rw [ct.database_first]; simp
-          | succ n ih =>
-            specialize h n ih
-            cases h with | intro m hm =>
-              intro contra
-              have no_holes := nodes.no_holes m
-              simp only [nodes] at no_holes
-              specialize no_holes hm.right
-              cases Decidable.em ((n+1) = m) with
-              | inl eq => rw [eq] at contra; have contra' := hm.right; contradiction
-              | inr neq =>
-                let n_succ_fin_m : Fin m := ⟨n+1, by apply Nat.lt_of_le_of_ne; apply Nat.succ_le_of_lt; exact hm.left; exact neq⟩
-                specialize no_holes n_succ_fin_m
-                contradiction
-        cases ct.fairness_infinite_branches trg with | intro i hi =>
-          exists i
-          cases eq : nodes.infinite_list i with
-          | none => apply False.elim; apply h; exists i
-          | some node =>
-            constructor
-            . simp [Option.is_some_and]
-              specialize hi ((inductive_homomorphism_shortcut i).val.1) (by rw [(inductive_homomorphism_shortcut i).property.left]; simp)
-              simp only [nodes, path] at eq
-              rw [eq] at hi
-              simp [Option.is_none_or] at hi
-              exact hi
-            . intro j hj
-              specialize hi ((inductive_homomorphism_shortcut j).val.1) (by rw [(inductive_homomorphism_shortcut j).property.left]; apply Nat.le_of_lt; apply hj)
-              simp only [nodes, path]
-              exact hi
-  }
+      rw [indices_aux_result]
+      rfl
+
+  let branch : ChaseBranch obs kb := ct.chase_branch_for_tree_branch nodes nodes_is_tree_branch
   let result := branch.result
 
   let global_h : GroundTermMapping sig := fun t =>
@@ -751,7 +655,7 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
             apply Eq.symm
             simp only [inductive_homomorphism_shortcut]
             have same_all_following := inductive_homomorphism_same_on_all_following_terms ct m m_is_model i
-            simp only [branch, nodes, path, inductive_homomorphism_shortcut] at eq
+            simp only [ChaseTree.chase_branch_for_tree_branch, branch, nodes, path, inductive_homomorphism_shortcut] at eq
             rw [eq] at same_all_following; simp [Option.is_none_or] at same_all_following
             apply same_all_following
             exact f_in_node
@@ -766,7 +670,7 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
             | none => rw [eq2] at j_spec; simp [Option.is_some_and] at j_spec
             | some _ =>
               rw [eq2] at j_spec; simp [Option.is_some_and] at j_spec
-              simp only [branch, nodes, path, inductive_homomorphism_shortcut] at eq2
+              simp only [ChaseTree.chase_branch_for_tree_branch, branch, nodes, path, inductive_homomorphism_shortcut] at eq2
               rw [eq2] at same_all_following; simp [Option.is_none_or] at same_all_following
               apply same_all_following
               exact j_spec
@@ -775,31 +679,7 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
   exists result
   exists global_h
   constructor
-  . unfold ChaseTree.result
-    exists branch
-    simp [result]
-    unfold ChaseTree.branches
-    unfold FiniteDegreeTree.branches
-    unfold PossiblyInfiniteTree.branches
-    unfold PossiblyInfiniteTree.branches_through
-    exists indices
-    constructor
-    . unfold PossiblyInfiniteTree.branch_addresses_through
-      constructor
-      . rfl
-      . intro n eq_none
-        rw [indices_aux_result] at eq_none
-        rw [indices_aux_result]
-        apply FiniteDegreeTree.each_successor_none_of_children_empty
-        apply inductive_homomorphism_tree_get_path_none_means_layer_empty n
-        exact eq_none
-    . simp only [branch, nodes, path]
-      unfold PossiblyInfiniteTree.branch_for_address
-      unfold InfiniteTreeSkeleton.branch_for_address
-      simp only [PossiblyInfiniteList.eq_iff_same_on_all_indices]
-      intro n
-      rw [indices_aux_result]
-      rfl
+  . exists branch
   . constructor
     . intro gt
       split
@@ -811,7 +691,7 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
           let i := Classical.choose hfl
           let i_spec := Classical.choose_spec hfl
           have property := (inductive_homomorphism_shortcut i).property.right
-          simp only [branch, nodes, path] at i_spec
+          simp only [ChaseTree.chase_branch_for_tree_branch, branch, nodes, path] at i_spec
           cases eq : ct.tree.get (inductive_homomorphism_shortcut i).val.fst with
           | none => rw [eq] at i_spec; simp [Option.is_some_and] at i_spec
           | some node =>
@@ -826,10 +706,10 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
       cases hf with | intro e he =>
         let ⟨hel, her⟩ := he
         cases hel with | intro n hn =>
-          simp only [branch, nodes] at hn
+          simp only [ChaseTree.chase_branch_for_tree_branch, branch, nodes] at hn
           rw [← her]
           specialize this n
-          simp only [branch, nodes] at this
+          simp only [ChaseTree.chase_branch_for_tree_branch, branch, nodes] at this
           cases eq : path n with
           | none => rw [eq] at hn; simp [Option.is_some_and] at hn
           | some node =>
