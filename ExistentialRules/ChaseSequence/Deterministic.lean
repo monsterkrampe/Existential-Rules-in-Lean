@@ -167,15 +167,21 @@ theorem ChaseTree.firstResult_is_in_result (ct : ChaseTree obs kb) : ct.firstRes
   . unfold ChaseTree.branches
     unfold FiniteDegreeTree.branches
     unfold PossiblyInfiniteTree.branches
-    unfold InfiniteTreeSkeleton.branches
-    unfold InfiniteTreeSkeleton.branches_through
+    unfold PossiblyInfiniteTree.branches_through
     let nodes : InfiniteList Nat := fun _ => 0
     exists nodes
     constructor
-    . intro n
-      unfold firstBranch
-      unfold FiniteDegreeTree.get
-      unfold PossiblyInfiniteTree.get
+    . unfold PossiblyInfiniteTree.branch_addresses_through
+      constructor
+      . rfl
+      . intro n eq_none
+        simp only [InfiniteList.take, List.reverse_append, List.reverse_cons, List.reverse_nil, List.nil_append, List.singleton_append] at eq_none
+        exact eq_none
+    . simp only [firstBranch]
+      unfold PossiblyInfiniteTree.branch_for_address
+      unfold InfiniteTreeSkeleton.branch_for_address
+      simp only [PossiblyInfiniteList.eq_iff_same_on_all_indices]
+      intro n
       have : List.repeat 0 n = (nodes.take n).reverse := by
         simp only [nodes]
         induction n with
@@ -185,9 +191,8 @@ theorem ChaseTree.firstResult_is_in_result (ct : ChaseTree obs kb) : ct.firstRes
           unfold InfiniteList.take
           rw [List.reverse_append, List.reverse_cons, List.reverse_nil, List.nil_append, List.singleton_append]
           rw [ih]
-      simp only
       rw [this]
-    . rfl
+      rfl
   . unfold ChaseBranch.result
     rfl
 
@@ -204,172 +209,179 @@ theorem ChaseTree.firstResult_is_result_when_deterministic (ct : ChaseTree obs k
       unfold ChaseTree.branches at branch_in_ct
       unfold FiniteDegreeTree.branches at branch_in_ct
       unfold PossiblyInfiniteTree.branches at branch_in_ct
-      unfold InfiniteTreeSkeleton.branches at branch_in_ct
-      cases branch_in_ct with | intro nodes branch_in_ct =>
-        have : ∀ n, (branch.branch.infinite_list (n+1)).is_none_or (fun _ => nodes n = 0) := by
-          intro n
-          cases eq : branch.branch.infinite_list (n+1) with
-          | none => simp only [Option.is_none_or]
-          | some node =>
-            have trg_ex := ct.triggers_exist (nodes.take n).reverse
-            simp only [Option.is_none_or]
-            have n_succ_in_ct := branch_in_ct.left (n+1)
-            rw [eq] at n_succ_in_ct
-            unfold FiniteDegreeTree.get at trg_ex
-            unfold PossiblyInfiniteTree.get at trg_ex
-            rw [← branch_in_ct.left] at trg_ex
-            cases eq_prev : branch.branch.infinite_list n with
-            | none =>
-              have no_holes := branch.branch.no_holes (n+1) (by rw [eq]; simp) ⟨n, by simp⟩
-              rw [eq_prev] at no_holes
-              contradiction
-            | some prev_node =>
-              rw [eq_prev] at trg_ex
-              simp only [Option.is_none_or] at trg_ex
-              cases trg_ex with
-              | inl trg_ex =>
-                unfold exists_trigger_list at trg_ex
-                unfold exists_trigger_list_condition at trg_ex
-                cases trg_ex with | intro trg h_trg =>
-                  unfold InfiniteList.take at n_succ_in_ct
-                  rw [List.reverse_append, List.reverse_cons, List.reverse_nil, List.nil_append, List.singleton_append] at n_succ_in_ct
-                  have children_get_eq := ct.tree.tree.getElem_children_eq_get (nodes.take n).reverse (nodes n)
-                  unfold PossiblyInfiniteTree.get at children_get_eq
-                  rw [← children_get_eq] at n_succ_in_ct
-                  rw [← FiniteDegreeTree.children_eq_lifted_children] at n_succ_in_ct
-                  rw [← h_trg.right] at n_succ_in_ct
-                  rw [PossiblyInfiniteList.get_fromList_eq_list_getElem] at n_succ_in_ct
-                  have n_succ_in_ct := Eq.symm n_succ_in_ct
-                  rw [List.getElem?_eq_some_iff] at n_succ_in_ct
-                  cases n_succ_in_ct with | intro isLt n_succ_in_ct =>
-                    rw [List.length_map, List.length_attach, List.length_zipIdx_with_lt] at isLt
-                    rw [PreTrigger.length_mapped_head] at isLt
-                    unfold KnowledgeBase.isDeterministic at h_deterministic
-                    unfold RuleSet.isDeterministic at h_deterministic
-                    unfold Rule.isDeterministic at h_deterministic
-                    specialize h_deterministic _ trg.property
-                    rw [decide_eq_true_iff] at h_deterministic
-                    rw [h_deterministic, Nat.lt_succ, Nat.le_zero_eq] at isLt
-                    exact isLt
-              | inr trg_ex =>
-                unfold not_exists_trigger_list at trg_ex
-                have contra := ct.tree.each_successor_none_of_children_empty (nodes.take n).reverse trg_ex.right (nodes n)
-                have branch_in_ct := branch_in_ct.left (n+1)
-                unfold InfiniteList.take at branch_in_ct
-                rw [List.reverse_append, List.reverse_cons, List.reverse_nil, List.nil_append, List.singleton_append] at branch_in_ct
-                unfold FiniteDegreeTree.get at contra
-                unfold PossiblyInfiniteTree.get at contra
-                rw [contra] at branch_in_ct
-                rw [eq] at branch_in_ct
-                contradiction
-        have : ∀ n, (branch.branch.infinite_list n).is_none_or (fun _ => (nodes.take n).reverse = List.repeat 0 n) := by
-          intro n
-          cases eq : branch.branch.infinite_list n with
-          | none => simp only [Option.is_none_or]
-          | some val =>
-            simp only [Option.is_none_or]
-            induction n generalizing val with
-            | zero => unfold List.repeat; unfold InfiniteList.take; exact List.reverse_nil
-            | succ n ih =>
-              unfold List.repeat
-              unfold InfiniteList.take
-              rw [List.reverse_append, List.reverse_cons, List.reverse_nil, List.nil_append, List.singleton_append]
-              rw [List.cons_eq_cons]
-              constructor
-              . specialize this n
-                rw [eq] at this
-                simp only [Option.is_none_or] at this
-                exact this
-              . have no_holes := branch.branch.no_holes (n+1)
-                rw [eq] at no_holes
-                simp at no_holes
-                specialize no_holes ⟨n, by simp⟩
-                simp only [Option.ne_none_iff_exists] at no_holes
-                cases no_holes with | intro prev_node no_holes =>
-                  apply ih prev_node
-                  rw [no_holes]
-        have nodes_none_means_first_branch_none : ∀ n, ct.tree.get (nodes.take n).reverse = none -> ct.tree.get (List.repeat 0 n) = none := by
-          intro n
-          induction n with
-          | zero => unfold InfiniteList.take; unfold List.repeat; simp
-          | succ n ih =>
-            intro h
-            cases eq : ct.tree.get (nodes.take n).reverse with
-            | none =>
-              specialize ih eq
-              apply Option.decidableEqNone.byContradiction
-              intro contra
-              have no_orphans := ct.tree.tree.no_orphans (List.repeat 0 (n+1)) contra ⟨(List.repeat 0 n), by exists [0]⟩
-              contradiction
-            | some node =>
-              have eq' := eq
-              unfold FiniteDegreeTree.get at eq
-              unfold PossiblyInfiniteTree.get at eq
-              rw [← branch_in_ct.left] at eq
-              specialize this n
-              rw [eq] at this; simp only [Option.is_none_or] at this
-              rw [this] at eq'
-              have trg_ex := branch.triggers_exist n
-              rw [eq] at trg_ex; simp only [Option.is_none_or] at trg_ex
-              cases trg_ex with
-              | inl trg_ex =>
-                unfold exists_trigger_opt_fs at trg_ex
-                cases trg_ex with | intro _ trg_ex => cases trg_ex.right with | intro _ trg_ex =>
-                  unfold FiniteDegreeTree.get at h
-                  unfold PossiblyInfiniteTree.get at h
-                  rw [← branch_in_ct.left] at h
-                  rw [h] at trg_ex
-                  contradiction
-              | inr trg_ex =>
-                unfold not_exists_trigger_opt_fs at trg_ex
-                have trg_ex' := ct.triggers_exist (List.repeat 0 n)
-                rw [eq'] at trg_ex'; simp only [Option.is_none_or] at trg_ex'
-                cases trg_ex' with
-                | inl trg_ex' =>
-                  unfold exists_trigger_list at trg_ex'
-                  unfold exists_trigger_list_condition at trg_ex'
-                  cases trg_ex' with | intro trg' trg_ex' =>
-                    apply False.elim
-                    apply trg_ex.left
-                    exists trg'
-                    exact trg_ex'.left
-                | inr trg_ex' =>
-                  unfold not_exists_trigger_list at trg_ex'
-                  apply FiniteDegreeTree.each_successor_none_of_children_empty
-                  exact trg_ex'.right
-        apply Set.ext
-        intro f
-        unfold ChaseBranch.result
-        unfold ChaseTree.firstResult
-        constructor
-        . intro h; cases h with | intro n h =>
-          exists n
-          cases eq : branch.branch.infinite_list n with
-          | none => rw [eq] at h; simp only [Option.is_some_and] at h
-          | some node =>
-            specialize this n
-            rw [eq] at this
-            simp only [Option.is_none_or] at this
-            rw [← this]
-            unfold FiniteDegreeTree.get; unfold PossiblyInfiniteTree.get; rw [← branch_in_ct.left]; exact h
-        . intro h; cases h with | intro n h =>
-          exists n
-          rw [branch_in_ct.left]
-          cases eq : branch.branch.infinite_list n with
+      unfold PossiblyInfiniteTree.branches_through at branch_in_ct
+      rcases branch_in_ct with ⟨nodes, branch_in_ct⟩
+      have : ∀ n, (branch.branch.infinite_list (n+1)).is_none_or (fun _ => nodes n = 0) := by
+        intro n
+        cases eq : branch.branch.infinite_list (n+1) with
+        | none => simp only [Option.is_none_or]
+        | some node =>
+          have trg_ex := ct.triggers_exist (nodes.take n).reverse
+          simp only [Option.is_none_or]
+          have n_succ_in_ct := eq
+          rw [branch_in_ct.right] at n_succ_in_ct
+          unfold FiniteDegreeTree.get at trg_ex
+          unfold PossiblyInfiniteTree.get at trg_ex
+          cases eq_prev : branch.branch.infinite_list n with
           | none =>
-            rw [nodes_none_means_first_branch_none n (by
-              unfold FiniteDegreeTree.get
-              unfold PossiblyInfiniteTree.get
-              rw [← branch_in_ct.left]
-              exact eq
-            )] at h
-            simp only [Option.is_some_and] at h
+            have no_holes := branch.branch.no_holes (n+1) (by rw [eq]; simp) ⟨n, by simp⟩
+            rw [eq_prev] at no_holes
+            contradiction
+          | some prev_node =>
+            rw [branch_in_ct.right] at eq_prev
+            simp only [PossiblyInfiniteTree.branch_for_address, InfiniteTreeSkeleton.branch_for_address] at eq_prev
+            rw [eq_prev] at trg_ex
+            simp only [Option.is_none_or] at trg_ex
+            cases trg_ex with
+            | inl trg_ex =>
+              unfold exists_trigger_list at trg_ex
+              unfold exists_trigger_list_condition at trg_ex
+              rcases trg_ex with ⟨trg, h_trg⟩
+              simp only [PossiblyInfiniteTree.branch_for_address, InfiniteTreeSkeleton.branch_for_address] at n_succ_in_ct
+              unfold InfiniteList.take at n_succ_in_ct
+              rw [List.reverse_append, List.reverse_cons, List.reverse_nil, List.nil_append, List.singleton_append] at n_succ_in_ct
+              have children_get_eq := ct.tree.tree.getElem_children_eq_get (nodes.take n).reverse (nodes n)
+              unfold PossiblyInfiniteTree.get at children_get_eq
+              rw [← children_get_eq] at n_succ_in_ct
+              rw [← FiniteDegreeTree.children_eq_lifted_children] at n_succ_in_ct
+              rw [← h_trg.right] at n_succ_in_ct
+              rw [PossiblyInfiniteList.get_fromList_eq_list_getElem] at n_succ_in_ct
+              rw [List.getElem?_eq_some_iff] at n_succ_in_ct
+              rcases n_succ_in_ct with ⟨isLt, n_succ_in_ct⟩
+              rw [List.length_map, List.length_attach, List.length_zipIdx_with_lt] at isLt
+              rw [PreTrigger.length_mapped_head] at isLt
+              unfold KnowledgeBase.isDeterministic at h_deterministic
+              unfold RuleSet.isDeterministic at h_deterministic
+              unfold Rule.isDeterministic at h_deterministic
+              specialize h_deterministic _ trg.property
+              rw [decide_eq_true_iff] at h_deterministic
+              rw [h_deterministic, Nat.lt_succ, Nat.le_zero_eq] at isLt
+              exact isLt
+            | inr trg_ex =>
+              unfold not_exists_trigger_list at trg_ex
+              have contra := ct.tree.each_successor_none_of_children_empty (nodes.take n).reverse trg_ex.right (nodes n)
+              have branch_in_ct := branch_in_ct.right
+              rw [PossiblyInfiniteList.eq_iff_same_on_all_indices] at branch_in_ct
+              specialize branch_in_ct (n+1)
+              simp only [PossiblyInfiniteTree.branch_for_address, InfiniteTreeSkeleton.branch_for_address] at branch_in_ct
+              unfold InfiniteList.take at branch_in_ct
+              rw [List.reverse_append, List.reverse_cons, List.reverse_nil, List.nil_append, List.singleton_append] at branch_in_ct
+              unfold FiniteDegreeTree.get at contra
+              unfold PossiblyInfiniteTree.get at contra
+              rw [contra] at branch_in_ct
+              rw [eq] at branch_in_ct
+              contradiction
+      have : ∀ n, (branch.branch.infinite_list n).is_none_or (fun _ => (nodes.take n).reverse = List.repeat 0 n) := by
+        intro n
+        cases eq : branch.branch.infinite_list n with
+        | none => simp only [Option.is_none_or]
+        | some val =>
+          simp only [Option.is_none_or]
+          induction n generalizing val with
+          | zero => unfold List.repeat; unfold InfiniteList.take; exact List.reverse_nil
+          | succ n ih =>
+            unfold List.repeat
+            unfold InfiniteList.take
+            rw [List.reverse_append, List.reverse_cons, List.reverse_nil, List.nil_append, List.singleton_append]
+            rw [List.cons_eq_cons]
+            constructor
+            . specialize this n
+              rw [eq] at this
+              simp only [Option.is_none_or] at this
+              exact this
+            . have no_holes := branch.branch.no_holes (n+1)
+              rw [eq] at no_holes
+              simp at no_holes
+              specialize no_holes ⟨n, by simp⟩
+              simp only [Option.ne_none_iff_exists] at no_holes
+              cases no_holes with | intro prev_node no_holes =>
+                apply ih prev_node
+                rw [no_holes]
+      have nodes_none_means_first_branch_none : ∀ n, ct.tree.get (nodes.take n).reverse = none -> ct.tree.get (List.repeat 0 n) = none := by
+        intro n
+        induction n with
+        | zero => unfold InfiniteList.take; unfold List.repeat; simp
+        | succ n ih =>
+          intro h
+          cases eq : ct.tree.get (nodes.take n).reverse with
+          | none =>
+            specialize ih eq
+            apply Option.decidableEqNone.byContradiction
+            intro contra
+            have no_orphans := ct.tree.tree.no_orphans (List.repeat 0 (n+1)) contra ⟨(List.repeat 0 n), by exists [0]⟩
+            contradiction
           | some node =>
+            have eq' := eq
+            unfold FiniteDegreeTree.get at eq
+            unfold PossiblyInfiniteTree.get at eq
             specialize this n
-            rw [eq] at this
-            simp only [Option.is_none_or] at this
-            rw [this]
-            exact h
+            rw [branch_in_ct.right] at this
+            simp only [PossiblyInfiniteTree.branch_for_address, InfiniteTreeSkeleton.branch_for_address] at this
+            rw [eq] at this; simp only [Option.is_none_or] at this
+            rw [this] at eq'
+            have trg_ex := branch.triggers_exist n
+            rw [branch_in_ct.right] at trg_ex
+            simp only [PossiblyInfiniteTree.branch_for_address, InfiniteTreeSkeleton.branch_for_address] at trg_ex
+            rw [eq] at trg_ex; simp only [Option.is_none_or] at trg_ex
+            cases trg_ex with
+            | inl trg_ex =>
+              unfold exists_trigger_opt_fs at trg_ex
+              cases trg_ex with | intro _ trg_ex => cases trg_ex.right with | intro _ trg_ex =>
+                unfold FiniteDegreeTree.get at h
+                unfold PossiblyInfiniteTree.get at h
+                rw [h] at trg_ex
+                contradiction
+            | inr trg_ex =>
+              unfold not_exists_trigger_opt_fs at trg_ex
+              have trg_ex' := ct.triggers_exist (List.repeat 0 n)
+              rw [eq'] at trg_ex'; simp only [Option.is_none_or] at trg_ex'
+              cases trg_ex' with
+              | inl trg_ex' =>
+                unfold exists_trigger_list at trg_ex'
+                unfold exists_trigger_list_condition at trg_ex'
+                cases trg_ex' with | intro trg' trg_ex' =>
+                  apply False.elim
+                  apply trg_ex.left
+                  exists trg'
+                  exact trg_ex'.left
+              | inr trg_ex' =>
+                unfold not_exists_trigger_list at trg_ex'
+                apply FiniteDegreeTree.each_successor_none_of_children_empty
+                exact trg_ex'.right
+      apply Set.ext
+      intro f
+      unfold ChaseBranch.result
+      unfold ChaseTree.firstResult
+      constructor
+      . intro h; cases h with | intro n h =>
+        exists n
+        cases eq : branch.branch.infinite_list n with
+        | none => rw [eq] at h; simp only [Option.is_some_and] at h
+        | some node =>
+          specialize this n
+          rw [eq] at this
+          simp only [Option.is_none_or] at this
+          rw [← this]
+          unfold FiniteDegreeTree.get; unfold PossiblyInfiniteTree.get; rw [branch_in_ct.right] at h; exact h
+      . intro h; cases h with | intro n h =>
+        exists n
+        rw [branch_in_ct.right]
+        simp only [PossiblyInfiniteTree.branch_for_address, InfiniteTreeSkeleton.branch_for_address]
+        cases eq : branch.branch.infinite_list n with
+        | none =>
+          rw [nodes_none_means_first_branch_none n (by
+            unfold FiniteDegreeTree.get
+            unfold PossiblyInfiniteTree.get
+            rw [branch_in_ct.right] at eq
+            exact eq
+          )] at h
+          simp only [Option.is_some_and] at h
+        | some node =>
+          specialize this n
+          rw [eq] at this
+          simp only [Option.is_none_or] at this
+          rw [this]
+          exact h
   . intro h
     have firstResult_is_in_result := ct.firstResult_is_in_result
     unfold ChaseTree.result at firstResult_is_in_result

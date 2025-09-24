@@ -781,17 +781,25 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
     unfold ChaseTree.branches
     unfold FiniteDegreeTree.branches
     unfold PossiblyInfiniteTree.branches
-    unfold InfiniteTreeSkeleton.branches
-    unfold InfiniteTreeSkeleton.branches_through
+    unfold PossiblyInfiniteTree.branches_through
     exists indices
     constructor
-    . intro n
-      simp only [branch, nodes, path]
+    . unfold PossiblyInfiniteTree.branch_addresses_through
+      constructor
+      . rfl
+      . intro n eq_none
+        rw [indices_aux_result] at eq_none
+        rw [indices_aux_result]
+        apply FiniteDegreeTree.each_successor_none_of_children_empty
+        apply inductive_homomorphism_tree_get_path_none_means_layer_empty n
+        exact eq_none
+    . simp only [branch, nodes, path]
+      unfold PossiblyInfiniteTree.branch_for_address
+      unfold InfiniteTreeSkeleton.branch_for_address
+      simp only [PossiblyInfiniteList.eq_iff_same_on_all_indices]
+      intro n
       rw [indices_aux_result]
-      unfold FiniteDegreeTree.get
-      unfold PossiblyInfiniteTree.get
       rfl
-    . rfl
   . constructor
     . intro gt
       split

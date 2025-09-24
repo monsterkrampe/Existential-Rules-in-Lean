@@ -205,7 +205,7 @@ section GeneralResults
 
       have : ∀ b, b ∈ ct.tree.branches -> ∃ i, b.infinite_list i = none := by
         intro b b_mem
-        rcases b_mem with ⟨nodes, b_mem, _⟩
+        rcases b_mem with ⟨nodes, b_mem⟩
 
         -- It might seem like byContradiction is not needed but we need the contra hypothesis to show that cb is a proper chase branch
         apply Classical.byContradiction
@@ -213,7 +213,7 @@ section GeneralResults
 
         let cb : ChaseBranch obs kb := {
           branch := b
-          database_first := by rw [← ct.database_first]; rw [b_mem]; simp [InfiniteList.take]; rfl
+          database_first := by rw [← ct.database_first]; rw [b_mem.right]; simp only [PossiblyInfiniteTree.branch_for_address, InfiniteTreeSkeleton.branch_for_address]; rfl
           triggers_exist := by
             intro n
             cases eq : b.infinite_list n with
@@ -223,7 +223,9 @@ section GeneralResults
               have trgs_ex := ct.triggers_exist (nodes.take n).reverse
               unfold FiniteDegreeTree.get at trgs_ex
               unfold PossiblyInfiniteTree.get at trgs_ex
-              rw [← b_mem, eq] at trgs_ex
+              rw [b_mem.right] at eq
+              simp only [PossiblyInfiniteTree.branch_for_address, InfiniteTreeSkeleton.branch_for_address] at eq
+              rw [eq] at trgs_ex
               simp [Option.is_none_or] at trgs_ex
               cases trgs_ex with
               | inr trgs_ex =>
@@ -233,9 +235,9 @@ section GeneralResults
                 apply False.elim
                 apply contra
                 exists (n+1)
-                rw [b_mem]
-                unfold InfiniteList.take
-                simp
+                rw [b_mem.right]
+                simp only [PossiblyInfiniteTree.branch_for_address, InfiniteTreeSkeleton.branch_for_address]
+                simp only [InfiniteList.take, List.reverse_append, List.reverse_cons, List.reverse_nil, List.nil_append, List.singleton_append]
                 exact all_none
               | inl trgs_ex =>
                 apply Or.inl
@@ -253,9 +255,10 @@ section GeneralResults
                   have get_node_eq : (ct.tree.children (nodes.take n).reverse)[nodes n]? = b.infinite_list (n+1) := by
                     rw [FiniteDegreeTree.getElem_children_eq_getElem_lifted_children]
                     rw [PossiblyInfiniteTree.getElem_children_eq_get]
-                    rw [b_mem]
+                    rw [b_mem.right]
+                    simp only [PossiblyInfiniteTree.branch_for_address, InfiniteTreeSkeleton.branch_for_address]
                     conv => right; unfold InfiniteList.take
-                    simp
+                    simp only [List.reverse_append, List.reverse_cons, List.reverse_nil, List.nil_append, List.singleton_append]
                     rfl
 
                   have nodes_n_le : nodes n < trg.val.mapped_head.length := by
@@ -296,7 +299,9 @@ section GeneralResults
               . specialize fair (nodes.take i).reverse (by simp [InfiniteList.length_take])
                 unfold FiniteDegreeTree.get at fair
                 unfold PossiblyInfiniteTree.get at fair
-                rw [← b_mem, eq, Option.is_none_or] at fair
+                rw [b_mem.right] at eq
+                simp only [PossiblyInfiniteTree.branch_for_address, InfiniteTreeSkeleton.branch_for_address] at eq
+                rw [eq, Option.is_none_or] at fair
                 exact fair
               . intro j lt
                 cases eq2 : b.infinite_list j with
@@ -306,7 +311,9 @@ section GeneralResults
                   specialize fair (nodes.take j).reverse (by simp [InfiniteList.length_take]; exact Nat.le_of_lt lt)
                   unfold FiniteDegreeTree.get at fair
                   unfold PossiblyInfiniteTree.get at fair
-                  rw [← b_mem, eq2, Option.is_none_or] at fair
+                  rw [b_mem.right] at eq2
+                  simp only [PossiblyInfiniteTree.branch_for_address, InfiniteTreeSkeleton.branch_for_address] at eq2
+                  rw [eq2, Option.is_none_or] at fair
                   exact fair
         }
 
