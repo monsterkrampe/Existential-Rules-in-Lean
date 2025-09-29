@@ -6,9 +6,6 @@ import ExistentialRules.ChaseSequence.Universality
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
 
--- TODO: split up the proofs to get rid of this
-set_option maxHeartbeats 400000
-
 def ChaseTree.firstResult (ct : ChaseTree obs kb) : FactSet sig := fun f => ∃ n, (ct.tree.get (List.repeat 0 n)).is_some_and (fun node => f ∈ node.facts.val)
 
 theorem ChaseTree.firstResult_is_in_result (ct : ChaseTree obs kb) : ct.firstResult ∈ ct.result := by
@@ -251,76 +248,7 @@ theorem deterministicChaseTreeResultUniversallyModelsKb (ct : ChaseTree obs kb) 
 
 def ChaseBranch.intoTree (cb : ChaseBranch obs kb) (deterministic : kb.isDeterministic) : ChaseTree obs kb :=
   {
-    tree := {
-      tree := {
-        infinite_tree := fun l => if l.all (fun e => e = 0) then cb.branch.infinite_list l.length else none
-        no_orphans := by
-          intro l
-          cases eq : l.all (fun e => e = 0) with
-          | false => simp
-          | true =>
-            intro not_none
-            intro parent
-            rcases parent.property with ⟨diff, l_eq⟩
-            have : parent.val.all (fun e => e = 0) := by
-              rw [← l_eq] at eq
-              rw [List.all_append] at eq
-              rw [Bool.and_eq_true] at eq
-              exact eq.right
-            simp only [this, ↓reduceIte]
-            cases diff with
-            | nil => rw [List.nil_append] at l_eq; rw [l_eq]; apply not_none
-            | cons _ _ =>
-              let parent_len_fin : Fin l.length := ⟨parent.val.length, by simp only [← l_eq, List.cons_append, List.length_cons, List.length_append]; apply Nat.lt_add_one_of_le; simp⟩
-              have := cb.branch.no_holes l.length not_none parent_len_fin
-              exact this
-        no_holes_in_children := by
-          intro l n
-          unfold InfiniteTreeSkeleton.children
-          cases n with
-          | succ n =>
-            have all_eq_false : ((n+1)::l).all (fun e => e = 0) = false := by
-              rw [List.all_eq_false]
-              exists n+1
-              constructor
-              . apply List.mem_cons_self
-              . simp
-            simp [all_eq_false]
-          | zero =>
-            intro _ m
-            have isLt := m.isLt
-            simp at isLt
-      }
-      finitely_many_children := by
-        intro l
-        cases eq : cb.branch.infinite_list (l.length + 1) with
-        | none =>
-          exists 0
-          rw [PossiblyInfiniteTree.getElem_children_eq_get]
-          unfold PossiblyInfiniteTree.get
-          cases eq2 : l.all (fun e => e = 0) with
-          | false => simp [eq2]; intro k; have isLt := k.isLt; simp at isLt
-          | true => simp [eq2, eq]; intro k; have isLt := k.isLt; simp at isLt
-        | some _ =>
-          cases eq2 : l.all (fun e => e = 0) with
-          | false =>
-            exists 0
-            rw [PossiblyInfiniteTree.getElem_children_eq_get]
-            unfold PossiblyInfiniteTree.get
-            simp [eq2]
-            intro k; have isLt := k.isLt; simp at isLt
-          | true =>
-            exists 1
-            rw [PossiblyInfiniteTree.getElem_children_eq_get]
-            unfold PossiblyInfiniteTree.get
-            simp
-            rw [PossiblyInfiniteTree.getElem_children_eq_get]
-            unfold PossiblyInfiniteTree.get
-            simp
-            constructor
-            . simp at eq2; apply eq2
-            . rw [eq]; simp
-    }
+    tree := FiniteDegreeTree.from_branch cb.branch
     database_first := by
       simp only [FiniteDegreeTree.get, PossiblyInfiniteTree.get]
       exact cb.database_first
@@ -328,83 +256,78 @@ def ChaseBranch.intoTree (cb : ChaseBranch obs kb) (deterministic : kb.isDetermi
       simp only [FiniteDegreeTree.get, PossiblyInfiniteTree.get]
       intro l
       cases eq : l.all (fun e => e = 0) with
-      | false => simp [Option.is_none_or]
+      | false => simp only [FiniteDegreeTree.from_branch, PossiblyInfiniteTree.from_branch, eq]; simp [Option.is_none_or]
       | true =>
-        simp only [reduceIte]
+        simp only [FiniteDegreeTree.from_branch, PossiblyInfiniteTree.from_branch, eq, ↓reduceIte]
+        rw [Option.is_none_or_iff]
+        intro node eq2
         have cb_trgs := cb.triggers_exist l.length
-        cases eq2 : cb.branch.infinite_list l.length with
-        | none => simp only [Option.is_none_or]
-        | some node =>
-          simp only [Option.is_none_or]
-          rw [eq2] at cb_trgs
-          simp only [Option.is_none_or] at cb_trgs
-          cases cb_trgs with
-          | inl cb_trgs =>
-            apply Or.inl
-            unfold exists_trigger_opt_fs at cb_trgs
-            unfold exists_trigger_list
-            unfold exists_trigger_list_condition
-            rcases cb_trgs with ⟨trg, trg_active, trg_result⟩
-            exists trg
-            constructor
-            . exact trg_active
-            . rcases trg_result with ⟨i, trg_result⟩
-              have res_length : trg.val.mapped_head.length = 1 := by
-                rw [PreTrigger.length_mapped_head]
-                unfold KnowledgeBase.isDeterministic at deterministic
-                unfold RuleSet.isDeterministic at deterministic
-                unfold Rule.isDeterministic at deterministic
-                simp only [decide_eq_true_iff] at deterministic
-                apply deterministic
-                exact trg.property
-              have i_eq : i = (⟨0, by simp [res_length]⟩ : Fin trg.val.mapped_head.length) := by
-                cases eq : i.val with
-                | zero => ext; rw [eq]
-                | succ _ =>
-                  have isLt := i.isLt
-                  rw [eq, res_length] at isLt
-                  simp at isLt
-              rw [List.map_eq_iff]
-              intro j
-              cases j with
-              | zero =>
-                rw [FiniteDegreeTree.getElem_children_eq_getElem_lifted_children]
-                rw [PossiblyInfiniteTree.getElem_children_eq_get]
-                unfold PossiblyInfiniteTree.get
-                rw [List.getElem?_eq_getElem (by rw [List.length_attach, List.length_zipIdx_with_lt]; rw [res_length]; simp)]
-                have : (0::l).all (fun e => e = 0) = true := by
-                  rw [List.all_cons, eq]
-                  simp
-                conv => left; simp [this]
-                rw [← trg_result]
-                simp only [Option.map_some, Option.some.injEq, List.getElem_attach, ChaseNode.mk.injEq]
-                constructor
-                . rw [Subtype.mk.injEq, i_eq, List.zipIdx_with_lt_getElem_fst_eq_getElem]
-                . rw [i_eq, List.zipIdx_with_lt_getElem_snd_eq_index]
-              | succ j =>
-                rw [FiniteDegreeTree.getElem_children_eq_getElem_lifted_children]
-                rw [PossiblyInfiniteTree.getElem_children_eq_get]
-                unfold PossiblyInfiniteTree.get
-                rw [List.getElem?_eq_none]
-                . simp
-                . rw [List.length_attach, List.length_zipIdx_with_lt, res_length]
-                  simp
-          | inr cb_trgs =>
-            apply Or.inr
-            unfold not_exists_trigger_opt_fs at cb_trgs
-            unfold not_exists_trigger_list
-            constructor
-            . exact cb_trgs.left
-            . apply FiniteDegreeTree.children_empty_of_first_successor_none
-              unfold FiniteDegreeTree.get
+        rw [Option.is_none_or_iff] at cb_trgs
+        specialize cb_trgs node eq2
+        cases cb_trgs with
+        | inl cb_trgs =>
+          apply Or.inl
+          rcases cb_trgs with ⟨trg, trg_active, trg_result⟩
+          exists trg
+          constructor
+          . exact trg_active
+          . rcases trg_result with ⟨i, trg_result⟩
+            have res_length : trg.val.mapped_head.length = 1 := by
+              rw [PreTrigger.length_mapped_head]
+              unfold KnowledgeBase.isDeterministic at deterministic
+              unfold RuleSet.isDeterministic at deterministic
+              unfold Rule.isDeterministic at deterministic
+              simp only [decide_eq_true_iff] at deterministic
+              apply deterministic
+              exact trg.property
+            have i_eq : i = (⟨0, by simp [res_length]⟩ : Fin trg.val.mapped_head.length) := by
+              cases eq : i.val with
+              | zero => ext; rw [eq]
+              | succ _ =>
+                have isLt := i.isLt
+                rw [eq, res_length] at isLt
+                simp at isLt
+            rw [List.map_eq_iff]
+            intro j
+            cases j with
+            | zero =>
+              rw [FiniteDegreeTree.getElem_children_eq_getElem_lifted_children]
+              rw [PossiblyInfiniteTree.getElem_children_eq_get]
               unfold PossiblyInfiniteTree.get
+              rw [List.getElem?_eq_getElem (by rw [List.length_attach, List.length_zipIdx_with_lt]; rw [res_length]; simp)]
               have : (0::l).all (fun e => e = 0) = true := by
-                rw [List.all_cons]
-                rw [eq]
+                rw [List.all_cons, eq]
                 simp
-              simp [this]
-              exact cb_trgs.right
+              conv => left; simp [this]
+              rw [← trg_result]
+              simp only [Option.map_some, Option.some.injEq, List.getElem_attach, ChaseNode.mk.injEq]
+              constructor
+              . rw [Subtype.mk.injEq, i_eq, List.zipIdx_with_lt_getElem_fst_eq_getElem]
+              . rw [i_eq, List.zipIdx_with_lt_getElem_snd_eq_index]
+            | succ j =>
+              rw [FiniteDegreeTree.getElem_children_eq_getElem_lifted_children]
+              rw [PossiblyInfiniteTree.getElem_children_eq_get]
+              unfold PossiblyInfiniteTree.get
+              rw [List.getElem?_eq_none]
+              . simp
+              . rw [List.length_attach, List.length_zipIdx_with_lt, res_length]
+                simp
+        | inr cb_trgs =>
+          apply Or.inr
+          constructor
+          . exact cb_trgs.left
+          . apply FiniteDegreeTree.children_empty_of_first_successor_none
+            unfold FiniteDegreeTree.get
+            unfold PossiblyInfiniteTree.get
+            have : (0::l).all (fun e => e = 0) = true := by
+              rw [List.all_cons]
+              rw [eq]
+              simp
+            simp [this]
+            exact cb_trgs.right
     fairness_leaves := by
+      unfold FiniteDegreeTree.from_branch
+      unfold PossiblyInfiniteTree.from_branch
       intro leaf leaf_mem
       unfold FiniteDegreeTree.leaves at leaf_mem
       unfold PossiblyInfiniteTree.leaves at leaf_mem
@@ -425,53 +348,55 @@ def ChaseBranch.intoTree (cb : ChaseBranch obs kb) (deterministic : kb.isDetermi
         intro trg
         have fair := cb.fairness trg
         rcases fair with ⟨i, fair⟩
+        rw [Option.is_some_and_iff] at fair
         have : i ≤ node.length := by
-          cases Decidable.em (i ≤ node.length) with
-          | inl le => exact le
-          | inr n_le =>
-            rw [Nat.not_le] at n_le
-            -- all cases should result in contradictions
-            cases eq2 : i - node.length with
+          apply Decidable.byContradiction
+          intro n_le
+          rw [Nat.not_le] at n_le
+          -- all cases should result in contradictions
+          cases eq2 : i - node.length with
+          | zero =>
+            rw [Nat.sub_eq_iff_eq_add (by apply Nat.le_of_lt; exact n_le)] at eq2
+            rw [eq2] at n_le
+            simp at n_le
+          | succ j =>
+            rw [Nat.sub_eq_iff_eq_add (by apply Nat.le_of_lt; exact n_le)] at eq2
+            cases j with
             | zero =>
-              rw [Nat.sub_eq_iff_eq_add (by apply Nat.le_of_lt; exact n_le)] at eq2
-              rw [eq2] at n_le
-              simp at n_le
-            | succ j =>
-              rw [Nat.sub_eq_iff_eq_add (by apply Nat.le_of_lt; exact n_le)] at eq2
-              cases j with
-              | zero =>
-                cases eq3 : cb.branch.infinite_list i with
-                | none => rw [eq3] at fair; simp [Option.is_some_and] at fair
-                | some _ =>
-                  rw [eq2, Nat.zero_add, Nat.add_comm, all_none] at eq3
-                  simp at eq3
-              | succ _ =>
-                cases eq3 : cb.branch.infinite_list i with
-                | none => rw [eq3] at fair; simp [Option.is_some_and] at fair
-                | some _ =>
-                  have no_holes := cb.branch.no_holes i (by simp [eq3]) ⟨
-                    node.length + 1,
-                    by
-                      rw [eq2]
-                      conv => right; rw [Nat.add_assoc, Nat.add_assoc]
-                      apply Nat.lt_add_left
-                      rw [← Nat.add_assoc, Nat.add_comm]
-                      simp
-                  ⟩
-                  rw [all_none] at no_holes
-                  simp at no_holes
+              cases eq3 : cb.branch.infinite_list i with
+              | none => rw [eq3] at fair; simp at fair
+              | some _ =>
+                rw [eq2, Nat.zero_add, Nat.add_comm, all_none] at eq3
+                simp at eq3
+            | succ _ =>
+              cases eq3 : cb.branch.infinite_list i with
+              | none => rw [eq3] at fair; simp at fair
+              | some _ =>
+                have no_holes := cb.branch.no_holes i (by simp [eq3]) ⟨
+                  node.length + 1,
+                  by
+                    rw [eq2]
+                    conv => right; rw [Nat.add_assoc, Nat.add_assoc]
+                    apply Nat.lt_add_left
+                    rw [← Nat.add_assoc, Nat.add_comm]
+                    simp
+                ⟩
+                rw [all_none] at no_holes
+                simp at no_holes
         cases Nat.lt_or_eq_of_le this with
         | inr eq =>
-          have fair_left := fair.left
-          rw [eq, node_eq] at fair_left
-          simp only [Option.is_some_and] at fair_left
-          exact fair_left
+          rcases fair.left with ⟨leaf', fair_left⟩
+          rw [eq, node_eq, Option.some_inj] at fair_left
+          rw [fair_left.left]
+          exact fair_left.right
         | inl lt =>
           have fair_right := fair.right node.length lt
-          rw [node_eq] at fair_right
-          simp only [Option.is_none_or] at fair_right
-          exact fair_right
+          rw [Option.is_none_or_iff] at fair_right
+          apply fair_right
+          exact node_eq
     fairness_infinite_branches := by
+      unfold FiniteDegreeTree.from_branch
+      unfold PossiblyInfiniteTree.from_branch
       intro trg
       have fair := cb.fairness trg
       rcases fair with ⟨i, fair⟩
@@ -492,6 +417,8 @@ theorem ChaseBranch.intoTree_same_result (cb : ChaseBranch obs kb) (deterministi
   unfold ChaseBranch.intoTree
   unfold ChaseBranch.result
   unfold ChaseTree.firstResult
+  unfold FiniteDegreeTree.from_branch
+  unfold PossiblyInfiniteTree.from_branch
   apply Set.ext
   intro f
   simp only [FiniteDegreeTree.get, PossiblyInfiniteTree.get]
