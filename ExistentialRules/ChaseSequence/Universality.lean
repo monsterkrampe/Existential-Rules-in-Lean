@@ -111,37 +111,34 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
     intro mapped_fact fact_in_chase
 
     rcases fact_in_chase with ⟨fact, fact_in_chase, rw_aux⟩
-    rw [← rw_aux]
+    rw [rw_aux]
 
     cases fact_in_chase with
     | inl fact_in_prev_step =>
       apply prev_cond_r.right
       exists fact
       constructor
-      exact fact_in_prev_step
-      unfold GroundTermMapping.applyFact
-      rw [Fact.mk.injEq]
-      constructor
-      . rfl
-      rw [List.map_inj_left]
-      intro ground_term _
-      have : ∃ f, f ∈ prev_node_unwrapped.facts.val ∧ ground_term ∈ f.terms := by
-        exists fact
-      cases eq : ground_term with
-      | const c =>
-        simp only [GroundTerm.const, next_hom]
-        apply GroundTermMapping.apply_constant_is_id_of_isIdOnConstants prev_cond_r.left c
-      | func _ _ =>
-        simp only [GroundTerm.func, next_hom]
-        split
-        . rfl
-        . simp only [eq, GroundTerm.func] at this
-          contradiction
+      . exact fact_in_prev_step
+      . apply TermMapping.apply_generalized_atom_congr_left
+        intro ground_term _
+        have : ∃ f, f ∈ prev_node_unwrapped.facts.val ∧ ground_term ∈ f.terms := by
+          exists fact
+        cases eq : ground_term with
+        | const c =>
+          apply Eq.symm
+          apply GroundTermMapping.apply_constant_is_id_of_isIdOnConstants prev_cond_r.left c
+        | func _ _ =>
+          simp only [GroundTerm.func, next_hom]
+          split
+          . rfl
+          . simp only [eq, GroundTerm.func] at this
+            contradiction
     | inr fact_in_trg_result =>
       apply h_obs_at_head_index_for_m_subs.right
       rw [List.mem_toSet]
       rw [List.mem_toSet] at fact_in_trg_result
       unfold GroundSubstitution.apply_function_free_conj
+      unfold TermMapping.apply_generalized_atom_list
       rw [List.mem_map]
       exists (trg.val.atom_for_result_fact result_index_for_trg fact_in_trg_result)
       constructor
@@ -151,16 +148,15 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
       . simp only
         conv => right; rw [← trg.val.apply_on_atom_for_result_fact_is_fact result_index_for_trg fact_in_trg_result]
         rw [← PreTrigger.apply_subs_for_atom_eq]
-        rw [← GroundSubstitution.apply_function_free_atom_compose_of_isIdOnConstants _ _ next_hom_id_const]
-        unfold GroundSubstitution.apply_function_free_atom
-        simp only [Fact.mk.injEq, true_and]
-        rw [List.map_inj_left]
+        rw [← Function.comp_apply (f := TermMapping.apply_generalized_atom next_hom)]
+        rw [← GroundTermMapping.applyFact.eq_def, ← GroundSubstitution.apply_function_free_atom_compose_of_isIdOnConstants _ _ next_hom_id_const]
+        apply TermMapping.apply_generalized_atom_congr_left
         intro voc voc_mem
         cases voc with
         | const c => simp [GroundSubstitution.apply_var_or_const]
         | var v =>
           rw [GroundSubstitution.apply_var_or_const_compose_of_isIdOnConstants _ _ next_hom_id_const]
-          simp only [GroundSubstitution.apply_var_or_const]
+          simp only [Function.comp_apply, GroundSubstitution.apply_var_or_const]
           cases Decidable.em (v ∈ trg.val.rule.frontier) with
           | inl v_front =>
             rw [h_obs_at_head_index_for_m_subs.left v v_front]
@@ -189,6 +185,7 @@ noncomputable def inductive_homomorphism_with_prev_node_and_trg (ct : ChaseTree 
                   exact v_front'.left
                 . rw [← eq_v]
                   unfold GroundSubstitution.apply_function_free_atom
+                  unfold TermMapping.apply_generalized_atom
                   rw [List.mem_map]
                   exists VarOrConst.var v
                   simp [GroundSubstitution.apply_var_or_const, v_front'.right]
@@ -275,7 +272,7 @@ noncomputable def inductive_homomorphism (ct : ChaseTree obs kb) (m : FactSet si
     intro el_in_set
     cases el_in_set with | intro f hf =>
       apply m_is_model.left
-      have : f = el := by have hfr := hf.right; simp [GroundTermMapping.applyFact] at hfr; exact hfr
+      have : f = el := by have hfr := hf.right; rw [hfr]; simp [TermMapping.apply_generalized_atom]
       rw [this] at hf
       exact hf.left
 ⟩
@@ -624,57 +621,55 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
 
   have : ∀ i, (branch.branch.infinite_list i).is_none_or (fun chase_node => ∀ f, f ∈ chase_node.facts.val -> global_h.applyFact f = (inductive_homomorphism_shortcut i).val.snd.applyFact f) := by
     intro i
-    cases eq : branch.branch.infinite_list i with
-    | none => simp [Option.is_none_or]
-    | some node =>
-      simp [Option.is_none_or]
-      intro f f_in_node
-      unfold GroundTermMapping.applyFact
-      simp [global_h]
-      intro t _ t_in_f
-      split
-      case h_2 _ n_ex _ =>
-        apply False.elim
-        apply n_ex
-        exists f
-        constructor
-        . have subset_result := branch.stepIsSubsetOfResult i
-          rw [eq] at subset_result; simp [Option.is_none_or] at subset_result
-          apply subset_result
+    rw [Option.is_none_or_iff]
+    intro node eq
+    intro f f_in_node
+    apply TermMapping.apply_generalized_atom_congr_left
+    intro t t_mem
+    simp only [global_h]
+    split
+    case h_2 _ n_ex _ =>
+      apply False.elim
+      apply n_ex
+      exists f
+      constructor
+      . have subset_result := branch.stepIsSubsetOfResult i
+        rw [eq] at subset_result; simp [Option.is_none_or] at subset_result
+        apply subset_result
+        exact f_in_node
+      . exact t_mem
+    case h_1 _ ex _ =>
+      let j := Classical.choose (Classical.choose_spec ex).left
+      let j_spec := Classical.choose_spec (Classical.choose_spec ex).left
+      cases Nat.le_total i j with
+      | inl i_le_j =>
+        have j_is_i_plus_k := Nat.le.dest i_le_j
+        cases j_is_i_plus_k with | intro k hk =>
+          simp [j] at hk
+          rw [← hk]
+          apply Eq.symm
+          simp only [inductive_homomorphism_shortcut]
+          have same_all_following := inductive_homomorphism_same_on_all_following_terms ct m m_is_model i
+          simp only [ChaseTree.chase_branch_for_tree_branch, branch, nodes, path, inductive_homomorphism_shortcut] at eq
+          rw [eq] at same_all_following; simp [Option.is_none_or] at same_all_following
+          apply same_all_following
           exact f_in_node
-        . exact t_in_f
-      case h_1 _ ex _ =>
-        let j := Classical.choose (Classical.choose_spec ex).left
-        let j_spec := Classical.choose_spec (Classical.choose_spec ex).left
-        cases Nat.le_total i j with
-        | inl i_le_j =>
-          have j_is_i_plus_k := Nat.le.dest i_le_j
-          cases j_is_i_plus_k with | intro k hk =>
-            simp [j] at hk
-            rw [← hk]
-            apply Eq.symm
-            simp only [inductive_homomorphism_shortcut]
-            have same_all_following := inductive_homomorphism_same_on_all_following_terms ct m m_is_model i
-            simp only [ChaseTree.chase_branch_for_tree_branch, branch, nodes, path, inductive_homomorphism_shortcut] at eq
-            rw [eq] at same_all_following; simp [Option.is_none_or] at same_all_following
+          exact t_mem
+      | inr j_le_i =>
+        have i_is_j_plus_k := Nat.le.dest j_le_i
+        cases i_is_j_plus_k with | intro k hk =>
+          rw [← hk]
+          simp only [inductive_homomorphism_shortcut]
+          have same_all_following := inductive_homomorphism_same_on_all_following_terms ct m m_is_model j
+          cases eq2 : branch.branch.infinite_list j with
+          | none => rw [eq2] at j_spec; simp [Option.is_some_and] at j_spec
+          | some _ =>
+            rw [eq2] at j_spec; simp [Option.is_some_and] at j_spec
+            simp only [ChaseTree.chase_branch_for_tree_branch, branch, nodes, path, inductive_homomorphism_shortcut] at eq2
+            rw [eq2] at same_all_following; simp [Option.is_none_or] at same_all_following
             apply same_all_following
-            exact f_in_node
-            exact t_in_f
-        | inr j_le_i =>
-          have i_is_j_plus_k := Nat.le.dest j_le_i
-          cases i_is_j_plus_k with | intro k hk =>
-            rw [← hk]
-            simp only [inductive_homomorphism_shortcut]
-            have same_all_following := inductive_homomorphism_same_on_all_following_terms ct m m_is_model j
-            cases eq2 : branch.branch.infinite_list j with
-            | none => rw [eq2] at j_spec; simp [Option.is_some_and] at j_spec
-            | some _ =>
-              rw [eq2] at j_spec; simp [Option.is_some_and] at j_spec
-              simp only [ChaseTree.chase_branch_for_tree_branch, branch, nodes, path, inductive_homomorphism_shortcut] at eq2
-              rw [eq2] at same_all_following; simp [Option.is_none_or] at same_all_following
-              apply same_all_following
-              exact j_spec
-              exact (Classical.choose_spec ex).right
+            exact j_spec
+            exact (Classical.choose_spec ex).right
 
   exists result
   exists global_h
@@ -707,7 +702,7 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
         let ⟨hel, her⟩ := he
         cases hel with | intro n hn =>
           simp only [ChaseTree.chase_branch_for_tree_branch, branch, nodes] at hn
-          rw [← her]
+          rw [her]
           specialize this n
           simp only [ChaseTree.chase_branch_for_tree_branch, branch, nodes] at this
           cases eq : path n with
@@ -716,6 +711,7 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
             rw [eq] at hn; simp [Option.is_some_and] at hn
             rw [eq] at this; simp [Option.is_none_or] at this
             specialize this e hn
+            unfold GroundTermMapping.applyFact at this
             rw [this]
             have property := (inductive_homomorphism_shortcut n).property.right
             simp only [path] at eq

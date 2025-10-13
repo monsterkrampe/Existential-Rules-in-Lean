@@ -8,29 +8,16 @@ import ExistentialRules.Terms.ListsOfTerms
 
 section StructuralDefs
 
-  structure FunctionFreeFact (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] where
+  structure GeneralizedAtom (sig : Signature) (T : Type u) [DecidableEq sig.P] where
     predicate : sig.P
-    terms : List sig.C
+    terms : List T
     arity_ok : terms.length = sig.arity predicate
     deriving DecidableEq
 
-  structure Fact (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] where
-    predicate : sig.P
-    terms : List (GroundTerm sig)
-    arity_ok : terms.length = sig.arity predicate
-    deriving DecidableEq
-
-  structure FunctionFreeAtom (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] where
-    predicate : sig.P
-    terms : List (VarOrConst sig)
-    arity_ok : terms.length = sig.arity predicate
-    deriving DecidableEq
-
-  structure Atom (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] where
-    predicate : sig.P
-    terms : List (SkolemTerm sig)
-    arity_ok : terms.length = sig.arity predicate
-    deriving DecidableEq
+  abbrev FunctionFreeFact (sig : Signature) [DecidableEq sig.P] := GeneralizedAtom sig sig.C
+  abbrev Fact (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] := GeneralizedAtom sig (GroundTerm sig)
+  abbrev FunctionFreeAtom (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] := GeneralizedAtom sig (VarOrConst sig)
+  abbrev Atom (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] := GeneralizedAtom sig (SkolemTerm sig)
 
   variable (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
@@ -97,7 +84,7 @@ namespace FunctionFreeConjunction
 
   def consts (conj : FunctionFreeConjunction sig) : List sig.C := conj.flatMap FunctionFreeAtom.constants
 
-  def predicates (conj : FunctionFreeConjunction sig) : List sig.P := conj.map FunctionFreeAtom.predicate
+  def predicates (conj : FunctionFreeConjunction sig) : List sig.P := conj.map GeneralizedAtom.predicate
 
 end FunctionFreeConjunction
 
@@ -289,7 +276,7 @@ namespace FunctionFreeFact
     unfold toFact
     unfold Fact.toFunctionFreeFact
     simp only
-    rw [FunctionFreeFact.mk.injEq]
+    rw [GeneralizedAtom.mk.injEq]
     constructor
     . simp
     . rw [List.map_attach_eq_pmap, List.pmap_map]
@@ -301,7 +288,7 @@ theorem Fact.toFact_after_toFunctionFreeFact_is_id (f : Fact sig) (isFunctionFre
   unfold toFunctionFreeFact
   unfold FunctionFreeFact.toFact
   simp
-  rw [Fact.mk.injEq]
+  rw [GeneralizedAtom.mk.injEq]
   constructor
   . simp
   . simp only [List.map_attach_eq_pmap]
@@ -330,7 +317,7 @@ namespace FactSet
 
   theorem terms_finite_of_finite (fs : FactSet sig) (finite : fs.finite) : fs.terms.finite := by
     rcases finite with ⟨l, nodup, finite⟩
-    exists (l.map Fact.terms).flatten.eraseDupsKeepRight
+    exists (l.map GeneralizedAtom.terms).flatten.eraseDupsKeepRight
     constructor
     . apply List.nodup_eraseDupsKeepRight
     . intro e

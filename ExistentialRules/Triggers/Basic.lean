@@ -12,7 +12,7 @@ namespace PreTrigger
   def skolemize_var_or_const (trg : PreTrigger sig) (disjunctIndex : Nat) (var_or_const : VarOrConst sig) : SkolemTerm sig :=
     var_or_const.skolemize trg.rule.id disjunctIndex trg.rule.frontier
 
-  def apply_to_var_or_const (trg : PreTrigger sig) (disjunctIndex : Nat) : VarOrConst sig -> GroundTerm sig :=
+  def apply_to_var_or_const (trg : PreTrigger sig) (disjunctIndex : Nat) : TermMapping (VarOrConst sig) (GroundTerm sig) :=
     (trg.subs.apply_skolem_term ∘ (trg.skolemize_var_or_const disjunctIndex))
 
   theorem apply_to_var_or_const_for_const (trg : PreTrigger sig) (i : Nat) :
@@ -69,31 +69,22 @@ namespace PreTrigger
           rfl
         . exact apply_eq
 
-  def apply_to_function_free_atom (trg : PreTrigger sig) (disjunctIndex : Nat) (atom : FunctionFreeAtom sig) : Fact sig :=
-    {
-      predicate := atom.predicate
-      terms := atom.terms.map (trg.apply_to_var_or_const disjunctIndex)
-      arity_ok := by rw [List.length_map, atom.arity_ok]
-    }
-
-  theorem length_terms_apply_to_function_free_atom (trg : PreTrigger sig) (disjunctIndex : Nat) (atom : FunctionFreeAtom sig) :
-      (trg.apply_to_function_free_atom disjunctIndex atom).terms.length = atom.terms.length := by
-    unfold apply_to_function_free_atom
-    simp
+  abbrev apply_to_function_free_atom (trg : PreTrigger sig) (disjunctIndex : Nat) (atom : FunctionFreeAtom sig) : Fact sig :=
+    (trg.apply_to_var_or_const disjunctIndex).apply_generalized_atom atom
 
   def mapped_body (trg : PreTrigger sig) : List (Fact sig) := trg.subs.apply_function_free_conj trg.rule.body
 
-  theorem mem_terms_mapped_body_iff (trg : PreTrigger sig) : ∀ t, t ∈ trg.mapped_body.flatMap Fact.terms ↔ ((∃ c ∈ trg.rule.body.consts, GroundTerm.const c = t) ∨ (∃ v ∈ trg.rule.body.vars, trg.subs v = t)) := by
+  theorem mem_terms_mapped_body_iff (trg : PreTrigger sig) : ∀ t, t ∈ trg.mapped_body.flatMap GeneralizedAtom.terms ↔ ((∃ c ∈ trg.rule.body.consts, GroundTerm.const c = t) ∨ (∃ v ∈ trg.rule.body.vars, trg.subs v = t)) := by
     intro t
     rw [List.mem_flatMap]
     constructor
     . intro h
       rcases h with ⟨f, f_mem, t_mem⟩
-      simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj] at f_mem
+      simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list] at f_mem
       rw [List.mem_map] at f_mem
       rcases f_mem with ⟨a, a_mem, f_eq⟩
       rw [← f_eq] at t_mem
-      simp only [GroundSubstitution.apply_function_free_atom] at t_mem
+      simp only [TermMapping.apply_generalized_atom] at t_mem
       rw [List.mem_map] at t_mem
       rcases t_mem with ⟨voc, voc_mem, t_eq⟩
       cases voc with
@@ -119,7 +110,7 @@ namespace PreTrigger
         exists trg.subs.apply_function_free_atom a
         constructor
         . apply List.mem_map_of_mem; exact a_mem
-        . simp only [GroundSubstitution.apply_function_free_atom]
+        . simp only [TermMapping.apply_generalized_atom]
           rw [List.mem_map]
           exists VarOrConst.const c
           constructor
@@ -133,7 +124,7 @@ namespace PreTrigger
         exists trg.subs.apply_function_free_atom a
         constructor
         . apply List.mem_map_of_mem; exact a_mem
-        . simp only [GroundSubstitution.apply_function_free_atom]
+        . simp only [TermMapping.apply_generalized_atom]
           rw [List.mem_map]
           exists VarOrConst.var v
           constructor
@@ -169,8 +160,7 @@ namespace PreTrigger
     intro a
     unfold GroundSubstitution.apply_function_free_atom
     unfold apply_to_function_free_atom
-    simp only [Fact.mk.injEq, true_and]
-    rw [List.map_inj_left]
+    apply TermMapping.apply_generalized_atom_congr_left
     intros
     apply apply_subs_for_var_or_const_eq
 
@@ -180,6 +170,7 @@ namespace PreTrigger
     unfold mapped_head
     unfold subs_for_mapped_head
     unfold GroundSubstitution.apply_function_free_conj
+    unfold TermMapping.apply_generalized_atom_list
     rw [List.getElem_map, List.getElem_zipIdx, List.map_inj_left, Nat.zero_add]
     intros
     apply apply_subs_for_atom_eq trg i
@@ -189,12 +180,12 @@ namespace PreTrigger
     unfold FactSet.constants
     intro c c_mem
     rw [List.mem_toSet, List.mem_append, List.mem_flatMap]
-    simp only [List.mem_toSet, ← trg.apply_subs_for_mapped_head_eq i, GroundSubstitution.apply_function_free_conj] at c_mem
+    simp only [List.mem_toSet, ← trg.apply_subs_for_mapped_head_eq i, GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list] at c_mem
     rcases c_mem with ⟨f, f_mem, c_mem⟩
     rw [List.mem_map] at f_mem
     rcases f_mem with ⟨a, a_mem, f_mem⟩
     rw [← f_mem] at c_mem
-    unfold GroundSubstitution.apply_function_free_atom at c_mem
+    unfold TermMapping.apply_generalized_atom at c_mem
     unfold Fact.constants at c_mem
     rw [List.mem_flatMap] at c_mem
     rcases c_mem with ⟨t, t_mem, c_mem⟩
@@ -277,8 +268,7 @@ namespace PreTrigger
       have isLt := k.isLt
       have := trg.apply_on_atom_for_result_fact_is_fact i f_mem
       conv at isLt => right; rw [← this]
-      unfold apply_to_function_free_atom at isLt
-      rw [List.length_map] at isLt
+      rw [TermMapping.length_terms_apply_generalized_atom] at isLt
       exact isLt
     ⟩
     atom.terms[k']
@@ -293,8 +283,8 @@ namespace PreTrigger
     conv at t_eq => right; simp only [← this]
     conv => right; rw [t_eq]
     unfold apply_to_function_free_atom
+    unfold TermMapping.apply_generalized_atom
     rw [List.getElem_map]
-    unfold var_or_const_for_result_term
     rfl
 
   def loaded (trg : PreTrigger sig) (F : FactSet sig) : Prop :=
@@ -306,15 +296,15 @@ namespace PreTrigger
     intro loaded
     intro f f_mem
     rw [List.mem_toSet] at f_mem
-    simp only [GroundSubstitution.apply_function_free_conj] at f_mem
+    simp only [GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list] at f_mem
     rw [List.mem_map] at f_mem
     rcases f_mem with ⟨a, a_mem, f_mem⟩
-    rw [GroundSubstitution.apply_function_free_atom_compose_of_isIdOnConstants _ _ h_id] at f_mem
+    rw [← GroundSubstitution.apply_function_free_atom.eq_def, GroundSubstitution.apply_function_free_atom_compose_of_isIdOnConstants _ _ h_id] at f_mem
     rw [← f_mem]
-    apply GroundTermMapping.applyPreservesElement
+    apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
     apply loaded
     unfold GroundSubstitution.apply_function_free_conj
-    rw [List.mem_toSet, List.mem_map]
+    rw [List.mem_toSet, TermMapping.apply_generalized_atom_list.eq_def, List.mem_map]
     exists a
 
   def satisfied_for_disj (trg : PreTrigger sig) (fs : FactSet sig) (disj_index : Fin trg.rule.head.length) : Prop :=
@@ -360,9 +350,7 @@ namespace PreTrigger
 
   theorem subs_apply_function_free_atom_eq_of_strong_equiv {trg1 trg2 : PreTrigger sig} : trg1.strong_equiv trg2 -> ∀ a, a ∈ trg1.rule.body -> trg1.subs.apply_function_free_atom a = trg2.subs.apply_function_free_atom a := by
     intro equiv a a_mem
-    unfold GroundSubstitution.apply_function_free_atom
-    simp only [Fact.mk.injEq, true_and]
-    rw [List.map_inj_left]
+    apply TermMapping.apply_generalized_atom_congr_left
     intro voc voc_mem
     cases voc with
     | const c => simp only [GroundSubstitution.apply_var_or_const]
@@ -382,7 +370,7 @@ namespace PreTrigger
     unfold mapped_body
     rw [equiv.left]
     unfold GroundSubstitution.apply_function_free_conj
-    rw [List.map_inj_left]
+    rw [TermMapping.apply_generalized_atom_list.eq_def, TermMapping.apply_generalized_atom_list.eq_def, List.map_inj_left]
     intro a a_mem
     apply subs_apply_function_free_atom_eq_of_strong_equiv
     . exact equiv
@@ -391,9 +379,7 @@ namespace PreTrigger
   theorem apply_to_function_free_atom_eq_of_equiv (trg1 trg2 : PreTrigger sig) : trg1.equiv trg2 -> ∀ (i : Nat), ∀ a, trg1.apply_to_function_free_atom i a = trg2.apply_to_function_free_atom i a := by
     unfold equiv
     intro h i a
-    unfold apply_to_function_free_atom
-    simp only [Fact.mk.injEq, true_and]
-    rw [List.map_inj_left]
+    apply TermMapping.apply_generalized_atom_congr_left
     intro voc voc_mem
     cases voc with
     | const c => simp only [PreTrigger.apply_to_var_or_const_for_const]
@@ -430,8 +416,6 @@ namespace PreTrigger
 
   theorem satisfied_preserved_of_equiv {trg1 trg2 : PreTrigger sig} : trg1.equiv trg2 -> ∀ {fs}, trg1.satisfied fs ↔ trg2.satisfied fs := by
     intro equiv fs
-    unfold satisfied
-    unfold satisfied_for_disj
     constructor
     . intro h
       rcases h with ⟨i, s, front, subset⟩

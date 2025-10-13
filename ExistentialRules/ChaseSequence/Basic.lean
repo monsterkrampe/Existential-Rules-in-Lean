@@ -249,6 +249,7 @@ namespace ChaseBranch
                 exists t
                 constructor
                 . unfold GroundSubstitution.apply_function_free_atom
+                  unfold TermMapping.apply_generalized_atom
                   rw [List.mem_map]
                   exists VarOrConst.var v
                   constructor
@@ -456,10 +457,12 @@ namespace ChaseBranch
             unfold ChaseNode.origin_result at f_mem
             rw [← PreTrigger.apply_subs_for_mapped_head_eq] at f_mem
             unfold GroundSubstitution.apply_function_free_conj at f_mem
+            unfold TermMapping.apply_generalized_atom_list at f_mem
             rw [List.mem_map] at f_mem
             rcases f_mem with ⟨a, a_mem, f_mem⟩
             rw [← f_mem] at t_mem
             unfold GroundSubstitution.apply_function_free_atom at t_mem
+            unfold TermMapping.apply_generalized_atom at t_mem
             rw [List.mem_map] at t_mem
             rcases t_mem with ⟨voc, voc_mem, t_mem⟩
             cases voc with
@@ -481,6 +484,7 @@ namespace ChaseBranch
                   exact b_mem
                 . rw [← t_mem]
                   unfold GroundSubstitution.apply_function_free_atom
+                  unfold TermMapping.apply_generalized_atom
                   rw [List.mem_map]
                   exists VarOrConst.var v2
               rw [PreTrigger.apply_subs_for_var_or_const_eq, PreTrigger.apply_to_var_or_const_non_frontier_var _ _ _ v2_front] at t_mem
@@ -902,10 +906,12 @@ namespace ChaseTree
             unfold ChaseNode.origin_result at f_mem
             rw [← PreTrigger.apply_subs_for_mapped_head_eq] at f_mem
             unfold GroundSubstitution.apply_function_free_conj at f_mem
+            unfold TermMapping.apply_generalized_atom_list at f_mem
             rw [List.mem_map] at f_mem
             rcases f_mem with ⟨a, a_mem, f_mem⟩
             rw [← f_mem] at t_mem
             unfold GroundSubstitution.apply_function_free_atom at t_mem
+            unfold TermMapping.apply_generalized_atom at t_mem
             rw [List.mem_map] at t_mem
             rcases t_mem with ⟨voc, voc_mem, t_mem⟩
             cases voc with
@@ -927,6 +933,7 @@ namespace ChaseTree
                   exact b_mem
                 . rw [← t_mem]
                   unfold GroundSubstitution.apply_function_free_atom
+                  unfold TermMapping.apply_generalized_atom
                   rw [List.mem_map]
                   exists VarOrConst.var v2
               rw [PreTrigger.apply_subs_for_var_or_const_eq, PreTrigger.apply_to_var_or_const_non_frontier_var _ _ _ v2_front] at t_mem

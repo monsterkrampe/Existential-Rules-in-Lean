@@ -326,7 +326,7 @@ mutual
           unfold Fact.constants at c_mem
           rw [List.mem_flatMap] at c_mem
           rcases c_mem with ⟨t, t_mem, c_mem⟩
-          have t_mem : t ∈ trg.mapped_body.flatMap Fact.terms := by rw [List.mem_flatMap]; exists f
+          have t_mem : t ∈ trg.mapped_body.flatMap GeneralizedAtom.terms := by rw [List.mem_flatMap]; exists f
           rw [PreTrigger.mem_terms_mapped_body_iff] at t_mem
           cases t_mem with
           | inl t_mem =>
@@ -628,11 +628,11 @@ namespace GroundTerm
 
 end GroundTerm
 
-def PreTrigger.skolem_ruleIds_valid (rl : RuleList sig) (trg : PreTrigger sig) : Prop := ∀ t ∈ trg.mapped_body.flatMap Fact.terms, t.skolem_ruleIds_valid rl
+def PreTrigger.skolem_ruleIds_valid (rl : RuleList sig) (trg : PreTrigger sig) : Prop := ∀ t ∈ trg.mapped_body.flatMap GeneralizedAtom.terms, t.skolem_ruleIds_valid rl
 def PreTrigger.skolem_disjIdx_valid (rl : RuleList sig) (trg : PreTrigger sig) (trg_ruleIds_valid : trg.skolem_ruleIds_valid rl) : Prop :=
-  ∀ t, (h : t ∈ trg.mapped_body.flatMap Fact.terms) -> t.skolem_disjIdx_valid rl (trg_ruleIds_valid t h)
+  ∀ t, (h : t ∈ trg.mapped_body.flatMap GeneralizedAtom.terms) -> t.skolem_disjIdx_valid rl (trg_ruleIds_valid t h)
 def PreTrigger.skolem_rule_arity_valid (rl : RuleList sig) (trg : PreTrigger sig) (trg_ruleIds_valid : trg.skolem_ruleIds_valid rl) : Prop :=
-  ∀ t, (h : t ∈ trg.mapped_body.flatMap Fact.terms) -> t.skolem_rule_arity_valid rl (trg_ruleIds_valid t h)
+  ∀ t, (h : t ∈ trg.mapped_body.flatMap GeneralizedAtom.terms) -> t.skolem_rule_arity_valid rl (trg_ruleIds_valid t h)
 
 theorem PreTrigger.skolem_ruleIds_valid_of_strong_equiv {rl : RuleList sig} {trg trg2 : PreTrigger sig} (strong_equiv : trg.strong_equiv trg2) (trg_valid : trg.skolem_ruleIds_valid rl) : trg2.skolem_ruleIds_valid rl := by
   unfold skolem_ruleIds_valid; rw [← PreTrigger.mapped_body_eq_of_strong_equiv strong_equiv]; exact trg_valid
@@ -664,6 +664,7 @@ theorem PreTrigger.skolem_ruleIds_valid_for_functional_term
     constructor
     . apply List.mem_map_of_mem; exact a_mem
     . unfold GroundSubstitution.apply_function_free_atom
+      unfold TermMapping.apply_generalized_atom
       rw [List.mem_map]
       exists VarOrConst.var v
 
@@ -692,6 +693,7 @@ theorem PreTrigger.skolem_disjIdx_valid_for_functional_term
     constructor
     . apply List.mem_map_of_mem; exact a_mem
     . unfold GroundSubstitution.apply_function_free_atom
+      unfold TermMapping.apply_generalized_atom
       rw [List.mem_map]
       exists VarOrConst.var v
 
@@ -719,11 +721,12 @@ theorem PreTrigger.skolem_rule_arity_valid_for_functional_term
     constructor
     . apply List.mem_map_of_mem; exact a_mem
     . unfold GroundSubstitution.apply_function_free_atom
+      unfold TermMapping.apply_generalized_atom
       rw [List.mem_map]
       exists VarOrConst.var v
 
 theorem PreTrigger.skolem_ruleIds_remain_valid_in_head (rl : RuleList sig) (trg : PreTrigger sig) (rule_mem : trg.rule ∈ rl.rules) (body_valid : trg.skolem_ruleIds_valid rl) :
-    ∀ t ∈ trg.mapped_head.flatten.flatMap Fact.terms, t.skolem_ruleIds_valid rl := by
+    ∀ t ∈ trg.mapped_head.flatten.flatMap GeneralizedAtom.terms, t.skolem_ruleIds_valid rl := by
   intro t t_mem
   rw [List.mem_flatMap] at t_mem
   rcases t_mem with ⟨f, f_mem, t_mem⟩
@@ -749,6 +752,7 @@ theorem PreTrigger.skolem_ruleIds_remain_valid_in_head (rl : RuleList sig) (trg 
       constructor
       . apply List.mem_map_of_mem; exact a_mem
       . unfold GroundSubstitution.apply_function_free_atom
+        unfold TermMapping.apply_generalized_atom
         rw [List.mem_map]
         exists VarOrConst.var v
     | inr mem_frontier =>
@@ -764,7 +768,7 @@ theorem PreTrigger.skolem_disjIdx_remains_valid_in_head
     (rule_mem : trg.rule ∈ rl.rules)
     (trg_ruleIds_valid : trg.skolem_ruleIds_valid rl)
     (body_valid : trg.skolem_disjIdx_valid rl trg_ruleIds_valid) :
-    ∀ t, (t_mem : t ∈ trg.mapped_head.flatten.flatMap Fact.terms) -> t.skolem_disjIdx_valid rl (trg.skolem_ruleIds_remain_valid_in_head rl rule_mem trg_ruleIds_valid t t_mem) := by
+    ∀ t, (t_mem : t ∈ trg.mapped_head.flatten.flatMap GeneralizedAtom.terms) -> t.skolem_disjIdx_valid rl (trg.skolem_ruleIds_remain_valid_in_head rl rule_mem trg_ruleIds_valid t t_mem) := by
   intro t t_mem
   rw [List.mem_flatMap] at t_mem
   rcases t_mem with ⟨f, f_mem, t_mem⟩
@@ -786,6 +790,7 @@ theorem PreTrigger.skolem_disjIdx_remains_valid_in_head
       constructor
       . apply List.mem_map_of_mem; exact a_mem
       . unfold GroundSubstitution.apply_function_free_atom
+        unfold TermMapping.apply_generalized_atom
         rw [List.mem_map]
         exists VarOrConst.var v
     | inr t_mem_frontier =>
@@ -820,7 +825,7 @@ theorem PreTrigger.skolem_rule_arity_remains_valid_in_head
     (rule_mem : trg.rule ∈ rl.rules)
     (trg_ruleIds_valid : trg.skolem_ruleIds_valid rl)
     (body_valid : trg.skolem_rule_arity_valid rl trg_ruleIds_valid) :
-    ∀ t, (t_mem : t ∈ trg.mapped_head.flatten.flatMap Fact.terms) -> t.skolem_rule_arity_valid rl (trg.skolem_ruleIds_remain_valid_in_head rl rule_mem trg_ruleIds_valid t t_mem) := by
+    ∀ t, (t_mem : t ∈ trg.mapped_head.flatten.flatMap GeneralizedAtom.terms) -> t.skolem_rule_arity_valid rl (trg.skolem_ruleIds_remain_valid_in_head rl rule_mem trg_ruleIds_valid t t_mem) := by
   intro t t_mem
   rw [List.mem_flatMap] at t_mem
   rcases t_mem with ⟨f, f_mem, t_mem⟩
@@ -842,6 +847,7 @@ theorem PreTrigger.skolem_rule_arity_remains_valid_in_head
       constructor
       . apply List.mem_map_of_mem; exact a_mem
       . unfold GroundSubstitution.apply_function_free_atom
+        unfold TermMapping.apply_generalized_atom
         rw [List.mem_map]
         exists VarOrConst.var v
     | inr t_mem_frontier =>
@@ -920,7 +926,7 @@ def PreTrigger.backtrackFacts
     (trg_disjIdx_valid : trg.skolem_disjIdx_valid rl trg_ruleIds_valid)
     (trg_rule_arity_valid : trg.skolem_rule_arity_valid rl trg_ruleIds_valid) : (List (Fact sig)) × (List sig.C) :=
   let forbidden_constants := trg.mapped_body.flatMap Fact.constants ++ rl.rules.flatMap Rule.constants
-  let backtrack_result := GroundTerm.backtrackFacts_list rl (trg.mapped_body.flatMap Fact.terms) trg_ruleIds_valid trg_disjIdx_valid trg_rule_arity_valid forbidden_constants
+  let backtrack_result := GroundTerm.backtrackFacts_list rl (trg.mapped_body.flatMap GeneralizedAtom.terms) trg_ruleIds_valid trg_disjIdx_valid trg_rule_arity_valid forbidden_constants
   (trg.mapped_body ++ backtrack_result.fst, backtrack_result.snd)
 
 theorem PreTrigger.backtrackFacts_eq_of_strong_equiv

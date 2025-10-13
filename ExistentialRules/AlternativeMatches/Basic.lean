@@ -30,27 +30,24 @@ namespace PreTrigger
       apply is_alt_match.left.right
       rw [List.mem_toSet] at f_mem
       unfold GroundSubstitution.apply_function_free_conj at f_mem
-      simp at f_mem
+      simp only [TermMapping.apply_generalized_atom_list, List.mem_map] at f_mem
       simp [PreTrigger.mapped_head]
       unfold GroundTermMapping.applyFactSet
       rcases f_mem with ⟨a, a_mem, a_eq⟩
-      exists trg.apply_to_function_free_atom disj_index a
+      rw [← a_eq]
+      rw [GroundSubstitution.apply_var_or_const_compose_of_isIdOnConstants _ _ is_alt_match.left.left]
+      rw [TermMapping.apply_generalized_atom_compose]
+      apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
+      unfold PreTrigger.apply_to_function_free_atom
+      rw [List.mem_toSet, List.mem_map]
+      exists a
       constructor
-      . rw [List.mem_toSet]
-        simp
-        exists a
-      . unfold PreTrigger.apply_to_function_free_atom
-        unfold GroundTermMapping.applyFact
-        simp
-        unfold GroundSubstitution.apply_function_free_atom at a_eq
-        rw [← a_eq]
-        simp [PreTrigger.apply_to_var_or_const]
+      . exact a_mem
+      . apply TermMapping.apply_generalized_atom_congr_left
         intro t t_mem
-        unfold PreTrigger.skolemize_var_or_const
-        simp [GroundSubstitution.apply_var_or_const]
         cases t with
-        | const c => simp [VarOrConst.skolemize, GroundSubstitution.apply_skolem_term]; apply is_alt_match.left.left (GroundTerm.const c)
-        | var v => simp
+        | const c => rw [PreTrigger.apply_to_var_or_const_for_const]; simp [GroundSubstitution.apply_var_or_const]
+        | var v => simp [GroundSubstitution.apply_var_or_const]
 
   theorem alternativeMatch_of_satisfied (trg : PreTrigger sig) (fs : FactSet sig) (disj_index : Fin trg.mapped_head.length) (gt : GroundTerm sig) (gt_in_res_but_not_fs : gt ∈ (FactSet.terms trg.mapped_head[disj_index.val].toSet) ∧ ¬ gt ∈ fs.terms) : trg.satisfied_for_disj fs ⟨disj_index, by rw [← PreTrigger.length_mapped_head]; exact disj_index.isLt⟩ -> ∃ (h_alt : GroundTermMapping sig), h_alt.isAlternativeMatch trg disj_index fs := by
     intro satisfied
@@ -66,18 +63,19 @@ namespace PreTrigger
       apply s_subs
       unfold GroundTermMapping.applyFactSet at f_mem
       rcases f_mem with ⟨f', f'_mem, f'_eq⟩
-      simp [PreTrigger.mapped_head] at f'_mem
+      simp only [PreTrigger.mapped_head] at f'_mem
       rw [List.mem_toSet] at f'_mem
-      simp at f'_mem
+      simp only [List.getElem_map, List.mem_map, List.getElem_zipIdx] at f'_mem
       rcases f'_mem with ⟨a, a_mem, a_eq⟩
 
       rw [List.mem_toSet]
-      simp [GroundSubstitution.apply_function_free_conj]
+      simp only [GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list, List.mem_map]
       exists a
       constructor
       . exact a_mem
-      . rw [← f'_eq, ← a_eq]
-        simp [GroundSubstitution.apply_function_free_atom, GroundTermMapping.applyFact, PreTrigger.apply_to_function_free_atom]
+      . rw [f'_eq, ← a_eq]
+        rw [← Function.comp_apply (f := TermMapping.apply_generalized_atom h_alt), ← TermMapping.apply_generalized_atom_compose]
+        apply TermMapping.apply_generalized_atom_congr_left
         intro voc voc_mem
         cases voc with
         | const c =>

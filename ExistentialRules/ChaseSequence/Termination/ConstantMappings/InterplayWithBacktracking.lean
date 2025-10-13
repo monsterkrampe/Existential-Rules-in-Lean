@@ -860,7 +860,7 @@ section InterplayWithBacktracking
         . rfl
         . intro v v_mem
           simp only [trg1, trg2, trg_base, backtrackTrigger, PreGroundTerm.backtrackTrigger]
-          simp only [GroundTerm.func, ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, StrictConstantMapping.toConstantMapping, FiniteTree.mapLeaves]
+          simp only [GroundTerm.func, ConstantMapping.apply_ground_term, StrictConstantMapping.toConstantMapping, FiniteTree.mapLeaves]
           cases Decidable.em (v ∈ rule.frontier) with
           | inl v_mem_frontier =>
             simp only [Function.comp_apply, rule, v_mem_frontier, ↓reduceDIte]
@@ -923,8 +923,8 @@ section InterplayWithBacktracking
         cases f_mem with
         | inl f_mem =>
           apply Or.inl
-          simp only [PreGroundTerm.backtrackTrigger, PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj] at f_mem
-          simp only [PreGroundTerm.backtrackTrigger, PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj]
+          simp only [PreGroundTerm.backtrackTrigger, PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list] at f_mem
+          simp only [PreGroundTerm.backtrackTrigger, PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list]
           rw [List.mem_map] at f_mem
           rcases f_mem with ⟨a, a_mem, f_eq⟩
           rw [List.mem_map]
@@ -932,6 +932,7 @@ section InterplayWithBacktracking
           constructor
           . exact a_mem
           . rw [e_eq, ← f_eq]
+            rw [← ConstantMapping.apply_fact.eq_def]
             rw [ConstantMapping.apply_fact_eq_groundTermMapping_applyFact]
             rw [← GroundSubstitution.apply_function_free_atom_compose]
             . apply PreTrigger.subs_apply_function_free_atom_eq_of_strong_equiv strong_equiv
@@ -962,8 +963,8 @@ section InterplayWithBacktracking
           have func_disjIdx_lt : func.disjunctIndex < rule.head.length := term_disjIdx_valid.left
           rw [← PreTrigger.apply_subs_for_mapped_head_eq _ ⟨func.disjunctIndex, (by rw [PreTrigger.length_mapped_head]; exact func_disjIdx_lt)⟩] at f_mem
           rw [← PreTrigger.apply_subs_for_mapped_head_eq _ ⟨func.disjunctIndex, (by rw [PreTrigger.length_mapped_head]; exact func_disjIdx_lt)⟩]
-          simp only [GroundSubstitution.apply_function_free_conj] at f_mem
-          simp only [GroundSubstitution.apply_function_free_conj]
+          simp only [GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list] at f_mem
+          simp only [GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list]
           rw [List.mem_map] at f_mem
           rw [List.mem_map]
           rcases f_mem with ⟨a, a_mem, f_eq⟩
@@ -971,7 +972,7 @@ section InterplayWithBacktracking
           constructor
           . exact a_mem
           . rw [e_eq, ← f_eq]
-            rw [PreTrigger.apply_subs_for_atom_eq, PreTrigger.apply_subs_for_atom_eq, ConstantMapping.apply_fact_swap_apply_to_function_free_atom]
+            rw [← GroundSubstitution.apply_function_free_atom.eq_def, ← GroundSubstitution.apply_function_free_atom.eq_def, PreTrigger.apply_subs_for_atom_eq, PreTrigger.apply_subs_for_atom_eq, ← ConstantMapping.apply_fact.eq_def, ConstantMapping.apply_fact_swap_apply_to_function_free_atom]
             . apply PreTrigger.apply_to_function_free_atom_eq_of_equiv
               apply PreTrigger.equiv_of_strong_equiv
               exact strong_equiv
@@ -1136,7 +1137,6 @@ section InterplayWithBacktracking
                 exact d_mem
               simp only [PreGroundTerm.backtrackTrigger] at d_mem
               simp only [StrictConstantMapping.toConstantMapping, fresh_consts_for_pure_body_vars, rule, d_mem, this, ↓reduceIte]
-
   theorem GroundTerm.backtrackFacts_list_under_constant_mapping_subset_of_composing_with_subs
       [GetFreshInhabitant sig.C]
       [Inhabited sig.C]
@@ -1388,7 +1388,7 @@ section InterplayWithBacktracking
         ({rule := trg.rule, subs := g.toConstantMapping.apply_ground_term ∘ trg.subs : PreTrigger sig}.backtrackFacts rl (trg.compose_strict_constant_mapping_preserves_ruleId_validity g rl trg_ruleIds_valid) (trg.compose_strict_constant_mapping_preserves_disjIdx_validity g rl trg_ruleIds_valid trg_disjIdx_valid) (trg.compose_strict_constant_mapping_preserves_rule_arity_validity g rl trg_ruleIds_valid trg_rule_arity_valid)).fst.toSet) := by
     intro backtracking g g_id
     let forbidden_constants := trg.mapped_body.flatMap Fact.constants ++ rl.rules.flatMap Rule.constants
-    rcases GroundTerm.backtrackFacts_list_under_constant_mapping_subset_of_composing_with_subs rl (trg.mapped_body.flatMap Fact.terms) trg_ruleIds_valid trg_disjIdx_valid trg_rule_arity_valid forbidden_constants (by apply List.subset_append_of_subset_left; intro d d_mem; rw [List.mem_flatMap] at d_mem; rcases d_mem with ⟨t, t_mem, d_mem⟩; rw [List.mem_flatMap] at t_mem; rcases t_mem with ⟨f, f_mem, t_mem⟩; rw [List.mem_flatMap]; exists f; constructor; exact f_mem; unfold Fact.constants; rw [List.mem_flatMap]; exists t) (by apply List.subset_append_of_subset_right; simp) g g_id with ⟨fresh_constant_remapping, fresh_constant_remapping_h⟩
+    rcases GroundTerm.backtrackFacts_list_under_constant_mapping_subset_of_composing_with_subs rl (trg.mapped_body.flatMap GeneralizedAtom.terms) trg_ruleIds_valid trg_disjIdx_valid trg_rule_arity_valid forbidden_constants (by apply List.subset_append_of_subset_left; intro d d_mem; rw [List.mem_flatMap] at d_mem; rcases d_mem with ⟨t, t_mem, d_mem⟩; rw [List.mem_flatMap] at t_mem; rcases t_mem with ⟨f, f_mem, t_mem⟩; rw [List.mem_flatMap]; exists f; constructor; exact f_mem; unfold Fact.constants; rw [List.mem_flatMap]; exists t) (by apply List.subset_append_of_subset_right; simp) g g_id with ⟨fresh_constant_remapping, fresh_constant_remapping_h⟩
     exists fresh_constant_remapping
     constructor
     . exact fresh_constant_remapping_h.left
@@ -1399,14 +1399,14 @@ section InterplayWithBacktracking
       cases f_mem with
       | inl f_mem =>
         apply Or.inl
-        simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj] at *
+        simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list] at *
         rw [List.mem_map] at *
         rcases f_mem with ⟨a, a_mem, f_eq⟩
         exists a
         constructor
         . exact a_mem
-        . rw [GroundSubstitution.apply_function_free_atom_compose]
-          . rw [e_eq, f_eq]
+        . rw [← GroundSubstitution.apply_function_free_atom.eq_def, GroundSubstitution.apply_function_free_atom_compose]
+          . rw [e_eq, ← f_eq]
             rw [← ConstantMapping.apply_fact_eq_groundTermMapping_applyFact]
             apply ConstantMapping.apply_fact_congr_left
             intro d d_mem
@@ -1418,10 +1418,11 @@ section InterplayWithBacktracking
               rw [List.mem_flatMap]
               exists f
               constructor
-              . simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj]
+              . simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list]
                 rw [List.mem_map]
                 exists a
-              . exact d_mem
+              . rw [← f_eq]
+                exact d_mem
             simp [StrictConstantMapping.toConstantMapping, this]
           . intro d d_mem
             simp only [ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, StrictConstantMapping.toConstantMapping, GroundTerm.const, Subtype.mk.injEq, FiniteTree.mapLeaves, FiniteTree.leaf.injEq]
@@ -1438,15 +1439,15 @@ section InterplayWithBacktracking
               exists a
       | inr f_mem =>
         apply Or.inr
-        have : (trg.mapped_body.flatMap Fact.terms).map g.toConstantMapping.apply_ground_term = { rule := trg.rule, subs := g.toConstantMapping.apply_ground_term ∘ trg.subs : PreTrigger sig }.mapped_body.flatMap Fact.terms := by
+        have : (trg.mapped_body.flatMap GeneralizedAtom.terms).map g.toConstantMapping.apply_ground_term = { rule := trg.rule, subs := g.toConstantMapping.apply_ground_term ∘ trg.subs : PreTrigger sig }.mapped_body.flatMap GeneralizedAtom.terms := by
           rw [List.map_flatMap]
-          simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj]
+          simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list]
           rw [List.flatMap_map, List.flatMap_map]
           unfold List.flatMap
           apply List.flatten_eq_of_eq
           rw [List.map_inj_left]
           intro a a_mem
-          simp only [GroundSubstitution.apply_function_free_atom]
+          simp only [TermMapping.apply_generalized_atom]
           rw [List.map_map, List.map_inj_left]
           intro voc voc_mem
           simp only [Function.comp_apply, GroundSubstitution.apply_var_or_const]
@@ -1477,13 +1478,13 @@ section InterplayWithBacktracking
           rw [List.map_append]
           apply List.append_eq_append_of_parts_eq
           . rw [List.map_flatMap]
-            simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj]
+            simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list]
             rw [List.flatMap_map, List.flatMap_map]
             unfold List.flatMap
             apply List.flatten_eq_of_eq
             rw [List.map_inj_left]
             intro a a_mem
-            simp only [Fact.constants, GroundSubstitution.apply_function_free_atom]
+            simp only [Fact.constants, TermMapping.apply_generalized_atom]
             rw [List.map_flatMap, List.flatMap_map, List.flatMap_map]
             unfold List.flatMap
             apply List.flatten_eq_of_eq
@@ -1603,8 +1604,8 @@ section InterplayWithBacktracking
               rcases Rule.frontier_occurs_in_body _ _ v_frontier with ⟨a, a_mem, v_mem⟩
               exists origin.fst.val.subs.apply_function_free_atom a
               constructor
-              . apply origin_active.left; rw [List.mem_toSet]; simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj]; rw [List.mem_map]; exists a
-              . simp only [GroundSubstitution.apply_function_free_atom]
+              . apply origin_active.left; rw [List.mem_toSet]; simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list]; rw [List.mem_map]; exists a
+              . simp only [TermMapping.apply_generalized_atom]
                 rw [List.mem_map]
                 exists voc_for_term
                 constructor
@@ -1692,8 +1693,8 @@ section InterplayWithBacktracking
                   rcases Rule.frontier_occurs_in_body _ _ v_mem with ⟨a, a_mem, v_mem⟩
                   exists origin.fst.val.subs.apply_function_free_atom a
                   constructor
-                  . apply origin_active.left; rw [List.mem_toSet]; simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj]; rw [List.mem_map]; exists a
-                  . simp only [GroundSubstitution.apply_function_free_atom]
+                  . apply origin_active.left; rw [List.mem_toSet]; simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list]; rw [List.mem_map]; exists a
+                  . simp only [TermMapping.apply_generalized_atom]
                     rw [List.mem_map]
                     exists .var v
                 ) forbidden_constants forbidden_constants_subsumes_term.left forbidden_constants_subsumes_rules with ⟨g_hd, g_hd_h⟩
@@ -1744,11 +1745,11 @@ section InterplayWithBacktracking
                         rw [g_tl_h.right]
                         . rw [List.mem_append]; apply Or.inl; exact this
                         . exact this
-                    rw [f_eq, this]
+                    rw [f_eq, ← ConstantMapping.apply_fact.eq_def, this]
                     rw [cb.origin_trg_result_yields_next_node_facts i node eq]
                     apply Or.inl
                     apply g_hd_h.left
-                    apply ConstantMapping.apply_fact_mem_apply_fact_set_of_mem
+                    apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
                     rw [List.mem_toSet]
                     exact f'_mem
                   | inr f'_mem =>
@@ -1781,9 +1782,9 @@ section InterplayWithBacktracking
                             apply Or.inr
                             exact d_mem'
 
-                    rw [f_eq, this]
+                    rw [f_eq, ← ConstantMapping.apply_fact.eq_def, this]
                     apply g_tl_h.left
-                    apply ConstantMapping.apply_fact_mem_apply_fact_set_of_mem
+                    apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
                     rw [List.mem_toSet]
                     exact f'_mem
                 . intro d d_mem
@@ -1916,15 +1917,15 @@ section InterplayWithBacktracking
                   rw [List.mem_toSet]
 
                   rw [mapped_body_eq]
-                  simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj]
-                  simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj] at f_mem
+                  simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list]
+                  simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list] at f_mem
                   rw [List.mem_map]
                   rw [List.mem_map] at f_mem
                   rcases f_mem with ⟨a, a_mem, f_eq⟩
                   exists a
                   constructor
                   . exact a_mem
-                  . rw [GroundSubstitution.apply_function_free_atom_compose, ← ConstantMapping.apply_fact_eq_groundTermMapping_applyFact, ← f_eq]
+                  . rw [← GroundSubstitution.apply_function_free_atom.eq_def, GroundSubstitution.apply_function_free_atom_compose, ← ConstantMapping.apply_fact_eq_groundTermMapping_applyFact, ← f_eq]
                     . rfl
                     . intro d d_mem
                       rw [ConstantMapping.apply_ground_term_constant]
@@ -1996,8 +1997,8 @@ section InterplayWithBacktracking
                         rw [List.mem_append]
                         apply Or.inr
                         exact d_mem'
-                rw [this]
-                apply ConstantMapping.apply_fact_mem_apply_fact_set_of_mem
+                rw [← ConstantMapping.apply_fact.eq_def, this]
+                apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
                 rw [List.mem_toSet]
                 exact f_mem
             . intro d d_mem
@@ -2075,9 +2076,9 @@ section InterplayWithBacktracking
               rw [g_tl_h.right]
               . rw [List.mem_append]; apply Or.inl; exact this
               . exact this
-          rw [f_eq, this]
+          rw [f_eq, ← ConstantMapping.apply_fact.eq_def, this]
           apply g_hd_h.left
-          apply ConstantMapping.apply_fact_mem_apply_fact_set_of_mem
+          apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
           rw [List.mem_toSet]
           exact f'_mem
         | inr f'_mem =>
@@ -2105,9 +2106,9 @@ section InterplayWithBacktracking
                   apply Or.inr
                   exact d_mem'
 
-          rw [f_eq, this]
+          rw [f_eq, ← ConstantMapping.apply_fact.eq_def, this]
           apply g_tl_h.left
-          apply ConstantMapping.apply_fact_mem_apply_fact_set_of_mem
+          apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
           rw [List.mem_toSet]
           exact f'_mem
       . intro d d_mem
@@ -2123,7 +2124,7 @@ section InterplayWithBacktracking
         g.apply_fact_set (trg.backtrackFacts rl (cb.trigger_ruleIds_valid_of_loaded i node eq rl rl_rs_eq trg trg_loaded) (cb.trigger_disjIdx_valid_of_loaded i node eq rl rl_rs_eq trg trg_loaded) (cb.trigger_rule_arity_valid_of_loaded i node eq rl rl_rs_eq trg trg_loaded)).fst.toSet ⊆ node.facts.val ∧
         (∀ (d : sig.C), d ∈ ((trg.mapped_body.flatMap Fact.constants).toSet ∪ kb.rules.constants) -> g d = .const d) := by
     intro rl rl_rs_eq trg trg_loaded
-    have := cb.backtracking_of_term_list_in_node i node eq rl rl_rs_eq (trg.mapped_body.flatMap Fact.terms)
+    have := cb.backtracking_of_term_list_in_node i node eq rl rl_rs_eq (trg.mapped_body.flatMap GeneralizedAtom.terms)
       (by intro t t_mem
           rw [List.mem_toSet, List.mem_flatMap] at t_mem
           rcases t_mem with ⟨f, f_mem, t_mem⟩
@@ -2167,7 +2168,7 @@ section InterplayWithBacktracking
           apply Or.inl
           rw [List.mem_flatMap]
           exists f'
-        rw [f_eq, this]
+        rw [f_eq, ← ConstantMapping.apply_fact.eq_def, this]
         apply trg_loaded
         rw [List.mem_toSet]
         exact f'_mem

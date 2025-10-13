@@ -142,16 +142,19 @@ namespace ChaseBranch
           intro f f_mem
           rcases f_mem with ⟨f, f_mem, f_eq⟩
           cases f_mem with
-          | inl f_mem => apply hom.right; exists f; constructor; exact f_mem; rw [← f_eq]; unfold GroundTermMapping.applyFact; simp; intro t _ t_mem; rw [h'_is_h_on_terms_in_node]; unfold FactSet.terms; exists f
+          | inl f_mem => apply hom.right; exists f; constructor; exact f_mem; rw [f_eq]; apply TermMapping.apply_generalized_atom_congr_left; intro t t_mem; apply h'_is_h_on_terms_in_node; exists f
           | inr f_mem =>
-            rw [← f_eq]
+            rw [f_eq]
             apply subs_contained
             have : (subs.apply_function_free_conj trg'.rule.head[disj_index'.val]).toSet = h'.applyFactSet trg.val.mapped_head[disj_index.val].toSet := by
+              -- TODO: show something like List.map_toSet_eq_toSet_map
               apply Set.ext
               intro f
               rw [List.mem_toSet]
               unfold GroundTermMapping.applyFactSet
+              unfold TermMapping.apply_generalized_atom_set
               unfold GroundSubstitution.apply_function_free_conj
+              unfold TermMapping.apply_generalized_atom_list
               unfold PreTrigger.mapped_head
               simp
               constructor
@@ -161,10 +164,10 @@ namespace ChaseBranch
                 constructor
                 . rw [List.mem_toSet]; simp; exists a
                 . rw [← a_eq]
-                  simp [PreTrigger.apply_to_function_free_atom, GroundTermMapping.applyFact, GroundSubstitution.apply_function_free_atom]
+                  simp [PreTrigger.apply_to_function_free_atom, TermMapping.apply_generalized_atom]
                   intro voc voc_mem
                   cases voc with
-                  | const c => simp [PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize]; exact h'_is_id_on_const (GroundTerm.const c)
+                  | const c => simp [PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize]; apply Eq.symm; exact h'_is_id_on_const (GroundTerm.const c)
                   | var v =>
                     rw [h'_is_subs_on_head_vars]
                     simp [GroundSubstitution.apply_var_or_const]
@@ -184,12 +187,15 @@ namespace ChaseBranch
                 exists a
                 constructor
                 . exact a_mem
-                . rw [← b_eq, ← a_eq]
-                  simp [PreTrigger.apply_to_function_free_atom, GroundTermMapping.applyFact, GroundSubstitution.apply_function_free_atom]
+                . rw [b_eq, ← a_eq]
+                  rw [← Function.comp_apply (f := h'.apply_generalized_atom)]
+                  rw [← TermMapping.apply_generalized_atom_compose]
+                  apply TermMapping.apply_generalized_atom_congr_left
                   intro voc voc_mem
                   cases voc with
                   | const c => simp [PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize]; rw [h'_is_id_on_const (GroundTerm.const c)]
                   | var v =>
+                    rw [Function.comp_apply]
                     rw [h'_is_subs_on_head_vars]
                     simp [GroundSubstitution.apply_var_or_const]
                     unfold FunctionFreeConjunction.vars
@@ -343,9 +349,9 @@ namespace ChaseBranch
         | some node' =>
           simp [Option.is_none_or]
           intro f f_mem
-          unfold GroundTermMapping.applyFact
-          simp [global_h]
-          intro t t_arity_ok t_mem
+          apply TermMapping.apply_generalized_atom_congr_left
+          intro t t_mem
+          simp only [global_h]
           split
           case h_2 _ n_ex _ =>
             apply False.elim
@@ -409,7 +415,7 @@ namespace ChaseBranch
                     simp at gt3
                     have target_h_same := extended_hom_same_on_all_following_extensions cb det k node eq h hom (i - k) (j - i)
                     simp only [Nat.add_sub_of_le (Nat.le_of_lt gt3), eq2, Option.is_none_or] at target_h_same
-                    specialize target_h_same ⟨t, t_arity_ok⟩
+                    specialize target_h_same t
                     have : (i - k + (j - i)) = j - k := by omega
                     rw [this] at target_h_same
                     rw [target_h_same]
@@ -420,7 +426,7 @@ namespace ChaseBranch
                   have : cb.branch.infinite_list (k + (j - k)) = cb.branch.infinite_list j := by rw [Nat.add_sub_of_le (Nat.le_of_lt gt)]
                   simp only [this] at target_h_same
                   simp only [eq3, Option.is_none_or] at target_h_same
-                  specialize target_h_same ⟨t, t_arity_ok⟩
+                  specialize target_h_same t
                   have : (j - k + (i - j)) = i - k := by omega
                   rw [this] at target_h_same
                   rw [target_h_same]
@@ -477,15 +483,16 @@ namespace ChaseBranch
             have := apply_uniform_in_step n
             rw [eq2, Option.is_none_or] at this
             specialize this _ f_arg_mem
+            unfold GroundTermMapping.applyFact at this
             rw [this] at f_eq
-            rw [← f_eq]
+            rw [f_eq]
             have target_h_property := (target_h (n-k)).property
             cases Decidable.em (n ≤ k) with
             | inl le =>
               simp [Nat.sub_eq_zero_of_le le] at target_h_property
               rw [eq, Option.is_none_or] at target_h_property
               apply target_h_property.right
-              apply GroundTermMapping.applyPreservesElement
+              apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
               have all_following := cb.stepIsSubsetOfAllFollowing n _ eq2 (k - n)
               rw [Nat.add_sub_of_le le] at all_following
               rw [eq] at all_following
@@ -496,7 +503,7 @@ namespace ChaseBranch
               simp at gt
               simp only [Nat.add_sub_of_le (Nat.le_of_lt gt), eq2, Option.is_none_or] at target_h_property
               apply target_h_property.right
-              apply GroundTermMapping.applyPreservesElement
+              apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
               exact f_arg_mem
 
 end ChaseBranch

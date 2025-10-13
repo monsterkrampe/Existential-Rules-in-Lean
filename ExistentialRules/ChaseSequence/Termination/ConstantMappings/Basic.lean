@@ -7,9 +7,9 @@ section Defs
   variable (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
   -- This is essentially the same as a GroundSubstitution only that it maps constants instead of variables
-  abbrev ConstantMapping := sig.C -> GroundTerm sig
+  abbrev ConstantMapping := TermMapping sig.C (GroundTerm sig)
 
-  abbrev StrictConstantMapping := sig.C -> sig.C
+  abbrev StrictConstantMapping := TermMapping sig.C sig.C
 
 end Defs
 
@@ -20,7 +20,8 @@ namespace ConstantMapping
 
   def id : ConstantMapping sig := fun c => .const c
 
-  def apply_pre_ground_term (g : ConstantMapping sig) (t : PreGroundTerm sig) : PreGroundTerm sig := t.mapLeaves (fun c => (g c).val)
+  abbrev apply_pre_ground_term (g : ConstantMapping sig) : TermMapping (PreGroundTerm sig) (PreGroundTerm sig) :=
+    FiniteTree.mapLeaves (fun c => (g c).val)
 
   mutual
 
@@ -90,7 +91,8 @@ namespace ConstantMapping
     specialize h c c_mem
     rw [h]
 
-  def apply_ground_term (g : ConstantMapping sig) (t : GroundTerm sig) : GroundTerm sig := ⟨g.apply_pre_ground_term t.val, g.apply_pre_ground_term_arity_ok t.val t.property⟩
+  def apply_ground_term (g : ConstantMapping sig) : TermMapping (GroundTerm sig) (GroundTerm sig) :=
+    fun t => ⟨g.apply_pre_ground_term t.val, g.apply_pre_ground_term_arity_ok t.val t.property⟩
 
   theorem apply_ground_term_constant (g : ConstantMapping sig) : ∀ c, g.apply_ground_term (.const c) = g c := by
     intro c
@@ -146,19 +148,16 @@ namespace ConstantMapping
 
   variable [DecidableEq sig.P]
 
-  def apply_fact (g : ConstantMapping sig) (f : Fact sig) : Fact sig := {
-    predicate := f.predicate
-    terms := f.terms.map g.apply_ground_term
-    arity_ok := by rw [List.length_map]; exact f.arity_ok
-  }
+  abbrev apply_fact (g : ConstantMapping sig) : Fact sig -> Fact sig := TermMapping.apply_generalized_atom g.apply_ground_term
 
   theorem apply_fact_id (f : Fact sig) : id.apply_fact f = f := by
     unfold apply_fact
-    rw [Fact.mk.injEq]
+    rw [GeneralizedAtom.mk.injEq]
     constructor
     . rfl
     . apply List.map_id_of_id_on_all_mem; intros; apply apply_ground_term_id
 
+  -- TODO: do we still need this?
   theorem apply_fact_eq_groundTermMapping_applyFact (g : ConstantMapping sig) (f : Fact sig) : g.apply_fact f = GroundTermMapping.applyFact g.apply_ground_term f := by
     simp [apply_fact, GroundTermMapping.applyFact]
 
@@ -167,38 +166,28 @@ namespace ConstantMapping
     unfold PreTrigger.apply_to_function_free_atom
     unfold ConstantMapping.apply_fact
     unfold PreTrigger.apply_to_var_or_const
-    unfold PreTrigger.skolemize_var_or_const
-    simp
+    rw [← Function.comp_apply (f := TermMapping.apply_generalized_atom g.apply_ground_term), ← TermMapping.apply_generalized_atom_compose]
+    apply TermMapping.apply_generalized_atom_congr_left
     intro voc voc_mem
+    simp only [Function.comp_apply]
     cases voc with
     | var v =>
       rw [ConstantMapping.apply_ground_term_swap_apply_skolem_term]
-      intro c contra
-      simp [VarOrConst.skolemize] at contra
-      split at contra <;> contradiction
+      . rfl
+      . intro c contra
+        simp only [PreTrigger.skolemize_var_or_const, VarOrConst.skolemize] at contra
+        split at contra <;> contradiction
     | const d =>
-      unfold VarOrConst.skolemize
-      unfold GroundSubstitution.apply_skolem_term
-      unfold ConstantMapping.apply_ground_term
-      unfold ConstantMapping.apply_pre_ground_term
-      unfold FiniteTree.mapLeaves
-      unfold GroundTerm.const
-      apply Subtype.eq
-      simp only
-      rw [h]
-      . simp [GroundTerm.const]
-      . unfold FunctionFreeAtom.constants
-        apply VarOrConst.mem_filterConsts_of_const
-        exact voc_mem
+      simp only [PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term]
+      rw [g.apply_ground_term_constant]
+      apply h
+      apply VarOrConst.mem_filterConsts_of_const
+      exact voc_mem
 
   -- naming inspired by List.map_congr_left
   theorem apply_fact_congr_left (g g2 : ConstantMapping sig) (f : Fact sig) : (∀ c ∈ f.constants, g c = g2 c) -> g.apply_fact f = g2.apply_fact f := by
     intro h
-    unfold ConstantMapping.apply_fact
-    rw [Fact.mk.injEq]
-    constructor
-    . rfl
-    apply List.map_congr_left
+    apply TermMapping.apply_generalized_atom_congr_left
     intro t t_mem
     apply apply_ground_term_congr_left
     intro c c_mem
@@ -207,11 +196,7 @@ namespace ConstantMapping
     rw [List.mem_flatMap]
     exists t
 
-  def apply_fact_set (g : ConstantMapping sig) (fs : FactSet sig) : FactSet sig := fun f => ∃ f', f' ∈ fs ∧ f = g.apply_fact f'
-
-  theorem apply_fact_mem_apply_fact_set_of_mem (g : ConstantMapping sig) (f : Fact sig) (fs : FactSet sig) : f ∈ fs -> g.apply_fact f ∈ g.apply_fact_set fs := by
-    intro f_mem
-    exists f
+  abbrev apply_fact_set (g : ConstantMapping sig) : FactSet sig -> FactSet sig := TermMapping.apply_generalized_atom_set g.apply_ground_term
 
 end ConstantMapping
 
@@ -221,7 +206,7 @@ namespace StrictConstantMapping
 
   def toConstantMapping (g : StrictConstantMapping sig) : ConstantMapping sig := fun c => GroundTerm.const (g c)
 
-  def apply_var_or_const (g : StrictConstantMapping sig) : VarOrConst sig -> VarOrConst sig
+  def apply_var_or_const (g : StrictConstantMapping sig) : TermMapping (VarOrConst sig) (VarOrConst sig)
   | .var v => .var v
   | .const c => .const (g c)
 
@@ -257,22 +242,21 @@ namespace StrictConstantMapping
 
   variable [DecidableEq sig.P]
 
-  def apply_function_free_atom (g : StrictConstantMapping sig) (a : FunctionFreeAtom sig) : FunctionFreeAtom sig := {
-    predicate := a.predicate
-    terms := a.terms.map g.apply_var_or_const
-    arity_ok := by rw [List.length_map]; exact a.arity_ok
-  }
+  abbrev apply_function_free_atom (g : StrictConstantMapping sig) : FunctionFreeAtom sig -> FunctionFreeAtom sig := TermMapping.apply_generalized_atom g.apply_var_or_const
 
   theorem apply_function_free_atom_vars_eq (g : StrictConstantMapping sig) (a : FunctionFreeAtom sig) : (g.apply_function_free_atom a).variables = a.variables := by
     unfold apply_function_free_atom
+    unfold TermMapping.apply_generalized_atom
     unfold FunctionFreeAtom.variables
     simp only
     rw [apply_var_or_const_filterVars_eq]
 
-  def apply_function_free_conj (g : StrictConstantMapping sig) (conj : FunctionFreeConjunction sig) : FunctionFreeConjunction sig := conj.map g.apply_function_free_atom
+  abbrev apply_function_free_conj (g : StrictConstantMapping sig) : FunctionFreeConjunction sig -> FunctionFreeConjunction sig :=
+    TermMapping.apply_generalized_atom_list g.apply_var_or_const
 
   theorem apply_function_free_conj_vars_eq (g : StrictConstantMapping sig) (conj : FunctionFreeConjunction sig) : (g.apply_function_free_conj conj).vars = conj.vars := by
     unfold apply_function_free_conj
+    unfold TermMapping.apply_generalized_atom_list
     unfold FunctionFreeConjunction.vars
     unfold List.flatMap
     rw [List.map_map]
@@ -689,7 +673,8 @@ section ArgumentsForImages
         rcases h with ⟨ts, mem, arg_eq⟩
         rw [← arg_eq]
         unfold ConstantMapping.apply_fact
-        rw [Fact.mk.injEq]
+        unfold TermMapping.apply_generalized_atom
+        rw [GeneralizedAtom.mk.injEq]
         simp only [true_and]
 
         specialize this ts
@@ -704,13 +689,14 @@ section ArgumentsForImages
           . exact h.left
           . have r := h.right
             unfold ConstantMapping.apply_fact at r
-            rw [Fact.mk.injEq] at r
+            rw [GeneralizedAtom.mk.injEq] at r
             exact r.right
         )
         have r := h.right
         unfold ConstantMapping.apply_fact at r
-        rw [Fact.mk.injEq] at r
-        rw [Fact.mk.injEq]
+        unfold TermMapping.apply_generalized_atom at r
+        rw [GeneralizedAtom.mk.injEq] at r
+        rw [GeneralizedAtom.mk.injEq]
         constructor
         . rw [← r.left]
         . rfl
@@ -1287,7 +1273,7 @@ section InterplayWithObsoletenessCondition
     rcases f_mem with ⟨a, a_mem, f_eq⟩
     rw [← ConstantMapping.apply_fact_swap_apply_to_function_free_atom] at f_eq
     . rw [← f_eq]
-      apply ConstantMapping.apply_fact_mem_apply_fact_set_of_mem
+      apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
       apply cond
       rw [List.mem_toSet]
       simp only [PreTrigger.mapped_head, List.getElem_map, List.getElem_zipIdx, List.mem_map, Nat.zero_add]
@@ -1315,16 +1301,16 @@ section InterplayWithObsoletenessCondition
     constructor
     . intro v v_mem; simp only [Function.comp_apply]; rw [id_front v v_mem]
     . unfold GroundSubstitution.apply_function_free_conj
+      unfold TermMapping.apply_generalized_atom_list
       intro f f_mem
       rw [List.mem_toSet, List.mem_map] at f_mem
       rcases f_mem with ⟨a, a_mem, f_eq⟩
-      rw [GroundSubstitution.apply_function_free_atom_compose] at f_eq
+      rw [← GroundSubstitution.apply_function_free_atom.eq_def, GroundSubstitution.apply_function_free_atom_compose] at f_eq
       . rw [← f_eq]
         rw [← ConstantMapping.apply_fact_eq_groundTermMapping_applyFact]
-        apply ConstantMapping.apply_fact_mem_apply_fact_set_of_mem
+        apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
         apply cond
         rw [List.mem_toSet]
-        unfold GroundSubstitution.apply_function_free_conj
         apply List.mem_map_of_mem
         exact a_mem
       . intro d d_mem

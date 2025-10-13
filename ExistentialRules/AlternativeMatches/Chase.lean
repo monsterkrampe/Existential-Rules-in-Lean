@@ -91,7 +91,7 @@ namespace ChaseBranch
             . constructor
               . exact h_k_hom.left
               . apply Set.subset_trans (b := h_k.applyFactSet cb.result)
-                . apply GroundTermMapping.applyFactSet_subset_of_subset
+                . apply TermMapping.apply_generalized_atom_set_subset_of_subset
                   apply Set.subset_trans (b := node.facts.val)
                   . rw [node_facts_are_prev_facts_union_origin_res]
                     apply Set.subset_union_of_subset_right
@@ -110,10 +110,10 @@ namespace ChaseBranch
               constructor
               . apply origin_trg_active.left
                 rw [List.mem_toSet]
-                simp [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj]
+                simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list, List.mem_map]
                 exists a
               . rw [← v_eq]
-                simp [GroundSubstitution.apply_function_free_atom]
+                simp only [GroundSubstitution.apply_function_free_atom, TermMapping.apply_generalized_atom, List.mem_map]
                 exists VarOrConst.var v
             . unfold Function.surjective_for_domain_and_image_set at not_surj
               simp at not_surj
@@ -124,10 +124,10 @@ namespace ChaseBranch
               . intro t_mem_image
                 rcases t_mem_image with ⟨f, f_mem, t_mem_image⟩
                 rcases f_mem with ⟨f', f'_mem, f_eq⟩
-                rw [← f_eq] at t_mem_image
-                simp [GroundTermMapping.applyFact] at t_mem_image
-                rcases t_mem_image with ⟨t', _, t'_mem_image, t_eq⟩
-                apply no_arg_for_t t'
+                rw [f_eq] at t_mem_image
+                simp only [TermMapping.apply_generalized_atom, List.mem_map] at t_mem_image
+                rcases t_mem_image with ⟨t', t'_mem_image, t_eq⟩
+                apply no_arg_for_t t'.val t'.property
                 . exists f'
                 . exact t_eq
 
@@ -170,7 +170,7 @@ namespace ChaseBranch
             exact h_k_hom.left
           . have is_hom := h_k.repeat_hom_isHomomorphism cb.result h_k_hom repetition_number
             apply Set.subset_trans (b := inv.applyFactSet cb.result)
-            . apply inv.applyFactSet_subset_of_subset
+            . apply inv.apply_generalized_atom_set_subset_of_subset
               have subset_res := cb.stepIsSubsetOfResult (k+1)
               rw [eq, Option.is_none_or] at subset_res
               apply subset_res
@@ -187,10 +187,10 @@ namespace ChaseBranch
         constructor
         . constructor
           . intro f terms_mem f_mem apply_mem
-            rw [GroundTermMapping.applyFact_compose]
-            simp
+            unfold GroundTermMapping.applyFact
+            rw [TermMapping.apply_generalized_atom_compose, Function.comp_apply]
             apply extended_inv_hom.right
-            apply GroundTermMapping.applyPreservesElement
+            apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
             exact retains.left f terms_mem f_mem apply_mem
           . intro s t s_mem t_mem neq h_0_eq
             simp
@@ -282,9 +282,9 @@ namespace ChaseBranch
 
       have : h_k.applyFact f = f := by
         unfold GroundTermMapping.applyFact
-        rw [Fact.mk.injEq]
+        rw [GeneralizedAtom.mk.injEq]
         constructor
-        . simp
+        . simp [TermMapping.apply_generalized_atom]
         . apply List.map_id_of_id_on_all_mem
           intro t t_mem
           apply identity
@@ -382,16 +382,16 @@ namespace ChaseBranch
         rw [cb.origin_trg_result_yields_next_node_facts step _ eq_node] at f'_mem
         cases f'_mem with
         | inl f'_mem =>
-          rw [← f_eq]
+          rw [f_eq]
           have subset_res := cb.stepIsSubsetOfResult step
           rw [cb.prev_node_eq step (by simp [eq_node]), Option.is_none_or] at subset_res
           apply subset_res
-          have : h.applyFact f' = f' := by
-            unfold GroundTermMapping.applyFact
-            rw [Fact.mk.injEq]
+          have : h.apply_generalized_atom f' = f' := by
+            rw [GeneralizedAtom.mk.injEq]
             constructor
-            . simp
-            . rw [List.map_id_of_id_on_all_mem]
+            . simp [TermMapping.apply_generalized_atom]
+            . simp only [TermMapping.apply_generalized_atom]
+              rw [List.map_id_of_id_on_all_mem]
               intro t t_mem
               unfold h
               have : t ∈ ts := by rw [eq_ts]; exists f'
@@ -408,10 +408,9 @@ namespace ChaseBranch
           exists f'
           constructor
           . exact f'_mem
-          . rw [← f_eq]
-            unfold GroundTermMapping.applyFact
-            simp
-            intro t _ t_mem
+          . rw [f_eq]
+            apply TermMapping.apply_generalized_atom_congr_left
+            intro t t_mem
             unfold h
             split
             case isTrue t_mem_ts =>
@@ -422,8 +421,7 @@ namespace ChaseBranch
 
               rcases f'_mem with ⟨a, a_mem, f'_eq⟩
               rw [← f'_eq] at t_mem
-              simp only [PreTrigger.apply_to_function_free_atom] at t_mem
-              simp at t_mem
+              simp only [PreTrigger.apply_to_function_free_atom, TermMapping.apply_generalized_atom, List.mem_map] at t_mem
 
               rcases t_mem with ⟨voc, voc_mem, t_eq⟩
 
@@ -433,9 +431,11 @@ namespace ChaseBranch
                 rw [← t_eq]
                 have id_const := altMatch.left.left (GroundTerm.const c)
                 simp at id_const
+                apply Eq.symm
                 exact id_const
               | var v =>
                 have := altMatch.right.left
+                apply Eq.symm
                 apply this
 
                 cases Decidable.em (v ∈ origin.fst.val.rule.frontier) with
@@ -490,9 +490,10 @@ namespace ChaseBranch
         apply n_not_mem_mapped
         exists (h_alt.applyFact f)
         constructor
-        . apply h_alt.applyPreservesElement
+        . apply h_alt.apply_generalized_atom_mem_apply_generalized_atom_set
           exact f_mem
         . unfold GroundTermMapping.applyFact
+          unfold TermMapping.apply_generalized_atom
           rw [List.mem_map]
           exists n
           constructor
@@ -505,8 +506,7 @@ namespace ChaseBranch
 
             rcases f_mem with ⟨a, a_mem, f_eq⟩
             rw [← f_eq] at n_mem
-            simp only [PreTrigger.apply_to_function_free_atom] at n_mem
-            simp at n_mem
+            simp only [PreTrigger.apply_to_function_free_atom, TermMapping.apply_generalized_atom, List.mem_map] at n_mem
 
             rcases n_mem with ⟨voc, voc_mem, n_eq⟩
 
@@ -548,9 +548,10 @@ namespace ChaseBranch
         apply n_not_mem_mapped
         exists (h_alt.applyFact f)
         constructor
-        . apply h_alt.applyPreservesElement
+        . apply h_alt.apply_generalized_atom_mem_apply_generalized_atom_set
           exact f_mem
         . unfold GroundTermMapping.applyFact
+          unfold TermMapping.apply_generalized_atom
           rw [List.mem_map]
           exists n
 
@@ -688,9 +689,9 @@ namespace ChaseBranch
         have eq_origin : node.origin = some (node.origin.get origin_isSome) := by simp
         rw [eq_origin, Option.is_none_or] at origin_res_in_facts
         apply Set.subset_trans (b := (h.repeat_hom ((k + 1) * l)).applyFactSet node.facts.val)
-        . exact ((h.repeat_hom ((k + 1) * l)).applyFactSet_subset_of_subset _ _ origin_res_in_facts)
+        . exact ((h.repeat_hom ((k + 1) * l)).apply_generalized_atom_set_subset_of_subset _ _ origin_res_in_facts)
         . apply Set.subset_trans (b := (h.repeat_hom ((k + 1) * l)).applyFactSet cb.result)
-          . apply GroundTermMapping.applyFactSet_subset_of_subset
+          . apply TermMapping.apply_generalized_atom_set_subset_of_subset
             have subs_res := cb.stepIsSubsetOfResult step
             rw [eq, Option.is_none_or] at subs_res
             exact subs_res
@@ -714,9 +715,10 @@ namespace ChaseBranch
       . apply loaded
         rw [List.mem_toSet]
         unfold GroundSubstitution.apply_function_free_conj
+        unfold TermMapping.apply_generalized_atom_list
         rw [List.mem_map]
         exists a
-      . simp [GroundSubstitution.apply_function_free_atom]
+      . simp only [GroundSubstitution.apply_function_free_atom, TermMapping.apply_generalized_atom, List.mem_map]
         exists VarOrConst.var v
     . exists t
       have node_facts_are_prev_facts_union_origin_res := cb.origin_trg_result_yields_next_node_facts (step-1) node (by rw [Nat.sub_one_add_one step_ne_0]; exact eq)
@@ -745,10 +747,10 @@ namespace ChaseBranch
       . intro t_mem
         rcases t_mem with ⟨f, f_mem, t_mem⟩
         rcases f_mem with ⟨f', f'_mem, f_eq⟩
-        rw [← f_eq] at t_mem
-        simp [GroundTermMapping.applyFact] at t_mem
-        rcases t_mem with ⟨t', t'_arity_ok, t'_mem, t_eq⟩
-        apply prop_step ((k + 1) * l) _ ⟨t', t'_arity_ok⟩
+        rw [f_eq] at t_mem
+        simp only [TermMapping.apply_generalized_atom, List.mem_map] at t_mem
+        rcases t_mem with ⟨t', t'_mem, t_eq⟩
+        apply prop_step ((k + 1) * l) _ t'
         . exists f'; constructor; rw [node_facts_are_prev_facts_union_origin_res]; apply Or.inr; exact f'_mem; exact t'_mem
         . exact t_eq
         . apply Nat.le_trans; apply Nat.le_succ; apply Nat.le_mul_of_pos_right; apply Nat.lt_of_succ_le; exact l_le
@@ -772,9 +774,9 @@ namespace ChaseBranch
       exists (h.repeat_hom (j-1)).applyFact f
       constructor
       . apply hom.right
-        apply GroundTermMapping.applyPreservesElement
+        apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
         exact f_mem
-      . simp only [GroundTermMapping.applyFact, List.mem_map]
+      . simp only [GroundTermMapping.applyFact, TermMapping.apply_generalized_atom, List.mem_map]
         exists ⟨t, t_arity_ok⟩
     . have repeat_add := h.repeat_hom_add 1 (j - 1) ⟨t, t_arity_ok⟩
       conv at repeat_add => right; simp [GroundTermMapping.repeat_hom]
@@ -814,7 +816,7 @@ namespace ChaseBranch
       constructor
       . apply hom.left
       . apply Set.subset_trans (b := h.applyFactSet fs)
-        . apply GroundTermMapping.applyFactSet_subset_of_subset; exact sub_fs_sub
+        . apply TermMapping.apply_generalized_atom_set_subset_of_subset; exact sub_fs_sub
         . apply hom.right
 
     have : ∃ t, t ∈ cb.result.terms ∧ ∀ j, 1 ≤ j -> (h.repeat_hom j) t ≠ t := by
@@ -860,7 +862,7 @@ namespace ChaseBranch
             intro t t_mem
             apply each_repeats
             exists f
-          simp only [this]
+          simp only [TermMapping.apply_generalized_atom, this]
         rw [← this]
         have : (h.repeat_hom j).isHomomorphism fs sub_fs := by
           have : h.repeat_hom j = h.repeat_hom (j-1) ∘ h := by
@@ -875,7 +877,7 @@ namespace ChaseBranch
           . exact hom
           . apply h.repeat_hom_isHomomorphism; exact hom_sub_fs
         apply this.right
-        apply GroundTermMapping.applyPreservesElement
+        apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
         apply fs_super
         exists step
         rw [eq, Option.is_some_and]
@@ -889,7 +891,7 @@ namespace ChaseBranch
     . constructor
       . apply hom.left
       . apply Set.subset_trans (b := h.applyFactSet fs)
-        . apply GroundTermMapping.applyFactSet_subset_of_subset
+        . apply TermMapping.apply_generalized_atom_set_subset_of_subset
           exact fs_super
         . apply hom_fs.right
     . exact hom_fs

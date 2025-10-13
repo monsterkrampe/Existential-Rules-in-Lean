@@ -288,7 +288,8 @@ namespace GroundTermMapping
       exists (g.applyFact e)
       constructor
       . exact e_mem_b
-      . rw [applyFact_compose]
+      . unfold applyFact
+        rw [TermMapping.apply_generalized_atom_compose]
         simp
 
 end GroundTermMapping
@@ -487,19 +488,19 @@ namespace GroundTermMapping
         intro f f_mem
         rcases f_mem with ⟨f', f'_mem, f_eq⟩
         have : f = f' := by
-          unfold applyFact at f_eq
-          . rw [← f_eq]; simp
+          unfold TermMapping.apply_generalized_atom at f_eq
+          rw [f_eq]; simp
         rw [this]
         exact f'_mem
       | succ i ih =>
         unfold repeat_hom
-        rw [applyFactSet_compose]
-        simp
+        unfold applyFactSet
+        rw [TermMapping.apply_generalized_atom_set_compose, Function.comp_apply]
         intro f f_mem
         apply hom.right
-        have lifted_ih := h.applyFactSet_subset_of_subset _ _ ih
-        apply lifted_ih
-        exact f_mem
+        apply h.apply_generalized_atom_set_subset_of_subset
+        . exact ih
+        . exact f_mem
 
 end GroundTermMapping
 
@@ -522,7 +523,7 @@ namespace FactSet
     rcases finite with ⟨l, finite⟩
     intro h isHom inj
 
-    let terms_list := (l.map Fact.terms).flatten.eraseDupsKeepRight
+    let terms_list := (l.map GeneralizedAtom.terms).flatten.eraseDupsKeepRight
     have nodup_terms_list : terms_list.Nodup := by apply List.nodup_eraseDupsKeepRight
     have mem_terms_list : ∀ e, e ∈ terms_list ↔ e ∈ fs.terms := by
       simp only [terms_list]
@@ -556,9 +557,9 @@ namespace FactSet
         apply isHom.right
         unfold GroundTermMapping.applyFactSet
         exists f
-        rw [← finite.right]
         constructor
-        . exact f_mem
+        . rw [finite.right] at f_mem
+          exact f_mem
         . rfl
       exists f'.terms
       constructor
@@ -566,7 +567,7 @@ namespace FactSet
         constructor
         . rw [finite.right]; exact f'_mem
         . rfl
-      . simp only [f', GroundTermMapping.applyFact]
+      . simp only [f', TermMapping.apply_generalized_atom]
         rw [List.mem_map]
         exists e
 
@@ -593,9 +594,9 @@ namespace FactSet
 
     have : f = (h.repeat_hom k).applyFact (h.applyFact f) := by
       rw [← Function.comp_apply (f := (h.repeat_hom k).applyFact)]
-      rw [← GroundTermMapping.applyFact_compose]
-      unfold GroundTermMapping.applyFact
-      rw [Fact.mk.injEq]
+      rw [← TermMapping.apply_generalized_atom_compose]
+      unfold TermMapping.apply_generalized_atom
+      rw [GeneralizedAtom.mk.injEq]
       constructor
       . rfl
       . rw [List.map_id_of_id_on_all_mem]
@@ -608,7 +609,7 @@ namespace FactSet
     rw [this]
 
     apply inv_hom.right
-    apply GroundTermMapping.applyPreservesElement
+    apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
     exact apply_mem
 
   theorem isStrongCore_of_isWeakCore_of_finite (fs : FactSet sig) (weakCore : fs.isWeakCore) (finite : fs.finite) : fs.isStrongCore := by
@@ -667,6 +668,7 @@ namespace FactSet
         . apply h_sc_wc_hom.right
           exists f
         . unfold GroundTermMapping.applyFact
+          unfold TermMapping.apply_generalized_atom
           rw [List.mem_map]
           exists arg
 
@@ -683,7 +685,7 @@ namespace FactSet
       constructor
       . exact h_fs_wc_hom.left
       . apply Set.subset_trans (b := h_fs_wc.applyFactSet fs)
-        . apply GroundTermMapping.applyFactSet_subset_of_subset
+        . apply TermMapping.apply_generalized_atom_set_subset_of_subset
           exact sub_sc
         . exact h_fs_wc_hom.right
 
@@ -691,7 +693,7 @@ namespace FactSet
       constructor
       . exact h_fs_sc_hom.left
       . apply Set.subset_trans (b := h_fs_sc.applyFactSet fs)
-        . apply GroundTermMapping.applyFactSet_subset_of_subset
+        . apply TermMapping.apply_generalized_atom_set_subset_of_subset
           exact sub_wc
         . exact h_fs_sc_hom.right
 
@@ -720,7 +722,7 @@ namespace FactSet
       constructor
       . exact h_fs_sc_hom.left
       . apply Set.subset_trans (b := h_fs_sc.applyFactSet fs)
-        . apply GroundTermMapping.applyFactSet_subset_of_subset
+        . apply TermMapping.apply_generalized_atom_set_subset_of_subset
           exact sc_sub
         . exact h_fs_sc_hom.right
 
@@ -775,8 +777,8 @@ namespace FactSet
           intro contra
           apply strong f
           . intro t t_mem
-            rw [← f_eq] at t_mem
-            unfold GroundTermMapping.applyFact at t_mem
+            rw [f_eq] at t_mem
+            unfold TermMapping.apply_generalized_atom at t_mem
             rw [List.mem_map] at t_mem
             rcases t_mem with ⟨t', t'_mem, t_eq⟩
             have t'_mem : t' ∈ sc.terms := by exists f'
@@ -786,16 +788,16 @@ namespace FactSet
             simp [t'_mem]
             exact spec.left
           . exact contra
-          . rw [← f_eq]
-            rw [← Function.comp_apply (f := h_fs_sc.applyFact), ← GroundTermMapping.applyFact_compose]
-            have : f' = GroundTermMapping.applyFact (h_fs_sc ∘ inv) f' := by
-              unfold GroundTermMapping.applyFact
-              rw [Fact.mk.injEq]
+          . rw [f_eq]
+            rw [← Function.comp_apply (f := h_fs_sc.applyFact), ← TermMapping.apply_generalized_atom_compose]
+            have : f' = TermMapping.apply_generalized_atom (h_fs_sc ∘ inv) f' := by
+              rw [GeneralizedAtom.mk.injEq]
               constructor
               . rfl
               . apply List.ext_getElem
-                . rw [List.length_map]
+                . rw [TermMapping.length_terms_apply_generalized_atom]
                 . intro n _ _
+                  unfold TermMapping.apply_generalized_atom
                   rw [List.getElem_map]
                   rw [Function.comp_apply]
                   rw [inv_id]
@@ -815,20 +817,20 @@ namespace FactSet
         unfold Fact.isFunctionFree at prop
         specialize prop f f_mem
 
-        unfold GroundTermMapping.applyFact
-        rw [Fact.mk.injEq]
+        rw [GeneralizedAtom.mk.injEq]
         constructor
         . rfl
         . apply List.ext_getElem
-          . rw [List.length_map]
+          . rw [TermMapping.length_terms_apply_generalized_atom]
           . intro n _ _
+            unfold TermMapping.apply_generalized_atom
             rw [List.getElem_map]
             rcases (prop f.terms[n] (by apply List.getElem_mem)) with ⟨c, t_eq⟩
             rw [t_eq]
             rw [h_fs_sc_hom.left (GroundTerm.const c)]
       rw [this]
       apply h_fs_sc_hom.right
-      apply GroundTermMapping.applyPreservesElement
+      apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
       apply fs_model.left
       exact f_mem
     . intro r r_mem
@@ -839,13 +841,15 @@ namespace FactSet
         apply Set.subset_trans (b := inv.applyFactSet sc)
         . intro f f_mem
           unfold GroundSubstitution.apply_function_free_conj at f_mem
+          unfold TermMapping.apply_generalized_atom_list at f_mem
           rw [List.mem_toSet, List.mem_map] at f_mem
           rcases f_mem with ⟨a, a_mem, f_eq⟩
-          rw [GroundSubstitution.apply_function_free_atom_compose_of_isIdOnConstants _ _ inv_hom.left] at f_eq
+          rw [← GroundSubstitution.apply_function_free_atom.eq_def, GroundSubstitution.apply_function_free_atom_compose_of_isIdOnConstants _ _ inv_hom.left] at f_eq
           rw [← f_eq]
-          apply GroundTermMapping.applyPreservesElement
+          apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
           apply loaded
           unfold GroundSubstitution.apply_function_free_conj
+          unfold TermMapping.apply_generalized_atom_list
           rw [List.mem_toSet, List.mem_map]
           exists a
         . apply Set.subset_trans (b := sc)
@@ -872,9 +876,11 @@ namespace FactSet
           constructor
           . apply loaded
             unfold GroundSubstitution.apply_function_free_conj
+            unfold TermMapping.apply_generalized_atom_list
             rw [List.mem_toSet, List.mem_map]
             exists a
           . unfold GroundSubstitution.apply_function_free_atom
+            unfold TermMapping.apply_generalized_atom
             rw [List.mem_map]
             exists VarOrConst.var v
             constructor
@@ -886,13 +892,15 @@ namespace FactSet
       . apply Set.subset_trans (b := h_fs_sc.applyFactSet fs)
         . intro f f_mem
           unfold GroundSubstitution.apply_function_free_conj at f_mem
+          unfold TermMapping.apply_generalized_atom_list at f_mem
           rw [List.mem_toSet, List.mem_map] at f_mem
           rcases f_mem with ⟨a, a_mem, f_eq⟩
-          rw [GroundSubstitution.apply_function_free_atom_compose_of_isIdOnConstants _ _ h_fs_sc_hom.left] at f_eq
+          rw [← GroundSubstitution.apply_function_free_atom.eq_def, GroundSubstitution.apply_function_free_atom_compose_of_isIdOnConstants _ _ h_fs_sc_hom.left] at f_eq
           rw [← f_eq]
-          apply GroundTermMapping.applyPreservesElement
+          apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
           apply sub_mapping
           unfold GroundSubstitution.apply_function_free_conj
+          unfold TermMapping.apply_generalized_atom_list
           rw [List.mem_toSet, List.mem_map]
           exists a
         . exact h_fs_sc_hom.right
@@ -910,7 +918,7 @@ namespace FactSet
       constructor
       . exact h_hom.left
       . apply Set.subset_trans (b := h.applyFactSet fs)
-        . apply GroundTermMapping.applyFactSet_subset_of_subset
+        . apply TermMapping.apply_generalized_atom_set_subset_of_subset
           exact sc_sub.left
         . exact h_hom.right
 
