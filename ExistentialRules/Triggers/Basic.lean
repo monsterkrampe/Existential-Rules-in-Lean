@@ -329,8 +329,30 @@ namespace PreTrigger
   def equiv (trg1 trg2 : PreTrigger sig) : Prop :=
     trg1.rule = trg2.rule ∧ ∀ v, v ∈ trg1.rule.frontier -> trg1.subs v = trg2.subs v
 
+  theorem equiv_symm {trg1 trg2 : PreTrigger sig} : trg1.equiv trg2 -> trg2.equiv trg1 := by
+    unfold equiv
+    intro h
+    constructor
+    . apply Eq.symm; exact h.left
+    . intro v v_mem
+      apply Eq.symm
+      apply h.right
+      rw [h.left]
+      exact v_mem
+
   def strong_equiv (trg1 trg2 : PreTrigger sig) : Prop :=
     trg1.rule = trg2.rule ∧ ∀ v, v ∈ trg1.rule.body.vars -> trg1.subs v = trg2.subs v
+
+  theorem strong_equiv_symm {trg1 trg2 : PreTrigger sig} : trg1.strong_equiv trg2 -> trg2.strong_equiv trg1 := by
+    unfold strong_equiv
+    intro h
+    constructor
+    . apply Eq.symm; exact h.left
+    . intro v v_mem
+      apply Eq.symm
+      apply h.right
+      rw [h.left]
+      exact v_mem
 
   theorem equiv_of_strong_equiv (trg1 trg2 : PreTrigger sig) : trg1.strong_equiv trg2 -> trg1.equiv trg2 := by
     intro ⟨r_eq, body_mapping_eq⟩

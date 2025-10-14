@@ -209,7 +209,7 @@ theorem BlockingObsoleteness.blocks_corresponding_obs [GetFreshInhabitant sig.C]
     rcases exists_strict_constant_mapping_reversing_renaming with ⟨reverse_renaming_mapping, reverse_renaming_mapping_properties⟩
 
     rw [← obs.preserved_under_equiv (PreTrigger.equiv_of_strong_equiv _ _ reverse_renaming_mapping_properties.left)]
-    rw [← PreTrigger.backtrackFacts_eq_of_strong_equiv _ _ _ _ _ _ reverse_renaming_mapping_properties.left]
+    rw [PreTrigger.backtrackFacts_eq_of_strong_equiv _ _ _ _ _ _ (PreTrigger.strong_equiv_symm reverse_renaming_mapping_properties.left)]
 
     have exists_fresh_constant_remapping_such_that_backtrackings_subsume_each_other := PreTrigger.backtracking_under_constant_mapping_subset_of_composing_with_subs
       rl
@@ -280,8 +280,8 @@ theorem BlockingObsoleteness.blocks_corresponding_obs [GetFreshInhabitant sig.C]
       simp only [StrictConstantMapping.toConstantMapping, GroundTerm.const, Subtype.mk.injEq, FiniteTree.leaf.injEq]
       rw [fresh_constant_remapping_id]
       . split
-        case isTrue heq => rfl
-        case isFalse heq =>
+        case a.isTrue heq => rfl
+        case a.isFalse heq =>
           apply reverse_renaming_mapping_properties.right
           intro contra
           apply trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart_constants_fresh (rl.rules.flatMap Rule.constants) c
