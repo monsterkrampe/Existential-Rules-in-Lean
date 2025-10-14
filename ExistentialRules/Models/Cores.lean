@@ -592,21 +592,17 @@ namespace FactSet
     rcases ex_inv with ⟨k, inv⟩
     have inv_hom : (h.repeat_hom k).isHomomorphism fs fs := h.repeat_hom_isHomomorphism fs isHom k
 
-    have : f = (h.repeat_hom k).applyFact (h.applyFact f) := by
-      rw [← Function.comp_apply (f := (h.repeat_hom k).applyFact)]
-      rw [← TermMapping.apply_generalized_atom_compose]
-      unfold TermMapping.apply_generalized_atom
-      rw [GeneralizedAtom.mk.injEq]
-      constructor
-      . rfl
-      . rw [List.map_id_of_id_on_all_mem]
-        intro t t_mem
-        rw [Function.comp_apply]
-        apply inv
-        rw [equiv]
-        apply ts_mem
-        exact t_mem
-    rw [this]
+    have : (h.repeat_hom k).applyFact (h.applyFact f) = f := by
+      unfold GroundTermMapping.applyFact
+      rw [← TermMapping.apply_generalized_atom_compose']
+      apply TermMapping.apply_generalized_atom_eq_self_of_id_on_terms
+      intro t t_mem
+      rw [Function.comp_apply]
+      apply inv
+      rw [equiv]
+      apply ts_mem
+      exact t_mem
+    rw [← this]
 
     apply inv_hom.right
     apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
@@ -789,46 +785,30 @@ namespace FactSet
             exact spec.left
           . exact contra
           . rw [f_eq]
-            rw [← Function.comp_apply (f := h_fs_sc.applyFact), ← TermMapping.apply_generalized_atom_compose]
-            have : f' = TermMapping.apply_generalized_atom (h_fs_sc ∘ inv) f' := by
-              rw [GeneralizedAtom.mk.injEq]
-              constructor
-              . rfl
-              . apply List.ext_getElem
-                . rw [TermMapping.length_terms_apply_generalized_atom]
-                . intro n _ _
-                  unfold TermMapping.apply_generalized_atom
-                  rw [List.getElem_map]
-                  rw [Function.comp_apply]
-                  rw [inv_id]
-                  exists f'
-                  constructor
-                  . exact f'_mem
-                  . apply List.getElem_mem
-            rw [← this]
+            unfold GroundTermMapping.applyFact
+            rw [← TermMapping.apply_generalized_atom_compose']
+            have : TermMapping.apply_generalized_atom (h_fs_sc ∘ inv) f' = f' := by
+              apply TermMapping.apply_generalized_atom_eq_self_of_id_on_terms
+              intro t t_mem
+              rw [Function.comp_apply, inv_id]
+              exists f'
+            rw [this]
             exact f'_mem
     rcases ex_inv with ⟨inv, inv_id, inv_hom⟩
 
     constructor
     . intro f f_mem
-      have : f = h_fs_sc.applyFact f := by
+      have : h_fs_sc.applyFact f = f := by
         have prop := kb.db.toFactSet.property.right
         unfold FactSet.isFunctionFree at prop
         unfold Fact.isFunctionFree at prop
         specialize prop f f_mem
-
-        rw [GeneralizedAtom.mk.injEq]
-        constructor
-        . rfl
-        . apply List.ext_getElem
-          . rw [TermMapping.length_terms_apply_generalized_atom]
-          . intro n _ _
-            unfold TermMapping.apply_generalized_atom
-            rw [List.getElem_map]
-            rcases (prop f.terms[n] (by apply List.getElem_mem)) with ⟨c, t_eq⟩
-            rw [t_eq]
-            rw [h_fs_sc_hom.left (GroundTerm.const c)]
-      rw [this]
+        apply TermMapping.apply_generalized_atom_eq_self_of_id_on_terms
+        intro t t_mem
+        rcases (prop t t_mem) with ⟨c, t_eq⟩
+        rw [t_eq]
+        rw [h_fs_sc_hom.left (GroundTerm.const c)]
+      rw [← this]
       apply h_fs_sc_hom.right
       apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
       apply fs_model.left

@@ -1826,8 +1826,8 @@ section InterplayWithBacktracking
                 | inl v_mem' =>
                   simp only [Function.comp_apply]
                   rw [triggers_equiv.right v v_mem']
-                  conv => left; rw [← ConstantMapping.apply_ground_term_id (origin.fst.val.subs v)]
-                  apply ConstantMapping.apply_ground_term_congr_left
+                  apply Eq.symm
+                  apply ConstantMapping.apply_ground_term_eq_self_of_id_on_constants
                   intro d d_mem
                   have d_mem' : d ∈ forbidden_constants := by
                     apply forbidden_constants_subsumes_term
@@ -1842,8 +1842,7 @@ section InterplayWithBacktracking
                   have : d ∉ fresh_consts_for_pure_body_vars.val := by intro contra; apply fresh_consts_for_pure_body_vars.property.right.right; exact contra; exact d_mem'
                   simp only [g, this, ↓reduceDIte]
                   rw [g_mapped_frontier_h.right]
-                  . rfl
-                  . rw [List.mem_append]; apply Or.inl; exact d_mem'
+                  rw [List.mem_append]; apply Or.inl; exact d_mem'
                 | inr v_mem' =>
                   have v_mem'' : v ∈ pure_body_vars := by
                     simp only [pure_body_vars, Rule.pure_body_vars, List.mem_filter]
@@ -2154,8 +2153,7 @@ section InterplayWithBacktracking
       cases f'_mem with
       | inl f'_mem =>
         have : g.apply_fact f' = f' := by
-          conv => right; rw [← ConstantMapping.apply_fact_id f']
-          apply ConstantMapping.apply_fact_congr_left
+          apply ConstantMapping.apply_fact_eq_self_of_id_on_constants
           intro d d_mem
           apply g_h.right
           rw [List.mem_append]

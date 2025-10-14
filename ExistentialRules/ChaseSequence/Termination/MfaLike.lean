@@ -22,47 +22,43 @@ theorem RuleSet.mfaConstantMapping_id_on_rs_constants (rs : RuleSet sig) (specia
 
 theorem RuleSet.mfaConstantMapping_id_on_atom_from_rule (rs : RuleSet sig) (special_const : sig.C) (r : Rule sig) (r_mem : r ∈ rs.rules) : ∀ a, a ∈ r.body ++ r.head.flatten -> (rs.mfaConstantMapping special_const).apply_function_free_atom a = a := by
   intro a a_mem
-  unfold StrictConstantMapping.apply_function_free_atom
-  rw [GeneralizedAtom.mk.injEq]
-  constructor
-  . rfl
-  . apply List.map_id_of_id_on_all_mem
-    intro voc voc_mem
-    cases voc with
-    | var v => simp [StrictConstantMapping.apply_var_or_const]
-    | const s =>
-      simp only [StrictConstantMapping.apply_var_or_const]
-      rw [VarOrConst.const.injEq]
-      apply mfaConstantMapping_id_on_rs_constants
-      exists r
-      constructor
-      . exact r_mem
-      . rw [List.mem_append] at a_mem
-        unfold Rule.constants
-        rw [List.mem_append]
-        cases a_mem with
-        | inl a_mem =>
-          apply Or.inl
-          unfold FunctionFreeConjunction.consts
+  apply TermMapping.apply_generalized_atom_eq_self_of_id_on_terms
+  intro voc voc_mem
+  cases voc with
+  | var v => simp [StrictConstantMapping.apply_var_or_const]
+  | const s =>
+    simp only [StrictConstantMapping.apply_var_or_const]
+    rw [VarOrConst.const.injEq]
+    apply mfaConstantMapping_id_on_rs_constants
+    exists r
+    constructor
+    . exact r_mem
+    . rw [List.mem_append] at a_mem
+      unfold Rule.constants
+      rw [List.mem_append]
+      cases a_mem with
+      | inl a_mem =>
+        apply Or.inl
+        unfold FunctionFreeConjunction.consts
+        rw [List.mem_flatMap]
+        exists a
+        constructor
+        . exact a_mem
+        . apply VarOrConst.mem_filterConsts_of_const; exact voc_mem
+      | inr a_mem =>
+        rw [List.mem_flatten] at a_mem
+        rcases a_mem with ⟨head, head_mem, a_mem⟩
+        apply Or.inr
+        rw [List.mem_flatMap]
+        exists head
+        constructor
+        . exact head_mem
+        . unfold FunctionFreeConjunction.consts
           rw [List.mem_flatMap]
           exists a
           constructor
           . exact a_mem
           . apply VarOrConst.mem_filterConsts_of_const; exact voc_mem
-        | inr a_mem =>
-          rw [List.mem_flatten] at a_mem
-          rcases a_mem with ⟨head, head_mem, a_mem⟩
-          apply Or.inr
-          rw [List.mem_flatMap]
-          exists head
-          constructor
-          . exact head_mem
-          . unfold FunctionFreeConjunction.consts
-            rw [List.mem_flatMap]
-            exists a
-            constructor
-            . exact a_mem
-            . apply VarOrConst.mem_filterConsts_of_const; exact voc_mem
 
 structure MfaObsoletenessCondition (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] extends LaxObsoletenessCondition sig
 
@@ -128,10 +124,9 @@ theorem DeterministicSkolemObsoleteness.blocks_each_obs (obs : ObsoletenessCondi
       apply List.getElem_mem
   . rw [f'_mem, ← f_eq]
     simp only [Nat.zero_add]
-    rw [← Function.comp_apply (f := { rule := trg.val.rule, subs := (rs.mfaConstantMapping special_const).toConstantMapping.apply_ground_term ∘ trg.val.subs : PreTrigger sig }.apply_to_function_free_atom disj_index.val)]
-    rw [← TermMapping.apply_generalized_atom_compose]
-    rw [← Function.comp_apply (f := (rs.mfaConstantMapping special_const).toConstantMapping.apply_ground_term.apply_generalized_atom)]
-    rw [← TermMapping.apply_generalized_atom_compose]
+    rw [← TermMapping.apply_generalized_atom_compose']
+    conv => left; unfold PreTrigger.apply_to_function_free_atom
+    rw [← TermMapping.apply_generalized_atom_compose']
     apply TermMapping.apply_generalized_atom_congr_left
     intro voc voc_mem
     cases voc with
@@ -340,11 +335,9 @@ theorem BlockingObsoleteness.blocks_corresponding_obs [GetFreshInhabitant sig.C]
     . rfl
     . intro v v_mem
       simp only [Function.comp_apply]
-
-      conv => left; rw [← ConstantMapping.apply_ground_term_id (trg.val.subs v)]
-      apply ConstantMapping.apply_ground_term_congr_left
+      apply Eq.symm
+      apply ConstantMapping.apply_ground_term_eq_self_of_id_on_constants
       intro d d_mem
-      simp only [ConstantMapping.id]
       rw [g_h.right]
       apply Or.inl
       rcases trg.val.rule.frontier_occurs_in_body v v_mem with ⟨a, a_mem, v_mem'⟩
@@ -1218,8 +1211,7 @@ namespace RuleSet
                   simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list, List.mem_map]
                   exists a
                 . rw [← f_eq]
-                  rw [← Function.comp_apply (f := (rs.mfaConstantMapping special_const).toConstantMapping.apply_ground_term.apply_generalized_atom)]
-                  rw [← TermMapping.apply_generalized_atom_compose]
+                  rw [← TermMapping.apply_generalized_atom_compose']
                   apply TermMapping.apply_generalized_atom_congr_left
                   intro voc voc_mem
                   cases voc with

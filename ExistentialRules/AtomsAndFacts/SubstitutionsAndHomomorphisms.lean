@@ -33,6 +33,11 @@ namespace TermMapping
     intro a
     simp [apply_generalized_atom]
 
+  theorem apply_generalized_atom_compose' (g : TermMapping S T) (h : TermMapping T U) : ∀ (a : GeneralizedAtom sig S), apply_generalized_atom (h ∘ g) a = (apply_generalized_atom h) (apply_generalized_atom g a) := by
+    intro a
+    rw [← Function.comp_apply (f := h.apply_generalized_atom)]
+    rw [← apply_generalized_atom_compose]
+
   theorem apply_generalized_atom_congr_left (g h : TermMapping S T) (a : GeneralizedAtom sig S) : (∀ t ∈ a.terms, g t = h t) -> g.apply_generalized_atom a = h.apply_generalized_atom a := by
     intro same
     rw [GeneralizedAtom.mk.injEq]
@@ -40,6 +45,13 @@ namespace TermMapping
     . rfl
     . apply List.map_congr_left
       exact same
+
+  theorem apply_generalized_atom_eq_self_of_id_on_terms (h : TermMapping T T) (a : GeneralizedAtom sig T) (id_on_terms : ∀ t ∈ a.terms, h t = t) : h.apply_generalized_atom a = a := by
+    rw [GeneralizedAtom.mk.injEq]
+    constructor
+    . rfl
+    . apply List.map_id_of_id_on_all_mem
+      exact id_on_terms
 
   def apply_generalized_atom_list (h : TermMapping S T) (l : List (GeneralizedAtom sig S)) : List (GeneralizedAtom sig T) :=
     l.map h.apply_generalized_atom
@@ -50,6 +62,11 @@ namespace TermMapping
     unfold apply_generalized_atom_list
     rw [Function.comp_apply, List.map_map]
     rw [apply_generalized_atom_compose]
+
+  theorem apply_generalized_atom_list_compose' (g : TermMapping S T) (h : TermMapping T U) : ∀ l : List (GeneralizedAtom sig S), apply_generalized_atom_list (h ∘ g) l = (apply_generalized_atom_list h) (apply_generalized_atom_list g l) := by
+    intro l
+    rw [← Function.comp_apply (f := h.apply_generalized_atom_list)]
+    rw [← apply_generalized_atom_list_compose]
 
   def apply_generalized_atom_set (h : TermMapping S T) (s : Set (GeneralizedAtom sig S)) : Set (GeneralizedAtom sig T) :=
     s.map h.apply_generalized_atom
@@ -75,6 +92,11 @@ namespace TermMapping
       . exact a''_mem
       . rw [apply_generalized_atom_compose, Function.comp_apply]
         rw [a'_eq, a''_eq]
+
+  theorem apply_generalized_atom_set_compose' (g : TermMapping S T) (h : TermMapping T U) : ∀ s : Set (GeneralizedAtom sig S), apply_generalized_atom_set (h ∘ g) s = (apply_generalized_atom_set h) (apply_generalized_atom_set g s) := by
+    intro l
+    rw [← Function.comp_apply (f := h.apply_generalized_atom_set)]
+    rw [← apply_generalized_atom_set_compose]
 
   theorem apply_generalized_atom_mem_apply_generalized_atom_set
       (h : TermMapping S T) (a : GeneralizedAtom sig S) (as : Set (GeneralizedAtom sig S)) :
@@ -218,8 +240,7 @@ section GroundSubstitutionInteractionWithGroundTermMapping
       ∀ (a : FunctionFreeAtom sig), (∀ d ∈ a.constants, h (GroundTerm.const d) = GroundTerm.const d) -> GroundSubstitution.apply_function_free_atom (h ∘ s) a = h.applyFact (s.apply_function_free_atom a) := by
     intro a id_on_const
     unfold GroundTermMapping.applyFact
-    rw [← Function.comp_apply (f := h.apply_generalized_atom) (g := s.apply_var_or_const.apply_generalized_atom)]
-    rw [← TermMapping.apply_generalized_atom_compose]
+    rw [← TermMapping.apply_generalized_atom_compose']
     apply TermMapping.apply_generalized_atom_congr_left
     intro voc voc_mem
     apply apply_var_or_const_compose

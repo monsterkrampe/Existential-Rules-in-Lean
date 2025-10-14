@@ -91,6 +91,12 @@ namespace ConstantMapping
     specialize h c c_mem
     rw [h]
 
+  theorem apply_pre_ground_term_eq_self_of_id_on_constants (g : ConstantMapping sig) (t : PreGroundTerm sig) (id_on_constants : ∀ c ∈ t.leaves, g c = .const c) : g.apply_pre_ground_term t = t := by
+    unfold ConstantMapping.apply_pre_ground_term
+    conv => right; rw [← apply_pre_ground_term_id t]
+    apply apply_pre_ground_term_congr_left
+    exact id_on_constants
+
   def apply_ground_term (g : ConstantMapping sig) : TermMapping (GroundTerm sig) (GroundTerm sig) :=
     fun t => ⟨g.apply_pre_ground_term t.val, g.apply_pre_ground_term_arity_ok t.val t.property⟩
 
@@ -108,10 +114,6 @@ namespace ConstantMapping
     rw [List.map_inj_left]
     intro t t_mem
     simp only [Function.comp_apply, ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term]
-
-  theorem apply_ground_term_id (t : GroundTerm sig) : id.apply_ground_term t = t := by
-    unfold apply_ground_term
-    simp [apply_pre_ground_term_id]
 
   theorem apply_ground_term_swap_apply_skolem_term (g : ConstantMapping sig) (subs : GroundSubstitution sig) : ∀ t, (∀ c, t ≠ SkolemTerm.const c) -> g.apply_ground_term (subs.apply_skolem_term t) = GroundSubstitution.apply_skolem_term (g.apply_ground_term ∘ subs) t := by
     intro t
@@ -141,21 +143,20 @@ namespace ConstantMapping
   theorem apply_ground_term_congr_left (g g2 : ConstantMapping sig) (t : GroundTerm sig) : (∀ c ∈ t.constants, g c = g2 c) -> g.apply_ground_term t = g2.apply_ground_term t := by
     intro h
     unfold ConstantMapping.apply_ground_term
-    simp only [Subtype.mk.injEq]
+    rw [Subtype.mk.injEq]
     apply apply_pre_ground_term_congr_left
     exact h
+
+  theorem apply_ground_term_eq_self_of_id_on_constants (g : ConstantMapping sig) (t : GroundTerm sig) (id_on_constants : ∀ c ∈ t.constants, g c = .const c) : g.apply_ground_term t = t := by
+    unfold ConstantMapping.apply_ground_term
+    rw [Subtype.mk.injEq]
+    apply apply_pre_ground_term_eq_self_of_id_on_constants
+    exact id_on_constants
 
 
   variable [DecidableEq sig.P]
 
   abbrev apply_fact (g : ConstantMapping sig) : Fact sig -> Fact sig := TermMapping.apply_generalized_atom g.apply_ground_term
-
-  theorem apply_fact_id (f : Fact sig) : id.apply_fact f = f := by
-    unfold apply_fact
-    rw [GeneralizedAtom.mk.injEq]
-    constructor
-    . rfl
-    . apply List.map_id_of_id_on_all_mem; intros; apply apply_ground_term_id
 
   -- TODO: do we still need this?
   theorem apply_fact_eq_groundTermMapping_applyFact (g : ConstantMapping sig) (f : Fact sig) : g.apply_fact f = GroundTermMapping.applyFact g.apply_ground_term f := by
@@ -166,7 +167,7 @@ namespace ConstantMapping
     unfold PreTrigger.apply_to_function_free_atom
     unfold ConstantMapping.apply_fact
     unfold PreTrigger.apply_to_var_or_const
-    rw [← Function.comp_apply (f := TermMapping.apply_generalized_atom g.apply_ground_term), ← TermMapping.apply_generalized_atom_compose]
+    rw [← TermMapping.apply_generalized_atom_compose']
     apply TermMapping.apply_generalized_atom_congr_left
     intro voc voc_mem
     simp only [Function.comp_apply]
@@ -192,6 +193,16 @@ namespace ConstantMapping
     apply apply_ground_term_congr_left
     intro c c_mem
     apply h
+    unfold Fact.constants
+    rw [List.mem_flatMap]
+    exists t
+
+  theorem apply_fact_eq_self_of_id_on_constants (g : ConstantMapping sig) (f : Fact sig) (id_on_constants : ∀ c ∈ f.constants, g c = .const c) : g.apply_fact f = f := by
+    apply TermMapping.apply_generalized_atom_eq_self_of_id_on_terms
+    intro t t_mem
+    apply apply_ground_term_eq_self_of_id_on_constants
+    intro c c_mem
+    apply id_on_constants
     unfold Fact.constants
     rw [List.mem_flatMap]
     exists t

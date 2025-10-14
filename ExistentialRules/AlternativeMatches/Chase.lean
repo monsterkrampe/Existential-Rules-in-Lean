@@ -281,15 +281,11 @@ namespace ChaseBranch
       have retains := retains.left f f_dom f_mem apply_f_mem
 
       have : h_k.applyFact f = f := by
-        unfold GroundTermMapping.applyFact
-        rw [GeneralizedAtom.mk.injEq]
-        constructor
-        . simp [TermMapping.apply_generalized_atom]
-        . apply List.map_id_of_id_on_all_mem
-          intro t t_mem
-          apply identity
-          apply step_ex
-          exact t_mem
+        apply TermMapping.apply_generalized_atom_eq_self_of_id_on_terms
+        intro t t_mem
+        apply identity
+        apply step_ex
+        exact t_mem
       apply f_mem
       rw [← this]
       exact retains
@@ -387,15 +383,11 @@ namespace ChaseBranch
           rw [cb.prev_node_eq step (by simp [eq_node]), Option.is_none_or] at subset_res
           apply subset_res
           have : h.apply_generalized_atom f' = f' := by
-            rw [GeneralizedAtom.mk.injEq]
-            constructor
-            . simp [TermMapping.apply_generalized_atom]
-            . simp only [TermMapping.apply_generalized_atom]
-              rw [List.map_id_of_id_on_all_mem]
-              intro t t_mem
-              unfold h
-              have : t ∈ ts := by rw [eq_ts]; exists f'
-              simp [this]
+            apply TermMapping.apply_generalized_atom_eq_self_of_id_on_terms
+            intro t t_mem
+            unfold h
+            have : t ∈ ts := by rw [eq_ts]; exists f'
+            simp [this]
           rw [this]
           exact f'_mem
         | inr f'_mem =>

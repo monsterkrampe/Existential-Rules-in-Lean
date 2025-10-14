@@ -74,7 +74,7 @@ namespace PreTrigger
       constructor
       . exact a_mem
       . rw [f'_eq, ← a_eq]
-        rw [← Function.comp_apply (f := TermMapping.apply_generalized_atom h_alt), ← TermMapping.apply_generalized_atom_compose]
+        rw [← TermMapping.apply_generalized_atom_compose']
         apply TermMapping.apply_generalized_atom_congr_left
         intro voc voc_mem
         cases voc with
