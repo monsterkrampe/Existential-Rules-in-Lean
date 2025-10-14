@@ -849,14 +849,6 @@ namespace KnowledgeBase
             specialize this trg.val.mapped_body (by simp)
             rcases this with ⟨n, this⟩
             exists n
-            cases eq : cb.branch.infinite_list n with
-            | none => rw [eq, Option.is_some_and] at this; simp at this
-            | some node =>
-              rw [Option.is_some_and]
-              rw [eq, Option.is_some_and] at this
-              intro f
-              rw [List.mem_toSet]
-              apply this
           rcases trg_loaded_somewhere with ⟨loaded_n, trg_loaded_somewhere⟩
           cases eq_node_loaded : cb.branch.infinite_list loaded_n with
           | none => rw [eq_node_loaded, Option.is_some_and] at trg_loaded_somewhere; simp at trg_loaded_somewhere

@@ -1522,12 +1522,6 @@ section InterplayWithBacktracking
         rw [← List.mem_toSet]
         apply fresh_constant_remapping_h.right
         exists f
-        constructor
-        . rw [List.mem_toSet]; exact f_mem
-        . rw [e_eq]
-          apply ConstantMapping.apply_fact_congr_left
-          intro d d_mem
-          simp only [StrictConstantMapping.toConstantMapping, backtracking, backtrackFacts, forbidden_constants]
 
   theorem ChaseBranch.backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C] (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) :
       ∀ (rl : RuleList sig), (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) ->
@@ -1678,9 +1672,9 @@ section InterplayWithBacktracking
                 exists fun c => .const c
                 constructor
                 . intro _ e_mem
-                  simp only [List.unattach_nil, FiniteTreeList.fromList, PreGroundTerm.backtrackFacts_list, List.toSet] at e_mem
+                  simp only [List.unattach_nil, FiniteTreeList.fromList, PreGroundTerm.backtrackFacts_list] at e_mem
                   rcases e_mem with ⟨_, f_mem, _⟩
-                  simp [Membership.mem, EmptyCollection.emptyCollection] at f_mem
+                  simp [List.mem_toSet] at f_mem
                 . intros; rfl
               | cons hd tl inner_ih =>
                 rw [List.flatMap_cons, List.append_subset] at forbidden_constants_subsumes_term
@@ -2175,10 +2169,6 @@ section InterplayWithBacktracking
       | inr f'_mem =>
         apply g_h.left
         exists f'
-        constructor
-        . rw [List.mem_toSet]
-          exact f'_mem
-        . exact f_eq
     . intro d d_mem
       apply g_h.right
       rw [List.mem_append]

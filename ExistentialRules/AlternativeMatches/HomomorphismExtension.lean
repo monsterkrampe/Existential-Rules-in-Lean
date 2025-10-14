@@ -75,7 +75,7 @@ namespace ChaseBranch
           intro v _ not_frontier contra
           simp [PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, VarOrConst.skolemize, GroundSubstitution.apply_skolem_term, not_frontier, GroundTerm.func] at contra
 
-    have h'_is_subs_on_head_vars : ∀ v, v ∈ (trg.val.rule.head.get disj_index').vars -> (h' (trg.val.apply_to_var_or_const disj_index.val (VarOrConst.var v))) = subs v := by
+    have h'_is_subs_on_head_vars : ∀ v, v ∈ (trg.val.rule.head[disj_index'.val]).vars -> (h' (trg.val.apply_to_var_or_const disj_index.val (VarOrConst.var v))) = subs v := by
       intro v v_mem
       cases Decidable.em (v ∈ trg.val.rule.frontier) with
       | inl v_frontier =>
@@ -147,65 +147,37 @@ namespace ChaseBranch
             rw [f_eq]
             apply subs_contained
             have : (subs.apply_function_free_conj trg'.rule.head[disj_index'.val]).toSet = h'.applyFactSet trg.val.mapped_head[disj_index.val].toSet := by
-              -- TODO: show something like List.map_toSet_eq_toSet_map
-              apply Set.ext
-              intro f
-              rw [List.mem_toSet]
               unfold GroundTermMapping.applyFactSet
               unfold TermMapping.apply_generalized_atom_set
+              rw [List.map_toSet_eq_toSet_map]
+              apply congrArg
+              unfold PreTrigger.mapped_head
+              rw [List.getElem_map, List.getElem_zipIdx, Nat.zero_add]
+              simp only [List.map_map]
               unfold GroundSubstitution.apply_function_free_conj
               unfold TermMapping.apply_generalized_atom_list
-              unfold PreTrigger.mapped_head
-              simp
-              constructor
-              . intro pre
-                rcases pre with ⟨a, a_mem, a_eq⟩
-                exists trg.val.apply_to_function_free_atom disj_index.val a
-                constructor
-                . rw [List.mem_toSet]; simp; exists a
-                . rw [← a_eq]
-                  simp [PreTrigger.apply_to_function_free_atom, TermMapping.apply_generalized_atom]
-                  intro voc voc_mem
-                  cases voc with
-                  | const c => simp [PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize]; apply Eq.symm; exact h'_is_id_on_const (GroundTerm.const c)
-                  | var v =>
-                    rw [h'_is_subs_on_head_vars]
-                    simp [GroundSubstitution.apply_var_or_const]
-                    unfold FunctionFreeConjunction.vars
-                    simp
-                    exists a
-                    constructor
-                    . exact a_mem
-                    . unfold FunctionFreeAtom.variables
-                      apply VarOrConst.mem_filterVars_of_var
-                      exact voc_mem
-              . intro pre
-                rcases pre with ⟨b, b_mem, b_eq⟩
-                rw [List.mem_toSet] at b_mem
-                simp at b_mem
-                rcases b_mem with ⟨a, a_mem, a_eq⟩
-                exists a
-                constructor
-                . exact a_mem
-                . rw [b_eq, ← a_eq]
-                  rw [← Function.comp_apply (f := h'.apply_generalized_atom)]
-                  rw [← TermMapping.apply_generalized_atom_compose]
-                  apply TermMapping.apply_generalized_atom_congr_left
-                  intro voc voc_mem
-                  cases voc with
-                  | const c => simp [PreTrigger.apply_to_var_or_const, PreTrigger.skolemize_var_or_const, GroundSubstitution.apply_var_or_const, GroundSubstitution.apply_skolem_term, VarOrConst.skolemize]; rw [h'_is_id_on_const (GroundTerm.const c)]
-                  | var v =>
-                    rw [Function.comp_apply]
-                    rw [h'_is_subs_on_head_vars]
-                    simp [GroundSubstitution.apply_var_or_const]
-                    unfold FunctionFreeConjunction.vars
-                    simp
-                    exists a
-                    constructor
-                    . exact a_mem
-                    . unfold FunctionFreeAtom.variables
-                      apply VarOrConst.mem_filterVars_of_var
-                      exact voc_mem
+              apply List.map_congr_left
+              intro a a_mem
+              unfold PreTrigger.apply_to_function_free_atom
+              rw [← TermMapping.apply_generalized_atom_compose]
+              apply TermMapping.apply_generalized_atom_congr_left
+              intro voc voc_mem
+              cases voc with
+              | const c =>
+                simp only [GroundSubstitution.apply_var_or_const, Function.comp_apply]
+                rw [PreTrigger.apply_to_var_or_const_for_const]
+                rw [h'_is_id_on_const (GroundTerm.const c)]
+              | var v =>
+                simp only [GroundSubstitution.apply_var_or_const]
+                rw [← h'_is_subs_on_head_vars]
+                . rfl
+                . unfold FunctionFreeConjunction.vars
+                  rw [List.mem_flatMap]
+                  exists a
+                  constructor
+                  . exact a_mem
+                  . apply VarOrConst.mem_filterVars_of_var
+                    exact voc_mem
             rw [this]
             exists f
     ⟩

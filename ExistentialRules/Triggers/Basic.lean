@@ -239,48 +239,48 @@ namespace PreTrigger
 
   def atom_for_result_fact (trg : PreTrigger sig) {f : Fact sig} (i : Fin trg.mapped_head.length)
       (f_mem : f ∈ trg.mapped_head[i.val]) : FunctionFreeAtom sig :=
-    let j := trg.mapped_head[i.val].idx_of f_mem
+    let j := trg.mapped_head[i.val].idxOf f
     let i' : Fin trg.rule.head.length := ⟨i.val, by rw [← length_mapped_head]; exact i.isLt⟩
-    let j' : Fin (trg.rule.head[i'.val].length) := ⟨j.val, by
+    let j' : Fin (trg.rule.head[i'.val].length) := ⟨j, by
       have := trg.length_each_mapped_head i.val
       rw [List.getElem?_eq_getElem i.isLt] at this
       rw [List.getElem?_eq_getElem i'.isLt] at this
       simp only [Option.map_some, Option.some_inj] at this
       rw [← this]
-      exact j.isLt
+      apply List.idxOf_lt_length_of_mem
+      exact f_mem
     ⟩
     trg.rule.head[i'.val][j'.val]
 
   theorem apply_on_atom_for_result_fact_is_fact (trg : PreTrigger sig) {f : Fact sig} (i : Fin trg.mapped_head.length)
       (f_mem : f ∈ trg.mapped_head[i.val]) : trg.apply_to_function_free_atom i (trg.atom_for_result_fact i f_mem) = f := by
-    have : f = trg.mapped_head[i.val].get (trg.mapped_head[i.val].idx_of f_mem) := by apply List.idx_of_get
-    rw [List.get_eq_getElem] at this
+    have : f = trg.mapped_head[i.val][trg.mapped_head[i.val].idxOf f]'(List.idxOf_lt_length_of_mem f_mem) := by rw [List.getElem_idxOf_of_mem]; exact f_mem
     conv => right; rw [this]
-    unfold mapped_head
     unfold atom_for_result_fact
+    unfold mapped_head
     simp only [List.getElem_map, List.getElem_zipIdx, Nat.zero_add]
 
   def var_or_const_for_result_term (trg : PreTrigger sig) {f : Fact sig} {t : GroundTerm sig} (i : Fin trg.mapped_head.length)
       (f_mem : f ∈ trg.mapped_head[i.val]) (t_mem : t ∈ f.terms) : VarOrConst sig :=
-    let k := f.terms.idx_of t_mem
+    let k := f.terms.idxOf t
     let atom := trg.atom_for_result_fact i f_mem
-    let k' : Fin atom.terms.length := ⟨k.val, by
-      have isLt := k.isLt
+    let k' : Fin atom.terms.length := ⟨k, by
+      have isLt := List.idxOf_lt_length_of_mem t_mem
       have := trg.apply_on_atom_for_result_fact_is_fact i f_mem
       conv at isLt => right; rw [← this]
       rw [TermMapping.length_terms_apply_generalized_atom] at isLt
       exact isLt
     ⟩
-    atom.terms[k']
+    atom.terms[k'.val]
 
   theorem apply_on_var_or_const_for_result_term_is_term (trg : PreTrigger sig) {f : Fact sig} {t : GroundTerm sig}
       (i : Fin trg.mapped_head.length) (f_mem : f ∈ trg.mapped_head[i.val]) (t_mem : t ∈ f.terms) :
       trg.apply_to_var_or_const i (trg.var_or_const_for_result_term i f_mem t_mem) = t := by
-    have t_eq : t = f.terms.get (f.terms.idx_of t_mem) := by apply List.idx_of_get
-    rw [List.get_eq_getElem] at t_eq
+    have t_eq : t = f.terms[f.terms.idxOf t]'(List.idxOf_lt_length_of_mem t_mem) := by rw [List.getElem_idxOf_of_mem]; exact t_mem
     have := trg.apply_on_atom_for_result_fact_is_fact i f_mem
     have : (trg.apply_to_function_free_atom i (trg.atom_for_result_fact i f_mem)).terms = f.terms := by rw [this]
     conv at t_eq => right; simp only [← this]
+    conv at t_eq => right; left; simp only [this]
     conv => right; rw [t_eq]
     unfold apply_to_function_free_atom
     unfold TermMapping.apply_generalized_atom

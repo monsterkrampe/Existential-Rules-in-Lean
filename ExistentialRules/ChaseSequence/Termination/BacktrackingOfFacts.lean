@@ -385,11 +385,7 @@ mutual
               apply List.getElem_mem
         | inr f_mem =>
           have disjIdx_lt : func.disjunctIndex < trg.mapped_head.length := by rw [PreTrigger.length_mapped_head]; apply term_disjIdx_valid.left
-          have c_mem : c ∈ FactSet.constants trg.mapped_head[func.disjunctIndex].toSet := by
-            exists f
-            constructor
-            . rw [List.mem_toSet]; exact f_mem
-            . exact c_mem
+          have c_mem : c ∈ FactSet.constants trg.mapped_head[func.disjunctIndex].toSet := by exists f
           have c_mem := trg.mapped_head_constants_subset ⟨func.disjunctIndex, disjIdx_lt⟩ c c_mem
           rw [List.mem_toSet, List.mem_append] at c_mem
           cases c_mem with
