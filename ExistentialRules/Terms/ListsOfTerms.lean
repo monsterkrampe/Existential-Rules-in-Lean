@@ -237,7 +237,7 @@ theorem mem_all_terms_limited_by_depth (constants : List sig.C) (funcs : List (S
               . have prop := t.property
                 unfold PreGroundTerm.arity_ok at prop
                 simp only [eq, GroundTerm.func, Bool.and_eq_true, beq_iff_eq] at prop
-                rw [FiniteTreeList.fromListToListIsId, List.length_unattach] at prop
+                rw [List.length_unattach] at prop
                 exact prop.left
               . intro t t_mem
                 apply this

@@ -137,7 +137,7 @@ theorem DeterministicSkolemObsoleteness.blocks_each_obs (obs : ObsoletenessCondi
       . intros
         simp only [PreTrigger.skolemize_var_or_const, VarOrConst.skolemize]
         split <;> simp
-    | const c => rfl
+    | const c => simp [StrictConstantMapping.apply_var_or_const, PreTrigger.apply_to_var_or_const_for_const, ConstantMapping.apply_ground_term_constant, StrictConstantMapping.toConstantMapping]
 
 def Trigger.blocked_for_backtracking
     [GetFreshInhabitant sig.C]
@@ -239,7 +239,7 @@ theorem BlockingObsoleteness.blocks_corresponding_obs [GetFreshInhabitant sig.C]
         exact d_mem
       )
 
-    rcases exists_fresh_constant_remapping_such_that_backtrackings_subsume_each_other with ⟨fresh_constant_remapping, fresh_constant_remapping_id, fresh_constant_remapping_subsumes⟩
+    rcases exists_fresh_constant_remapping_such_that_backtrackings_subsume_each_other with ⟨fresh_constant_remapping, fresh_constant_remapping_id, fresh_constant_remapping_subsumes, _⟩
 
     apply obs.monotone _ _ _ fresh_constant_remapping_subsumes
 
