@@ -39,7 +39,6 @@ namespace RTrigger
       constructor
       . exact rules_eq
       . have right := applications_eq.right
-        rw [← FiniteTreeList.eqIffFromListEq _ _] at right
         have : trg1.val.rule.frontier = trg2.val.rule.frontier := by rw [rules_eq]
         rw [← this] at right
         rw [List.eq_iff_unattach_eq, List.map_eq_map_iff] at right

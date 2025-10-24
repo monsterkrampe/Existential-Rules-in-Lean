@@ -54,7 +54,6 @@ namespace PreTrigger
         rw [Subtype.mk.injEq] at apply_eq
         apply False.elim
         apply FiniteTree.tree_eq_while_contained_is_impossible _ _ _ apply_eq
-        rw [FiniteTreeList.fromListToListIsId]
         unfold List.unattach
         rw [List.map_map, List.mem_map]
         exists u
