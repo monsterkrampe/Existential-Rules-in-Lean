@@ -63,6 +63,16 @@ namespace FunctionFreeAtom
     arity_ok := by rw [List.length_map, a.arity_ok]
   }
 
+  theorem mem_variables {a : FunctionFreeAtom sig} {v : sig.V} : v ∈ a.variables ↔ (VarOrConst.var v) ∈ a.terms := by
+    constructor
+    . intro v_mem; apply VarOrConst.filterVars_occur_in_original_list; exact v_mem
+    . intro v_mem; apply VarOrConst.mem_filterVars_of_var; exact v_mem
+
+  theorem mem_constants {a : FunctionFreeAtom sig} {c : sig.C} : c ∈ a.constants ↔ (VarOrConst.const c) ∈ a.terms := by
+    constructor
+    . intro c_mem; apply VarOrConst.filterConsts_occur_in_original_list; exact c_mem
+    . intro c_mem; apply VarOrConst.mem_filterConsts_of_const; exact c_mem
+
   theorem length_skolemize {ruleId : Nat} {disjunctIndex : Nat} {frontier : List sig.V} {a : FunctionFreeAtom sig} :
       (a.skolemize ruleId disjunctIndex frontier).terms.length = a.terms.length := by
     unfold skolemize
@@ -80,11 +90,27 @@ end FunctionFreeAtom
 
 namespace FunctionFreeConjunction
 
+  def terms (conj : FunctionFreeConjunction sig) : List (VarOrConst sig) := conj.flatMap GeneralizedAtom.terms
+
   def vars (conj : FunctionFreeConjunction sig) : List sig.V := conj.flatMap FunctionFreeAtom.variables
 
   def consts (conj : FunctionFreeConjunction sig) : List sig.C := conj.flatMap FunctionFreeAtom.constants
 
   def predicates (conj : FunctionFreeConjunction sig) : List sig.P := conj.map GeneralizedAtom.predicate
+
+  theorem mem_vars {conj : FunctionFreeConjunction sig} {v : sig.V} :
+      v ∈ conj.vars ↔ ∃ f, f ∈ conj ∧ (VarOrConst.var v) ∈ f.terms := by
+    unfold vars; rw [List.mem_flatMap]
+    constructor
+    . rintro ⟨f, f_mem, v_mem⟩; exists f; constructor; exact f_mem; rw [← FunctionFreeAtom.mem_variables]; exact v_mem
+    . rintro ⟨f, f_mem, v_mem⟩; exists f; constructor; exact f_mem; rw [FunctionFreeAtom.mem_variables]; exact v_mem
+
+  theorem mem_consts {conj : FunctionFreeConjunction sig} {c : sig.C} :
+      c ∈ conj.consts ↔ ∃ f, f ∈ conj ∧ (VarOrConst.const c) ∈ f.terms := by
+    unfold consts; rw [List.mem_flatMap]
+    constructor
+    . rintro ⟨f, f_mem, c_mem⟩; exists f; constructor; exact f_mem; rw [← FunctionFreeAtom.mem_constants]; exact c_mem
+    . rintro ⟨f, f_mem, c_mem⟩; exists f; constructor; exact f_mem; rw [FunctionFreeAtom.mem_constants]; exact c_mem
 
 end FunctionFreeConjunction
 
@@ -94,25 +120,46 @@ namespace Rule
     r.body.vars.filter (fun v => v ∈ r.head[i.val].vars)
 
   def frontier (r : Rule sig) : List sig.V :=
-    List.filter (fun v => r.head.any (fun h => v ∈ h.vars)) (FunctionFreeConjunction.vars r.body)
+    r.body.vars.filter (fun v => r.head.any (fun h => v ∈ h.vars))
 
-  theorem frontier_occurs_in_body (r : Rule sig) : ∀ v, v ∈ r.frontier -> ∃ f, f ∈ r.body ∧ (VarOrConst.var v) ∈ f.terms := by
-    unfold frontier
-    cases r.body with
-    | nil => intros; contradiction
-    | cons head tail =>
-      intro v vInFrontier
-      rw [List.mem_filter] at vInFrontier
-      have mem_body := vInFrontier.left
-      unfold FunctionFreeConjunction.vars at mem_body
-      rw [List.mem_flatMap] at mem_body
-      rcases mem_body with ⟨a, a_mem, v_mem⟩
-      exists a
+  theorem mem_frontier_iff_mem_frontier_for_head {r : Rule sig} {v : sig.V} :
+      v ∈ r.frontier ↔ ∃ i, v ∈ r.frontier_for_head i := by
+    unfold frontier frontier_for_head; simp only [List.mem_filter, List.any_eq_true, decide_eq_true_iff]
+    constructor
+    . rintro ⟨mem_body, ⟨h, h_mem, mem_h⟩⟩
+      rw [List.mem_iff_getElem] at h_mem
+      rcases h_mem with ⟨i, lt, h_mem⟩
+      exists ⟨i, lt⟩
       constructor
-      . exact a_mem
-      . unfold FunctionFreeAtom.variables at v_mem
-        apply VarOrConst.filterVars_occur_in_original_list
-        exact v_mem
+      . exact mem_body
+      . rw [h_mem]; exact mem_h
+    . rintro ⟨⟨i, lt⟩, mem_body, mem_h⟩
+      constructor
+      . exact mem_body
+      . exists r.head[i]; constructor; apply List.getElem_mem; exact mem_h
+
+  theorem mem_frontier_for_head_of_mem_frontier_of_mem_head_terms {r : Rule sig} {v : sig.V} {i : Fin r.head.length} :
+      v ∈ r.frontier -> VarOrConst.var v ∈ r.head[i.val].terms -> v ∈ r.frontier_for_head i := by
+    unfold frontier frontier_for_head
+    simp only [List.mem_filter, List.any_eq_true, decide_eq_true_iff]
+    rintro ⟨mem_body, _⟩ mem_head_terms
+    constructor
+    . exact mem_body
+    . unfold FunctionFreeConjunction.terms at mem_head_terms
+      rw [List.mem_flatMap] at mem_head_terms
+      rcases mem_head_terms with ⟨a, a_mem, mem_a⟩
+      rw [FunctionFreeConjunction.mem_vars]; exists a
+
+  theorem frontier_subset_vars_body {r : Rule sig} : r.frontier ⊆ r.body.vars := by
+    intro v v_mem
+    unfold Rule.frontier at v_mem; rw [List.mem_filter] at v_mem
+    exact v_mem.left
+
+  theorem frontier_for_head_subset_vars_head {r : Rule sig} {i : Nat} {lt : i < r.head.length} : r.frontier_for_head ⟨i, lt⟩ ⊆ r.head[i].vars := by
+    intro v v_mem
+    unfold Rule.frontier_for_head at v_mem; rw [List.mem_filter] at v_mem
+    rw [decide_eq_true_iff] at v_mem
+    exact v_mem.right
 
   def pure_body_vars (r : Rule sig) : List sig.V := r.body.vars.filter (fun x => x ∉ r.frontier)
 
@@ -132,6 +179,9 @@ namespace Rule
   def skolem_functions (r : Rule sig) : List (SkolemFS sig) := r.head.zipIdx.flatMap (fun (head, i) =>
     (head.vars.filter (fun v => !(v ∈ r.frontier))).map (fun v => { ruleId := r.id, disjunctIndex := i, var := v, arity := r.frontier.length })
   )
+
+  def existential_vars_for_head_disjunct (r : Rule sig) (i : Nat) (lt : i < r.head.length) : List sig.V :=
+    r.head[i].vars.filter (fun v => v ∉ r.frontier)
 
 end Rule
 
@@ -315,6 +365,13 @@ namespace FactSet
 
   def isFunctionFree (fs : FactSet sig) : Prop := ∀ f, f ∈ fs -> f.isFunctionFree
 
+  theorem mem_terms_toSet {l : List (Fact sig)} : ∀ t, t ∈ FactSet.terms (l.toSet) ↔ t ∈ l.flatMap GeneralizedAtom.terms := by
+    intro t; rw [List.mem_flatMap]
+    constructor <;> (rintro ⟨f, f_mem, t_mem⟩; exists f)
+
+  theorem terms_subset_of_subset {fs1 fs2 : FactSet sig} : fs1 ⊆ fs2 -> fs1.terms ⊆ fs2.terms := by
+    rintro sub t ⟨f, f_mem, t_mem⟩; exists f; exact ⟨sub _ f_mem, t_mem⟩
+
   theorem terms_finite_of_finite (fs : FactSet sig) (finite : fs.finite) : fs.terms.finite := by
     rcases finite with ⟨l, nodup, finite⟩
     exists (l.map GeneralizedAtom.terms).flatten.eraseDupsKeepRight
@@ -342,6 +399,10 @@ namespace FactSet
           . rw [finite]; exact f_in_fs
           . rfl
         . exact e_in_f
+
+  theorem mem_constants_toSet {l : List (Fact sig)} : ∀ c, c ∈ FactSet.constants (l.toSet) ↔ c ∈ l.flatMap Fact.constants := by
+    intro t; rw [List.mem_flatMap]
+    constructor <;> (rintro ⟨f, f_mem, t_mem⟩; exists f)
 
   theorem constants_finite_of_finite (fs : FactSet sig) (fin : fs.finite) : fs.constants.finite := by
     rcases fin with ⟨l, _, l_eq⟩

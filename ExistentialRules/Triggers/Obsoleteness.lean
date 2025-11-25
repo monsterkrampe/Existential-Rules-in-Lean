@@ -35,7 +35,7 @@ def SkolemObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C]
     exists i
   preserved_under_equiv := by
     intro trg trg2 fs equiv
-    have := PreTrigger.result_eq_of_equiv trg trg2 equiv
+    have := PreTrigger.result_eq_of_equiv equiv
     constructor
     . rintro ⟨i, h⟩
       exists ⟨i.val, by rw [← this]; exact i.isLt⟩

@@ -3,7 +3,7 @@ import ExistentialRules.ChaseSequence.Termination.ConstantMappings.InterplayWith
 
 variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [DecidableEq sig.P]
 
-theorem ChaseBranch.backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C] (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) :
+theorem ChaseBranch.backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C] (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : (cb.branch.drop i).head = some node) :
     ∀ (rl : RuleList sig), (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) ->
     ∀ (term : GroundTerm sig), (term_mem : term ∈ node.facts.val.terms) ->
     ∀ (forbidden_constants : List sig.C),
@@ -16,7 +16,7 @@ theorem ChaseBranch.backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inh
   let backtracking := term.backtrackFacts rl (cb.term_ruleIds_valid i node eq rl rl_rs_eq term term_mem) (cb.term_disjIdx_valid i node eq rl rl_rs_eq term term_mem) (cb.term_rule_arity_valid i node eq rl rl_rs_eq term term_mem) forbidden_constants
   induction i generalizing node term forbidden_constants with
   | zero =>
-    rw [cb.database_first] at eq
+    rw [PossiblyInfiniteList.drop_zero, cb.database_first] at eq
     injection eq with eq
     rw [← eq] at term_mem
     simp only at term_mem
@@ -37,7 +37,7 @@ theorem ChaseBranch.backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inh
     rcases term_mem with ⟨f, f_mem, term_mem⟩
     cases f_mem with
     | inl f_mem =>
-      rcases ih (cb.prev_node i (by simp [eq])) (by apply cb.prev_node_eq) term (by exists f) forbidden_constants forbidden_constants_subsumes_term forbidden_constants_subsumes_rules with ⟨g, g_h⟩
+      rcases ih (cb.prev_node i (by simp [PossiblyInfiniteList.tail_drop, eq])) (by apply cb.prev_node_eq) term (by exists f) forbidden_constants forbidden_constants_subsumes_term forbidden_constants_subsumes_rules with ⟨g, g_h⟩
       exists g
       constructor
       . rw [cb.origin_trg_result_yields_next_node_facts i node eq]
@@ -48,9 +48,9 @@ theorem ChaseBranch.backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inh
       let origin := node.origin.get (cb.origin_isSome i eq)
       have origin_active := cb.origin_trg_is_active i node eq
 
-      have origin_ruleIds_valid := (cb.trigger_ruleIds_valid_of_loaded i (cb.prev_node i (by simp [eq])) (by apply cb.prev_node_eq) rl rl_rs_eq origin.fst.val origin_active.left)
-      have origin_disjIdx_valid := (cb.trigger_disjIdx_valid_of_loaded i (cb.prev_node i (by simp [eq])) (by apply cb.prev_node_eq) rl rl_rs_eq origin.fst.val origin_active.left)
-      have origin_rule_arity_valid := (cb.trigger_rule_arity_valid_of_loaded i (cb.prev_node i (by simp [eq])) (by apply cb.prev_node_eq) rl rl_rs_eq origin.fst.val origin_active.left)
+      have origin_ruleIds_valid := (cb.trigger_ruleIds_valid_of_loaded i (cb.prev_node i (by simp [PossiblyInfiniteList.tail_drop, eq])) (by apply cb.prev_node_eq) rl rl_rs_eq origin.fst.val origin_active.left)
+      have origin_disjIdx_valid := (cb.trigger_disjIdx_valid_of_loaded i (cb.prev_node i (by simp [PossiblyInfiniteList.tail_drop, eq])) (by apply cb.prev_node_eq) rl rl_rs_eq origin.fst.val origin_active.left)
+      have origin_rule_arity_valid := (cb.trigger_rule_arity_valid_of_loaded i (cb.prev_node i (by simp [PossiblyInfiniteList.tail_drop, eq])) (by apply cb.prev_node_eq) rl rl_rs_eq origin.fst.val origin_active.left)
 
       rw [List.mem_toSet] at f_mem
       let voc_for_term := origin.fst.val.var_or_const_for_result_term origin.snd f_mem term_mem
@@ -74,21 +74,15 @@ theorem ChaseBranch.backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inh
         cases Decidable.em (v ∈ origin.fst.val.rule.frontier) with
         | inl v_frontier =>
           -- TODO: pretty much same as IH application above... can we unify this?
-          rcases ih (cb.prev_node i (by simp [eq])) (by apply cb.prev_node_eq) term (by
-            rcases Rule.frontier_occurs_in_body _ _ v_frontier with ⟨a, a_mem, v_mem⟩
-            exists origin.fst.val.subs.apply_function_free_atom a
-            constructor
-            . apply origin_active.left; rw [List.mem_toSet]; simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list]; rw [List.mem_map]; exists a
-            . simp only [TermMapping.apply_generalized_atom]
-              rw [List.mem_map]
-              exists voc_for_term
-              constructor
-              . rw [voc_eq]; exact v_mem
-              . rw [voc_eq]
-                unfold voc_for_term at voc_eq
-                rw [← voc_for_term_apply, voc_eq, PreTrigger.apply_to_var_or_const_frontier_var]
-                . simp [GroundSubstitution.apply_var_or_const]
-                . exact v_frontier
+          rcases ih (cb.prev_node i (by simp [PossiblyInfiniteList.tail_drop, eq])) (by apply cb.prev_node_eq) term (by
+            apply FactSet.terms_subset_of_subset origin_active.left
+            rw [FactSet.mem_terms_toSet, PreTrigger.mem_terms_mapped_body_iff]
+            apply Or.inr
+            exists v; constructor
+            . apply Rule.frontier_subset_vars_body; exact v_frontier
+            . unfold voc_for_term at voc_eq
+              rw [voc_eq, PreTrigger.apply_to_var_or_const_frontier_var _ _ _ v_frontier] at voc_for_term_apply
+              exact voc_for_term_apply
           ) forbidden_constants forbidden_constants_subsumes_term forbidden_constants_subsumes_rules with ⟨g, g_h⟩
           exists g
           constructor
@@ -148,18 +142,17 @@ theorem ChaseBranch.backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inh
             | cons hd tl inner_ih =>
               rw [List.flatMap_cons, List.append_subset] at forbidden_constants_subsumes_term
 
-              rcases ih (cb.prev_node i (by simp [eq])) (by apply cb.prev_node_eq) hd (by
+              rcases ih (cb.prev_node i (by simp [PossiblyInfiniteList.tail_drop, eq])) (by apply cb.prev_node_eq) hd (by
                 rw [List.cons_subset] at sub
                 unfold mapped_frontier at sub
                 rw [List.mem_map] at sub
                 rcases sub.left with ⟨v, v_mem, hd_eq⟩
-                rcases Rule.frontier_occurs_in_body _ _ v_mem with ⟨a, a_mem, v_mem⟩
-                exists origin.fst.val.subs.apply_function_free_atom a
-                constructor
-                . apply origin_active.left; rw [List.mem_toSet]; simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list]; rw [List.mem_map]; exists a
-                . simp only [TermMapping.apply_generalized_atom]
-                  rw [List.mem_map]
-                  exists .var v
+                apply FactSet.terms_subset_of_subset origin_active.left
+                rw [FactSet.mem_terms_toSet, PreTrigger.mem_terms_mapped_body_iff]
+                apply Or.inr
+                exists v; constructor
+                . apply Rule.frontier_subset_vars_body; exact v_mem
+                . exact hd_eq
               ) forbidden_constants forbidden_constants_subsumes_term.left forbidden_constants_subsumes_rules with ⟨g_hd, g_hd_h⟩
               let t_res := PreGroundTerm.backtrackFacts rl hd.val hd.property
                 (by apply func_term_ruleIds_valid.right
@@ -334,7 +327,7 @@ theorem ChaseBranch.backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inh
                 exact v_mem''
 
           have mapped_body_eq := PreTrigger.mapped_body_eq_of_strong_equiv triggers_strong_equiv
-          have mapped_head_eq : origin.fst.val.mapped_head[origin.snd.val] = { rule := backtrack_trigger.rule, subs := g.apply_ground_term ∘ backtrack_trigger.subs : PreTrigger sig }.mapped_head[origin.snd.val]'(by rw [← PreTrigger.result_eq_of_equiv _ _ (PreTrigger.equiv_of_strong_equiv _ _ triggers_strong_equiv)]; exact origin.snd.isLt) := by simp only [PreTrigger.result_eq_of_equiv _ _ (PreTrigger.equiv_of_strong_equiv _ _ triggers_strong_equiv)]
+          have mapped_head_eq : origin.fst.val.mapped_head[origin.snd.val] = { rule := backtrack_trigger.rule, subs := g.apply_ground_term ∘ backtrack_trigger.subs : PreTrigger sig }.mapped_head[origin.snd.val]'(by rw [← PreTrigger.result_eq_of_equiv (PreTrigger.equiv_of_strong_equiv triggers_strong_equiv)]; exact origin.snd.isLt) := by simp only [PreTrigger.result_eq_of_equiv (PreTrigger.equiv_of_strong_equiv triggers_strong_equiv)]
 
           have g_id_on_rule_constants : ∀ c, c ∈ backtrack_trigger.rule.constants -> g c = .const c := by
             intro d d_mem
@@ -475,7 +468,7 @@ theorem ChaseBranch.backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inh
             apply Or.inl
             exact d_mem
 
-theorem ChaseBranch.backtracking_of_term_list_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C] (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) :
+theorem ChaseBranch.backtracking_of_term_list_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C] (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : (cb.branch.drop i).head = some node) :
     ∀ (rl : RuleList sig), (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) ->
     ∀ (terms : List (GroundTerm sig)), (terms_mem : terms.toSet ⊆ node.facts.val.terms) ->
     ∀ (forbidden_constants : List sig.C),
@@ -579,7 +572,7 @@ theorem ChaseBranch.backtracking_of_term_list_in_node [GetFreshInhabitant sig.C]
       . apply g_hd_h.right; exact d_mem
       . apply g_tl_h.right; rw [List.mem_append]; apply Or.inl; exact d_mem
 
-theorem ChaseBranch.backtracking_of_loaded_trigger_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C] (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : cb.branch.infinite_list i = some node) :
+theorem ChaseBranch.backtracking_of_loaded_trigger_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C] (cb : ChaseBranch obs kb) (i : Nat) (node : ChaseNode obs kb.rules) (eq : (cb.branch.drop i).head = some node) :
     ∀ (rl : RuleList sig), (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) ->
     ∀ (trg : PreTrigger sig), (trg_loaded : trg.loaded node.facts) ->
     ∃ (g : ConstantMapping sig),

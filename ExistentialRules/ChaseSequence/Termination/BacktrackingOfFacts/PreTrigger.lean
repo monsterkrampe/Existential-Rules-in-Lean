@@ -35,15 +35,11 @@ namespace PreTrigger
       rw [List.mem_map] at t_mem
       rcases t_mem with ⟨v, v_mem, t_eq⟩
       apply body_valid ⟨t, h⟩
-      rcases trg.rule.frontier_occurs_in_body v v_mem with ⟨a, a_mem, hd_mem⟩
-      rw [List.mem_flatMap]
-      exists trg.subs.apply_function_free_atom a
-      constructor
-      . apply List.mem_map_of_mem; exact a_mem
-      . unfold GroundSubstitution.apply_function_free_atom
-        unfold TermMapping.apply_generalized_atom
-        rw [List.mem_map]
-        exists VarOrConst.var v
+      rw [PreTrigger.mem_terms_mapped_body_iff]
+      apply Or.inr
+      exists v; constructor
+      . apply Rule.frontier_subset_vars_body; exact v_mem
+      . exact t_eq
 
   theorem skolem_disjIdx_valid_for_functional_term
       (rl : RuleList sig)
@@ -65,15 +61,11 @@ namespace PreTrigger
       rw [List.mem_map] at t_mem
       rcases t_mem with ⟨v, v_mem, t_eq⟩
       apply body_valid ⟨t, h⟩
-      rcases trg.rule.frontier_occurs_in_body v v_mem with ⟨a, a_mem, hd_mem⟩
-      rw [List.mem_flatMap]
-      exists trg.subs.apply_function_free_atom a
-      constructor
-      . apply List.mem_map_of_mem; exact a_mem
-      . unfold GroundSubstitution.apply_function_free_atom
-        unfold TermMapping.apply_generalized_atom
-        rw [List.mem_map]
-        exists VarOrConst.var v
+      rw [PreTrigger.mem_terms_mapped_body_iff]
+      apply Or.inr
+      exists v; constructor
+      . apply Rule.frontier_subset_vars_body; exact v_mem
+      . exact t_eq
 
   theorem skolem_rule_arity_valid_for_functional_term
       (rl : RuleList sig)
@@ -94,15 +86,11 @@ namespace PreTrigger
       rw [List.mem_map] at t_mem
       rcases t_mem with ⟨v, v_mem, t_eq⟩
       apply body_valid ⟨t, h⟩
-      rcases trg.rule.frontier_occurs_in_body v v_mem with ⟨a, a_mem, hd_mem⟩
-      rw [List.mem_flatMap]
-      exists trg.subs.apply_function_free_atom a
-      constructor
-      . apply List.mem_map_of_mem; exact a_mem
-      . unfold GroundSubstitution.apply_function_free_atom
-        unfold TermMapping.apply_generalized_atom
-        rw [List.mem_map]
-        exists VarOrConst.var v
+      rw [PreTrigger.mem_terms_mapped_body_iff]
+      apply Or.inr
+      exists v; constructor
+      . apply Rule.frontier_subset_vars_body; exact v_mem
+      . exact t_eq
 
   theorem skolem_ruleIds_remain_valid_in_head (rl : RuleList sig) (trg : PreTrigger sig) (rule_mem : trg.rule ∈ rl.rules) (body_valid : trg.skolem_ruleIds_valid rl) :
       ∀ t ∈ trg.mapped_head.flatten.flatMap GeneralizedAtom.terms, t.skolem_ruleIds_valid rl := by
@@ -125,15 +113,11 @@ namespace PreTrigger
         unfold voc at eq
         rw [eq, trg.apply_to_var_or_const_frontier_var disj_idx.val _ mem_frontier]
         apply body_valid
-        rcases trg.rule.frontier_occurs_in_body v mem_frontier with ⟨a, a_mem, v_mem⟩
-        rw [List.mem_flatMap]
-        exists trg.subs.apply_function_free_atom a
-        constructor
-        . apply List.mem_map_of_mem; exact a_mem
-        . unfold GroundSubstitution.apply_function_free_atom
-          unfold TermMapping.apply_generalized_atom
-          rw [List.mem_map]
-          exists VarOrConst.var v
+        rw [PreTrigger.mem_terms_mapped_body_iff]
+        apply Or.inr
+        exists v; constructor
+        . apply Rule.frontier_subset_vars_body; exact mem_frontier
+        . rfl
       | inr mem_frontier =>
         unfold voc at eq
         rw [eq, trg.apply_to_var_or_const_non_frontier_var disj_idx.val _ mem_frontier]
@@ -163,15 +147,11 @@ namespace PreTrigger
         rw [List.mem_map] at t_mem_frontier
         rcases t_mem_frontier with ⟨v, v_mem, v_eq⟩
         apply body_valid
-        rcases trg.rule.frontier_occurs_in_body v v_mem with ⟨a, a_mem, v_mem⟩
-        rw [List.mem_flatMap]
-        exists trg.subs.apply_function_free_atom a
-        constructor
-        . apply List.mem_map_of_mem; exact a_mem
-        . unfold GroundSubstitution.apply_function_free_atom
-          unfold TermMapping.apply_generalized_atom
-          rw [List.mem_map]
-          exists VarOrConst.var v
+        rw [PreTrigger.mem_terms_mapped_body_iff]
+        apply Or.inr
+        exists v; constructor
+        . apply Rule.frontier_subset_vars_body; exact v_mem
+        . exact v_eq
       | inr t_mem_frontier =>
         let voc : VarOrConst sig := trg.var_or_const_for_result_term disj_idx (by rw [List.getElem_idxOf_of_mem l_mem]; exact f_mem) t_mem
         have voc_eq := trg.apply_on_var_or_const_for_result_term_is_term disj_idx (by rw [List.getElem_idxOf_of_mem l_mem]; exact f_mem) t_mem
@@ -220,15 +200,11 @@ namespace PreTrigger
         rw [List.mem_map] at t_mem_frontier
         rcases t_mem_frontier with ⟨v, v_mem, v_eq⟩
         apply body_valid
-        rcases trg.rule.frontier_occurs_in_body v v_mem with ⟨a, a_mem, v_mem⟩
-        rw [List.mem_flatMap]
-        exists trg.subs.apply_function_free_atom a
-        constructor
-        . apply List.mem_map_of_mem; exact a_mem
-        . unfold GroundSubstitution.apply_function_free_atom
-          unfold TermMapping.apply_generalized_atom
-          rw [List.mem_map]
-          exists VarOrConst.var v
+        rw [PreTrigger.mem_terms_mapped_body_iff]
+        apply Or.inr
+        exists v; constructor
+        . apply Rule.frontier_subset_vars_body; exact v_mem
+        . exact v_eq
       | inr t_mem_frontier =>
         let voc : VarOrConst sig := trg.var_or_const_for_result_term disj_idx (by rw [List.getElem_idxOf_of_mem l_mem]; exact f_mem) t_mem
         have voc_eq := trg.apply_on_var_or_const_for_result_term_is_term disj_idx (by rw [List.getElem_idxOf_of_mem l_mem]; exact f_mem) t_mem
