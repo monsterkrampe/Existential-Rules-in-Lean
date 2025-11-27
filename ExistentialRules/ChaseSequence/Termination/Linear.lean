@@ -1,6 +1,6 @@
 import ExistentialRules.ChaseSequence.Termination.Basic
 
-variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
+variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] [Inhabited sig.C]
 
 section Rules
 
@@ -60,7 +60,7 @@ section SubstitutionsAndTriggers
   -- This will require auxiliary definitions.
   def GroundSubstitution.from_atom_and_fact (atom : FunctionFreeAtom sig) (fact : Fact sig) : Option (GroundSubstitution sig) :=
     if atom.predicate = fact.predicate
-    then matchTermList (some s) List.nil (List.zip atom.terms fact.terms)  --> wie kann ich die substiution initial definieren?
+    then matchTermList (fun _ => default) List.nil (List.zip atom.terms fact.terms)  --> wie kann ich die substiution initial definieren?
     else Option.none
 
 
@@ -135,12 +135,12 @@ end SubstitutionsAndTriggers
 section Addresses
 
   structure AddressSymbol (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] where
-    rule : Rule sig
+    rule : LinearRule sig
     headIndex : Fin 2
 
   -- address symbols for a rule set
   def addressSymbols (rs : LinearRuleSet sig) : Set (AddressSymbol sig) :=
-    fun sym => sym.rule ∈ rs.rules.map (LinearRule.rule)
+    fun sym => sym.rule ∈ rs.rules
 
   -- NOTE: Maybe an inductive definition with multiple cases would be more useful here, not sure yet...
   structure Address (fs : FactSet sig) (rs : LinearRuleSet sig) where
@@ -177,13 +177,40 @@ section ObvliviousChaseRepresentation
   -- I think the idea would be to first define the labelling function returning an option and then to define the oblivious chase representation as the forest of all addresses where the labelling function returns some ... on each address.
 
   def labellingFunction {rs: LinearRuleSet sig} (w : Address fs rs) : Option (Fact sig) :=
-    match w.path with
+    match eq : w.path with
     |[] => w.initialAtom
     |r::u =>
+      have termination_hint : u.length < w.path.length := by simp [eq]
       let lu := labellingFunction {w with path := u};
       match lu with
       |Option.none => Option.none
-      |some lu => (ruleApply r.rule lu ).map (fun x => if r.headIndex = 0 then x.fst else x.snd) --wie kann ich hier zeigen, dass u : AddressSymbol ist? --
+      |some lu => (ruleApply r.val.rule lu ).map (fun x => if r.val.headIndex = 0 then x.fst else x.snd) --wie kann ich hier zeigen, dass u : AddressSymbol ist? --
+  termination_by w.path.length
 
+  def oblivious_chase (fs : FactSet sig) (rs : LinearRuleSet sig) : Forest fs rs where
+    f := fun addr => (labellingFunction addr).isSome
+    fs_contained := by
+      intro fact fact_mem
+      exists {initialAtom := ⟨fact, fact_mem⟩, path := []}
+      constructor
+      . unfold labellingFunction; simp only [Membership.mem, Option.isSome_some]
+      . simp
+    isPrefixClosed := by
+      intro addr
+      simp only [Option.isSome_iff_ne_none, immed_prefix_address_in_set]
+      intro addr_ne_none
+      cases eq : addr.path with
+      | nil => simp
+      | cons r u =>
+        simp only
+        intro contra
+        apply addr_ne_none
+        unfold labellingFunction
+        split
+        case h_1 heq => rw [eq] at heq; simp at heq
+        case h_2 r' u' heq =>
+          simp only
+          rw [eq, List.cons_eq_cons] at heq
+          rw [← heq.right, contra]
 
 end ObvliviousChaseRepresentation

@@ -165,6 +165,9 @@ We then define appropriate constructors and recursion principles on the `GroundT
 /-- The `PreGroundTerm` is simply a `FiniteTree (SkolemFS sig) sig.C`. That is a tree that features Skolem function symbols in its inner nodes and constants in its leaf nodes. -/
 abbrev PreGroundTerm (sig : Signature) [DecidableEq sig.C] [DecidableEq sig.V] := FiniteTree (SkolemFS sig) sig.C
 
+instance {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [Inhabited sig.C] : Inhabited (PreGroundTerm sig) where
+  default := .leaf default
+
 namespace PreGroundTerm
 
 /-- The arity of a functional term is ok if the defined arity of its function symbol matches its number of children and `arity_ok` also holds for each child. For constants, i.e. the leaf nodes, the arity is trivially ok. -/
@@ -178,6 +181,9 @@ end PreGroundTerm
 
 /-- As mentioned above, a `GroundTerm` is simply a `PreGroundTerm` subtype where `arity_ok` holds. -/
 abbrev GroundTerm (sig : Signature) [DecidableEq sig.C] [DecidableEq sig.V] := { t : PreGroundTerm sig // PreGroundTerm.arity_ok t }
+
+instance {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [Inhabited sig.C] : Inhabited (GroundTerm sig) where
+  default := ⟨default, by unfold PreGroundTerm.arity_ok; rfl⟩
 
 namespace GroundTerm
 
@@ -411,4 +417,3 @@ theorem functions_func {f : SkolemFS sig} {ts : List (GroundTerm sig)} {arity_ok
 end GroundTerm
 
 end GroundTerms
-
