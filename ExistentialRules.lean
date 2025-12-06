@@ -3,7 +3,9 @@ import ExistentialRules.AlternativeMatches.Chase
 import ExistentialRules.AlternativeMatches.HomomorphismExtension
 import ExistentialRules.AtomsAndFacts.Basic
 import ExistentialRules.AtomsAndFacts.SubstitutionsAndHomomorphisms
-import ExistentialRules.ChaseSequence.Basic
+import ExistentialRules.ChaseSequence.ChaseNode
+import ExistentialRules.ChaseSequence.ChaseBranch
+import ExistentialRules.ChaseSequence.ChaseTree
 import ExistentialRules.ChaseSequence.Universality
 import ExistentialRules.ChaseSequence.Deterministic
 import ExistentialRules.ChaseSequence.Termination.Basic

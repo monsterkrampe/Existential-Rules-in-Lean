@@ -1,4 +1,4 @@
-import ExistentialRules.ChaseSequence.Basic
+import ExistentialRules.ChaseSequence.ChaseTree
 import ExistentialRules.ChaseSequence.Deterministic
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]

@@ -1,6 +1,6 @@
 import BasicLeanDatastructures.List.Repeat
 
-import ExistentialRules.ChaseSequence.Basic
+import ExistentialRules.ChaseSequence.ChaseTree
 import ExistentialRules.ChaseSequence.Universality
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]

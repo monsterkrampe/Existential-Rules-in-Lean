@@ -1,6 +1,6 @@
 import PossiblyInfiniteTrees.PossiblyInfiniteTree.FiniteDegreeTree.KoenigsLemma
 
-import ExistentialRules.ChaseSequence.Basic
+import ExistentialRules.ChaseSequence.ChaseTree
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
