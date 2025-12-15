@@ -144,98 +144,97 @@ section SubstitutionsAndTriggers
           revert var_v
           apply ih
 
---this is my current idea how to do this -> works keep it
-theorem matchTermList.apply_lists {l: List ((VarOrConst sig) × (GroundTerm sig))}:
-∀ subs s vars, matchTermList s vars l = some subs -> l.unzip.fst.map subs.apply_var_or_const = l.unzip.snd := by
-  intro subs
-  induction l with
-  |nil =>
-    simp
-  |cons f fs ih =>
-    intro s vars
-    unfold matchTermList
-    cases s': matchVarorConst s f.fst f.snd vars with
-    |none => simp
-    |some s'' =>
-      simp only[List.unzip_cons, List.map_cons, List.cons_eq_cons]
-      intro h
-      constructor
-      . have fun_eq_on_x: subs.apply_var_or_const f.fst = s''.apply_var_or_const f.fst := by
-          unfold GroundSubstitution.apply_var_or_const
-          revert h
-          cases f.fst with
-          |var x => simp only; apply matchTermList.v_in_vars_noChange; simp;
-          |const c => simp
-        rw[fun_eq_on_x]
-        apply matchVarorConst.apply_var_or_const
-        exact s'
-      . revert h
-        cases f.fst with
-        |var x => simp only; apply ih;
-        |const c => simp only; apply ih;
-
-    theorem matchTermList.some_if  {l: List ((VarOrConst sig) × (GroundTerm sig))}:
-      (∃ (subs: GroundSubstitution sig), l.unzip.fst.map subs.apply_var_or_const = l.unzip.snd ∧ (∀ (x:sig.V), x∈ vars -> s x = subs x) ) ->  ∃ subs, matchTermList s vars l = some subs  := by
+  theorem matchTermList.apply_lists {l: List ((VarOrConst sig) × (GroundTerm sig))}:
+  ∀ subs s vars, matchTermList s vars l = some subs -> l.unzip.fst.map subs.apply_var_or_const = l.unzip.snd := by
+    intro subs
+    induction l with
+    |nil =>
+      simp
+    |cons f fs ih =>
+      intro s vars
+      unfold matchTermList
+      cases s': matchVarorConst s f.fst f.snd vars with
+      |none => simp
+      |some s'' =>
+        simp only[List.unzip_cons, List.map_cons, List.cons_eq_cons]
         intro h
-        apply Exists.elim h
-        intro a b
-        --unfold matchTermList
-        --have a := l.unzip.fst
-        induction l generalizing s vars with
-        |nil => unfold matchTermList; simp
-        |cons t ts ih =>
-          unfold matchTermList
-          simp only
-          unfold matchVarorConst
-          simp only[List.unzip_cons, List.map_cons, List.cons_eq_cons] at b
-          --unfold GroundSubstitution.apply_var_or_const at b
-          revert b
-          cases  t.fst with
-          |var v =>
-            simp only
-            intro b
-            by_cases v_mem_vars: v∈ vars
-            . simp only[v_mem_vars, b, ite_cond_eq_true];
-              have eq: a v = t.snd := by unfold GroundSubstitution.apply_var_or_const at b; simp only at b; exact b.left.left;
-              simp[eq]
-              apply ih
-              exists a
-              constructor
-              . exact b.left.right
-              . intro x x_in_v_vars; apply b.right; apply List.mem_of_mem_cons_of_mem; assumption;simp only[v_mem_vars]
-              constructor
-              . exact b.left.right
-              . intro x x_in_v_vars; apply b.right; apply List.mem_of_mem_cons_of_mem; assumption;simp only[v_mem_vars]
-
-            . simp[v_mem_vars]
-              have precond_s : (extend_Substitutution s v t.snd) v = t.snd := by unfold extend_Substitutution; simp
-              have x_vars_ext : ∀ x, x ∈ (v::vars) -> (extend_Substitutution s v t.snd) x = a x := by
-                intro x
-                simp[List.mem_cons, or_imp]
-                constructor
-                . intro xv; rw[xv] ; simp[precond_s]; apply Eq.symm; apply b.left.left;
-                . simp[extend_Substitutution];
-                  intro xv;
-                  by_cases h: x=v
-                  . rw[h] at xv; contradiction
-                  . simp[h]; revert xv;  apply b.right;
-              apply ih
-              exists a
-              constructor
-              . exact b.left.right
-              . assumption
-              constructor
-              . exact b.left.right
-              . assumption
-          |const c =>
-            simp only
-            intro b
-            rw[<-b.left.left]
+        constructor
+        . have fun_eq_on_x: subs.apply_var_or_const f.fst = s''.apply_var_or_const f.fst := by
             unfold GroundSubstitution.apply_var_or_const
-            simp
+            revert h
+            cases f.fst with
+            |var x => simp only; apply matchTermList.v_in_vars_noChange; simp;
+            |const c => simp
+          rw[fun_eq_on_x]
+          apply matchVarorConst.apply_var_or_const
+          exact s'
+        . revert h
+          cases f.fst with
+          |var x => simp only; apply ih;
+          |const c => simp only; apply ih;
+
+  theorem matchTermList.some_if  {l: List ((VarOrConst sig) × (GroundTerm sig))}:
+    (∃ (subs: GroundSubstitution sig), l.unzip.fst.map subs.apply_var_or_const = l.unzip.snd ∧ (∀ (x:sig.V), x∈ vars -> s x = subs x) ) ->  ∃ subs, matchTermList s vars l = some subs  := by
+      intro h
+      apply Exists.elim h
+      intro a b
+      --unfold matchTermList
+      --have a := l.unzip.fst
+      induction l generalizing s vars with
+      |nil => unfold matchTermList; simp
+      |cons t ts ih =>
+        unfold matchTermList
+        simp only
+        unfold matchVarorConst
+        simp only[List.unzip_cons, List.map_cons, List.cons_eq_cons] at b
+        --unfold GroundSubstitution.apply_var_or_const at b
+        revert b
+        cases  t.fst with
+        |var v =>
+          simp only
+          intro b
+          by_cases v_mem_vars: v∈ vars
+          . simp only[v_mem_vars, b, ite_cond_eq_true];
+            have eq: a v = t.snd := by unfold GroundSubstitution.apply_var_or_const at b; simp only at b; exact b.left.left;
+            simp[eq]
             apply ih
             exists a
-            repeat exact And.intro b.left.right b.right
+            constructor
+            . exact b.left.right
+            . intro x x_in_v_vars; apply b.right; apply List.mem_of_mem_cons_of_mem; assumption;simp only[v_mem_vars]
+            constructor
+            . exact b.left.right
+            . intro x x_in_v_vars; apply b.right; apply List.mem_of_mem_cons_of_mem; assumption;simp only[v_mem_vars]
+
+          . simp[v_mem_vars]
+            have precond_s : (extend_Substitutution s v t.snd) v = t.snd := by unfold extend_Substitutution; simp
+            have x_vars_ext : ∀ x, x ∈ (v::vars) -> (extend_Substitutution s v t.snd) x = a x := by
+              intro x
+              simp[List.mem_cons, or_imp]
+              constructor
+              . intro xv; rw[xv] ; simp[precond_s]; apply Eq.symm; apply b.left.left;
+              . simp[extend_Substitutution];
+                intro xv;
+                by_cases h: x=v
+                . rw[h] at xv; contradiction
+                . simp[h]; revert xv;  apply b.right;
+            apply ih
+            exists a
+            constructor
+            . exact b.left.right
+            . assumption
+            constructor
+            . exact b.left.right
+            . assumption
+        |const c =>
+          simp only
+          intro b
+          rw[<-b.left.left]
+          unfold GroundSubstitution.apply_var_or_const
+          simp
+          apply ih
+          exists a
+          repeat exact And.intro b.left.right b.right
 
 
 
@@ -369,7 +368,7 @@ section Addresses
   -- NOTE: Maybe an inductive definition with multiple cases would be more useful here, not sure yet...
   structure Address (fs : FactSet sig) (rs : LinearRuleSet sig) where
     initialAtom : {f : Fact sig // f ∈ fs}
-    path : List {sym : AddressSymbol sig // sym ∈ addressSymbols rs} --Frage: wie herum die liste besser füllen? (in lesrichtung, oder so, dass das neue elem. immer vorne drangehängt wird)
+    path : List {sym : AddressSymbol sig // sym ∈ addressSymbols rs} --This List is intended to be filled from right to left (i.e. the last element of the List is the Address symbol that is direct successor of the initial Atom)
 
 
 /-
@@ -392,6 +391,8 @@ section Addresses
     fs_contained : ∀ fact ∈ fs, ∃ a ∈ f , fact = a.initialAtom ∧ a.path = []  -- fs shall be contained in f (this should likely involve auxiliary definitions)
     isPrefixClosed : ∀ a ∈ f, immed_prefix_address_in_set a f --as we enforce this check on all a ∈ f, we only need to veryfy that it's immediate predecessor is in f as well
 
+  def Forest.subforest_of {fs: FactSet sig} (g : Forest fs rs) (f : Forest fs rs) : Prop := g.f ⊆ f.f
+
 end Addresses
 
 section ObvliviousChaseRepresentation
@@ -408,7 +409,7 @@ section ObvliviousChaseRepresentation
       let lu := labellingFunction {w with path := u};
       match lu with
       |Option.none => Option.none
-      |some lu => (ruleApply r.val.rule lu ).map (fun x => if r.val.headIndex = 0 then x.fst else x.snd) --wie kann ich hier zeigen, dass u : AddressSymbol ist? --
+      |some lu => (ruleApply r.val.rule lu ).map (fun x => if r.val.headIndex = 0 then x.fst else x.snd)
   termination_by w.path.length
 
   def oblivious_chase (fs : FactSet sig) (rs : LinearRuleSet sig) : Forest fs rs where
@@ -437,4 +438,50 @@ section ObvliviousChaseRepresentation
           rw [eq, List.cons_eq_cons] at heq
           rw [← heq.right, contra]
 
+  def materialization_labelling {fs: FactSet sig} (g: Forest fs rs) : FactSet sig :=
+    fun a => ∃ b∈ g.f, labellingFunction b = Option.some a
+
+  theorem subforest_of_oblivious_chase_labelling_some {fs: FactSet sig} {g: Forest fs rs} {h: Forest.subforest_of g (oblivious_chase fs rs)}:
+    ∀a, a ∈ g.f -> (labellingFunction a).isSome  := by
+      intro a a_mem
+      unfold Forest.subforest_of at h
+      rw[h]
+      exact a_mem
+
+
 end ObvliviousChaseRepresentation
+
+
+section Triggers
+
+  structure LinearRuleTrigger (fs: FactSet sig) (rs: LinearRuleSet sig) where
+  rule : {r: LinearRule sig // r ∈ rs.rules}
+  addr : {u: Address fs rs // (labellingFunction u).isSome}
+  hom_exists := (GroundSubstitution.from_atom_and_fact (LinearRule.body rule) (Option.get (labellingFunction addr.val) addr.property )).isSome = true
+
+  namespace LinearRuleTrigger
+
+    def apply {fs:FactSet sig} (pi : LinearRuleTrigger fs rs) : (Address fs rs) × (Address fs rs) :=
+      have fst: {f : AddressSymbol sig // f ∈ addressSymbols rs}:=
+        {val:= {rule:= pi.rule.val,headIndex:=0}, property:= by unfold addressSymbols; exact pi.rule.property;}
+      have snd: {f : AddressSymbol sig // f ∈ addressSymbols rs}:=
+        {val:= {rule:= pi.rule.val,headIndex:=1}, property:= by unfold addressSymbols; exact pi.rule.property;}
+      ({initialAtom:= pi.addr.val.initialAtom, path:=(fst ::pi.addr.val.path)},
+      {initialAtom:= pi.addr.val.initialAtom, path:=(snd ::pi.addr.val.path)})
+
+
+    def appears_in_forest {fs: FactSet sig} (pi: LinearRuleTrigger fs rs) (g: Forest fs rs): Prop := pi.addr.val ∈ g.f
+
+    def isActive_in_forest {fs: FactSet sig} (pi:LinearRuleTrigger fs rs) (g: Forest fs rs) : Prop :=
+      pi.appears_in_forest g ∧ ¬ (pi.apply.fst ∈ g.f ∧ pi.apply.snd ∈ g.f)
+
+    def blockingTeam {fs: FactSet sig} (blocker: (Address fs rs) × (Address fs rs)) (g:  Forest fs rs) (pi: LinearRuleTrigger fs rs): Prop :=
+      g.subforest_of (oblivious_chase fs rs) ∧ blocker.fst ∈ g.f ∧ blocker.snd ∈ g.f ∧ pi.appears_in_forest g ->
+      ∃ h: GroundTermMapping sig, h.applyFact (Option.get (labellingFunction pi.addr.val) pi.addr.property) = labellingFunction pi.addr.val
+      ∧ h.applyFact (Option.get (labellingFunction pi.apply.fst) sorry) = labellingFunction blocker.fst
+      ∧ h.applyFact (Option.get (labellingFunction pi.apply.snd) sorry) = labellingFunction blocker.snd
+
+
+  end LinearRuleTrigger
+
+end Triggers
