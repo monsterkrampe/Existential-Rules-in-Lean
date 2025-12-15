@@ -1164,7 +1164,7 @@ namespace RuleSet
                   | var v => rfl
                   | const c =>
                     simp only [Function.comp_apply, GroundSubstitution.apply_var_or_const, ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, StrictConstantMapping.toConstantMapping, GroundTerm.const]
-                    apply Subtype.eq
+                    apply Subtype.ext
                     simp only [FiniteTree.leaf.injEq]
                     rw [rs.mfaConstantMapping_id_on_rs_constants]
                     exists trg.val.rule

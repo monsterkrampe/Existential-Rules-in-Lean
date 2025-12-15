@@ -196,7 +196,7 @@ namespace Function
           simp [image, hd_mem] at length_eq
           have contra := length_image f tl
           rw [length_eq] at contra
-          simp [Nat.succ_le] at contra
+          simp [Nat.succ_le_iff] at contra
         | inr hd_not_mem =>
           simp [image, hd_not_mem] at length_eq
           intro a a' a_mem a'_mem eq

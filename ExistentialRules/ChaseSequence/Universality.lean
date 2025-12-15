@@ -498,7 +498,7 @@ theorem inductive_homomorphism_same_on_terms_in_next_step (ct : ChaseTree obs kb
       simp
       split
       case h_1 c c_eq =>
-        have c_eq : t = GroundTerm.const c := by apply Subtype.eq; exact c_eq
+        have c_eq : t = GroundTerm.const c := by apply Subtype.ext; exact c_eq
         rw [c_eq]
         have property := (inductive_homomorphism ct m m_is_model i).property.right
         rw [eq] at property; simp [Option.is_none_or] at property

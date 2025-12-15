@@ -68,7 +68,7 @@ namespace GroundTerm
       motive t :=
     match eq : t.val with
     | .leaf c =>
-      have eq : t = GroundTerm.const c := Subtype.eq eq
+      have eq : t = GroundTerm.const c := Subtype.ext eq
       eq ▸ const c
     | .inner f ts => by
       let ts : List (GroundTerm sig) := ts.attach.map (fun ⟨t', mem⟩ => ⟨t', by
@@ -88,7 +88,7 @@ namespace GroundTerm
         rw [List.length_map, List.length_attach]
         exact prop.left
       have eq : t = GroundTerm.func f ts arity_ok := by
-        apply Subtype.eq
+        apply Subtype.ext
         unfold GroundTerm.func
         simp [eq, ts]
         unfold List.unattach
@@ -105,7 +105,7 @@ namespace GroundTerm
       motive t :=
     match eq_val : t.val with
     | .leaf c =>
-      have eq : t = GroundTerm.const c := Subtype.eq eq_val
+      have eq : t = GroundTerm.const c := Subtype.ext eq_val
       eq ▸ const c
     | .inner f ts => by
       let ts : List (GroundTerm sig) := ts.attach.map (fun ⟨t', mem⟩ => ⟨t', by
@@ -125,7 +125,7 @@ namespace GroundTerm
         rw [List.length_map, List.length_attach]
         exact prop.left
       have eq : t = GroundTerm.func f ts arity_ok := by
-        apply Subtype.eq
+        apply Subtype.ext
         unfold GroundTerm.func
         simp [eq_val, ts]
         unfold List.unattach
