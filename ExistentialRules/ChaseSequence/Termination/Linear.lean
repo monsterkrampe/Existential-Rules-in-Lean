@@ -45,7 +45,9 @@ section SubstitutionsAndTriggers
           then if gt = s v then Option.some s else Option.none--triit auf, wenn es für v schon eine andere substitution gab
           else some (extend_Substitutution s v gt)
 
-  theorem matchVarorConst.apply_var_or_const {t: VarOrConst sig} {gt: GroundTerm sig}: ∀ subs , matchVarorConst s t gt vars = some subs -> subs.apply_var_or_const t = gt := by
+  theorem matchVarorConst.apply_var_or_const {s : GroundSubstitution sig} {t : VarOrConst sig} {gt : GroundTerm sig} {vars : List sig.V} :
+      (matchVarorConst s t gt vars).is_none_or (fun subs => subs.apply_var_or_const t = gt) := by
+    rw [Option.is_none_or_iff]
     intro subs
     unfold matchVarorConst
     unfold GroundSubstitution.apply_var_or_const
@@ -70,19 +72,22 @@ section SubstitutionsAndTriggers
       . simp[eq_c]
 
 
-  theorem matchVarorConst.noChange_vars {t: VarOrConst sig} : ∀ subs,  matchVarorConst s t gt vars = some subs -> v∈ vars ->  subs v = s v := by
+  theorem matchVarorConst.noChange_vars {s : GroundSubstitution sig} {t : VarOrConst sig} {gt : GroundTerm sig} {vars : List sig.V} :
+      (matchVarorConst s t gt vars).is_none_or (fun subs => ∀ v ∈ vars, subs v = s v) := by
+    rw [Option.is_none_or_iff]
     intro subs
     unfold matchVarorConst
     cases t with
     |var x =>
       simp
+      -- cases Decidable.em (x ∈ vars) with -- would also work
       by_cases var_x: x ∈ vars
       . simp only [var_x, ↓reduceIte, Option.ite_none_right_eq_some, Option.some.injEq, and_imp]
         intro a eq_sub var_v
         simp[eq_sub]
       . simp only [var_x, ↓reduceIte, Option.some.injEq]
         unfold extend_Substitutution
-        intro a var_v
+        intro a v var_v
         have v_ne_x:¬  v = x := by intro eq; rw[eq] at var_v; contradiction
         rw[<- a]
         simp only [ite_eq_right_iff]
@@ -108,6 +113,7 @@ section SubstitutionsAndTriggers
         | .const _ => matchTermList s' vars ls
 
 
+  -- TODO for Laila: I think analogously to the above, I'd go for using `Option.is_none_or` because at least imo it makes the theorem statement easier to read. But it does also make the theorems harder to use so feel free to keep whatever you think is best (i.e. feel free to revert my changes) :)
   theorem matchTermList.v_in_vars_noChange  {v: sig.V} :  ∀ s' s vars, v ∈ vars -> (matchTermList s vars ls) = some s' -> s' v = s v := by
     intro s'
     induction ls with
@@ -126,8 +132,10 @@ section SubstitutionsAndTriggers
       |some s'' =>
         have fun_eq: s'' v = s v := by
           revert var_v;
-          apply matchVarorConst.noChange_vars;
-          rw[h];
+          have := @matchVarorConst.noChange_vars _ _ _ _ _ s f.fst f.snd vars
+          rw [Option.is_none_or_iff] at this
+          apply this
+          exact h
         simp only
         cases f.fst with
         |var x =>
@@ -144,6 +152,7 @@ section SubstitutionsAndTriggers
           revert var_v
           apply ih
 
+  -- TODO for Laila: I think analogously to the above, I'd go for using `Option.is_none_or` because at least imo it makes the theorem statement easier to read. But it does also make the theorems harder to use so feel free to keep whatever you think is best (i.e. feel free to revert my changes) :)
   theorem matchTermList.apply_lists {l: List ((VarOrConst sig) × (GroundTerm sig))}:
   ∀ subs s vars, matchTermList s vars l = some subs -> l.unzip.fst.map subs.apply_var_or_const = l.unzip.snd := by
     intro subs
@@ -166,75 +175,69 @@ section SubstitutionsAndTriggers
             |var x => simp only; apply matchTermList.v_in_vars_noChange; simp;
             |const c => simp
           rw[fun_eq_on_x]
-          apply matchVarorConst.apply_var_or_const
+          have := @matchVarorConst.apply_var_or_const _ _ _ _ _ s f.fst f.snd vars
+          rw [Option.is_none_or_iff] at this
+          apply this
           exact s'
         . revert h
           cases f.fst with
           |var x => simp only; apply ih;
           |const c => simp only; apply ih;
 
-  theorem matchTermList.some_if  {l: List ((VarOrConst sig) × (GroundTerm sig))}:
-    (∃ (subs: GroundSubstitution sig), l.unzip.fst.map subs.apply_var_or_const = l.unzip.snd ∧ (∀ (x:sig.V), x∈ vars -> s x = subs x) ) ->  ∃ subs, matchTermList s vars l = some subs  := by
-      intro h
-      apply Exists.elim h
-      intro a b
-      --unfold matchTermList
-      --have a := l.unzip.fst
-      induction l generalizing s vars with
-      |nil => unfold matchTermList; simp
-      |cons t ts ih =>
-        unfold matchTermList
+  theorem matchTermList.some_if
+      {l : List ((VarOrConst sig) × (GroundTerm sig))}
+      {subs : GroundSubstitution sig}
+      (map_unzip_eq : l.unzip.fst.map subs.apply_var_or_const = l.unzip.snd)
+      (subs_agrees_on_vars : ∀ (x:sig.V), x∈ vars -> s x = subs x) :
+      -- TODO for Laila: Does it make sense to not only show existence of some subs here but to actually show something like the following?: (matchTermList s vars l).is_some_and (fun subs' => ∀ v ∈ vars, subs v = subs' v)
+      ∃ subs, matchTermList s vars l = some subs  := by
+    --unfold matchTermList
+    --have a := l.unzip.fst
+    induction l generalizing s vars with
+    |nil => unfold matchTermList; simp
+    |cons t ts ih =>
+      unfold matchTermList
+      simp only
+      unfold matchVarorConst
+      simp only[List.unzip_cons, List.map_cons, List.cons_eq_cons] at map_unzip_eq
+      --unfold GroundSubstitution.apply_var_or_const at b
+      revert map_unzip_eq
+      cases  t.fst with
+      |var v =>
         simp only
-        unfold matchVarorConst
-        simp only[List.unzip_cons, List.map_cons, List.cons_eq_cons] at b
-        --unfold GroundSubstitution.apply_var_or_const at b
-        revert b
-        cases  t.fst with
-        |var v =>
-          simp only
-          intro b
-          by_cases v_mem_vars: v∈ vars
-          . simp only[v_mem_vars, b, ite_cond_eq_true];
-            have eq: a v = t.snd := by unfold GroundSubstitution.apply_var_or_const at b; simp only at b; exact b.left.left;
-            simp[eq]
-            apply ih
-            exists a
-            constructor
-            . exact b.left.right
-            . intro x x_in_v_vars; apply b.right; apply List.mem_of_mem_cons_of_mem; assumption;simp only[v_mem_vars]
-            constructor
-            . exact b.left.right
-            . intro x x_in_v_vars; apply b.right; apply List.mem_of_mem_cons_of_mem; assumption;simp only[v_mem_vars]
-
-          . simp[v_mem_vars]
-            have precond_s : (extend_Substitutution s v t.snd) v = t.snd := by unfold extend_Substitutution; simp
-            have x_vars_ext : ∀ x, x ∈ (v::vars) -> (extend_Substitutution s v t.snd) x = a x := by
-              intro x
-              simp[List.mem_cons, or_imp]
-              constructor
-              . intro xv; rw[xv] ; simp[precond_s]; apply Eq.symm; apply b.left.left;
-              . simp[extend_Substitutution];
-                intro xv;
-                by_cases h: x=v
-                . rw[h] at xv; contradiction
-                . simp[h]; revert xv;  apply b.right;
-            apply ih
-            exists a
-            constructor
-            . exact b.left.right
-            . assumption
-            constructor
-            . exact b.left.right
-            . assumption
-        |const c =>
-          simp only
-          intro b
-          rw[<-b.left.left]
-          unfold GroundSubstitution.apply_var_or_const
-          simp
+        intro map_unzip_eq
+        by_cases v_mem_vars: v∈ vars
+        . simp only[v_mem_vars, subs_agrees_on_vars, ite_cond_eq_true];
+          have eq: subs v = t.snd := by unfold GroundSubstitution.apply_var_or_const at map_unzip_eq; simp only at map_unzip_eq; exact map_unzip_eq.left;
+          simp[eq]
           apply ih
-          exists a
-          repeat exact And.intro b.left.right b.right
+          . exact map_unzip_eq.right
+          . intro v v_mem; apply subs_agrees_on_vars; exact List.mem_of_mem_cons_of_mem v_mem v_mem_vars
+
+        . simp[v_mem_vars]
+          have precond_s : (extend_Substitutution s v t.snd) v = t.snd := by unfold extend_Substitutution; simp
+          have x_vars_ext : ∀ x, x ∈ (v::vars) -> (extend_Substitutution s v t.snd) x = subs x := by
+            intro x
+            simp[List.mem_cons, or_imp]
+            constructor
+            . intro xv; rw[xv] ; simp[precond_s]; apply Eq.symm; apply map_unzip_eq.left;
+            . simp[extend_Substitutution];
+              intro xv;
+              by_cases h: x=v
+              . rw[h] at xv; contradiction
+              . simp[h]; revert xv;  apply subs_agrees_on_vars;
+          apply ih
+          . exact map_unzip_eq.right
+          . exact x_vars_ext
+      |const c =>
+        simp only
+        intro map_unzip_eq
+        rw[<- map_unzip_eq.left]
+        unfold GroundSubstitution.apply_var_or_const
+        simp
+        apply ih
+        . exact map_unzip_eq.right
+        . exact subs_agrees_on_vars
 
 
 
@@ -246,6 +249,7 @@ section SubstitutionsAndTriggers
     else Option.none
 
 
+  -- TODO for Laila: again this could be written using Option.is_none_or but I'm not sure if that makes sense.
   theorem GroundSubstitution.apply_function_free_atom_from_atom_and_fact {atom : FunctionFreeAtom sig} {fact : Fact sig} :
       ∀ subs, (GroundSubstitution.from_atom_and_fact atom fact) = some subs -> subs.apply_function_free_atom atom = fact := by
         intro subs;
@@ -270,12 +274,12 @@ section SubstitutionsAndTriggers
       (∃ subs, (GroundSubstitution.from_atom_and_fact atom fact) = some subs) ↔ ∃ (subs : GroundSubstitution sig), subs.apply_function_free_atom atom = fact := by
         apply Iff.intro
         . intro h;
-          apply Exists.elim h;
-          intro a b;
-          exists a;
+          rcases h with ⟨subs, h⟩
+          exists subs
           apply GroundSubstitution.apply_function_free_atom_from_atom_and_fact
-          assumption
+          exact h
         . intro h;
+          -- TODO for Laila: this could also be written using rcases like above. This is just a suggestion though. If you prefer Exists.elim, then feel free to revert my changes.
           apply Exists.elim h
           intro a b
           unfold from_atom_and_fact
@@ -285,13 +289,12 @@ section SubstitutionsAndTriggers
             unfold TermMapping.apply_generalized_atom at b
             rw[<-b]
           . apply matchTermList.some_if
-            simp only[List.not_mem_nil, false_implies, implies_true, and_true]
-            unfold apply_function_free_atom at b
-            unfold TermMapping.apply_generalized_atom at b
-            have len_eq: atom.terms.length = fact.terms.length := by rw[<-b]; simp;
-            simp only [len_eq, List.unzip_zip]
-            exists a
-            rw[<-b]
+            . unfold apply_function_free_atom at b
+              unfold TermMapping.apply_generalized_atom at b
+              have len_eq: atom.terms.length = fact.terms.length := by rw[<-b]; simp;
+              simp only [len_eq, List.unzip_zip]
+              rw[<-b]
+            . simp only[List.not_mem_nil, false_implies, implies_true]
 
 
 
@@ -302,6 +305,9 @@ section SubstitutionsAndTriggers
     })
 
   theorem PreTrigger.from_rule_and_fact_some_implies {rule : LinearRule sig} {fact : Fact sig} :
+    -- TODO for Laila: again that could use Option.is_none_or again. Actually there is even the possibility of writing
+    -- ∀ trg ∈ PreTrigger.from_rule_and_fact rule fact -> ...
+    -- since Membership is defined on Option. Now that I think about it, maybe this is in fact the best option (no pun intended) all throughout.
       ∀ {trg}, PreTrigger.from_rule_and_fact rule fact = some trg → trg.rule = rule.rule ∧ GroundSubstitution.from_atom_and_fact rule.body fact = some trg.subs := by
         unfold PreTrigger.from_rule_and_fact;
         cases PreTrigger.from_rule_and_fact rule fact;
@@ -462,9 +468,10 @@ section Triggers
   namespace LinearRuleTrigger
 
     def apply {fs:FactSet sig} (pi : LinearRuleTrigger fs rs) : (Address fs rs) × (Address fs rs) :=
-      have fst: {f : AddressSymbol sig // f ∈ addressSymbols rs}:=
+      -- NOTE: using let instead of have since have only remembers the type but not the actual expression. let remembers the expression.
+      let fst: {f : AddressSymbol sig // f ∈ addressSymbols rs}:=
         {val:= {rule:= pi.rule.val,headIndex:=0}, property:= by unfold addressSymbols; exact pi.rule.property;}
-      have snd: {f : AddressSymbol sig // f ∈ addressSymbols rs}:=
+      let snd: {f : AddressSymbol sig // f ∈ addressSymbols rs}:=
         {val:= {rule:= pi.rule.val,headIndex:=1}, property:= by unfold addressSymbols; exact pi.rule.property;}
       ({initialAtom:= pi.addr.val.initialAtom, path:=(fst ::pi.addr.val.path)},
       {initialAtom:= pi.addr.val.initialAtom, path:=(snd ::pi.addr.val.path)})
@@ -472,9 +479,13 @@ section Triggers
 
     def appears_in_forest {fs: FactSet sig} (pi: LinearRuleTrigger fs rs) (g: Forest fs rs): Prop := pi.addr.val ∈ g.f
 
+    -- TODO for Laila: If you want, you can instantiate the Membership typeclass for triggers and forests to be able to write: pi ∈ g and define this to be pi.appears_in_forest g
+
     def isActive_in_forest {fs: FactSet sig} (pi:LinearRuleTrigger fs rs) (g: Forest fs rs) : Prop :=
       pi.appears_in_forest g ∧ ¬ (pi.apply.fst ∈ g.f ∧ pi.apply.snd ∈ g.f)
 
+    -- TODO for Laila: Check if tbe condition g.subforest_of (oblivious_chase fs rs) is really necessary. Maybe we can just define this for arbitrary forests g. But maybe the condition is needed to resolve the sorries...
+    -- TODO for Laila: Also, usually it is more convenient to split a conjunction in front of a -> simply to multiple conditions separated by ->
     def blockingTeam {fs: FactSet sig} (blocker: (Address fs rs) × (Address fs rs)) (g:  Forest fs rs) (pi: LinearRuleTrigger fs rs): Prop :=
       g.subforest_of (oblivious_chase fs rs) ∧ blocker.fst ∈ g.f ∧ blocker.snd ∈ g.f ∧ pi.appears_in_forest g ->
       ∃ h: GroundTermMapping sig, h.applyFact (Option.get (labellingFunction pi.addr.val) pi.addr.property) = labellingFunction pi.addr.val
