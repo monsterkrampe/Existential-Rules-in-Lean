@@ -2,7 +2,7 @@ import ExistentialRules.Triggers.Basic
 
 structure LaxObsoletenessCondition (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] where
   cond : PreTrigger sig -> FactSet sig -> Prop
-  monotone : ∀ trg (A B : FactSet sig), A ⊆ B -> cond trg A -> cond trg B
+  monotone : ∀ {trg} {A B : FactSet sig}, A ⊆ B -> cond trg A -> cond trg B
 
 structure ObsoletenessCondition (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] extends LaxObsoletenessCondition sig where
   cond_implies_trg_is_satisfied : cond trg fs -> trg.satisfied fs

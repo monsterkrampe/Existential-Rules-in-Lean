@@ -167,6 +167,13 @@ namespace PreTrigger
   def fresh_terms_for_head_disjunct (trg : PreTrigger sig) (i : Nat) (lt : i < trg.rule.head.length) : List (GroundTerm sig) :=
     (trg.rule.existential_vars_for_head_disjunct i lt).map (trg.functional_term_for_var i)
 
+  theorem term_functional_of_mem_fresh_terms {trg : PreTrigger sig} {i : Nat} {lt : i < trg.rule.head.length} :
+      ∀ t ∈ trg.fresh_terms_for_head_disjunct i lt, ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok := by
+    intro t t_mem
+    simp only [fresh_terms_for_head_disjunct, List.mem_map, functional_term_for_var] at t_mem
+    rcases t_mem with ⟨_, _, t_mem⟩
+    exact ⟨_, _, _, Eq.symm t_mem⟩
+
   def atom_for_result_fact (trg : PreTrigger sig) {f : Fact sig} (i : Fin trg.mapped_head.length)
       (f_mem : f ∈ trg.mapped_head[i.val]) : FunctionFreeAtom sig :=
     let j := trg.mapped_head[i.val].idxOf f

@@ -13,5 +13,5 @@ rev = "main"
 [[require]]
 name = "PossiblyInfiniteTrees"
 git = "https://github.com/monsterkrampe/Possibly-Infinite-Trees.git"
-rev = "main"
+rev = "recursors-for-properties-of-list-members"
 
