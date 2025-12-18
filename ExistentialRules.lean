@@ -5,6 +5,7 @@ import ExistentialRules.AtomsAndFacts.Basic
 import ExistentialRules.AtomsAndFacts.SubstitutionsAndHomomorphisms
 import ExistentialRules.ChaseSequence.ChaseNode
 import ExistentialRules.ChaseSequence.ChaseBranch
+import ExistentialRules.ChaseSequence.ChaseDerivation
 import ExistentialRules.ChaseSequence.ChaseTree
 import ExistentialRules.ChaseSequence.Universality
 import ExistentialRules.ChaseSequence.Deterministic
