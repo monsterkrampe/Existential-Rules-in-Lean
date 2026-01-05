@@ -14,6 +14,7 @@ import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts
 import ExistentialRules.ChaseSequence.Termination.ConstantMappings
 import ExistentialRules.ChaseSequence.Termination.MfaLike
 import ExistentialRules.ChaseSequence.Termination.RenameConstantsApart
+import ExistentialRules.ChaseSequence.TreeDerivation
 import ExistentialRules.Models.Basic
 import ExistentialRules.Models.Cores
 import ExistentialRules.Terms.Basic
