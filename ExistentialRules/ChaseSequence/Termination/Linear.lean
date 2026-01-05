@@ -517,10 +517,18 @@ section TriggersAndChaseDerivation
       ∧ h.applyFact (labelling_of_apply pi.val).fst = Option.get (labellingFunction b1.val) (by apply forest_addr_label_some; exact g_sub)
       ∧ h.applyFact (labelling_of_apply pi.val).snd = Option.get (labellingFunction b2.val) (by apply forest_addr_label_some; exact g_sub)
       ∧ h.isHomomorphism fs fs --Frage: ist diese Bedingung hinreichend & notwendig?
+      -- Antwort: Ich glaube es genügt in der letzten Zeile zu fordern, dass `h.isIdOnConstants` gilt. Ehrlicherweise scheint diese Bedingung im Paper bei der Homomorphismen Definition zu fehlen.
+      -- Alternativ könnte man die Bedingungen so schreiben:
+      /- ∃ h: GroundTermMapping sig, h.applyFact (Option.get (labellingFunction pi.val.addr.val) pi.val.addr.property) = Option.get (labellingFunction pi.val.addr.val) pi.val.addr.property -/
+      /- ∧ h.isHomomorphism (labelling_of_apply pi.val).fst (Option.get (labellingFunction b1.val) (by apply forest_addr_label_some; exact g_sub)) -/
+      /- ∧ h.isHomomorphism (labelling_of_apply pi.val).snd (Option.get (labellingFunction b2.val) (by apply forest_addr_label_some; exact g_sub)) -/
+      -- In der ersten Zeile könnte man wahrscheinlich sogar fordern, dass `h` die Identität auf allen Termen aus (Option.get (labellingFunction pi.val.addr.val) pi.val.addr.property) ist. Das klingt erstmal stärker, ist es aber wahrscheinlich nicht.
+
 
     def is_frontier_position_fst (rule: LinearRule sig)  (i: Nat) (i_valid: i < rule.head.fst.terms.length) : Prop :=
       (rule.head.fst.terms[i]'(by exact i_valid)).isVar -> (rule.head.fst.terms[i]'(by exact i_valid)) ∈ (rule.body.variables.map VarOrConst.var)
     --this would also be needed for head.snd; Or maybe there is an option to combine both cases on one function?
+    -- Lukas: I think it is easier to use when it's separate.
 
     theorem blockingTeam.iff {fs: FactSet sig} {g : Forest fs rs} {g_sub: g.subforest_of (oblivious_chase fs rs)} {b1 b2: forest_Address g} {pi: forest_Trigger g} :
       let b1_label:= Option.get (labellingFunction b1.val) (by apply forest_addr_label_some; exact g_sub)
@@ -590,6 +598,12 @@ section TriggersAndChaseDerivation
 
   end LinearRuleTrigger
 
+    -- Lukas: List ist induktiv definiert und damit immer endlich(!) Das ist nicht offensichtlich, aber wichtig zu wissen.
+    -- Du willst hier wahrscheinlich `PossiblyInfiniteList` benutzen. Das kommt aus einem Repo von mir und orientiert sich an mathlib's `Stream'`. (Du kannst bei `ChaseBranch` abgucken.)
+    -- Außerdem ist es wahrscheinlich möglicherweise nützlich nur die Trigger Sequenz in der Struktur zu halten und die Sequenz aus Forests nur daraus abzuleiten.
+    -- Da wird man aber eine Prästruktur brauchen, wo man erstmal nur die Trigger Sequenz hat, dann da alle möglichen Bedingungen definiert und dann ist die tatsächliche ChaseDerivation eine Struktur bestehend aus der Prästruktur und eben den Bedingungen. (Wahrscheinlich beschränkt sich das im ersten Moment darauf, dass jeder Trigger aktiv sein muss.)
+    -- Bei der ChaseBranch werden Faktenmengen und Trigger gemeinsam in den Elementen der Sequenz gehalten. Falls du denkst, dass das hilfreich ist, wäre das auch hier eine Option. (Nur, dass es hier Trigger und Forests sind.) Ich bin mir nicht mehr sicher, ob ich einen guten Grund hatte das bei der `ChaseBranch` so zu machen oder ob das einfach das erste war, was mir eingefallen ist :D
+    -- Nur die Trigger zu speichern und Fakten/Forests daraus abzuleiten, kommt mir etwas sauberer vor und wenn ich mal Zeit habe, passe ich vielleicht auch die `ChaseBranch` dahingehend an :)
     structure chaseDerivation(fs: FactSet sig) (rs: LinearRuleSet sig) where
       triggers : List (LinearRuleTrigger fs rs)
       forest_seq : List (Forest fs rs)
