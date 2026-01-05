@@ -318,20 +318,25 @@ namespace ChaseDerivation
     | inl suffix => exact suffix
     | inr suffix => rcases suffix with ⟨h, suffix⟩; apply False.elim; apply head_not_mem_tail h; apply mem_of_mem_suffix suffix; exact head_mem
 
+  theorem suffix_of_suffix_of_suffix_of_head_mem {cd cd1 cd2 : ChaseDerivation obs rules} : cd1 <:+ cd -> cd2 <:+ cd -> cd2.head ∈ cd1 -> cd2 <:+ cd1 := by
+    intro suffix1 suffix2 head_mem
+    cases PossiblyInfiniteList.suffix_or_suffix_of_suffix suffix1 suffix2 with
+    | inr suffix => exact suffix
+    | inl suffix => rw [eq_of_suffix_of_head_mem suffix]; exact PossiblyInfiniteList.IsSuffix_refl; exact head_mem
+
   theorem predecessor_trans {cd : ChaseDerivation obs rules} {n1 n2 n3 : Node cd} : n1 ≼ n2 -> n2 ≼ n3 -> n1 ≼ n3 := by
     rintro ⟨cd1, suffix1, head_eq1, prec1⟩ ⟨cd2, suffix2, head_eq2, prec2⟩
     exists cd1; simp only [suffix1, head_eq1, true_and]
     apply mem_of_mem_suffix _ _ prec2
-    cases PossiblyInfiniteList.suffix_or_suffix_of_suffix suffix1 suffix2 with
-    | inr suffix => exact suffix
-    | inl suffix => rw [eq_of_suffix_of_head_mem suffix]; exact PossiblyInfiniteList.IsSuffix_refl; rw [head_eq2]; exact prec1
+    apply suffix_of_suffix_of_suffix_of_head_mem suffix1 suffix2
+    rw [head_eq2]; exact prec1
 
   theorem predecessor_antisymm {cd : ChaseDerivation obs rules} {n1 n2 : Node cd} : n1 ≼ n2 -> n2 ≼ n1 -> n1 = n2 := by
     rintro ⟨cd1, suffix1, head_eq1, prec1⟩ ⟨cd2, suffix2, head_eq2, prec2⟩
     have : cd1 = cd2 := by
-      cases PossiblyInfiniteList.suffix_or_suffix_of_suffix suffix1 suffix2 with
-      | inl suffix => rw [eq_of_suffix_of_head_mem suffix]; rw [head_eq2]; exact prec1
-      | inr suffix => rw [eq_of_suffix_of_head_mem suffix]; rw [head_eq1]; exact prec2
+      apply eq_of_suffix_of_head_mem _ (by rw [head_eq2]; exact prec1)
+      apply suffix_of_suffix_of_suffix_of_head_mem suffix2 suffix1
+      rw [head_eq1]; exact prec2
     apply Subtype.ext
     rw [← head_eq1, ← head_eq2, this]
 
