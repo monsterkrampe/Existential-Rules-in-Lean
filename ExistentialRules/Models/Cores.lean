@@ -460,21 +460,11 @@ namespace GroundTermMapping
   theorem repeat_hom_id_on_const (h : GroundTermMapping sig) (idOnConst : h.isIdOnConstants) : ∀ i, (h.repeat_hom i).isIdOnConstants := by
     intro i
     induction i with
-    | zero => unfold repeat_hom; unfold isIdOnConstants; intro t; split <;> simp
+    | zero => unfold repeat_hom; intro c; simp
     | succ i ih =>
-      intro t
-      cases eq : t with
-      | func _ _ => simp [GroundTerm.func]
-      | const c =>
-        simp only [GroundTerm.const]
-        unfold repeat_hom
-        rw [Function.comp_apply]
-        have := GroundTermMapping.apply_constant_is_id_of_isIdOnConstants ih c
-        unfold GroundTerm.const at this
-        rw [this]
-        have := GroundTermMapping.apply_constant_is_id_of_isIdOnConstants idOnConst c
-        unfold GroundTerm.const at this
-        rw [this]
+      intro c
+      unfold repeat_hom
+      rw [Function.comp_apply, ih, idOnConst]
 
   variable [DecidableEq sig.P]
 
@@ -745,26 +735,17 @@ namespace FactSet
       constructor
       . exact inv_id
       . constructor
-        . intro t
-          cases eq : t with
-          | func _ _ => simp [GroundTerm.func]
-          | const c =>
-            simp only [GroundTerm.const]
-            unfold inv
-            cases Classical.em (GroundTerm.const c ∈ sc.terms) with
-            | inr n_mem => unfold GroundTerm.const at n_mem; simp [n_mem]
-            | inl mem =>
-              unfold GroundTerm.const at mem
-              simp [mem]
-              have spec := Classical.choose_spec (sc_strong.right.right (GroundTerm.const c) mem)
-              apply sc_strong.right.left
-              . exact spec.left
-              . exact mem
-              . rw [spec.right]
-                have := h_fs_sc_hom.left (GroundTerm.const c)
-                simp only [GroundTerm.const] at this
-                rw [this]
-                simp [GroundTerm.const]
+        . intro c
+          unfold inv
+          cases Classical.em (GroundTerm.const c ∈ sc.terms) with
+          | inr n_mem => simp [n_mem]
+          | inl mem =>
+            simp only [mem, ↓reduceDIte]
+            have spec := Classical.choose_spec (sc_strong.right.right (GroundTerm.const c) mem)
+            apply sc_strong.right.left
+            . exact spec.left
+            . exact mem
+            . rw [spec.right, h_fs_sc_hom.left]
         . intro f f_mem
           rcases f_mem with ⟨f', f'_mem, f_eq⟩
           have strong := sc_strong.left
@@ -807,7 +788,7 @@ namespace FactSet
         intro t t_mem
         rcases (prop t t_mem) with ⟨c, t_eq⟩
         rw [t_eq]
-        rw [h_fs_sc_hom.left (GroundTerm.const c)]
+        exact h_fs_sc_hom.left
       rw [← this]
       apply h_fs_sc_hom.right
       apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set

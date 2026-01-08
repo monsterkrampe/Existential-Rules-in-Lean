@@ -379,6 +379,8 @@ namespace TreeDerivation
     simp only [childNodes_as_NodesWithAddress, List.getElem_map, List.getElem_attach]
     rw [List.zipIdx_with_lt_getElem_fst_eq_getElem]
 
+  theorem node_getElem_childNodes_as_nodesWithAddress {td : TreeDerivation obs rules} : ∀ i (lt : i < td.childNodes_as_NodesWithAddress.length), td.childNodes_as_NodesWithAddress[i].node = td.childNodes[i]'(by rw [← length_childNodes_as_Nodes]; exact lt) := by simp [childNodes_as_NodesWithAddress_eq_childNodes]
+
   theorem mem_childNodes_of_mem_childNodes_as_NodesWithAddress {td : TreeDerivation obs rules} : ∀ {n}, n ∈ td.childNodes_as_NodesWithAddress -> n.node ∈ td.childNodes := by
     intro n n_mem; rw [childNodes_as_NodesWithAddress_eq_childNodes]; apply List.mem_map_of_mem; exact n_mem
 
@@ -388,6 +390,20 @@ namespace TreeDerivation
     apply List.ext_getElem
     . simp
     . intro i _ _; simp [derivation_for_suffix, root]
+
+  theorem subderivation_mem_childTrees_of_mem_childNodes_as_NodesWithAddress {td : TreeDerivation obs rules} {node : NodeWithAddress td} :
+      node ∈ td.childNodes_as_NodesWithAddress -> (td.subderivation_for_NodeWithAddress node) ∈ td.childTrees := by
+    intro node_mem
+    simp only [childNodes_as_NodesWithAddress, List.mem_map, List.mem_attach, true_and] at node_mem
+    rcases node_mem with ⟨⟨node_with_idx, node_mem⟩, node_eq⟩
+    rw [List.mem_zipIdx_with_lt_iff_mem_zipIdx] at node_mem
+    have node_mem := List.mem_zipIdx' node_mem
+    have : subderivation_for_NodeWithAddress node = td.childTrees[node_with_idx.snd.val]'(by have lt := node_with_idx.snd.isLt; simp only [childNodes_eq, List.length_map] at lt; exact lt) := by
+      simp only [childTrees, List.getElem_map, List.getElem_attach, FiniteDegreeTree.get_childTrees]
+      simp only [subderivation_for_NodeWithAddress]
+      rw [← node_eq]
+    rw [this]
+    apply List.getElem_mem
 
   theorem mem_of_mem_childNodes {td : TreeDerivation obs rules} : ∀ n ∈ td.childNodes, n ∈ td := FiniteDegreeTree.mem_of_mem_childNodes
 

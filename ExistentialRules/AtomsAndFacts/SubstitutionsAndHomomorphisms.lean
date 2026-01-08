@@ -163,18 +163,13 @@ namespace GroundTermMapping
 
   variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
 
-  def isIdOnConstants (h : GroundTermMapping sig) : Prop :=
-    ∀ (t : GroundTerm sig), match t with
-    | .const _ => h t = t
-    | _ => True
+  def isIdOnConstants (h : GroundTermMapping sig) : Prop := ∀ {c}, h (.const c) = .const c
 
   theorem apply_constant_is_id_of_isIdOnConstants {h : GroundTermMapping sig} (isId : h.isIdOnConstants) (c : sig.C) :
-      h (GroundTerm.const c) = GroundTerm.const c :=
-    isId (GroundTerm.const c)
+      h (GroundTerm.const c) = GroundTerm.const c := isId
 
   variable [DecidableEq sig.P]
 
-  -- TODO: should be snake case
   abbrev applyFact (h : GroundTermMapping sig) : Fact sig -> Fact sig := h.apply_generalized_atom
 
   abbrev applyFactSet (h : GroundTermMapping sig) : FactSet sig -> FactSet sig := h.apply_generalized_atom_set
@@ -186,17 +181,8 @@ namespace GroundTermMapping
       g.isHomomorphism A B -> h.isHomomorphism B C -> isHomomorphism (h ∘ g) A C := by
     intro g_hom h_hom
     constructor
-    . intro t
-      cases eq : t with
-      | func _ _ => simp [GroundTerm.func]
-      | const c =>
-        simp only [GroundTerm.const, Function.comp_apply]
-        have g_const := g_hom.left t
-        simp only [eq, GroundTerm.const] at g_const
-        rw [g_const]
-        have h_const := h_hom.left t
-        simp only [eq, GroundTerm.const] at h_const
-        rw [h_const]
+    . intro c
+      rw [Function.comp_apply, g_hom.left, h_hom.left]
     . unfold applyFactSet
       rw [TermMapping.apply_generalized_atom_set_compose]
       intro f f_mem_compose
@@ -232,7 +218,7 @@ section GroundSubstitutionInteractionWithGroundTermMapping
     intro voc
     apply apply_var_or_const_compose
     intro d _
-    rw [id_on_const (GroundTerm.const d)]
+    exact id_on_const
 
   variable [DecidableEq sig.P]
 
@@ -257,7 +243,7 @@ section GroundSubstitutionInteractionWithGroundTermMapping
     intro a
     apply apply_function_free_atom_compose
     intro d _
-    rw [id_on_const (GroundTerm.const d)]
+    exact id_on_const
 
 end GroundSubstitutionInteractionWithGroundTermMapping
 

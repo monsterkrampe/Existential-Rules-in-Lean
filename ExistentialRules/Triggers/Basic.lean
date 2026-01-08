@@ -174,6 +174,37 @@ namespace PreTrigger
     rcases t_mem with ⟨_, _, t_mem⟩
     exact ⟨_, _, _, Eq.symm t_mem⟩
 
+  def existential_var_for_fresh_term (trg : PreTrigger sig) (i : Nat) (lt : i < trg.rule.head.length) (t : GroundTerm sig) (t_mem : t ∈ trg.fresh_terms_for_head_disjunct i lt) : sig.V :=
+    ((trg.rule.existential_vars_for_head_disjunct i lt).find? (fun v => trg.functional_term_for_var i v = t)).get (by
+      simp only [List.find?_isSome, decide_eq_true_eq]
+      simp only [fresh_terms_for_head_disjunct, List.mem_map] at t_mem
+      exact t_mem)
+
+  theorem existential_var_for_fresh_term_after_functional_term_for_var
+      {trg : PreTrigger sig}
+      {i : Nat}
+      (lt : i < trg.rule.head.length)
+      {v : sig.V}
+      (v_mem : v ∈ trg.rule.existential_vars_for_head_disjunct i lt) :
+      trg.existential_var_for_fresh_term i lt (trg.functional_term_for_var i v) (List.mem_map_of_mem v_mem) = v := by
+    simp only [existential_var_for_fresh_term]
+    apply Option.get_of_eq_some
+    simp only [List.find?_eq_some_iff_getElem, decide_eq_true_eq, true_and]
+    let j := (trg.rule.existential_vars_for_head_disjunct i lt).idxOf v
+    exists j, (List.idxOf_lt_length_of_mem v_mem)
+    constructor
+    . rw [List.getElem_idxOf_of_mem v_mem]
+    . intro k k_lt
+      simp only [j, List.idxOf] at k_lt
+      rw [List.lt_findIdx_iff] at k_lt
+      rcases k_lt with ⟨_, k_lt⟩
+      specialize k_lt k (by simp)
+      rw [beq_eq_false_iff_ne] at k_lt
+      simp only [not_decide_eq_true, functional_term_for_var, GroundTerm.func, Subtype.mk.injEq, FiniteTree.inner.injEq, and_true, SkolemFS.mk.injEq, true_and]
+      intro contra
+      apply k_lt
+      rw [contra]
+
   def atom_for_result_fact (trg : PreTrigger sig) {f : Fact sig} (i : Fin trg.mapped_head.length)
       (f_mem : f ∈ trg.mapped_head[i.val]) : FunctionFreeAtom sig :=
     let j := trg.mapped_head[i.val].idxOf f
