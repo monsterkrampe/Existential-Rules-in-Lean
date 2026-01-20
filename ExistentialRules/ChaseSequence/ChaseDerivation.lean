@@ -127,7 +127,7 @@ namespace ChaseDerivation
     . simp only [derivation_for_branch_suffix, head, PossiblyInfiniteList.head_drop, PossiblyInfiniteList.get?, node_mem, Option.get_some]
     . exact cd.branch.IsSuffix_drop n
 
-  def Node (cd : ChaseDerivation obs rules) := { node : ChaseNode obs rules // node ∈ cd}
+  abbrev Node (cd : ChaseDerivation obs rules) := { node : ChaseNode obs rules // node ∈ cd}
 
   def Node.cast_suffix {cd cd2 : ChaseDerivation obs rules} (suffix : cd <:+ cd2) (node : Node cd) : Node cd2 := ⟨node.val, mem_of_mem_suffix suffix _ node.property⟩
 
@@ -457,15 +457,6 @@ namespace ChaseDerivation
     intro trg trg_loaded
     apply cd.facts_mem_some_node_of_mem_result
     exact trg_loaded
-
-  theorem trg_active_for_some_node_of_trg_active_for_result {cd : ChaseDerivation obs rules} : ∀ trg : Trigger obs, trg.active cd.result -> ∃ node ∈ cd, trg.active node.facts := by
-    intro trg trg_active
-    rcases cd.trg_loaded_for_some_node_of_trg_loaded_for_result trg trg_active.left with ⟨node, node_mem, loaded_node⟩
-    exists node; simp only [node_mem, true_and]
-    constructor; exact loaded_node
-    intro contra
-    apply trg_active.right
-    exact obs.monotone (cd.facts_node_subset_result _ node_mem) contra
 
   theorem result_models_rules {cd : ChaseDerivation obs rules} : cd.result.modelsRules rules := by
     intro r r_mem subs subs_loaded
