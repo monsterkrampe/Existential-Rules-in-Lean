@@ -202,6 +202,9 @@ namespace TreeDerivation
   def branches (td : TreeDerivation obs rules) : Set (ChaseDerivation obs rules) := fun branch =>
     branch.branch ∈ td.tree.branches
 
+  theorem derivation_for_branch_mem_branches {td : TreeDerivation obs rules} {branch : PossiblyInfiniteList (ChaseNode obs rules)} {branch_mem : branch ∈ td.tree.branches} :
+    td.derivation_for_branch branch branch_mem ∈ td.branches := branch_mem
+
   def result (td : TreeDerivation obs rules) : Set (FactSet sig) := fun fs => ∃ branch, branch ∈ td.branches ∧ branch.result = fs
 
   -- inspired by List.IsSuffix; see https://github.com/leanprover/lean4/blob/9d4ad1273f6cea397c3066c2c83062a4410d16bf/src/Init/Data/List/Basic.lean#L1205
