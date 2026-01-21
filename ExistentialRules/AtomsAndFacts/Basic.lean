@@ -494,6 +494,23 @@ namespace FactSet
     . intro t t_mem
       exists f
 
+  theorem list_of_facts_for_list_of_terms {ts : List (GroundTerm sig)} {fs : FactSet sig} (ts_sub : ts.toSet ⊆ fs.terms) :
+      ∃ (l : List (Fact sig)), l.toSet ⊆ fs ∧ ts ⊆ l.flatMap GeneralizedAtom.terms := by
+    induction ts with
+    | nil => exists []; constructor; intro _ mem; simp [List.mem_toSet] at mem; simp
+    | cons t ts ih =>
+      rcases (ts_sub t (by simp [List.mem_toSet])) with ⟨f, f_mem, t_mem⟩
+      rcases ih (by intro _ mem; rw [List.mem_toSet] at mem; apply ts_sub; simp [List.mem_toSet, mem]) with ⟨l, l_sub, ts_sub⟩
+      exists (f :: l); constructor
+      . intro _ mem; rw [List.mem_toSet, List.mem_cons] at mem
+        cases mem with
+        | inl mem => rw [mem]; exact f_mem
+        | inr mem => apply l_sub; rw [List.mem_toSet]; exact mem
+      . intro s; rw [List.mem_cons, List.flatMap_cons, List.mem_append]
+        intro s_mem; cases s_mem with
+        | inl s_mem => apply Or.inl; rw [s_mem]; exact t_mem
+        | inr s_mem => apply Or.inr; apply ts_sub; exact s_mem
+
 end FactSet
 
 namespace Database

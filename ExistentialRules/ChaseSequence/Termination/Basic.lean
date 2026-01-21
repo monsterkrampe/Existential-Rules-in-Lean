@@ -42,10 +42,10 @@ section GeneralResults
             let node : cd.Node := ⟨node, by exists n⟩
             exists node
             intro node2
+            -- TODO: Maybe it helps that ≼ is total here but this is tricky since right now we depend on the specific d1..
             let d1 := cd.derivation_for_branch_suffix (cd.branch.drop n) (cd.branch.IsSuffix_drop n) (by rw [PossiblyInfiniteList.head_drop]; simp [eq])
             have head_eq1 : d1.head = node.val := by simp [d1, derivation_for_branch_suffix, head, PossiblyInfiniteList.head_drop, eq, node]
             have suf1 : d1 <:+ cd := (cd.branch.IsSuffix_drop n)
-            -- TODO: show instead that ≼ is total
             rcases subderivation_of_node_mem node2.property with ⟨d2, head_eq2, suf2⟩
             cases PossiblyInfiniteList.suffix_or_suffix_of_suffix suf1 suf2 with
             | inl suf3 => exists d2; simp only [suf2, head_eq2, true_and]; apply d1.mem_of_mem_suffix suf3; rw [← head_eq1]; exact d1.head_mem
@@ -104,39 +104,17 @@ section GeneralResults
         rcases cb.facts_mem_some_node_of_mem_result l (by intro _ mem; rw [List.mem_toSet, l_eq] at mem; exact mem) with ⟨node, node_mem, l_sub⟩
         exists ⟨node, node_mem⟩
         intro node2
-        -- TODO: show instead that ≼ is total
-        rcases cb.subderivation_of_node_mem node_mem with ⟨d1, head_eq1, suf1⟩
-        rcases cb.subderivation_of_node_mem node2.property with ⟨d2, head_eq2, suf2⟩
-        cases PossiblyInfiniteList.suffix_or_suffix_of_suffix suf1 suf2 with
-        | inl suf3 => exists d2; simp only [suf2, head_eq2, true_and]; apply d1.mem_of_mem_suffix suf3; rw [← head_eq1]; exact d1.head_mem
-        | inr suf3 =>
-          cases ChaseDerivation.suffix_iff_eq_or_suffix_tail.mp suf3 with
-          | inl suf3 =>
-            have : ⟨node, node_mem⟩ = node2 := by rw [Subtype.mk.injEq, ← head_eq2, suf3, head_eq1]
-            rw [this]
-            exact ChaseDerivation.predecessor_refl
-          | inr suf3 =>
-            rcases suf3 with ⟨contra, suf3⟩
-            apply False.elim
-            rw [Option.isSome_iff_exists] at contra
-            rcases contra with ⟨next, contra⟩
-            have active := d1.active_trigger_origin_next contra
-            apply active.right
-            apply ObsoletenessCondition.contains_trg_result_implies_cond
-            have : next.facts ⊆ d1.head.facts := by
-              have : ⟨next, d1.next_mem_of_mem _ contra⟩ ≼ ⟨node2.val, by apply ChaseDerivation.mem_of_mem_suffix (d2.branch.IsSuffix_trans suf3 d1.branch.IsSuffix_tail); rw [← head_eq2]; exact d2.head_mem⟩ := by
-                exists d1.tail (by simp [contra])
-                constructor
-                . exact PossiblyInfiniteList.IsSuffix_tail
-                constructor
-                . simp [d1.head_tail', contra]
-                . apply ChaseDerivation.mem_of_mem_suffix suf3; rw [← head_eq2]; exact d2.head_mem
-              apply Set.subset_trans (d1.facts_node_subset_of_prec this)
-              apply Set.subset_trans (cb.facts_node_subset_result _ node2.property)
-              rw [head_eq1]
-              apply Set.subset_trans _ l_sub
-              intro _ mem; rw [List.mem_toSet, l_eq]; exact mem
-            exact Set.subset_trans (by rw [d1.facts_next contra]; apply Set.subset_union_of_subset_right; apply Set.subset_refl) this
+        cases cb.predecessor_total ⟨node, node_mem⟩ node2 with
+        | inr prec => exact prec
+        | inl prec =>
+          cases cb.eq_or_strict_of_predecessor prec with
+          | inl eq => rw [eq]; apply cb.predecessor_refl
+          | inr prec =>
+            apply False.elim; apply cb.facts_not_subset_of_strict_predecessor prec
+            apply Set.subset_trans _ l_sub
+            intro e e_mem; rw [List.mem_toSet, l_eq]
+            apply (cb.facts_node_subset_result _ node2.property)
+            exact e_mem
 
   end ChaseBranch
 

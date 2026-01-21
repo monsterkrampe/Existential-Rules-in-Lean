@@ -114,6 +114,11 @@ namespace TermMapping
     apply subset
     exact a'_mem
 
+  theorem apply_generalized_atom_set_toSet {g : TermMapping S T} : ∀ l : List (GeneralizedAtom sig S), g.apply_generalized_atom_set l.toSet = (g.apply_generalized_atom_list l).toSet := by
+    intro l; apply Set.ext; intro f; constructor
+    . rintro ⟨f', f'_mem, f_eq⟩; rw [f_eq, List.mem_toSet]; apply List.mem_map_of_mem; rw [← List.mem_toSet]; exact f'_mem
+    . simp only [List.mem_toSet, apply_generalized_atom_list, List.mem_map]; rintro ⟨f', f'_mem, f_eq⟩; rw [← f_eq]; apply apply_generalized_atom_mem_apply_generalized_atom_set; rw [List.mem_toSet]; exact f'_mem
+
 end TermMapping
 
 namespace GroundSubstitution
@@ -174,6 +179,22 @@ namespace GroundTermMapping
 
   abbrev applyFactSet (h : GroundTermMapping sig) : FactSet sig -> FactSet sig := h.apply_generalized_atom_set
 
+  theorem terms_applyFactSet {h : GroundTermMapping sig} {fs : FactSet sig} : (h.applyFactSet fs).terms = fs.terms.map h := by
+    apply Set.ext; intro t
+    constructor
+    . rintro ⟨f, ⟨f', f'_mem, f_eq⟩, t_mem⟩
+      rw [f_eq] at t_mem
+      simp only [TermMapping.apply_generalized_atom, List.mem_map] at t_mem
+      rcases t_mem with ⟨t', t'_mem, t_eq⟩
+      rw [← t_eq]
+      exists t'; simp only [and_true]
+      exists f'
+    . rintro ⟨t', ⟨f', f'_mem, t'_mem⟩, t_eq⟩
+      rw [t_eq]
+      exists h.applyFact f'; constructor
+      . apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set; exact f'_mem
+      . simp only [applyFact, TermMapping.apply_generalized_atom]; apply List.mem_map_of_mem; exact t'_mem
+
   def isHomomorphism (h : GroundTermMapping sig) (A B : FactSet sig) : Prop :=
     isIdOnConstants h ∧ (h.applyFactSet A ⊆ B)
 
@@ -217,7 +238,7 @@ section GroundSubstitutionInteractionWithGroundTermMapping
     apply funext
     intro voc
     apply apply_var_or_const_compose
-    intro d _
+    intros
     exact id_on_const
 
   variable [DecidableEq sig.P]
@@ -242,7 +263,26 @@ section GroundSubstitutionInteractionWithGroundTermMapping
     apply funext
     intro a
     apply apply_function_free_atom_compose
-    intro d _
+    intros
+    exact id_on_const
+
+  theorem GroundSubstitution.apply_function_free_conj_compose (s : GroundSubstitution sig) (h : GroundTermMapping sig) :
+      ∀ (ffc : FunctionFreeConjunction sig), (∀ d ∈ ffc.consts, h (GroundTerm.const d) = GroundTerm.const d) -> GroundSubstitution.apply_function_free_conj (h ∘ s) ffc = h.apply_generalized_atom_list (s.apply_function_free_conj ffc) := by
+    intro ffc id_on_const
+    unfold GroundSubstitution.apply_function_free_conj TermMapping.apply_generalized_atom_list
+    rw [List.map_map]
+    apply List.map_congr_left
+    intro f f_mem
+    rw [← apply_function_free_atom.eq_def, apply_function_free_atom_compose]
+    . rfl
+    . intro d d_mem; apply id_on_const; simp only [FunctionFreeConjunction.consts, List.mem_flatMap]; exists f
+
+  theorem GroundSubstitution.apply_function_free_conj_compose_of_isIdOnConstants (s : GroundSubstitution sig) (h : GroundTermMapping sig) (id_on_const : h.isIdOnConstants) :
+      GroundSubstitution.apply_function_free_conj (h ∘ s) = h.apply_generalized_atom_list ∘ s.apply_function_free_conj := by
+    apply funext
+    intro ffc
+    apply apply_function_free_conj_compose
+    intros
     exact id_on_const
 
 end GroundSubstitutionInteractionWithGroundTermMapping

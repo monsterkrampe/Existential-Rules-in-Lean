@@ -1,3 +1,4 @@
+import BasicLeanDatastructures.Nat
 import PossiblyInfiniteTrees.PossiblyInfiniteList.PossiblyInfiniteList
 
 import ExistentialRules.Models.Basic
@@ -214,6 +215,14 @@ namespace ChaseDerivation
     simp only [Option.some_get]
   theorem head_tail' {cd : ChaseDerivation obs rules} {next_some : cd.next.isSome} : (cd.tail next_some).head = cd.next.get next_some := by rfl
 
+  theorem next_mem_tail {cd : ChaseDerivation obs rules} {next_some : cd.next.isSome} : ∀ next ∈ cd.next, next ∈ cd.tail next_some := by
+    intro next next_mem
+    have : next = cd.next.get next_some := by
+      conv => right; left; rw [next_mem]
+      simp
+    rw [this, ← head_tail']
+    exact head_mem
+
   theorem suffix_iff_eq_or_suffix_tail {cd1 cd2 : ChaseDerivation obs rules} : cd1 <:+ cd2 ↔ cd1 = cd2 ∨ ∃ h, cd1 <:+ cd2.tail h := by
     -- TODO: maybe we should extract a result like this to InfiniteList directly
     constructor
@@ -278,6 +287,23 @@ namespace ChaseDerivation
       simp only [← next_eq]
       apply head_mem
 
+  theorem mem_iff_eq_head_or_mem_tail {cd : ChaseDerivation obs rules} {node : ChaseNode obs rules} : node ∈ cd ↔ node = cd.head ∨ ∃ h, node ∈ cd.tail h := by
+    constructor
+    . rintro ⟨n, mem⟩
+      cases n with
+      | zero => apply Or.inl; simp [head, PossiblyInfiniteList.head, InfiniteList.head, mem]
+      | succ n =>
+        apply Or.inr;
+        exists (by
+          rw [Option.isSome_iff_ne_none]; intro contra; simp only [next, PossiblyInfiniteList.head_eq, PossiblyInfiniteList.get?_tail] at contra
+          have := cd.branch.get?_eq_none_of_le_of_eq_none contra n.succ (by simp)
+          simp only [PossiblyInfiniteList.get?] at this; rw [this] at mem
+          simp at mem)
+        exists n
+    . intro or; cases or with
+      | inl eq_head => rw [eq_head]; exact cd.head_mem
+      | inr mem_tail => rcases mem_tail with ⟨_, mem_tail⟩; apply mem_of_mem_suffix _ _ mem_tail; exact cd.branch.IsSuffix_tail
+
   theorem facts_node_subset_every_mem {cd : ChaseDerivation obs rules} : ∀ node ∈ cd, cd.head.facts ⊆ node.facts := by
     intro node node_mem
     let node' : cd.Node := ⟨node, node_mem⟩
@@ -339,6 +365,13 @@ namespace ChaseDerivation
       rw [head_eq1]; exact prec2
     apply Subtype.ext
     rw [← head_eq1, ← head_eq2, this]
+
+  theorem predecessor_total {cd : ChaseDerivation obs rules} (n1 n2 : Node cd) : n1 ≼ n2 ∨ n2 ≼ n1 := by
+    rcases cd.subderivation_of_node_mem n1.property with ⟨cd1, head1, suf1⟩
+    rcases cd.subderivation_of_node_mem n2.property with ⟨cd2, head2, suf2⟩
+    cases PossiblyInfiniteList.suffix_or_suffix_of_suffix suf1 suf2 with
+    | inl suffix => apply Or.inr; exists cd2; simp only [suf2, head2, true_and]; apply cd1.mem_of_mem_suffix; exact suffix; rw [← head1]; exact cd1.head_mem
+    | inr suffix => apply Or.inl; exists cd1; simp only [suf1, head1, true_and]; apply cd2.mem_of_mem_suffix; exact suffix; rw [← head2]; exact cd2.head_mem
 
   theorem mem_suffix_of_mem {cd1 cd2 : ChaseDerivation obs rules} (suffix : cd1 <:+ cd2) : ∀ node ∈ cd2, node.facts ⊆ cd1.head.facts ∨ node ∈ cd1 := by
     intro node node_mem
@@ -582,4 +615,153 @@ namespace ChaseDerivation
       exact this
 
 end ChaseDerivation
+
+section StrictPredecessor
+  namespace ChaseDerivation
+
+    variable {obs : ObsoletenessCondition sig} {rules : RuleSet sig}
+
+    theorem node_has_unique_position (cd : ChaseDerivation obs rules) : ∀ node, ∀ i j, i < j -> cd.branch.get? i = some node -> cd.branch.get? j ≠ some node := by
+      intro node i j lt eq_i eq_j
+      have le := Nat.le_pred_of_lt lt
+      let cd2 := cd.derivation_for_branch_suffix (cd.branch.drop j.pred) (PossiblyInfiniteList.IsSuffix_drop j.pred) (by
+        rw [Option.isSome_iff_ne_none]; intro contra
+        have := cd.branch.no_holes' j.pred contra
+        rw [Nat.succ_pred (Nat.ne_zero_of_lt lt)] at this
+        rw [eq_j] at this
+        simp at this
+      )
+      have next_eq : cd2.next = some node := by
+        simp only [next, cd2, derivation_for_branch_suffix, PossiblyInfiniteList.tail_drop, PossiblyInfiniteList.head_drop]
+        rw [Nat.succ_pred (Nat.ne_zero_of_lt lt)]
+        exact eq_j
+      apply (cd2.active_trigger_origin_next next_eq).right
+      apply obs.contains_trg_result_implies_cond
+      have sub : node.facts ⊆ cd2.head.facts := by
+        let node : cd.Node := ⟨node, by exists i⟩
+        let node2 : cd.Node := ⟨cd2.head, by exists j.pred; simp only [cd2, derivation_for_branch_suffix, head, Option.some_get, PossiblyInfiniteList.head_drop]; rfl⟩
+        have prec : node ≼ node2 := by
+          exists cd.derivation_for_branch_suffix (cd.branch.drop i) (PossiblyInfiniteList.IsSuffix_drop i) (by simp [PossiblyInfiniteList.head_drop, eq_i])
+          simp only [derivation_for_branch_suffix, head, PossiblyInfiniteList.head_drop]
+          constructor; exact PossiblyInfiniteList.IsSuffix_drop i
+          constructor; simp [eq_i, node]
+          apply mem_of_mem_suffix (cd1 := cd2) _ _ cd2.head_mem
+          exists j.pred - i
+          simp only [cd2, derivation_for_branch_suffix, PossiblyInfiniteList.drop]
+          apply InfiniteList.ext; intro n
+          simp only [InfiniteList.get_drop, ← Nat.add_assoc, Nat.add_sub_of_le le]
+        exact cd.facts_node_subset_of_prec prec
+      exact Set.subset_trans (by have := node.facts_contain_origin_result; rw [Option.is_none_or_iff] at this; specialize this (node.origin.get (cd2.isSome_origin_next next_eq)); rw [Option.some_get] at this; apply this; rfl) sub
+
+    theorem get?_branch_injective (cd : ChaseDerivation obs rules) : ∀ node, ∀ i j, cd.branch.get? i = some node -> cd.branch.get? j = some node -> i = j := by
+      intro node i j eq_i eq_j
+      apply Decidable.byContradiction
+      intro ne
+      cases Nat.lt_or_lt_of_ne ne with
+      | inl lt => exact cd.node_has_unique_position node i j lt eq_i eq_j
+      | inr lt => exact cd.node_has_unique_position node j i lt eq_j eq_i
+
+    def strict_predecessor {cd : ChaseDerivation obs rules} (n1 n2 : Node cd) : Prop := n1 ≼ n2 ∧ n1 ≠ n2
+    infixl:50 " ≺ " => strict_predecessor
+
+    theorem strict_predecessor_of_suffix {cd cd2 : ChaseDerivation obs rules} {n1 n2 : Node cd} (suffix : cd <:+ cd2) : n1 ≺ n2 -> (n1.cast_suffix suffix) ≺ (n2.cast_suffix suffix) := by
+      intro prec
+      constructor
+      . apply predecessor_of_suffix suffix; exact prec.left
+      . simp only [Node.cast_suffix]; intro contra; rw [Subtype.mk.injEq] at contra; apply prec.right; rw [Subtype.mk.injEq]; exact contra
+
+    theorem strict_predecessor_irreflexive {cd : ChaseDerivation obs rules} {n : Node cd} : ¬ n ≺ n := by intro contra; apply contra.right; rfl
+    theorem strict_predecessor_asymmetric {cd : ChaseDerivation obs rules} {n1 n2 : Node cd} : n1 ≺ n2 -> ¬ n2 ≺ n1 := by
+      intro prec contra; apply prec.right; apply predecessor_antisymm prec.left contra.left
+    theorem strict_predecessor_trans {cd : ChaseDerivation obs rules} {n1 n2 n3 : Node cd} : n1 ≺ n2 -> n2 ≺ n3 -> n1 ≺ n3 := by
+      intro prec1 prec2
+      constructor
+      . apply predecessor_trans prec1.left prec2.left
+      . intro contra
+        apply strict_predecessor_asymmetric prec1
+        rw [contra]
+        exact prec2
+    theorem strict_predecessor_total {cd : ChaseDerivation obs rules} {n1 n2 : Node cd} : n1 ≠ n2 -> n1 ≺ n2 ∨ n2 ≺ n1 := by
+      intro ne
+      cases predecessor_total n1 n2 with
+      | inl prec => apply Or.inl; constructor; exact prec; exact ne
+      | inr prec => apply Or.inr; constructor; exact prec; exact Ne.symm ne
+
+    theorem head_strict_prec_next {cd : ChaseDerivation obs rules} : ∀ {next}, (mem : next ∈ cd.next) -> ⟨cd.head, cd.head_mem⟩ ≺ ⟨next, cd.next_mem_of_mem _ mem⟩ := by
+      intro next next_mem
+      constructor
+      . exact cd.head_prec_next next_mem
+      . intro contra
+        apply cd.head_not_mem_tail (by rw [next_mem]; simp)
+        rw [Subtype.mk.injEq] at contra
+        rw [contra]
+        apply cd.next_mem_tail
+        exact next_mem
+
+    theorem eq_or_strict_of_predecessor {cd : ChaseDerivation obs rules} {n1 n2 : Node cd} : n1 ≼ n2 -> n1 = n2 ∨ n1 ≺ n2 := by
+      intro prec
+      cases Classical.em (n1 = n2) with
+      | inl eq => apply Or.inl; exact eq
+      | inr ne => apply Or.inr; exact ⟨prec, ne⟩
+
+    theorem facts_not_subset_of_strict_predecessor {cd : ChaseDerivation obs rules} {n1 n2 : Node cd} : n1 ≺ n2 -> ¬ n2.val.facts ⊆ n1.val.facts := by
+      intro prec contra
+      rcases prec.left with ⟨d, suf, head, mem⟩
+      rcases cd.subderivation_of_node_mem n2.property with ⟨d2, head2, suf2⟩
+      have suf3 : d2 <:+ d := suffix_of_suffix_of_suffix_of_head_mem suf suf2 (by rw [head2]; exact mem)
+      cases ChaseDerivation.suffix_iff_eq_or_suffix_tail.mp suf3 with
+      | inl suf3 => apply prec.right; rw [Subtype.mk.injEq]; rw [← head2, suf3]; exact Eq.symm head
+      | inr suf3 =>
+        rcases suf3 with ⟨next_some, suf3⟩
+        rw [Option.isSome_iff_exists] at next_some
+        rcases next_some with ⟨next, next_some⟩
+        apply (d.active_trigger_origin_next next_some).right
+        apply ObsoletenessCondition.contains_trg_result_implies_cond
+        have : next.facts ⊆ d.head.facts := by
+          have : ⟨next, d.next_mem_of_mem _ next_some⟩ ≼ ⟨n2.val, by apply ChaseDerivation.mem_of_mem_suffix (d2.branch.IsSuffix_trans suf3 d.branch.IsSuffix_tail); rw [← head2]; exact d2.head_mem⟩ := by
+            exists d.tail (by simp [next_some])
+            constructor
+            . exact PossiblyInfiniteList.IsSuffix_tail
+            constructor
+            . simp [d.head_tail', next_some]
+            . apply ChaseDerivation.mem_of_mem_suffix suf3; rw [← head2]; exact d2.head_mem
+          rw [head]
+          apply Set.subset_trans (d.facts_node_subset_of_prec this)
+          exact contra
+        exact Set.subset_trans (by rw [d.facts_next next_some]; apply Set.subset_union_of_subset_right; apply Set.subset_refl) this
+
+    theorem prop_for_node_has_minimal_such_node {cd : ChaseDerivation obs rules} (prop : cd.Node -> Prop) :
+        ∀ n, prop n -> ∃ n2, prop n2 ∧ ∀ n3, n3 ≺ n2 -> ¬ prop n3 := by
+      let prop' : Nat -> Prop := fun i => ∃ (e : ChaseNode obs rules) (mem : e ∈ cd.branch.get? i), prop ⟨e, by exists i⟩
+      intro n prop_n
+      rcases n.property with ⟨i, n_mem⟩
+      rcases prop_for_nat_has_minimal_such_nat prop' i (by exists n.val, n_mem) with ⟨k, prop_k, not_lt_k⟩
+      rcases prop_k with ⟨n2, n2_mem, prop_n2⟩
+      exists ⟨n2, by exists k⟩, prop_n2
+      intro n3 prec contra
+      rcases n3.property with ⟨j, n3_mem⟩
+      apply not_lt_k ⟨j, by
+        apply Decidable.byContradiction
+        intro le; simp only [Nat.not_lt] at le
+        apply strict_predecessor_asymmetric prec
+        constructor
+        . have n2_mem' : n2 ∈ cd := by exists k
+          rcases cd.subderivation_of_node_mem n2_mem' with ⟨cd2, head2, suf2⟩
+          exists cd2; simp only [suf2, head2, true_and]
+          exists j - k
+          rcases suf2 with ⟨k', suf2⟩
+          have : k' = k := by
+            apply cd.get?_branch_injective n2
+            . rw [← head2]
+              simp only [head, Option.some_get, PossiblyInfiniteList.head]
+              rw [← suf2]
+              rfl
+            . exact n2_mem
+          rw [← suf2, this, InfiniteList.get_drop, Nat.add_sub_of_le le]
+          exact n3_mem
+        . exact Ne.symm prec.right⟩
+      exists n3.val, n3_mem
+
+  end ChaseDerivation
+end StrictPredecessor
 
