@@ -381,54 +381,44 @@ section SubstitutionsAndTriggers
     rw[ruleApply_eq]
     simp
 
-  theorem ruleApply_frontierPos {rule : LinearRule sig} {fact : Fact sig} {i j: Nat} (i_valid: i < rule.head.fst.terms.length) (h_frontier : is_frontier_position_fst rule i i_valid):
+  theorem ruleApply_frontierPos {rule : LinearRule sig} {fact : Fact sig} {i : Nat} (i_valid: i < rule.head.fst.terms.length) (h_frontier : is_frontier_position_fst rule i i_valid):
      (isSome: (ruleApply rule fact).isSome) ->
-    ∃ j: Nat, ∃ (j_valid: j < fact.terms.length), ((ruleApply rule fact).get isSome).fst.terms[i]'(by sorry) = fact.terms[j]:= by
+    ∃ j: Nat, ∃ (j_valid: j < fact.terms.length), ((ruleApply rule fact).get isSome).fst.terms[i]'(by
+      have trg_some : (PreTrigger.from_rule_and_fact rule fact).isSome := by apply ruleApply.some_implies; simp[isSome]
+      rw[Option.isSome_iff_exists] at trg_some
+      rcases trg_some with ⟨trg, trg_some⟩
+      simp only [ruleApply_eq, trg_some, Option.map_some, Option.get_some]
+      simp only [PreTrigger.apply_to_function_free_atom, TermMapping.apply_generalized_atom, List.length_map]
+      exact i_valid
+    ) = fact.terms[j]:= by
     intro isSome
+    rcases frontier_pos_body h_frontier with ⟨j, j_valid, h_frontier'⟩
+
     have trg_some : (PreTrigger.from_rule_and_fact rule fact).isSome := by apply ruleApply.some_implies; simp[isSome]
     rw[Option.isSome_iff_exists] at trg_some
     rcases trg_some with ⟨trg, trg_some⟩
-    simp[ruleApply_eq]
-    unfold PreTrigger.apply_to_function_free_atom
-    unfold TermMapping.apply_generalized_atom
-    simp
-    have term_eq:= frontier_pos_body h_frontier
-    unfold is_frontier_position_fst at h_frontier
-    rcases h_frontier with ⟨a, h_frontier_left, h_frontier_right⟩
-    simp[h_frontier_left]
-    simp[h_frontier_left] at term_eq
-    rcases term_eq.right with ⟨b, c, d ⟩
-    exists b
-    have len_eq: rule.body.terms.length = fact.terms.length := by sorry
-    rw[len_eq] at c
-    exists c
-    simp[Option.get_of_eq_some, trg_some]
-    rw[PreTrigger.apply_to_var_or_const_frontier_var]
-    --simp[Option.get]
-    --unfold PreTrigger
+    have trg_some' := trg_some
 
     unfold PreTrigger.from_rule_and_fact at trg_some
     simp[Option.map_eq_some_iff] at trg_some
     rcases trg_some with ⟨sub, sub_def, trg_eq⟩
-    rw[← trg_eq]
-    simp
-    --rw[sub_def]
-    let sub_def2 := sub_def
-    simp[Option.eq_some_iff_get_eq] at sub_def
-    rcases sub_def with ⟨x,y ⟩
-    rw[← y]
-    simp[← Option.mem_def] at sub_def2
-    --rw[GroundSubstitution.apply_function_free_atom_from_atom_and_fact] at sub_def
 
     have sub_apply: sub.apply_function_free_atom rule.body = fact := by
       rw[GroundSubstitution.apply_function_free_atom_from_atom_and_fact]
-      exact sub_def2
+      exact sub_def
 
-    unfold GroundSubstitution.apply_function_free_atom TermMapping.apply_generalized_atom  GroundSubstitution.apply_var_or_const at sub_apply
-    unfold List.map at sub_apply
-    sorry
-    sorry
+    exists j, (by simp only [← sub_apply, GroundSubstitution.apply_function_free_atom, TermMapping.apply_generalized_atom, List.length_map]; exact j_valid)
+    conv => right; simp only [← sub_apply, GroundSubstitution.apply_function_free_atom, TermMapping.apply_generalized_atom, List.getElem_map]
+    rw [← h_frontier'.right]
 
+    simp only [ruleApply_eq, trg_some', Option.map_some, Option.get_some]
+
+    simp only [PreTrigger.apply_to_function_free_atom, TermMapping.apply_generalized_atom, List.getElem_map]
+    rcases h_frontier with ⟨v, v_eq, v_front⟩
+    rw [v_eq]
+    rw [PreTrigger.apply_to_var_or_const_frontier_var _ _ _ (by rw [← trg_eq]; exact v_front)]
+    rw [← trg_eq]
+    rfl
 
 end SubstitutionsAndTriggers
 
@@ -661,14 +651,21 @@ section TriggersAndChaseDerivation
            ∀ j, (lt_fst: j < pi.val.rule.val.head.fst.terms.length) -> is_frontier_position_fst pi.val.rule.val j lt_fst ->
            (labelling_of_apply pi.val).fst.terms[j]'(by rw[GeneralizedAtom.arity_ok, ← pred_eq_fst, ← GeneralizedAtom.arity_ok]; simp[lt_fst]) = b1_label.terms[j]'(by rw[GeneralizedAtom.arity_ok, fst_cond.left, ← pred_eq_fst, ← GeneralizedAtom.arity_ok]; simp[lt_fst]) := by
             intro j j_valid
-            unfold b1_label is_frontier_position_fst
+            unfold b1_label
             intro j_frontier_pos
-            rcases j_frontier_pos with ⟨ fr_body_pos, j_frontier_pos ⟩
-            --simp only[labelling_of_apply]
             simp[← a.right.left]
             unfold labelling_of_apply
             simp
-            sorry
+            rcases ruleApply_frontierPos (rule := pi.val.rule.val) (fact := (Option.get (labellingFunction pi.val.addr.val) pi.val.addr.property)) (i := j) j_valid j_frontier_pos (by
+              let lu := Option.get (labellingFunction pi.val.addr.val) pi.val.addr.property
+              have ruleApply_some: (ruleApply pi.val.rule.val lu).isSome := by
+                rw[ruleApply_eq]; simp; unfold PreTrigger.from_rule_and_fact;simp; unfold lu; exact pi.val.hom_exists;
+              exact ruleApply_some) with ⟨k, k_valid, eq⟩
+            rw [eq]
+            have a_left := a.left
+            rw [GeneralizedAtom.mk.injEq] at a_left
+            conv => left; arg 1; rw [← a_left.right]
+            rw [List.getElem_map]
 
           have trd_cond:
           (∀ i j:Nat, (labelling_of_apply pi.val).fst.terms[i]? = (labelling_of_apply pi.val).fst.terms[j]? -> b1_label.terms[i]? = b1_label.terms[j]?)
@@ -699,6 +696,10 @@ section TriggersAndChaseDerivation
           let snd := cond.second
           let trd := cond.third
           unfold GroundTermMapping.applyFact TermMapping.apply_generalized_atom
+
+          /- fun h : GroundTermMapping sig := fun t => -/
+          /-   if t ∈ .. then t else  -/
+          /-     if t ∈ ....fst then b1_label.terms[...fst.indexOf t] -/
 
           sorry
 
