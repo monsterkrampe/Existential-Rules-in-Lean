@@ -373,6 +373,21 @@ namespace ChaseDerivation
     | inl suffix => apply Or.inr; exists cd2; simp only [suf2, head2, true_and]; apply cd1.mem_of_mem_suffix; exact suffix; rw [← head1]; exact cd1.head_mem
     | inr suffix => apply Or.inl; exists cd1; simp only [suf1, head1, true_and]; apply cd2.mem_of_mem_suffix; exact suffix; rw [← head2]; exact cd2.head_mem
 
+  theorem fairness_prec {cd : ChaseDerivation obs rules} : ∀ (trg : RTrigger obs rules), ∃ (node : cd.Node), ∀ node2, node ≼ node2 -> ¬ trg.val.active node2.val.facts := by
+    intro trg
+    rcases cd.fairness' trg with ⟨cd2, suffix, fair⟩
+    exists ⟨cd2.head, cd2.mem_of_mem_suffix suffix _ cd2.head_mem⟩
+    intro node2 prec
+    apply fair
+    rcases prec with ⟨cd3, suf3, head3, node2_mem_cd3⟩
+    simp only at head3
+    have : cd3 = cd2 := by
+      apply eq_of_suffix_of_head_mem _ (by rw [← head3]; exact cd3.head_mem)
+      apply suffix_of_suffix_of_suffix_of_head_mem suffix suf3
+      rw [head3]; exact cd2.head_mem
+    rw [← this]
+    exact node2_mem_cd3
+
   theorem mem_suffix_of_mem {cd1 cd2 : ChaseDerivation obs rules} (suffix : cd1 <:+ cd2) : ∀ node ∈ cd2, node.facts ⊆ cd1.head.facts ∨ node ∈ cd1 := by
     intro node node_mem
     rcases subderivation_of_node_mem node_mem with ⟨cd3, cd3_head, suffix'⟩
