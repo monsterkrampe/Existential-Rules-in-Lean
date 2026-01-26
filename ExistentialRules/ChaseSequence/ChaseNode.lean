@@ -3,7 +3,7 @@ import ExistentialRules.Triggers.RTrigger
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 structure ChaseNode (obs : ObsoletenessCondition sig) (rules : RuleSet sig) where
-  facts : { fs : FactSet sig // fs.finite }
+  facts : FactSet sig
   -- the origin is none only for the database
   origin : Option ((trg : RTrigger (obs : LaxObsoletenessCondition sig) rules) × Fin trg.val.mapped_head.length)
   facts_contain_origin_result : origin.is_none_or (fun origin => origin.fst.val.mapped_head[origin.snd.val].toSet ⊆ facts)

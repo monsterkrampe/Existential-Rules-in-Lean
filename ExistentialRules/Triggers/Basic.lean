@@ -68,6 +68,20 @@ namespace PreTrigger
           rfl
         . exact apply_eq
 
+  theorem result_term_not_in_frontier_image_of_var_not_in_frontier (trg : PreTrigger sig)
+      (disj_index : Fin trg.rule.head.length) (v : sig.V) (v_not_in_frontier : ¬ v ∈ trg.rule.frontier) :
+      ¬ trg.apply_to_var_or_const disj_index.val (VarOrConst.var v) ∈ trg.rule.frontier.map trg.subs := by
+    intro contra
+    apply v_not_in_frontier
+    rw [List.mem_map] at contra
+    rcases contra with ⟨u, u_in_frontier, u_eq⟩
+
+    have := trg.apply_to_var_or_const_injective_of_not_in_frontier disj_index v_not_in_frontier (VarOrConst.var u)
+    rw [VarOrConst.var.injEq] at this
+    rw [this]
+    . exact u_in_frontier
+    . rw [← u_eq, PreTrigger.apply_to_var_or_const_frontier_var]; exact u_in_frontier
+
   abbrev apply_to_function_free_atom (trg : PreTrigger sig) (disjunctIndex : Nat) (atom : FunctionFreeAtom sig) : Fact sig :=
     (trg.apply_to_var_or_const disjunctIndex).apply_generalized_atom atom
 
@@ -166,6 +180,67 @@ namespace PreTrigger
 
   def fresh_terms_for_head_disjunct (trg : PreTrigger sig) (i : Nat) (lt : i < trg.rule.head.length) : List (GroundTerm sig) :=
     (trg.rule.existential_vars_for_head_disjunct i lt).map (trg.functional_term_for_var i)
+
+  theorem mem_fresh_terms {trg : PreTrigger sig} {i : Nat} {lt : i < trg.rule.head.length} :
+      ∀ t ∈ trg.fresh_terms_for_head_disjunct i lt, ∃ v ∈ trg.rule.existential_vars_for_head_disjunct i lt,
+      t = GroundTerm.func { ruleId := trg.rule.id, disjunctIndex := i, var := v, arity := trg.rule.frontier.length } (trg.rule.frontier.map trg.subs) (by rw [List.length_map]) := by
+    intro t t_mem
+    simp only [fresh_terms_for_head_disjunct, List.mem_map, functional_term_for_var] at t_mem
+    rcases t_mem with ⟨v, v_mem, t_mem⟩
+    exists v; constructor; exact v_mem; rw [t_mem]
+
+  theorem term_functional_of_mem_fresh_terms {trg : PreTrigger sig} {i : Nat} {lt : i < trg.rule.head.length} :
+      ∀ t ∈ trg.fresh_terms_for_head_disjunct i lt, ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok := by
+    intro t t_mem
+    rcases mem_fresh_terms t t_mem with ⟨_, _, t_mem⟩
+    exact ⟨_, _, _, t_mem⟩
+
+  theorem constant_not_mem_fresh_terms_for_head_disjunct {trg : PreTrigger sig} {i : Nat} {lt : i < trg.rule.head.length} :
+      ∀ {c : sig.C}, ¬ .const c ∈ trg.fresh_terms_for_head_disjunct i lt := by
+    intro c c_mem
+    rcases term_functional_of_mem_fresh_terms _ c_mem with ⟨func, ts, arity_ok, eq⟩
+    simp [GroundTerm.const, GroundTerm.func] at eq
+
+  theorem frontier_term_not_mem_fresh_terms_for_head_disjunct {trg : PreTrigger sig} {i : Nat} {lt : i < trg.rule.head.length} :
+      ∀ {t}, t ∈ trg.rule.frontier.map trg.subs -> ¬ t ∈ trg.fresh_terms_for_head_disjunct i lt := by
+    intro t t_frontier t_fresh
+    simp only [fresh_terms_for_head_disjunct, List.mem_map] at t_fresh
+    rcases t_fresh with ⟨v, v_mem, t_fresh⟩; simp only [Rule.existential_vars_for_head_disjunct, List.mem_filter, decide_eq_true_eq] at v_mem
+    apply trg.result_term_not_in_frontier_image_of_var_not_in_frontier ⟨i, lt⟩ v v_mem.right
+    rw [apply_to_var_or_const_non_frontier_var _ _ _ v_mem.right]
+    rw [t_fresh]
+    exact t_frontier
+
+  def existential_var_for_fresh_term (trg : PreTrigger sig) (i : Nat) (lt : i < trg.rule.head.length) (t : GroundTerm sig) (t_mem : t ∈ trg.fresh_terms_for_head_disjunct i lt) : sig.V :=
+    ((trg.rule.existential_vars_for_head_disjunct i lt).find? (fun v => trg.functional_term_for_var i v = t)).get (by
+      simp only [List.find?_isSome, decide_eq_true_eq]
+      simp only [fresh_terms_for_head_disjunct, List.mem_map] at t_mem
+      exact t_mem)
+
+  theorem existential_var_for_fresh_term_after_functional_term_for_var
+      {trg : PreTrigger sig}
+      {i : Nat}
+      (lt : i < trg.rule.head.length)
+      {v : sig.V}
+      (v_mem : v ∈ trg.rule.existential_vars_for_head_disjunct i lt) :
+      trg.existential_var_for_fresh_term i lt (trg.functional_term_for_var i v) (List.mem_map_of_mem v_mem) = v := by
+    simp only [existential_var_for_fresh_term]
+    apply Option.get_of_eq_some
+    simp only [List.find?_eq_some_iff_getElem, decide_eq_true_eq, true_and]
+    let j := (trg.rule.existential_vars_for_head_disjunct i lt).idxOf v
+    exists j, (List.idxOf_lt_length_of_mem v_mem)
+    constructor
+    . rw [List.getElem_idxOf_of_mem v_mem]
+    . intro k k_lt
+      simp only [j, List.idxOf] at k_lt
+      rw [List.lt_findIdx_iff] at k_lt
+      rcases k_lt with ⟨_, k_lt⟩
+      specialize k_lt k (by simp)
+      rw [beq_eq_false_iff_ne] at k_lt
+      simp only [not_decide_eq_true, functional_term_for_var, GroundTerm.func, Subtype.mk.injEq, FiniteTree.inner.injEq, and_true, SkolemFS.mk.injEq, true_and]
+      intro contra
+      apply k_lt
+      rw [contra]
 
   def atom_for_result_fact (trg : PreTrigger sig) {f : Fact sig} (i : Fin trg.mapped_head.length)
       (f_mem : f ∈ trg.mapped_head[i.val]) : FunctionFreeAtom sig :=
@@ -510,20 +585,6 @@ namespace PreTrigger
         . apply front; rw [← equiv.left]; exact v_mem
         . exact v_mem
       . simp only [equiv.left]; exact subset
-
-  theorem result_term_not_in_frontier_image_of_var_not_in_frontier (trg : PreTrigger sig)
-      (disj_index : Fin trg.rule.head.length) (v : sig.V) (v_not_in_frontier : ¬ v ∈ trg.rule.frontier) :
-      ¬ trg.apply_to_var_or_const disj_index.val (VarOrConst.var v) ∈ trg.rule.frontier.map trg.subs := by
-    intro contra
-    apply v_not_in_frontier
-    rw [List.mem_map] at contra
-    rcases contra with ⟨u, u_in_frontier, u_eq⟩
-
-    have := trg.apply_to_var_or_const_injective_of_not_in_frontier disj_index v_not_in_frontier (VarOrConst.var u)
-    rw [VarOrConst.var.injEq] at this
-    rw [this]
-    . exact u_in_frontier
-    . rw [← u_eq, PreTrigger.apply_to_var_or_const_frontier_var]; exact u_in_frontier
 
 end PreTrigger
 

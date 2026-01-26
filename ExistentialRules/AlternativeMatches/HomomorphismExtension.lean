@@ -2,483 +2,375 @@ import ExistentialRules.AlternativeMatches.Basic
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
--- TODO: get rid of non-terminal simp here!
+abbrev InductiveHomomorphismExtensionResult {obs : ObsoletenessCondition sig} {rules : RuleSet sig} (cd : ChaseDerivation obs rules) (h : GroundTermMapping sig) :=
+  { pair : (ChaseDerivation obs rules) × (GroundTermMapping sig) // pair.fst <:+ cd ∧ (∀ t ∈ cd.head.facts.terms, pair.snd t = h t) ∧ pair.snd.isHomomorphism pair.fst.head.facts cd.result }
 
 namespace ChaseBranch
 
-  noncomputable def extend_hom_to_next_step_internal (cb : ChaseBranch obs kb) (det : kb.isDeterministic) (k : Nat) (node : ChaseNode obs kb.rules) (node_k : (cb.branch.drop k).head = some node) (h : GroundTermMapping sig) (hom : h.isHomomorphism node.facts cb.result) (node' : ChaseNode obs kb.rules) (node_k_succ : (cb.branch.drop k).tail.head = node') :
-      { h' : GroundTermMapping sig // (∀ t, t ∈ node.facts.val.terms -> h' t = h t) ∧ h'.isHomomorphism node'.facts cb.result } :=
-    have : exists_trigger_opt_fs obs kb.rules node (cb.branch.drop k).tail.head := by
-      have trg_ex := cb.triggers_exist k
-      rw [node_k] at trg_ex
-      simp only [Option.is_none_or] at trg_ex
-      cases trg_ex with
-      | inr trg_ex => unfold not_exists_trigger_opt_fs at trg_ex; rw [node_k_succ] at trg_ex; simp at trg_ex
-      | inl trg_ex => exact trg_ex
-    let trg := Classical.choose this
-    have ⟨trg_active, trg_res⟩ := Classical.choose_spec this
-    let disj_index := Classical.choose trg_res
-    have trg_res := Classical.choose_spec trg_res
+  variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
 
-    let disj_index' : Fin trg.val.rule.head.length := ⟨disj_index.val, by rw [← PreTrigger.length_mapped_head]; exact disj_index.isLt⟩
-
-    let trg' : PreTrigger sig := ⟨trg.val.rule, h ∘ trg.val.subs⟩
-    have trg'_loaded : trg'.loaded cb.result := by
-      apply Set.subset_trans (b := h.applyFactSet node.facts)
-      . apply PreTrigger.term_mapping_preserves_loadedness
-        . exact hom.left
-        . exact trg_active.left
-      . apply hom.right
-    have trg'_satisfied : trg'.satisfied_for_disj cb.result disj_index' := by
-      unfold PreTrigger.satisfied_for_disj
-      have modelsRule : cb.result.modelsRule trg'.rule := by
-        have modelsKb := ChaseBranch.result_models_kb cb
-        exact modelsKb.right trg'.rule trg.property
+  noncomputable def extend_hom_to_next_step_of_next_eq_some
+      (cb : ChaseBranch obs kb) (det : kb.rules.isDeterministic)
+      (cd : ChaseDerivation obs kb.rules) (suffix : cd <:+ cb.toChaseDerivation)
+      (h : GroundTermMapping sig) (hom : h.isHomomorphism cd.head.facts cd.result)
+      (next : ChaseNode obs kb.rules) (next_eq : cd.next = some next) :
+      InductiveHomomorphismExtensionResult cd h :=
+    let origin := next.origin.get (cd.isSome_origin_next next_eq)
+    have origin_trg_active := cd.active_trigger_origin_next next_eq
+    let disj : Fin origin.fst.val.rule.head.length := ⟨origin.snd.val, by rw [← PreTrigger.length_mapped_head]; exact origin.snd.isLt⟩
+    let trg' : PreTrigger sig := ⟨origin.fst.val.rule, h ∘ origin.fst.val.subs⟩
+    have trg'_loaded : trg'.loaded cd.result := by
+      apply Set.subset_trans _ hom.right
+      apply PreTrigger.term_mapping_preserves_loadedness
+      . exact hom.left
+      . exact origin_trg_active.left
+    have trg'_satisfied : trg'.satisfied_for_disj cd.result ⟨disj.val, disj.isLt⟩ := by
+      have modelsRule : cd.result.modelsRule trg'.rule := by
+        exact cd.result_models_rules trg'.rule origin.fst.property
       specialize modelsRule trg'.subs trg'_loaded
       rcases modelsRule with ⟨i, s', s'_frontier, s'_contains⟩
       exists s'
       constructor
       . exact s'_frontier
       . -- kb.isDeterministic is required here
-        have : i = disj_index' := by
+        have : i.val = disj.val := by
           have isLt := i.isLt
-          have := det trg'.rule trg.property
+          have := det trg'.rule origin.fst.property
           unfold Rule.isDeterministic at this
           rw [decide_eq_true_iff] at this
           simp only [this, Nat.lt_one_iff] at isLt
-          have isLt' := disj_index'.isLt
-          have := det trg.val.rule trg.property
+          have isLt' := disj.isLt
+          have := det origin.fst.val.rule origin.fst.property
           unfold Rule.isDeterministic at this
           rw [decide_eq_true_iff] at this
           simp only [this, Nat.lt_one_iff] at isLt'
-          rw [Fin.ext_iff]
           rw [isLt, isLt']
-        rw [this] at s'_contains
+        simp only [List.get_eq_getElem, this] at s'_contains
         exact s'_contains
 
     let subs := Classical.choose trg'_satisfied
     have ⟨subs_frontier, subs_contained⟩ := Classical.choose_spec trg'_satisfied
 
     let h' : GroundTermMapping sig := fun t =>
-      match (trg.val.rule.existential_vars_for_head_disjunct disj_index'.val disj_index'.isLt).find? (fun v => trg.val.functional_term_for_var disj_index.val v = t) with
-      | none => h t
-      | some v => subs v
+      if t_mem : t ∈ origin.fst.val.fresh_terms_for_head_disjunct disj.val disj.isLt then
+        subs (origin.fst.val.existential_var_for_fresh_term disj.val disj.isLt t t_mem)
+      else
+        h t
 
     have h'_is_id_on_const : h'.isIdOnConstants := by
-      intro term
-      cases eq : term with
-      | func _ _ => simp [GroundTerm.func]
-      | const c =>
-        simp only [GroundTerm.const]
-        unfold h'
-        rw [List.find?_eq_none.mpr]
-        . simp; exact GroundTermMapping.apply_constant_is_id_of_isIdOnConstants hom.left c
-        . simp
-          intro v _ contra
-          simp [PreTrigger.functional_term_for_var, GroundTerm.func] at contra
+      intro c
+      have : ¬ .const c ∈ origin.fst.val.fresh_terms_for_head_disjunct disj.val disj.isLt := by
+        apply PreTrigger.constant_not_mem_fresh_terms_for_head_disjunct
+      simp only [h', this, ↓reduceDIte]
+      exact hom.left
 
-    have h'_is_subs_on_head_vars : ∀ v, v ∈ (trg.val.rule.head[disj_index'.val]).vars -> (h' (trg.val.apply_to_var_or_const disj_index.val (VarOrConst.var v))) = subs v := by
+    have h'_is_subs_on_head_vars : ∀ v, v ∈ (origin.fst.val.rule.head[disj.val]).vars -> (h' (origin.fst.val.subs_for_mapped_head origin.snd v)) = subs v := by
       intro v v_mem
-      cases Decidable.em (v ∈ trg.val.rule.frontier) with
+      simp only [PreTrigger.subs_for_mapped_head]
+      cases Decidable.em (v ∈ origin.fst.val.rule.frontier) with
       | inl v_frontier =>
-        rw [trg.val.apply_to_var_or_const_frontier_var _ _ v_frontier]
-        unfold h'
-        rw [List.find?_eq_none.mpr]
-        . simp only [subs]; rw [subs_frontier _ v_frontier]; simp [trg']
-        intro u u_mem
-        simp only [Rule.existential_vars_for_head_disjunct, List.mem_filter, decide_eq_true_iff] at u_mem
-        intro contra; simp only [decide_eq_true_iff] at contra
-        have u_result_not_in_frontier_image := trg.val.result_term_not_in_frontier_image_of_var_not_in_frontier ⟨disj_index, by rw [← PreTrigger.length_mapped_head]; exact disj_index.isLt⟩ u u_mem.right
-        apply u_result_not_in_frontier_image
-        rw [trg.val.apply_to_var_or_const_non_frontier_var _ _ u_mem.right]
-        rw [contra]
-        apply List.mem_map_of_mem
-        exact v_frontier
+        rw [origin.fst.val.apply_to_var_or_const_frontier_var _ _ v_frontier]
+        have : ¬ origin.fst.val.subs v ∈ origin.fst.val.fresh_terms_for_head_disjunct disj.val disj.isLt := by
+          apply PreTrigger.frontier_term_not_mem_fresh_terms_for_head_disjunct
+          apply List.mem_map_of_mem
+          exact v_frontier
+        simp only [h', this, ↓reduceDIte]
+        simp only [subs, subs_frontier _ v_frontier]
+        rfl
       | inr v_frontier =>
-        rw [trg.val.apply_to_var_or_const_non_frontier_var _ _ v_frontier]
-        unfold h'
-        rw [List.find?_eq_some_iff_append.mpr]
-        simp only [decide_eq_true_iff, true_and]
-        have v_exis : v ∈ trg.val.rule.existential_vars_for_head_disjunct disj_index'.val disj_index'.isLt := by simp only [Rule.existential_vars_for_head_disjunct, List.mem_filter, decide_eq_true_iff]; exact ⟨v_mem, v_frontier⟩
-        rw [List.mem_iff_append_and_not_in_first] at v_exis
-        rcases v_exis with ⟨as, bs, v_mem, v_not_in_as⟩
-        exists as
-        exists bs
-        constructor
-        . exact v_mem
-        . intro u u_mem
-          simp only [Bool.not_eq_eq_eq_not, Bool.not_true, decide_eq_false_iff_not]
-          intro contra
-          have vars_eq := trg.val.apply_to_var_or_const_injective_of_not_in_frontier disj_index' v_frontier (.var u) (by
-            have u_frontier : u ∉ trg.val.rule.frontier := by
-              have u_exis : u ∈ trg.val.rule.existential_vars_for_head_disjunct disj_index'.val disj_index'.isLt := by rw [v_mem]; simp [u_mem]
-              simp only [Rule.existential_vars_for_head_disjunct, List.mem_filter, decide_eq_true_iff] at u_exis
-              exact u_exis.right
-            rw [trg.val.apply_to_var_or_const_non_frontier_var _ _ v_frontier]
-            rw [trg.val.apply_to_var_or_const_non_frontier_var _ _ u_frontier]
-            exact Eq.symm contra)
-          rw [VarOrConst.var.injEq] at vars_eq
-          rw [vars_eq] at v_not_in_as
-          contradiction
+        rw [origin.fst.val.apply_to_var_or_const_non_frontier_var _ _ v_frontier]
+        have v_exis : v ∈ origin.fst.val.rule.existential_vars_for_head_disjunct disj.val disj.isLt := by
+          simp only [Rule.existential_vars_for_head_disjunct, List.mem_filter, decide_eq_true_iff]
+          exact ⟨v_mem, v_frontier⟩
+        have : origin.fst.val.functional_term_for_var origin.snd.val v ∈ origin.fst.val.fresh_terms_for_head_disjunct disj.val disj.isLt := by
+          apply List.mem_map_of_mem; exact v_exis
+        simp only [h', this, ↓reduceDIte]
+        rw [PreTrigger.existential_var_for_fresh_term_after_functional_term_for_var]
+        exact v_exis
 
-    have h'_is_h_on_terms_in_node : ∀ t, t ∈ node.facts.val.terms -> h' t = h t := by
+    have h'_is_h_on_terms_in_node : ∀ t ∈ cd.head.facts.terms, h' t = h t := by
       intro t t_mem
-      unfold h'
-      rw [List.find?_eq_none.mpr]
-      simp
-      intro v v_exis contra
-      have : trg.val.mapped_head[disj_index.val].toSet ⊆ node.facts := by
-        apply ChaseBranch.result_of_trigger_introducing_functional_term_occurs_in_chase node_k t_mem
-        simp only [PreTrigger.fresh_terms_for_head_disjunct, List.mem_map]; exists v
-      have trg_obs := obs.contains_trg_result_implies_cond disj_index this
-      have not_obs := trg_active.right
-      contradiction
+      have : ¬ t ∈ origin.fst.val.fresh_terms_for_head_disjunct disj.val disj.isLt := by
+        intro contra
+        apply origin_trg_active.right
+        apply obs.contains_trg_result_implies_cond origin.snd
+        apply cb.result_of_trigger_introducing_functional_term_occurs_in_chase ⟨cd.head, by apply ChaseDerivation.mem_of_mem_suffix suffix; exact cd.head_mem⟩ t_mem
+        exact contra
+      simp [h', this]
 
-    ⟨h', by
+    ⟨(cd.tail (by simp [next_eq]), h'), by
+      constructor
+      . exact PossiblyInfiniteList.IsSuffix_tail
       constructor
       . exact h'_is_h_on_terms_in_node
-      . rw [← trg_res] at node_k_succ
-        injection node_k_succ with node_k_succ
-        rw [← node_k_succ]
+      . simp only [cd.head_tail', next_eq, Option.get_some]
         constructor
         . exact h'_is_id_on_const
-        . unfold GroundTermMapping.applyFactSet
-          intro f f_mem
-          rcases f_mem with ⟨f, f_mem, f_eq⟩
+        . rw [cd.facts_next next_eq]
+          rintro f' ⟨f, f_mem, f'_eq⟩
+          rw [f'_eq]
           cases f_mem with
-          | inl f_mem => apply hom.right; exists f; constructor; exact f_mem; rw [f_eq]; apply TermMapping.apply_generalized_atom_congr_left; intro t t_mem; apply h'_is_h_on_terms_in_node; exists f
+          | inl f_mem => apply hom.right; exists f; constructor; exact f_mem; apply TermMapping.apply_generalized_atom_congr_left; intro t t_mem; apply h'_is_h_on_terms_in_node; exists f
           | inr f_mem =>
-            rw [f_eq]
             apply subs_contained
-            have : (subs.apply_function_free_conj trg'.rule.head[disj_index'.val]).toSet = h'.applyFactSet trg.val.mapped_head[disj_index.val].toSet := by
-              unfold GroundTermMapping.applyFactSet
-              unfold TermMapping.apply_generalized_atom_set
-              rw [List.map_toSet_eq_toSet_map]
+            have : (subs.apply_function_free_conj trg'.rule.head[disj.val]).toSet = h'.applyFactSet origin.fst.val.mapped_head[disj.val].toSet := by
+              simp only [TermMapping.apply_generalized_atom_set_toSet]
               apply congrArg
-              unfold PreTrigger.mapped_head
-              rw [List.getElem_map, List.getElem_zipIdx, Nat.zero_add]
-              simp only [List.map_map]
-              unfold GroundSubstitution.apply_function_free_conj
-              unfold TermMapping.apply_generalized_atom_list
-              apply List.map_congr_left
-              intro a a_mem
-              unfold PreTrigger.apply_to_function_free_atom
-              rw [← TermMapping.apply_generalized_atom_compose]
-              apply TermMapping.apply_generalized_atom_congr_left
-              intro voc voc_mem
-              cases voc with
-              | const c =>
-                simp only [GroundSubstitution.apply_var_or_const, Function.comp_apply]
-                rw [PreTrigger.apply_to_var_or_const_for_const]
-                rw [h'_is_id_on_const (GroundTerm.const c)]
-              | var v =>
-                simp only [GroundSubstitution.apply_var_or_const]
-                rw [← h'_is_subs_on_head_vars]
-                . rfl
-                . unfold FunctionFreeConjunction.vars
-                  rw [List.mem_flatMap]
+              rw [← PreTrigger.apply_subs_for_mapped_head_eq, ← GroundSubstitution.apply_function_free_conj_compose]
+              . apply List.map_congr_left
+                intro a a_mem
+                apply TermMapping.apply_generalized_atom_congr_left
+                intro voc voc_mem
+                cases voc with
+                | const d => simp [GroundSubstitution.apply_var_or_const]
+                | var v =>
+                  simp only [GroundSubstitution.apply_var_or_const, Function.comp_apply]
+                  rw [h'_is_subs_on_head_vars]
+                  rw [FunctionFreeConjunction.mem_vars]
                   exists a
-                  constructor
-                  . exact a_mem
-                  . apply VarOrConst.mem_filterVars_of_var
-                    exact voc_mem
+              . intros; exact h'_is_id_on_const
             rw [this]
-            exists f
+            apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
+            exact f_mem
     ⟩
 
-  noncomputable def extend_hom_to_next_step (cb : ChaseBranch obs kb) (det : kb.isDeterministic) (k : Nat) (node : ChaseNode obs kb.rules) (node_k : (cb.branch.drop k).head = some node) (h : GroundTermMapping sig) (hom : h.isHomomorphism node.facts cb.result) :
-      GroundTermMapping sig :=
-    match eq : (cb.branch.drop k).tail.head with
-    | .none => h
-    | .some node' =>
-      (extend_hom_to_next_step_internal cb det k node node_k h hom node' eq).val
-
-  theorem extend_hom_to_next_step_eq (cb : ChaseBranch obs kb) (det : kb.isDeterministic) (k : Nat) (node : ChaseNode obs kb.rules) (node_k : (cb.branch.drop k).head = some node) (h : GroundTermMapping sig) (hom : h.isHomomorphism node.facts cb.result) :
-      extend_hom_to_next_step cb det k node node_k h hom = match eq : (cb.branch.drop k).tail.head with
-      | .none => h
-      | .some node' => (extend_hom_to_next_step_internal cb det k node node_k h hom node' eq).val := by
-    unfold extend_hom_to_next_step
-    simp
-
-  theorem extended_hom_same_on_next_extensions (cb : ChaseBranch obs kb) (det : kb.isDeterministic) (k : Nat) (node : ChaseNode obs kb.rules) (node_k : (cb.branch.drop k).head = some node) (h : GroundTermMapping sig) (hom : h.isHomomorphism node.facts cb.result) : ∀ t, t ∈ node.facts.val.terms -> extend_hom_to_next_step cb det k node node_k h hom t = h t := by
-    intro t t_mem
-    rw [extend_hom_to_next_step_eq]
+  theorem node_is_next_in_extend_hom_to_next_step_next_eq_some
+      {cb : ChaseBranch obs kb} {det : kb.rules.isDeterministic}
+      {cd : ChaseDerivation obs kb.rules} {suffix : cd <:+ cb.toChaseDerivation}
+      {h : GroundTermMapping sig} {hom : h.isHomomorphism cd.head.facts cd.result}
+      {next : ChaseNode obs kb.rules} {next_eq : cd.next = some next} :
+      (extend_hom_to_next_step_of_next_eq_some cb det cd suffix h hom next next_eq).val.fst = cd.tail (by simp [next_eq]) := by
+    simp only [extend_hom_to_next_step_of_next_eq_some]
     split
-    . rfl
-    case h_2 node' eq =>
-      let result := extend_hom_to_next_step_internal cb det k node node_k h hom node' eq
-      rw [result.property.left]
+    rfl
+
+  theorem hom_extends_prev_in_extend_hom_to_next_step_of_next_eq_some
+      {cb : ChaseBranch obs kb} {det : kb.rules.isDeterministic}
+      {cd : ChaseDerivation obs kb.rules} {suffix : cd <:+ cb.toChaseDerivation}
+      {h : GroundTermMapping sig} {hom : h.isHomomorphism cd.head.facts cd.result}
+      {next : ChaseNode obs kb.rules} {next_eq : cd.next = some next} :
+      ∀ t ∈ cd.head.facts.terms, (extend_hom_to_next_step_of_next_eq_some cb det cd suffix h hom next next_eq).val.snd t = h t := by
+    exact (extend_hom_to_next_step_of_next_eq_some cb det cd suffix h hom next next_eq).property.right.left
+
+  noncomputable def extend_hom_to_next_step
+      (cb : ChaseBranch obs kb) (det : kb.rules.isDeterministic)
+      (cd : ChaseDerivation obs kb.rules) (suffix : cd <:+ cb.toChaseDerivation)
+      (h : GroundTermMapping sig)
+      (prev_res : InductiveHomomorphismExtensionResult cd h) :
+      Option (InductiveHomomorphismExtensionResult cd h) :=
+    prev_res.val.fst.next.attach.map (fun next =>
+      let step := extend_hom_to_next_step_of_next_eq_some cb det prev_res.val.fst (PossiblyInfiniteList.IsSuffix_trans prev_res.property.left suffix) prev_res.val.snd (by rw [ChaseDerivation.result_suffix prev_res.property.left]; exact prev_res.property.right.right) next.val next.property
+      ⟨step.val, by
+        constructor
+        . exact PossiblyInfiniteList.IsSuffix_trans step.property.left prev_res.property.left
+        constructor
+        . intro t t_mem
+          rw [← prev_res.property.right.left _ t_mem]
+          apply step.property.right.left
+          apply FactSet.terms_subset_of_subset
+          . apply cd.facts_node_subset_every_mem; apply ChaseDerivation.mem_of_mem_suffix prev_res.property.left; apply ChaseDerivation.head_mem
+          . exact t_mem
+        . simp only [← ChaseDerivation.result_suffix prev_res.property.left]; exact step.property.right.right⟩
+    )
+
+  theorem node_is_next_in_extend_hom_to_next_step
+      {cb : ChaseBranch obs kb} {det : kb.rules.isDeterministic}
+      {cd : ChaseDerivation obs kb.rules} {suffix : cd <:+ cb.toChaseDerivation}
+      {h : GroundTermMapping sig}
+      {prev_res : InductiveHomomorphismExtensionResult cd h} :
+      ∀ {pair}, (pair_mem : pair ∈ extend_hom_to_next_step cb det cd suffix h prev_res) -> pair.val.fst = prev_res.val.fst.tail (by
+        simp only [extend_hom_to_next_step, Option.mem_def, Option.map_attach_eq_pmap, Option.pmap_eq_some_iff] at pair_mem
+        rcases pair_mem with ⟨_, pair_mem, _⟩
+        simp [pair_mem]) := by
+    intro pair pair_mem
+    simp only [extend_hom_to_next_step, Option.mem_def, Option.map_attach_eq_pmap, Option.pmap_eq_some_iff] at pair_mem
+    rcases pair_mem with ⟨next, next_eq, _, pair_eq⟩
+    simp only [pair_eq]
+    rw [node_is_next_in_extend_hom_to_next_step_next_eq_some]
+
+  theorem hom_extends_prev_in_extend_hom_to_next_step
+      {cb : ChaseBranch obs kb} {det : kb.rules.isDeterministic}
+      {cd : ChaseDerivation obs kb.rules} {suffix : cd <:+ cb.toChaseDerivation}
+      {h : GroundTermMapping sig}
+      {prev_res : InductiveHomomorphismExtensionResult cd h} :
+      ∀ t ∈ prev_res.val.fst.head.facts.terms, ∀ pair ∈ extend_hom_to_next_step cb det cd suffix h prev_res, pair.val.snd t = prev_res.val.snd t := by
+    intro t t_mem pair pair_mem
+    simp only [extend_hom_to_next_step, Option.mem_def, Option.map_attach_eq_pmap, Option.pmap_eq_some_iff] at pair_mem
+    rcases pair_mem with ⟨next, next_eq, _, pair_eq⟩
+    rw [pair_eq]
+    rw [hom_extends_prev_in_extend_hom_to_next_step_of_next_eq_some]
+    exact t_mem
+
+  theorem hom_for_node_extendable_to_result
+      {cb : ChaseBranch obs kb} (det : kb.rules.isDeterministic)
+      {node : ChaseNode obs kb.rules} (node_mem : node ∈ cb.toChaseDerivation)
+      {h : GroundTermMapping sig} (hom : h.isHomomorphism node.facts cb.result) :
+      ∃ (h' : GroundTermMapping sig), (∀ t ∈ node.facts.terms, h' t = h t) ∧ h'.isHomomorphism cb.result cb.result := by
+    rcases cb.subderivation_of_node_mem node_mem with ⟨deriv_for_node, deriv_for_node_head, deriv_suffix⟩
+    let start : Option (InductiveHomomorphismExtensionResult deriv_for_node h) := some ⟨(deriv_for_node, h), by
+      constructor
+      . exact PossiblyInfiniteList.IsSuffix_refl
+      constructor
+      . intros; rfl
+      . simp only [deriv_for_node_head, ChaseDerivation.result_suffix deriv_suffix]; exact hom
+    ⟩
+    let pairs := PossiblyInfiniteList.generate start (extend_hom_to_next_step cb det deriv_for_node deriv_suffix h) id
+
+    have pairs_get?_succ : ∀ i, pairs.get? i.succ = (pairs.get? i).bind (extend_hom_to_next_step cb det deriv_for_node deriv_suffix h) := by
+      intro i; simp only [pairs, PossiblyInfiniteList.get?_generate, Option.map_id, id_eq]; rfl
+
+    have derivs_suffix_of_each_other : ∀ (i k : Nat), ∀ pair ∈ pairs.get? i, ∀ pair2 ∈ pairs.get? (i+k), pair2.val.fst <:+ pair.val.fst := by
+      intro i k pair pair_mem pair2 pair2_mem
+      induction k generalizing pair2 with
+      | zero => rw [Nat.add_zero, pair_mem, Option.mem_def, Option.some_inj] at pair2_mem; rw [pair2_mem]; exact PossiblyInfiniteList.IsSuffix_refl
+      | succ k ih =>
+        rw [← Nat.add_assoc, pairs_get?_succ] at pair2_mem
+        rw [Option.mem_def, Option.bind_eq_some_iff] at pair2_mem
+        rcases pair2_mem with ⟨prev_pair, prev_pair_mem, pair2_mem⟩
+        apply PossiblyInfiniteList.IsSuffix_trans _ (ih prev_pair prev_pair_mem)
+        rw [node_is_next_in_extend_hom_to_next_step pair2_mem]
+        exact PossiblyInfiniteList.IsSuffix_tail
+
+    have homs_extend_each_other : ∀ (i k : Nat), ∀ pair ∈ pairs.get? i, ∀ pair2 ∈ pairs.get? (i+k), ∀ t ∈ pair.val.fst.head.facts.terms, pair.val.snd t = pair2.val.snd t := by
+      intro i k pair pair_mem pair2 pair2_mem t t_mem
+      induction k generalizing pair2 with
+      | zero => rw [Nat.add_zero, pair_mem, Option.mem_def, Option.some_inj] at pair2_mem; rw [pair2_mem]
+      | succ k ih =>
+        rw [← Nat.add_assoc, pairs_get?_succ] at pair2_mem
+        rw [Option.mem_def, Option.bind_eq_some_iff] at pair2_mem
+        rcases pair2_mem with ⟨prev_pair, prev_pair_mem, pair2_mem⟩
+        rw [ih prev_pair prev_pair_mem]
+        apply Eq.symm; apply hom_extends_prev_in_extend_hom_to_next_step
+        . apply FactSet.terms_subset_of_subset (pair.val.fst.facts_node_subset_every_mem prev_pair.val.fst.head (by
+            apply ChaseDerivation.mem_of_mem_suffix (derivs_suffix_of_each_other i k pair pair_mem prev_pair prev_pair_mem); exact ChaseDerivation.head_mem))
+          exact t_mem
+        . exact pair2_mem
+
+    have each_node_in_some_pair : ∀ node ∈ deriv_for_node, ∃ pair ∈ pairs, node = pair.val.fst.head := by
+      intro node node_mem
+      let node : deriv_for_node.Node := ⟨node, node_mem⟩
+      show ∃ pair ∈ pairs, node.val = pair.val.fst.head
+      induction node using ChaseDerivation.mem_rec with
+      | head => exists start.get (by simp [start]); constructor; apply PossiblyInfiniteList.head_mem; simp [pairs, PossiblyInfiniteList.head_generate]; simp [start]
+      | step cd2 suffix ih next next_mem =>
+        rcases ih with ⟨pair, ⟨i, pair_mem⟩, head_eq⟩
+        rw [← PossiblyInfiniteList.get?.eq_def] at pair_mem
+        have : cd2 = pair.val.fst := by
+          apply ChaseDerivation.eq_of_suffix_of_head_mem
+          . apply ChaseDerivation.suffix_of_suffix_of_suffix_of_head_mem
+            . apply derivs_suffix_of_each_other 0 i (start.get (by simp [start])) (by rw [← PossiblyInfiniteList.head_eq]; simp [pairs, PossiblyInfiniteList.head_generate])
+              rw [Nat.zero_add, pair_mem]
+              simp
+            . exact suffix
+            . simp only at head_eq; rw [head_eq]; exact ChaseDerivation.head_mem
+          . rw [← head_eq]; exact ChaseDerivation.head_mem
+        exists (pairs.get? i.succ).get (by
+          rw [pairs_get?_succ, pair_mem, Option.bind_some]
+          simp only [extend_hom_to_next_step, Option.isSome_map, Option.isSome_attach]
+          rw [← this, next_mem]; simp)
+        constructor
+        . exists i.succ; simp [PossiblyInfiniteList.get?]
+        . simp only [pairs_get?_succ, pair_mem, Option.bind_some]
+          rw [node_is_next_in_extend_hom_to_next_step (prev_res := pair)]
+          . rw [Option.mem_def] at next_mem; rw [ChaseDerivation.head_tail']; simp [← this, next_mem]
+          . apply Option.get_mem
+          . exact det
+          . exact deriv_suffix
+
+    have each_result_terms_occurs_in_some_pair : ∀ t ∈ deriv_for_node.result.terms, ∃ pair ∈ pairs, t ∈ pair.val.fst.head.facts.terms := by
+      intro t t_mem
+      rcases t_mem with ⟨f, ⟨node, node_mem, f_mem⟩, t_mem⟩
+      rcases each_node_in_some_pair node node_mem with ⟨pair, pair_mem, node_eq⟩
+      exists pair; simp only [pair_mem, true_and]
+      rw [← node_eq]; exists f
+
+    let global_h : GroundTermMapping sig := fun t =>
+      let t_mem := t ∈ deriv_for_node.result.terms
+      have t_mem_dec := Classical.propDecidable t_mem
+      if t_mem_true : t_mem then
+        have pair_mem := each_result_terms_occurs_in_some_pair _ t_mem_true
+        let pair := Classical.choose pair_mem
+        pair.val.snd t
+      else
+        t
+
+    have global_agrees_with_h : (∀ t ∈ node.facts.terms, global_h t = h t) := by
+      intro t t_mem
+      rw [← deriv_for_node_head] at t_mem
+      have : t ∈ deriv_for_node.result.terms := by apply FactSet.terms_subset_of_subset (deriv_for_node.facts_node_subset_result _ ChaseDerivation.head_mem); exact t_mem
+      simp only [global_h, this, ↓reduceDIte]
+      let pair := Classical.choose (each_result_terms_occurs_in_some_pair _ this)
+      apply pair.property.right.left
       exact t_mem
 
-  theorem extended_hom_isHomomorphism_on_next_extensions (cb : ChaseBranch obs kb) (det : kb.isDeterministic) (k : Nat) (node : ChaseNode obs kb.rules) (node_k : (cb.branch.drop k).head = some node) (h : GroundTermMapping sig) (hom : h.isHomomorphism node.facts cb.result) : (cb.branch.drop k).tail.head.is_none_or (fun node' => (extend_hom_to_next_step cb det k node node_k h hom).isHomomorphism node'.facts cb.result) := by
-    rw [extend_hom_to_next_step_eq]
-    split
-    case h_1 eq => simp [eq, Option.is_none_or]
-    case h_2 node' eq =>
-      simp [eq, Option.is_none_or]
-      let result := extend_hom_to_next_step_internal cb det k node node_k h hom node' eq
-      exact result.property.right
+    have global_id_const : global_h.isIdOnConstants := by
+      intro c
+      simp only [global_h]
+      split
+      case isFalse _ => rfl
+      case isTrue t_mem_true =>
+        let pair := Classical.choose (each_result_terms_occurs_in_some_pair _ t_mem_true)
+        exact pair.property.right.right.left
 
-  noncomputable def extend_hom_to_any_following_step (cb : ChaseBranch obs kb) (det : kb.isDeterministic) (k : Nat) (node : ChaseNode obs kb.rules) (node_k : (cb.branch.drop k).head = some node) (h : GroundTermMapping sig) (hom : h.isHomomorphism node.facts cb.result) : (step_width : Nat) ->
-    { h' : GroundTermMapping sig // (cb.branch.drop (k + step_width)).head.is_none_or (fun node' => h'.isHomomorphism node'.facts cb.result) }
-  | .zero => ⟨h, by simp [node_k, Option.is_none_or]; exact hom⟩
-  | .succ step_width =>
-    let prev_hom := extend_hom_to_any_following_step cb det k node node_k h hom step_width
+    have global_h_eq_each_hom : ∀ pair ∈ pairs, ∀ f ∈ pair.val.fst.head.facts, global_h.applyFact f = pair.val.snd.applyFact f := by
+      intro pair pair_mem f f_mem
+      apply TermMapping.apply_generalized_atom_congr_left
+      intro t t_mem
+      simp only [global_h]
+      split
+      case a.isFalse not_mem =>
+        apply False.elim
+        apply not_mem
+        exists f; simp only [t_mem, and_true]
+        apply deriv_for_node.facts_node_subset_result pair.val.fst.head
+        . apply ChaseDerivation.mem_of_mem_suffix pair.property.left; exact ChaseDerivation.head_mem
+        . exact f_mem
+      case a.isTrue t_mem_true =>
+        have spec := Classical.choose_spec (each_result_terms_occurs_in_some_pair _ t_mem_true)
+        rcases spec.left with ⟨i, spec_l⟩
+        rcases pair_mem with ⟨j, pair_mem⟩
+        rw [Option.eq_some_iff_get_eq] at spec_l
+        rcases spec_l with ⟨_, spec_l⟩
+        rw [← spec_l]
+        rw [Option.eq_some_iff_get_eq] at pair_mem
+        rcases pair_mem with ⟨_, pair_mem⟩
+        rw [← pair_mem]
+        cases Nat.le_total i j with
+        | inl i_le_j =>
+          rcases Nat.le.dest i_le_j with ⟨k, i_le_j⟩
+          conv => right; fun; right; right; left; rw [← i_le_j]
+          apply homs_extend_each_other i k
+          . simp [PossiblyInfiniteList.get?]
+          . simp [PossiblyInfiniteList.get?]
+          . rw [spec_l]; exact spec.right
+        | inr j_le_i =>
+          rcases Nat.le.dest j_le_i with ⟨k, j_le_i⟩
+          conv => left; fun; right; right; left; rw [← j_le_i]
+          apply Eq.symm
+          apply homs_extend_each_other j k
+          . simp [PossiblyInfiniteList.get?]
+          . simp [PossiblyInfiniteList.get?]
+          . rw [pair_mem]; exists f
 
-    match eq : (cb.branch.drop (k + step_width)).head with
-    | .none =>
-      ⟨prev_hom.val, by
-        cases eq2 : (cb.branch.drop (k + step_width.succ)).head with
-        | none => simp [Option.is_none_or]
-        | some _ =>
-          rw [PossiblyInfiniteList.head_drop] at eq
-          rw [PossiblyInfiniteList.head_drop, Nat.add_succ] at eq2
-          have := cb.branch.no_holes' _ eq
-          rw [this] at eq2; simp at eq2
-      ⟩
-    | .some node' =>
-      ⟨extend_hom_to_next_step cb det (k + step_width) node' eq prev_hom.val (by
-        have property := prev_hom.property
-        simp only [eq, Option.is_none_or] at property
-        exact property
-      ), by apply extended_hom_isHomomorphism_on_next_extensions⟩
+    have global_h_hom : ∀ node ∈ deriv_for_node, global_h.applyFactSet node.facts ⊆ deriv_for_node.result := by
+      intro node node_mem
+      rcases each_node_in_some_pair node node_mem with ⟨pair, pair_mem, node_eq⟩
+      rintro f' ⟨f, f_mem, f'_eq⟩
+      rw [node_eq] at f_mem
+      rw [f'_eq, ← GroundTermMapping.applyFact.eq_def, global_h_eq_each_hom pair pair_mem f f_mem]
+      apply pair.property.right.right.right; apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set; exact f_mem
 
-  theorem extended_hom_same_on_all_following_extensions (cb : ChaseBranch obs kb) (det : kb.isDeterministic) (k : Nat) (node : ChaseNode obs kb.rules) (node_k : (cb.branch.drop k).head = some node) (h : GroundTermMapping sig) (hom : h.isHomomorphism node.facts cb.result) : ∀ (i j : Nat), (cb.branch.drop (k + i)).head.is_none_or (fun node' => ∀ t, t ∈ node'.facts.val.terms -> (extend_hom_to_any_following_step cb det k node node_k h hom (i + j)).val t = (extend_hom_to_any_following_step cb det k node node_k h hom i).val t) := by
-    intro i j
-    simp [Option.is_none_or]
-    split
-    . simp
-    case h_2 _ _ node' eq =>
-      simp only
-      induction j with
-      | zero => intros; rfl
-      | succ j ih =>
-        intro t _ t_mem
-        specialize ih t _ t_mem
-        conv => left; unfold extend_hom_to_any_following_step
-        simp
-        split
-        . simp; exact ih
-        case h_2 _ eq2 =>
-          simp
-          rw [extended_hom_same_on_next_extensions]
-          . exact ih
-          . have all_following := cb.stepIsSubsetOfAllFollowing (k + i) _ eq j
-            rw [← Nat.add_assoc, PossiblyInfiniteList.head_drop] at eq2
-            rw [PossiblyInfiniteList.get?_drop, eq2] at all_following
-            simp only [Option.is_none_or] at all_following
-            unfold FactSet.terms
-            rcases t_mem with ⟨f, f_mem, t_mem⟩
-            exists f
-            constructor
-            . apply all_following; exact f_mem
-            . exact t_mem
-
-  theorem hom_for_step_extendable_result (cb : ChaseBranch obs kb) (det : kb.isDeterministic) (k : Nat) (h : GroundTermMapping sig) :
-      (cb.branch.drop k).head.is_none_or (fun node => h.isHomomorphism node.facts cb.result ->
-      ∃ (h' : GroundTermMapping sig), (∀ t, t ∈ node.facts.val.terms -> h' t = h t) ∧ h'.isHomomorphism cb.result cb.result) := by
-    cases eq : (cb.branch.drop k).head with
-    | none => simp [Option.is_none_or]
-    | some node =>
-      rw [Option.is_none_or]
-      intro hom
-
-      let target_h (i : Nat) := extend_hom_to_any_following_step cb det k node eq h hom i
-
-      let global_h : GroundTermMapping sig := fun t =>
-        let dec := Classical.propDecidable (∃ f, f ∈ cb.result ∧ t ∈ f.terms)
-        match dec with
-          | Decidable.isTrue p =>
-            let hfl := (Classical.choose_spec p).left
-            let i := Classical.choose hfl
-            if i ≤ k then h t else (target_h (i-k)).val t
-          | Decidable.isFalse _ => t
-
-      have id_on_const : ∀ (c : sig.C), global_h (GroundTerm.const c) = (GroundTerm.const c) := by
-        intro c
-        simp [global_h]
-        split
-        case h_1 _ ex_f _ =>
-          let hfl := (Classical.choose_spec ex_f).left
-          let i := Classical.choose hfl
-          split
-          . exact hom.left (GroundTerm.const c)
-          case isFalse lt =>
-            simp at lt
-            have i_spec := Classical.choose_spec hfl
-            cases eq2 : (cb.branch.drop i).head with
-            | none => rw [← PossiblyInfiniteList.head_drop, eq2] at i_spec; simp [Option.is_some_and] at i_spec
-            | some node' =>
-              have target_hom := (target_h (i-k)).property
-              have : cb.branch.drop (k + (i - k)) = cb.branch.drop i := by rw [Nat.add_sub_of_le (Nat.le_of_lt lt)]
-              simp only [this] at target_hom
-              simp only [eq2, Option.is_none_or] at target_hom
-              exact target_hom.left (GroundTerm.const c)
-        . rfl
-
-      have apply_uniform_in_step : ∀ i, (cb.branch.drop i).head.is_none_or (fun node => ∀ f, f ∈ node.facts.val -> global_h.applyFact f = (target_h (i - k)).val.applyFact f) := by
-        intro i
-        cases eq2 : (cb.branch.drop i).head with
-        | none => simp [Option.is_none_or]
-        | some node' =>
-          simp [Option.is_none_or]
-          intro f f_mem
-          apply TermMapping.apply_generalized_atom_congr_left
-          intro t t_mem
-          simp only [global_h]
-          split
-          case h_2 _ n_ex _ =>
-            apply False.elim
-            apply n_ex
-            exists f
-            constructor
-            . have subset_result := cb.stepIsSubsetOfResult i
-              rw [← PossiblyInfiniteList.head_drop, eq2] at subset_result; simp [Option.is_none_or] at subset_result
-              apply subset_result
-              exact f_mem
-            . exact t_mem
-          case h_1 _ ex _ =>
-            let j := Classical.choose (Classical.choose_spec ex).left
-            have j_spec := Classical.choose_spec (Classical.choose_spec ex).left
-            have spec := Classical.choose_spec ex
-            cases eq3 : (cb.branch.drop j).head with
-            | none => rw [← PossiblyInfiniteList.head_drop, eq3] at j_spec; simp [Option.is_some_and] at j_spec
-            | some node'' =>
-              rw [← PossiblyInfiniteList.head_drop, eq3] at j_spec; simp [Option.is_some_and] at j_spec
-              split
-              case isTrue le =>
-                unfold target_h
-                have target_h_same := extended_hom_same_on_all_following_extensions cb det k node eq h hom 0 (i - k)
-                simp [eq, Option.is_none_or] at target_h_same
-                specialize target_h_same t
-                have : 0 + (i - k) = i - k := by simp
-                rw [this] at target_h_same
-                rw [target_h_same]
-                . unfold extend_hom_to_any_following_step
-                  simp
-                . have all_following := cb.stepIsSubsetOfAllFollowing j _ eq3 (k - j)
-                  rw [PossiblyInfiniteList.get?_drop, Nat.add_sub_of_le le] at all_following
-                  rw [← PossiblyInfiniteList.head_drop, eq] at all_following; simp only [Option.is_none_or] at all_following
-                  unfold FactSet.terms
-                  exists (Classical.choose ex)
-                  constructor
-                  . apply all_following; exact j_spec
-                  . exact spec.right
-              case isFalse gt =>
-                simp at gt
-                cases Decidable.em (i ≤ j) with
-                | inl le2 =>
-                  cases Decidable.em (i ≤ k) with
-                  | inl le3 =>
-                    have target_h_same := extended_hom_same_on_all_following_extensions cb det k node eq h hom 0 (j - k)
-                    simp [eq, Option.is_none_or] at target_h_same
-                    specialize target_h_same t
-                    have : 0 + (j - k) = j - k := by simp
-                    rw [this] at target_h_same
-                    rw [target_h_same]
-                    . rw [Nat.sub_eq_zero_of_le le3]
-                    . have all_following := cb.stepIsSubsetOfAllFollowing i _ eq2 (k - i)
-                      rw [PossiblyInfiniteList.get?_drop, Nat.add_sub_of_le le3] at all_following
-                      rw [← PossiblyInfiniteList.head_drop, eq] at all_following; simp only [Option.is_none_or] at all_following
-                      unfold FactSet.terms
-                      exists f
-                      constructor
-                      . apply all_following; exact f_mem
-                      . exact t_mem
-                  | inr gt3 =>
-                    simp at gt3
-                    have target_h_same := extended_hom_same_on_all_following_extensions cb det k node eq h hom (i - k) (j - i)
-                    simp only [Nat.add_sub_of_le (Nat.le_of_lt gt3), eq2, Option.is_none_or] at target_h_same
-                    specialize target_h_same t
-                    have : (i - k + (j - i)) = j - k := by omega
-                    rw [this] at target_h_same
-                    rw [target_h_same]
-                    exists f
-                | inr gt2 =>
-                  simp at gt2
-                  have target_h_same := extended_hom_same_on_all_following_extensions cb det k node eq h hom (j - k) (i - j)
-                  have : cb.branch.drop (k + (j - k)) = cb.branch.drop j := by rw [Nat.add_sub_of_le (Nat.le_of_lt gt)]
-                  simp only [this] at target_h_same
-                  simp only [eq3, Option.is_none_or] at target_h_same
-                  specialize target_h_same t
-                  have : (j - k + (i - j)) = i - k := by omega
-                  rw [this] at target_h_same
-                  rw [target_h_same]
-                  exists Classical.choose ex
-                  constructor
-                  . exact j_spec
-                  . exact spec.right
-
-      exists global_h
-      constructor
-      . intro t t_mem
-        unfold global_h
-        have ex_f : ∃ f, f ∈ cb.result ∧ t ∈ f.terms := by
-          unfold FactSet.terms at t_mem
-          rcases t_mem with ⟨f, f_mem, f_eq⟩
-          exists f
-          constructor
-          . have sub_result := cb.stepIsSubsetOfResult k
-            simp only [← PossiblyInfiniteList.head_drop, eq, Option.is_none_or] at sub_result
-            apply sub_result
-            exact f_mem
-          . exact f_eq
-        simp
-        split
-        . split
-          . rfl
-          case isFalse lt =>
-            let hfl := (Classical.choose_spec ex_f).left
-            let i := Classical.choose hfl
-            have target_h_same := extended_hom_same_on_all_following_extensions cb det k node eq h hom 0 (i - k)
-            simp [eq, Option.is_none_or] at target_h_same
-            specialize target_h_same t.val t.property t_mem
-            have : 0 + (i - k) = i - k := by simp
-            unfold target_h
-            rw [← this, target_h_same]
-            unfold extend_hom_to_any_following_step
-            simp
-        . contradiction
-      . constructor
-        . intro t
-          cases eq : t with
-          | func _ _ => simp [GroundTerm.func]
-          | const c =>
-            exact id_on_const c
-        . intro f f_mem
-          unfold GroundTermMapping.applyFactSet at f_mem
-          rcases f_mem with ⟨f_arg, f_arg_mem, f_eq⟩
-          unfold ChaseBranch.result at f_arg_mem
-          rcases f_arg_mem with ⟨n, f_arg_mem⟩
-          cases eq2 : (cb.branch.drop n).head with
-          | none => simp [← PossiblyInfiniteList.head_drop, eq2, Option.is_some_and] at f_arg_mem
-          | some node' =>
-            simp [← PossiblyInfiniteList.head_drop, eq2, Option.is_some_and] at f_arg_mem
-            have := apply_uniform_in_step n
-            rw [eq2, Option.is_none_or] at this
-            specialize this _ f_arg_mem
-            unfold GroundTermMapping.applyFact at this
-            rw [this] at f_eq
-            rw [f_eq]
-            have target_h_property := (target_h (n-k)).property
-            cases Decidable.em (n ≤ k) with
-            | inl le =>
-              simp [Nat.sub_eq_zero_of_le le] at target_h_property
-              rw [eq, Option.is_none_or] at target_h_property
-              apply target_h_property.right
-              apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
-              have all_following := cb.stepIsSubsetOfAllFollowing n _ eq2 (k - n)
-              rw [PossiblyInfiniteList.get?_drop, Nat.add_sub_of_le le] at all_following
-              rw [← PossiblyInfiniteList.head_drop, eq] at all_following
-              simp only [Option.is_none_or] at all_following
-              apply all_following
-              exact f_arg_mem
-            | inr gt =>
-              simp at gt
-              simp only [Nat.add_sub_of_le (Nat.le_of_lt gt), eq2, Option.is_none_or] at target_h_property
-              apply target_h_property.right
-              apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
-              exact f_arg_mem
+    exists global_h
+    constructor
+    . exact global_agrees_with_h
+    constructor
+    . exact global_id_const
+    . rw [← ChaseDerivation.result_suffix deriv_suffix]
+      rintro f' ⟨f, ⟨node, node_mem, f_mem⟩, f'_eq⟩
+      rw [f'_eq]
+      apply global_h_hom node node_mem
+      apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
+      exact f_mem
 
 end ChaseBranch
 

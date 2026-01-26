@@ -5,6 +5,7 @@ import ExistentialRules.AtomsAndFacts.Basic
 import ExistentialRules.AtomsAndFacts.SubstitutionsAndHomomorphisms
 import ExistentialRules.ChaseSequence.ChaseNode
 import ExistentialRules.ChaseSequence.ChaseBranch
+import ExistentialRules.ChaseSequence.ChaseDerivation
 import ExistentialRules.ChaseSequence.ChaseTree
 import ExistentialRules.ChaseSequence.Universality
 import ExistentialRules.ChaseSequence.Deterministic
@@ -13,6 +14,7 @@ import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts
 import ExistentialRules.ChaseSequence.Termination.ConstantMappings
 import ExistentialRules.ChaseSequence.Termination.MfaLike
 import ExistentialRules.ChaseSequence.Termination.RenameConstantsApart
+import ExistentialRules.ChaseSequence.TreeDerivation
 import ExistentialRules.Models.Basic
 import ExistentialRules.Models.Cores
 import ExistentialRules.Terms.Basic

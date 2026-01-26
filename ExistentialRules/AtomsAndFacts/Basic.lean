@@ -372,6 +372,14 @@ namespace FactSet
   theorem terms_subset_of_subset {fs1 fs2 : FactSet sig} : fs1 ⊆ fs2 -> fs1.terms ⊆ fs2.terms := by
     rintro sub t ⟨f, f_mem, t_mem⟩; exists f; exact ⟨sub _ f_mem, t_mem⟩
 
+  theorem terms_union {fs1 fs2 : FactSet sig} : (fs1 ∪ fs2).terms = fs1.terms ∪ fs2.terms := by
+    apply Set.ext
+    intro t; constructor
+    . rintro ⟨f, f_mem, t_mem⟩; cases f_mem with | inl f_mem => apply Or.inl; exists f | inr f_mem => apply Or.inr; exists f
+    . intro t_mem; cases t_mem with
+      | inl t_mem => rcases t_mem with ⟨f, f_mem, t_mem⟩; exists f; simp only [t_mem, and_true]; exact Or.inl f_mem
+      | inr t_mem => rcases t_mem with ⟨f, f_mem, t_mem⟩; exists f; simp only [t_mem, and_true]; exact Or.inr f_mem
+
   theorem terms_finite_of_finite (fs : FactSet sig) (finite : fs.finite) : fs.terms.finite := by
     rcases finite with ⟨l, nodup, finite⟩
     exists (l.map GeneralizedAtom.terms).flatten.eraseDupsKeepRight
@@ -403,6 +411,15 @@ namespace FactSet
   theorem mem_constants_toSet {l : List (Fact sig)} : ∀ c, c ∈ FactSet.constants (l.toSet) ↔ c ∈ l.flatMap Fact.constants := by
     intro t; rw [List.mem_flatMap]
     constructor <;> (rintro ⟨f, f_mem, t_mem⟩; exists f)
+
+  theorem constants_union {fs1 fs2 : FactSet sig} : (fs1 ∪ fs2).constants = fs1.constants ∪ fs2.constants := by
+    -- NOTE: same proof as terms_union
+    apply Set.ext
+    intro t; constructor
+    . rintro ⟨f, f_mem, t_mem⟩; cases f_mem with | inl f_mem => apply Or.inl; exists f | inr f_mem => apply Or.inr; exists f
+    . intro t_mem; cases t_mem with
+      | inl t_mem => rcases t_mem with ⟨f, f_mem, t_mem⟩; exists f; simp only [t_mem, and_true]; exact Or.inl f_mem
+      | inr t_mem => rcases t_mem with ⟨f, f_mem, t_mem⟩; exists f; simp only [t_mem, and_true]; exact Or.inr f_mem
 
   theorem constants_finite_of_finite (fs : FactSet sig) (fin : fs.finite) : fs.constants.finite := by
     rcases fin with ⟨l, _, l_eq⟩
@@ -476,6 +493,23 @@ namespace FactSet
     . exists f
     . intro t t_mem
       exists f
+
+  theorem list_of_facts_for_list_of_terms {ts : List (GroundTerm sig)} {fs : FactSet sig} (ts_sub : ts.toSet ⊆ fs.terms) :
+      ∃ (l : List (Fact sig)), l.toSet ⊆ fs ∧ ts ⊆ l.flatMap GeneralizedAtom.terms := by
+    induction ts with
+    | nil => exists []; constructor; intro _ mem; simp [List.mem_toSet] at mem; simp
+    | cons t ts ih =>
+      rcases (ts_sub t (by simp [List.mem_toSet])) with ⟨f, f_mem, t_mem⟩
+      rcases ih (by intro _ mem; rw [List.mem_toSet] at mem; apply ts_sub; simp [List.mem_toSet, mem]) with ⟨l, l_sub, ts_sub⟩
+      exists (f :: l); constructor
+      . intro _ mem; rw [List.mem_toSet, List.mem_cons] at mem
+        cases mem with
+        | inl mem => rw [mem]; exact f_mem
+        | inr mem => apply l_sub; rw [List.mem_toSet]; exact mem
+      . intro s; rw [List.mem_cons, List.flatMap_cons, List.mem_append]
+        intro s_mem; cases s_mem with
+        | inl s_mem => apply Or.inl; rw [s_mem]; exact t_mem
+        | inr s_mem => apply Or.inr; apply ts_sub; exact s_mem
 
 end FactSet
 
