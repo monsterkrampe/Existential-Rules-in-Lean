@@ -92,6 +92,39 @@ namespace PreTrigger
       . apply Rule.frontier_subset_vars_body; exact v_mem
       . exact t_eq
 
+  theorem skolem_ruleIds_valid_for_fresh_term
+      (rl : RuleList sig)
+      (trg : PreTrigger sig)
+      (rule_mem : trg.rule ∈ rl.rules)
+      (body_valid : trg.skolem_ruleIds_valid rl) :
+      ∀ i lt t, t ∈ trg.fresh_terms_for_head_disjunct i lt -> t.skolem_ruleIds_valid rl := by
+    intro i lt t t_mem
+    simp only [PreTrigger.fresh_terms_for_head_disjunct, List.mem_map] at t_mem; rcases t_mem with ⟨v, v_mem, t_mem⟩
+    rw [← t_mem]; apply skolem_ruleIds_valid_for_functional_term; exact rule_mem; exact body_valid
+
+  theorem skolem_disjIdx_valid_for_fresh_term
+      (rl : RuleList sig)
+      (trg : PreTrigger sig)
+      (rule_mem : trg.rule ∈ rl.rules)
+      (trg_ruleIds_valid : trg.skolem_ruleIds_valid rl)
+      (body_valid : trg.skolem_disjIdx_valid rl trg_ruleIds_valid) :
+      ∀ i lt t, (t_mem : t ∈ trg.fresh_terms_for_head_disjunct i lt) -> t.skolem_disjIdx_valid rl (skolem_ruleIds_valid_for_fresh_term rl trg rule_mem trg_ruleIds_valid i lt t t_mem) := by
+    intro i lt t t_mem
+    simp only [PreTrigger.fresh_terms_for_head_disjunct, List.mem_map] at t_mem; rcases t_mem with ⟨v, v_mem, t_mem⟩
+    simp only [← t_mem]; apply skolem_disjIdx_valid_for_functional_term; exact rule_mem; exact body_valid; exact lt
+
+  theorem skolem_rule_arity_valid_for_fresh_term
+      (rl : RuleList sig)
+      (trg : PreTrigger sig)
+      (rule_mem : trg.rule ∈ rl.rules)
+      (trg_ruleIds_valid : trg.skolem_ruleIds_valid rl)
+      (body_valid : trg.skolem_rule_arity_valid rl trg_ruleIds_valid) :
+      ∀ i lt t, (t_mem : t ∈ trg.fresh_terms_for_head_disjunct i lt) -> t.skolem_rule_arity_valid rl (skolem_ruleIds_valid_for_fresh_term rl trg rule_mem trg_ruleIds_valid i lt t t_mem) := by
+    intro i lt t t_mem
+    simp only [PreTrigger.fresh_terms_for_head_disjunct, List.mem_map] at t_mem; rcases t_mem with ⟨v, v_mem, t_mem⟩
+    simp only [← t_mem]; apply skolem_rule_arity_valid_for_functional_term; exact rule_mem; exact body_valid
+
+  -- TODO: for the following we should be able to use skolem_ruleIds_valid_for_fresh_term and the like but this is currently tricky since we cannot simply use PreTrigger.mem_terms_mapped_head_iff because of the flatten call.
   theorem skolem_ruleIds_remain_valid_in_head (rl : RuleList sig) (trg : PreTrigger sig) (rule_mem : trg.rule ∈ rl.rules) (body_valid : trg.skolem_ruleIds_valid rl) :
       ∀ t ∈ trg.mapped_head.flatten.flatMap GeneralizedAtom.terms, t.skolem_ruleIds_valid rl := by
     intro t t_mem

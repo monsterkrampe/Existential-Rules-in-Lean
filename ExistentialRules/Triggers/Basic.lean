@@ -181,12 +181,19 @@ namespace PreTrigger
   def fresh_terms_for_head_disjunct (trg : PreTrigger sig) (i : Nat) (lt : i < trg.rule.head.length) : List (GroundTerm sig) :=
     (trg.rule.existential_vars_for_head_disjunct i lt).map (trg.functional_term_for_var i)
 
+  theorem mem_fresh_terms {trg : PreTrigger sig} {i : Nat} {lt : i < trg.rule.head.length} :
+      ∀ t ∈ trg.fresh_terms_for_head_disjunct i lt, ∃ v ∈ trg.rule.existential_vars_for_head_disjunct i lt,
+      t = GroundTerm.func { ruleId := trg.rule.id, disjunctIndex := i, var := v, arity := trg.rule.frontier.length } (trg.rule.frontier.map trg.subs) (by rw [List.length_map]) := by
+    intro t t_mem
+    simp only [fresh_terms_for_head_disjunct, List.mem_map, functional_term_for_var] at t_mem
+    rcases t_mem with ⟨v, v_mem, t_mem⟩
+    exists v; constructor; exact v_mem; rw [t_mem]
+
   theorem term_functional_of_mem_fresh_terms {trg : PreTrigger sig} {i : Nat} {lt : i < trg.rule.head.length} :
       ∀ t ∈ trg.fresh_terms_for_head_disjunct i lt, ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok := by
     intro t t_mem
-    simp only [fresh_terms_for_head_disjunct, List.mem_map, functional_term_for_var] at t_mem
-    rcases t_mem with ⟨_, _, t_mem⟩
-    exact ⟨_, _, _, Eq.symm t_mem⟩
+    rcases mem_fresh_terms t t_mem with ⟨_, _, t_mem⟩
+    exact ⟨_, _, _, t_mem⟩
 
   theorem constant_not_mem_fresh_terms_for_head_disjunct {trg : PreTrigger sig} {i : Nat} {lt : i < trg.rule.head.length} :
       ∀ {c : sig.C}, ¬ .const c ∈ trg.fresh_terms_for_head_disjunct i lt := by
