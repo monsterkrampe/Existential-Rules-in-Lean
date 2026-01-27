@@ -25,10 +25,24 @@ section Rules
 
   end LinearRule
 
+    theorem Atom_pred_eq_implies_eq_term_length {a b : GeneralizedAtom sig (T)}:
+      a.predicate = b.predicate -> a.terms.length = b.terms.length := by
+        intro pred_eq
+        rw[GeneralizedAtom.arity_ok]
+        rw[pred_eq]
+        rw[GeneralizedAtom.arity_ok]
+
+    theorem LinearRule.body_eq {rule : LinearRule sig}: rule.rule.body = [rule.body] := by
+      unfold LinearRule.body
+      have rule_body_len: rule.rule.body.length = 1 := by apply rule.linear
+      rw[List.length_eq_one_iff] at rule_body_len
+      rcases rule_body_len with ⟨a, rule_body_len ⟩
+      simp[rule_body_len]
+
    def is_frontier_position_fst (rule: LinearRule sig)  (i: Nat) (i_valid: i < rule.head.fst.terms.length) : Prop :=
       ∃ v, (rule.head.fst.terms[i]'(by exact i_valid)) = VarOrConst.var v ∧ v ∈ rule.rule.frontier
 
-    theorem frontier_pos_body {rule: LinearRule sig} {i: Nat} {i_valid: i < rule.head.fst.terms.length} :
+    theorem frontier_pos_body_fst {rule: LinearRule sig} {i: Nat} {i_valid: i < rule.head.fst.terms.length} :
       is_frontier_position_fst rule i i_valid →
       ∃ j , ∃ h: j < rule.body.terms.length, rule.head.fst.terms[i].isVar ∧ rule.head.fst.terms[i] = rule.body.terms[j] := by
       unfold is_frontier_position_fst
@@ -40,14 +54,8 @@ section Rules
         simp[h.left]
       . rcases rule.rule.frontier_occurs_in_body v h.right with ⟨a, a_body, v_a⟩
         simp only[h]
-        simp[List.mem_iff_getElem] at v_a
-        have rle_bod: rule.rule.body = [rule.body] := by
-          unfold LinearRule.body
-          have rule_body_len: rule.rule.body.length = 1 := by apply rule.linear
-          rw[List.length_eq_one_iff] at rule_body_len
-          rcases rule_body_len with ⟨a, rule_body_len ⟩
-          simp[rule_body_len]
-        simp[rle_bod] at a_body
+        simp only[List.mem_iff_getElem] at v_a
+        simp only [LinearRule.body_eq, List.mem_cons, List.not_mem_nil, or_false] at a_body
         rw[a_body] at v_a
         rcases v_a with ⟨c, len, v_a⟩
         exists c, len
@@ -55,6 +63,25 @@ section Rules
 
     def is_frontier_position_snd (rule: LinearRule sig)  (i: Nat) (i_valid: i < rule.head.snd.terms.length) : Prop :=
       ∃ v, (rule.head.snd.terms[i]'(by exact i_valid)) = VarOrConst.var v ∧ v ∈ rule.rule.frontier
+
+    theorem frontier_pos_body_snd {rule: LinearRule sig} {i: Nat} {i_valid: i < rule.head.snd.terms.length} :
+      is_frontier_position_snd rule i i_valid →
+      ∃ j , ∃ h: j < rule.body.terms.length, rule.head.snd.terms[i].isVar ∧ rule.head.snd.terms[i] = rule.body.terms[j] := by
+      unfold is_frontier_position_snd
+      intro h
+      rcases h with ⟨v, h⟩
+      simp
+      constructor
+      . unfold VarOrConst.isVar
+        simp[h.left]
+      . rcases rule.rule.frontier_occurs_in_body v h.right with ⟨a, a_body, v_a⟩
+        simp only[h]
+        simp only[List.mem_iff_getElem] at v_a
+        simp only [LinearRule.body_eq, List.mem_cons, List.not_mem_nil, or_false] at a_body
+        rw[a_body] at v_a
+        rcases v_a with ⟨c, len, v_a⟩
+        exists c, len
+        simp[v_a]
 
   -- TODO for Lukas: unify this with regular RuleSet at some point
   structure LinearRuleSet (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] where
@@ -288,6 +315,20 @@ section SubstitutionsAndTriggers
           := by rw[<-a,<-b];apply matchTermList.apply_lists; assumption
         simp[pred_eq, terms_eq]
 
+  theorem GroundSubstitution.i_lt_atom_terms_len_iff_fact_terms_len {atom: FunctionFreeAtom sig} {fact : Fact sig} :
+    ∀ subs ∈ GroundSubstitution.from_atom_and_fact atom fact, ∀ i, (i < atom.terms.length) ↔  i < fact.terms.length := by
+      intro subs subs_mem i
+      constructor
+      . intro i_valid
+        have subs_appy: subs.apply_function_free_atom atom = fact := by rw[GroundSubstitution.apply_function_free_atom_from_atom_and_fact]; exact subs_mem
+        rw[← subs_appy]
+        simp only [GroundSubstitution.apply_function_free_atom, TermMapping.length_terms_apply_generalized_atom]
+        exact i_valid
+      . intro i_valid
+        have subs_appy: subs.apply_function_free_atom atom = fact := by rw[GroundSubstitution.apply_function_free_atom_from_atom_and_fact]; exact subs_mem
+        rw[← subs_appy] at i_valid
+        simp only [GroundSubstitution.apply_function_free_atom, TermMapping.length_terms_apply_generalized_atom] at i_valid
+        exact i_valid
 
   theorem GroundSubstitution.from_atom_and_fact_some_iff {atom : FunctionFreeAtom sig} {fact : Fact sig} :
       (∃ subs, (GroundSubstitution.from_atom_and_fact atom fact) = some subs) ↔ ∃ (subs : GroundSubstitution sig), subs.apply_function_free_atom atom = fact := by
@@ -376,43 +417,78 @@ section SubstitutionsAndTriggers
       exists htr;
       simp[And.left (PreTrigger.from_rule_and_fact_some_implies val htr)];
 
-  theorem ruleApply.some_implies  {rule: LinearRule sig} {fact: Fact sig}:
+  theorem ruleApply.some_implies_PreTrigger_some {rule: LinearRule sig} {fact: Fact sig}:
     (ruleApply rule fact).isSome -> (PreTrigger.from_rule_and_fact rule fact).isSome := by
     rw[ruleApply_eq]
     simp
 
-  theorem ruleApply_frontierPos {rule : LinearRule sig} {fact : Fact sig} {i : Nat} (i_valid: i < rule.head.fst.terms.length) (h_frontier : is_frontier_position_fst rule i i_valid):
-     (isSome: (ruleApply rule fact).isSome) ->
-    ∃ j: Nat, ∃ (j_valid: j < fact.terms.length), ((ruleApply rule fact).get isSome).fst.terms[i]'(by
-      have trg_some : (PreTrigger.from_rule_and_fact rule fact).isSome := by apply ruleApply.some_implies; simp[isSome]
+  theorem ruleApply_frontierPos_fstHead {rule : LinearRule sig} {fact : Fact sig} {i : Nat} (i_valid: i < rule.head.fst.terms.length) (h_frontier : is_frontier_position_fst rule i i_valid):
+     (ruleApplySome: (ruleApply rule fact).isSome) ->
+    ∃ j: Nat, ∃ (j_valid: j < fact.terms.length), ((ruleApply rule fact).get ruleApplySome).fst.terms[i]'(by
+      have trg_some : (PreTrigger.from_rule_and_fact rule fact).isSome := by apply ruleApply.some_implies_PreTrigger_some; exact ruleApplySome
       rw[Option.isSome_iff_exists] at trg_some
       rcases trg_some with ⟨trg, trg_some⟩
       simp only [ruleApply_eq, trg_some, Option.map_some, Option.get_some]
-      simp only [PreTrigger.apply_to_function_free_atom, TermMapping.apply_generalized_atom, List.length_map]
+      simp only [PreTrigger.apply_to_function_free_atom]
+      simp only [TermMapping.apply_generalized_atom, List.length_map]
       exact i_valid
     ) = fact.terms[j]:= by
-    intro isSome
-    rcases frontier_pos_body h_frontier with ⟨j, j_valid, h_frontier'⟩
+    intro ruleApplyIsSome
+    rcases frontier_pos_body_fst h_frontier with ⟨j, j_valid, h_frontier'⟩
 
-    have trg_some : (PreTrigger.from_rule_and_fact rule fact).isSome := by apply ruleApply.some_implies; simp[isSome]
+    have trg_some : (PreTrigger.from_rule_and_fact rule fact).isSome := by apply ruleApply.some_implies_PreTrigger_some; exact ruleApplyIsSome
     rw[Option.isSome_iff_exists] at trg_some
     rcases trg_some with ⟨trg, trg_some⟩
     have trg_some' := trg_some
-
     unfold PreTrigger.from_rule_and_fact at trg_some
     simp[Option.map_eq_some_iff] at trg_some
     rcases trg_some with ⟨sub, sub_def, trg_eq⟩
-
     have sub_apply: sub.apply_function_free_atom rule.body = fact := by
       rw[GroundSubstitution.apply_function_free_atom_from_atom_and_fact]
       exact sub_def
 
-    exists j, (by simp only [← sub_apply, GroundSubstitution.apply_function_free_atom, TermMapping.apply_generalized_atom, List.length_map]; exact j_valid)
-    conv => right; simp only [← sub_apply, GroundSubstitution.apply_function_free_atom, TermMapping.apply_generalized_atom, List.getElem_map]
+    exists j, (by rw[← (GroundSubstitution.i_lt_atom_terms_len_iff_fact_terms_len sub sub_def j)]; exact j_valid)
+    conv => right; simp only [← sub_apply, GroundSubstitution.apply_function_free_atom]; simp only[TermMapping.apply_generalized_atom, List.getElem_map]
     rw [← h_frontier'.right]
 
     simp only [ruleApply_eq, trg_some', Option.map_some, Option.get_some]
+    simp only [PreTrigger.apply_to_function_free_atom, TermMapping.apply_generalized_atom, List.getElem_map]
+    rcases h_frontier with ⟨v, v_eq, v_front⟩
+    rw [v_eq]
+    rw [PreTrigger.apply_to_var_or_const_frontier_var _ _ _ (by rw [← trg_eq]; exact v_front)]
+    rw [← trg_eq]
+    rfl
 
+  theorem ruleApply_frontierPos_sndHead {rule : LinearRule sig} {fact : Fact sig} {i : Nat} (i_valid: i < rule.head.snd.terms.length) (h_frontier : is_frontier_position_snd rule i i_valid):
+     (ruleApplySome: (ruleApply rule fact).isSome) ->
+    ∃ j: Nat, ∃ (j_valid: j < fact.terms.length), ((ruleApply rule fact).get ruleApplySome).snd.terms[i]'(by
+      have trg_some : (PreTrigger.from_rule_and_fact rule fact).isSome := by apply ruleApply.some_implies_PreTrigger_some; exact ruleApplySome
+      rw[Option.isSome_iff_exists] at trg_some
+      rcases trg_some with ⟨trg, trg_some⟩
+      simp only [ruleApply_eq, trg_some, Option.map_some, Option.get_some]
+      simp only [PreTrigger.apply_to_function_free_atom]
+      simp only [TermMapping.apply_generalized_atom, List.length_map]
+      exact i_valid
+    ) = fact.terms[j]:= by
+    intro ruleApplyIsSome
+    rcases frontier_pos_body_snd h_frontier with ⟨j, j_valid, h_frontier'⟩
+
+    have trg_some : (PreTrigger.from_rule_and_fact rule fact).isSome := by apply ruleApply.some_implies_PreTrigger_some; exact ruleApplyIsSome
+    rw[Option.isSome_iff_exists] at trg_some
+    rcases trg_some with ⟨trg, trg_some⟩
+    have trg_some' := trg_some
+    unfold PreTrigger.from_rule_and_fact at trg_some
+    simp[Option.map_eq_some_iff] at trg_some
+    rcases trg_some with ⟨sub, sub_def, trg_eq⟩
+    have sub_apply: sub.apply_function_free_atom rule.body = fact := by
+      rw[GroundSubstitution.apply_function_free_atom_from_atom_and_fact]
+      exact sub_def
+
+    exists j, (by rw[← (GroundSubstitution.i_lt_atom_terms_len_iff_fact_terms_len sub sub_def j)]; exact j_valid)
+    conv => right; simp only [← sub_apply, GroundSubstitution.apply_function_free_atom]; simp only[TermMapping.apply_generalized_atom, List.getElem_map]
+    rw [← h_frontier'.right]
+
+    simp only [ruleApply_eq, trg_some', Option.map_some, Option.get_some]
     simp only [PreTrigger.apply_to_function_free_atom, TermMapping.apply_generalized_atom, List.getElem_map]
     rcases h_frontier with ⟨v, v_eq, v_front⟩
     rw [v_eq]
@@ -543,11 +619,18 @@ section TriggersAndChaseDerivation
       ({initialAtom:= pi.addr.val.initialAtom, path:=(fst ::pi.addr.val.path)},
       {initialAtom:= pi.addr.val.initialAtom, path:=(snd ::pi.addr.val.path)})
 
+    theorem ruleApply_of_trigger_labelling_is_some {fs: FactSet sig} {pi: LinearRuleTrigger fs rs}:
+      (ruleApply pi.rule.val (Option.get (labellingFunction pi.addr.val) pi.addr.property)).isSome := by
+        rw[ruleApply_eq]
+        unfold PreTrigger.from_rule_and_fact
+        simp only [Option.map_map, Option.isSome_map]
+        exact pi.hom_exists
+
+
     --this gives some shortcut that avoids dealing with the "Option" ...
     def labelling_of_apply {fs: FactSet sig} (pi: LinearRuleTrigger fs rs) : (Fact sig) × (Fact sig) :=
       let lu := Option.get (labellingFunction pi.addr.val) pi.addr.property
-      have ruleApply_some: (ruleApply pi.rule.val lu).isSome := by
-        rw[ruleApply_eq]; simp; unfold PreTrigger.from_rule_and_fact;simp; unfold lu; exact pi.hom_exists;
+      have ruleApply_some: (ruleApply pi.rule.val lu).isSome := by unfold lu; simp[ruleApply_of_trigger_labelling_is_some]
       Option.get (ruleApply pi.rule.val lu) ruleApply_some
 
     --this shows that the schortcut of 'labelling_of_apply' is actually correct
@@ -617,8 +700,8 @@ section TriggersAndChaseDerivation
       b1_label := Option.get (labellingFunction b1.val) (by apply forest_addr_label_some; exact g_sub)
       b2_label:= Option.get (labellingFunction b2.val) (by apply forest_addr_label_some; exact g_sub)
       --rule := pi.val.rule.val
-      first : b1_label.predicate = (labelling_of_apply pi.val).fst.predicate
-        ∧ b2_label.predicate = (labelling_of_apply pi.val).snd.predicate
+      first : (b1_label.predicate = (labelling_of_apply pi.val).fst.predicate)
+        ∧ (b2_label.predicate = (labelling_of_apply pi.val).snd.predicate)
       second :
         (∀ j, (lt_fst: j < pi.val.rule.val.head.fst.terms.length) -> is_frontier_position_fst pi.val.rule.val j lt_fst ->
           (labelling_of_apply pi.val).fst.terms[j]'(by rw[GeneralizedAtom.arity_ok, ← trg_apply_labelling_fst_predicate_eq, ← GeneralizedAtom.arity_ok]; simp[lt_fst]) = b1_label.terms[j]'(by rw[GeneralizedAtom.arity_ok, first.left, ← trg_apply_labelling_fst_predicate_eq, ← GeneralizedAtom.arity_ok]; simp[lt_fst]))
@@ -628,9 +711,13 @@ section TriggersAndChaseDerivation
         ∧ (∀ i j:Nat, (labelling_of_apply pi.val).fst.terms[i]? = (labelling_of_apply pi.val).snd.terms[j]? -> b1_label.terms[i]? = b2_label.terms[j]?)
         ∧ (∀ i j:Nat, (labelling_of_apply pi.val).snd.terms[i]? = (labelling_of_apply pi.val).snd.terms[j]? -> b2_label.terms[i]? = b2_label.terms[j]?)
 
+    theorem Conditions.b1_label_eq {fs: FactSet sig} {g : Forest fs rs}{g_sub: g.subforest_of (oblivious_chase fs rs)} {b1 b2: forest_Address g} {pi: forest_Trigger g} {cond : Conditions g_sub b1 b2 pi} :
+    cond.b1_label =  Option.get (labellingFunction b1.val) (by apply forest_addr_label_some; exact g_sub) := by simp only[Conditions, Conditions.b1_label]; rfl; sorry
+
     theorem blockingTeam.iff {fs: FactSet sig} {g : Forest fs rs} {g_sub: g.subforest_of (oblivious_chase fs rs)} {b1 b2: forest_Address g} {pi: forest_Trigger g} :
       blockingTeam g_sub b1 b2 pi ↔ ∃ cond : Conditions g_sub b1 b2 pi, True := by
         unfold blockingTeam
+
         constructor
         . unfold GroundTermMapping.applyFact TermMapping.apply_generalized_atom--GroundTermMapping.isIdOnConstants
           intro a
@@ -642,66 +729,125 @@ section TriggersAndChaseDerivation
             constructor
             . rw[← a.right.left]
             . rw[ ← a.right.right.left]
-          have pred_eq_fst: pi.val.rule.val.head.fst.predicate = (labelling_of_apply pi.val).fst.predicate := by
-            unfold labelling_of_apply;
-            simp only[ruleApply_eq];
-            unfold PreTrigger.apply_to_function_free_atom PreTrigger.apply_to_var_or_const TermMapping.apply_generalized_atom;
-            simp;
-          have snd_cond_fst:
-           ∀ j, (lt_fst: j < pi.val.rule.val.head.fst.terms.length) -> is_frontier_position_fst pi.val.rule.val j lt_fst ->
-           (labelling_of_apply pi.val).fst.terms[j]'(by rw[GeneralizedAtom.arity_ok, ← pred_eq_fst, ← GeneralizedAtom.arity_ok]; simp[lt_fst]) = b1_label.terms[j]'(by rw[GeneralizedAtom.arity_ok, fst_cond.left, ← pred_eq_fst, ← GeneralizedAtom.arity_ok]; simp[lt_fst]) := by
-            intro j j_valid
+          have snd_cond:
+           (∀ j, (lt_fst: j < pi.val.rule.val.head.fst.terms.length) -> is_frontier_position_fst pi.val.rule.val j lt_fst ->
+           (labelling_of_apply pi.val).fst.terms[j]'(by rw[GeneralizedAtom.arity_ok, ← trg_apply_labelling_fst_predicate_eq, ← GeneralizedAtom.arity_ok]; simp[lt_fst])
+            = b1_label.terms[j]'(by rw[GeneralizedAtom.arity_ok, fst_cond.left,  ← trg_apply_labelling_fst_predicate_eq, ← GeneralizedAtom.arity_ok]; simp[lt_fst]))
+            ∧
+            (∀ j, (lt_snd: j < pi.val.rule.val.head.snd.terms.length) -> is_frontier_position_snd pi.val.rule.val j lt_snd ->
+           (labelling_of_apply pi.val).snd.terms[j]'(by rw[GeneralizedAtom.arity_ok, ← trg_apply_labelling_snd_predicate_eq, ← GeneralizedAtom.arity_ok]; simp[lt_snd])
+           = b2_label.terms[j]'(by rw[GeneralizedAtom.arity_ok, fst_cond.right,  ← trg_apply_labelling_snd_predicate_eq, ← GeneralizedAtom.arity_ok]; simp[lt_snd])):= by
+           constructor
+           .intro j j_valid
             unfold b1_label
             intro j_frontier_pos
             simp[← a.right.left]
             unfold labelling_of_apply
             simp
-            rcases ruleApply_frontierPos (rule := pi.val.rule.val) (fact := (Option.get (labellingFunction pi.val.addr.val) pi.val.addr.property)) (i := j) j_valid j_frontier_pos (by
-              let lu := Option.get (labellingFunction pi.val.addr.val) pi.val.addr.property
-              have ruleApply_some: (ruleApply pi.val.rule.val lu).isSome := by
-                rw[ruleApply_eq]; simp; unfold PreTrigger.from_rule_and_fact;simp; unfold lu; exact pi.val.hom_exists;
-              exact ruleApply_some) with ⟨k, k_valid, eq⟩
+            rcases ruleApply_frontierPos_fstHead (rule := pi.val.rule.val) (fact := (Option.get (labellingFunction pi.val.addr.val) pi.val.addr.property)) (i := j) j_valid j_frontier_pos (by
+              simp[ruleApply_of_trigger_labelling_is_some]) with ⟨k, k_valid, eq⟩
             rw [eq]
             have a_left := a.left
             rw [GeneralizedAtom.mk.injEq] at a_left
             conv => left; arg 1; rw [← a_left.right]
             rw [List.getElem_map]
-
+           .intro j j_valid
+            unfold b2_label
+            intro j_frontier_pos
+            simp[← a.right.right.left]
+            unfold labelling_of_apply
+            simp
+            rcases ruleApply_frontierPos_sndHead (rule := pi.val.rule.val) (fact := (Option.get (labellingFunction pi.val.addr.val) pi.val.addr.property)) (i := j) j_valid j_frontier_pos (by
+              simp[ruleApply_of_trigger_labelling_is_some]) with ⟨k, k_valid, eq⟩
+            rw [eq]
+            have a_left := a.left
+            rw [GeneralizedAtom.mk.injEq] at a_left
+            conv => left; arg 1; rw [← a_left.right]
+            rw [List.getElem_map]
           have trd_cond:
           (∀ i j:Nat, (labelling_of_apply pi.val).fst.terms[i]? = (labelling_of_apply pi.val).fst.terms[j]? -> b1_label.terms[i]? = b1_label.terms[j]?)
           ∧ (∀ i j:Nat, (labelling_of_apply pi.val).fst.terms[i]? = (labelling_of_apply pi.val).snd.terms[j]? -> b1_label.terms[i]? = b2_label.terms[j]?)
           ∧ (∀ i j:Nat, (labelling_of_apply pi.val).snd.terms[i]? = (labelling_of_apply pi.val).snd.terms[j]? -> b2_label.terms[i]? = b2_label.terms[j]?):= by
+            unfold b1_label b2_label
+            rw[← a.right.left, ← a.right.right.left]
             constructor
-            . intro i j
-              unfold b1_label
-              rw[<- a.right.left]
-              intro hyp
+            . intro i j hyp
               simp[hyp]
             . constructor
-              . intro i j
-                unfold b1_label b2_label
-                rw[<- a.right.right.left, <- a.right.left]
-                intro hyp
+              . intro i j hyp
                 simp[hyp]
-              . intro i j
-                unfold b2_label
-                rw[<- a.right.right.left]
-                intro hyp
+              . intro i j hyp
                 simp[hyp]
-
-          exists {first := fst_cond , second:= sorry, third:= trd_cond}
+          exists {first := fst_cond , second:= snd_cond, third:= trd_cond}
         . intro a
           rcases a with ⟨cond, a⟩
           let fst := cond.first
           let snd := cond.second
           let trd := cond.third
+          --unfold Conditions.b1_label at fst
           unfold GroundTermMapping.applyFact TermMapping.apply_generalized_atom
+          --simp[List.idxOf]
+          let h: GroundTermMapping sig := fun t =>
+            match t with
+              | .const c => t
+              | _ => if t ∈ (Option.get (labellingFunction pi.val.addr.val) pi.val.addr.property).terms then t
+                  else if tin: t ∈ (labelling_of_apply pi.val).fst.terms
+                  then cond.b1_label.terms[(labelling_of_apply pi.val).fst.terms.idxOf t]'(by
+                    rw[Atom_pred_eq_implies_eq_term_length cond.first.left];
+                    rw[List.idxOf_lt_length_iff]; exact tin)
+                  else t
+          exists h
+          constructor
+          . rw[GeneralizedAtom.mk.injEq]
+            simp
+            --unfold h
+            --unfold List.map
+            rw[List.map_id_of_id_on_all_mem]
+            intro e e_mem
+            unfold h
+            by_cases e_def: ∃ c, e = GroundTerm.const c
+            . unfold GroundTerm.const at e_def
+              rcases e_def with ⟨c, c_def⟩
+              simp[c_def]
+            . unfold GroundTerm.const at e_def
+              simp[not_exists] at e_def
+              simp[e_mem]
+          . constructor
+            . rw[GeneralizedAtom.mk.injEq]
+              rw[← fst.left]
+
+              constructor
+              .
+                sorry
+
+              . unfold h
+                --unfold List.map
+                simp[List.map_eq_iff]
+                intro i
+                unfold Option.map
+                by_cases xyz: i <  pi.val.labelling_of_apply.fst.terms.length --(((labellingFunction b1.val).get sorry).terms.length)
+                . simp[xyz, List.getElem?_eq_some_iff];  sorry
+                . simp[xyz]; sorry
+
+            . constructor
+              . sorry
+              . unfold GroundTermMapping.isIdOnConstants
+                intro t
+                by_cases e_def: ∃ c, t = GroundTerm.const c
+                . unfold GroundTerm.const at e_def
+                  rcases e_def with ⟨c, c_def⟩
+                  unfold h
+                  simp[c_def]
+                . unfold GroundTerm.const at e_def
+                  simp[not_exists] at e_def
+                  simp
 
           /- fun h : GroundTermMapping sig := fun t => -/
           /-   if t ∈ .. then t else  -/
           /-     if t ∈ ....fst then b1_label.terms[...fst.indexOf t] -/
 
-          sorry
+
+
 
     def active_trigger_apply_resulting_forest {fs: FactSet sig} (pi: LinearRuleTrigger fs rs) (g: Forest fs rs) (pi_active: pi.isActive_in_forest g) : Forest fs rs where
     --returns the resulting forest if one adds the result of pi.apply to forest g if pi is a Trigger that is active in g
