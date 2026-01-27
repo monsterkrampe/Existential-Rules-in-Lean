@@ -12,9 +12,10 @@ def exists_trigger_list_condition (obs : ObsoletenessCondition sig) (rules : Rul
     origin := some ⟨trg, i⟩
     facts_contain_origin_result := by
       have : head = trg.val.mapped_head[i.val] := by rw [List.mk_mem_zipIdx_with_lt_iff_getElem] at h; rw [h]
-      simp only [Option.is_none_or]
+      intro _ orig_mem
+      rw [Option.mem_def, Option.some_inj] at orig_mem
       apply Set.subset_union_of_subset_right
-      rw [this]
+      rw [← orig_mem, this]
       apply Set.subset_refl
   })
 
@@ -27,14 +28,14 @@ def not_exists_trigger_list (obs : ObsoletenessCondition sig) (rules : RuleSet s
 structure TreeDerivation (obs : ObsoletenessCondition sig) (rules : RuleSet sig) where
   tree : FiniteDegreeTree (ChaseNode obs rules)
   isSome_root : tree.root.isSome
-  triggers_exist : ∀ ns : List Nat, (tree.drop ns).root.is_none_or (fun before =>
+  triggers_exist : ∀ ns : List Nat, ∀ before ∈ (tree.drop ns).root,
     let after := (tree.drop ns).childNodes
     (exists_trigger_list obs rules before after) ∨
-    (not_exists_trigger_list obs rules before after))
+    (not_exists_trigger_list obs rules before after)
 
   fairness_leaves : ∀ leaf, leaf ∈ tree.leaves -> ∀ trg : (RTrigger obs rules), ¬ trg.val.active leaf.facts
   fairness_infinite_branches : ∀ trg : (RTrigger obs rules), ∃ i : Nat, ∀ ns : List Nat, ns.length ≥ i ->
-    (tree.get? ns).is_none_or (fun fs => ¬ trg.val.active fs.facts)
+    ∀ node ∈ tree.get? ns, ¬ trg.val.active node.facts
 
 namespace TreeDerivation
 
@@ -57,13 +58,8 @@ namespace TreeDerivation
       rcases branch_mem with ⟨ns, branch_eq, ns_max⟩
       have branch_eq2 : ∀ n, (branch.drop n).head = (td.tree.drop (ns.take n)).root := by intro n; rw [branch_eq, FiniteDegreeTree.root_drop]; rfl
 
-      intro n
-      rw [Option.is_none_or_iff]
-      intro node node_eq
-      have trg_ex := td.triggers_exist (ns.take n)
-      rw [Option.is_none_or_iff] at trg_ex
-      specialize trg_ex node (by rw [← branch_eq2, node_eq])
-      cases trg_ex with
+      intro n node node_mem
+      cases td.triggers_exist (ns.take n) node (by rw [← branch_eq2]; exact node_mem) with
       | inl trg_ex =>
         apply Or.inl
         rcases trg_ex with ⟨trg, trg_ex⟩
@@ -105,8 +101,8 @@ namespace TreeDerivation
               unfold PossiblyInfiniteTree.leaves
               exists (ns.take n)
               constructor
-              . rw [branch_eq2, FiniteDegreeTree.root_drop] at node_eq
-                exact node_eq
+              . rw [branch_eq2, FiniteDegreeTree.root_drop] at node_mem
+                exact node_mem
               . apply ns_max
                 rw [PossiblyInfiniteTree.get?_branchForAddress, InfiniteList.take_succ']
                 rw [FiniteDegreeTree.get?_childNodes, ← FiniteDegreeTree.FiniteDegreeTreeWithRoot.opt_to_tree_none_iff] at this
@@ -140,8 +136,7 @@ namespace TreeDerivation
         rcases h with ⟨n, h⟩
         exists n
         constructor
-        . rw [Option.is_some_and_iff]
-          rcases Option.ne_none_iff_exists'.mp h.left with ⟨node, node_eq⟩
+        . rcases Option.ne_none_iff_exists'.mp h.left with ⟨node, node_eq⟩
           exists node
           constructor
           . rw [branch_eq2, FiniteDegreeTree.root_drop]; exact node_eq
@@ -157,7 +152,7 @@ namespace TreeDerivation
           rw [branch_eq2]
           rw [FiniteDegreeTree.root_drop]
           rw [h.right _ (by omega)]
-          simp [Option.is_none_or]
+          simp
       | inr h =>
         have h : ∀ n, td.tree.get? (ns.take n) ≠ none := by
           intro n contra
@@ -181,13 +176,12 @@ namespace TreeDerivation
         exists i
         constructor
         . rcases Option.ne_none_iff_exists'.mp (h i) with ⟨node, node_eq⟩
-          rw [branch_eq2, Option.is_some_and_iff]
+          rw [branch_eq2]
           exists node
           constructor
           . rw [FiniteDegreeTree.root_drop]
             exact node_eq
           . specialize fairness (ns.take i) (by rw [InfiniteList.length_take]; simp)
-            rw [Option.is_none_or_iff] at fairness
             apply fairness
             exact node_eq
         . intro m
@@ -413,7 +407,7 @@ namespace TreeDerivation
   theorem isSome_origin_of_mem_childNodes {td : TreeDerivation obs rules} : ∀ n ∈ td.childNodes, n.origin.isSome := by
     intro n n_mem
     have trg_ex := td.triggers_exist []
-    rw [FiniteDegreeTree.drop_nil, Option.is_none_or_iff] at trg_ex
+    rw [FiniteDegreeTree.drop_nil] at trg_ex
     specialize trg_ex td.root (by simp [root])
     cases trg_ex with
     | inl trg_ex => rcases trg_ex with ⟨_, _, trg_ex⟩; unfold childNodes at n_mem; rw [trg_ex] at n_mem; simp only [List.mem_map] at n_mem; rcases n_mem with ⟨a, _, eq⟩; rw [← eq]; simp
@@ -423,7 +417,7 @@ namespace TreeDerivation
       ∀ {n}, (mem : n ∈ td.childNodes) -> (n.origin.get (td.isSome_origin_of_mem_childNodes _ mem)).fst.val.active td.root.facts := by
     intro n n_mem
     have trg_ex := td.triggers_exist []
-    rw [FiniteDegreeTree.drop_nil, Option.is_none_or_iff] at trg_ex
+    rw [FiniteDegreeTree.drop_nil] at trg_ex
     specialize trg_ex td.root (by simp [root])
     cases trg_ex with
     | inl trg_ex => rcases trg_ex with ⟨_, trg_act, trg_ex⟩; unfold childNodes at n_mem; rw [trg_ex] at n_mem; simp only [List.mem_map] at n_mem; rcases n_mem with ⟨a, _, eq⟩; simp only [← eq]; exact trg_act
@@ -450,7 +444,7 @@ namespace TreeDerivation
       ∀ {n}, (mem : n ∈ td.childNodes) -> n.facts = td.root.facts ∪ (n.origin_result (td.isSome_origin_of_mem_childNodes _ mem)).toSet := by
     intro n n_mem
     have trg_ex := td.triggers_exist []
-    rw [FiniteDegreeTree.drop_nil, Option.is_none_or_iff] at trg_ex
+    rw [FiniteDegreeTree.drop_nil] at trg_ex
     specialize trg_ex td.root (by simp [root])
     cases trg_ex with
     | inl trg_ex =>
@@ -587,10 +581,7 @@ namespace TreeDerivation
     rcases contra with ⟨td2, suffix, contra⟩
     apply (td2.active_trigger_origin_of_mem_childNodes contra).right
     apply obs.contains_trg_result_implies_cond
-    have := td.root.facts_contain_origin_result
-    rw [Option.is_none_or_iff] at this
-    specialize this (td.root.origin.get (td2.isSome_origin_of_mem_childNodes _ contra)) (by simp)
-    apply Set.subset_trans this
+    apply Set.subset_trans (td.root.facts_contain_origin_result (td.root.origin.get (td2.isSome_origin_of_mem_childNodes _ contra)) (by simp))
     apply td.facts_node_subset_every_mem
     apply mem_of_mem_suffix suffix
     exact td2.root_mem
@@ -677,14 +668,14 @@ namespace TreeDerivation
       {t : GroundTerm sig}
       (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok)
       (t_mem : t ∈ node.node.facts.terms) :
-      t ∈ td.root.facts.terms ∨ ∃ node2, node2 ≼ node ∧ node2.node.origin.is_some_and (fun origin => t ∈ origin.fst.val.fresh_terms_for_head_disjunct origin.snd.val (by rw [← PreTrigger.length_mapped_head]; exact origin.snd.isLt)) := by
+      t ∈ td.root.facts.terms ∨ ∃ node2, node2 ≼ node ∧ ∃ orig ∈ node2.node.origin, t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val (by rw [← PreTrigger.length_mapped_head]; exact orig.snd.isLt) := by
     induction node using mem_rec_address with
     | root => apply Or.inl; exact t_mem
     | step new_root ih c c_mem =>
       simp only [NodeWithAddress.cast_for_new_root_node] at t_mem
       rw [facts_childNodes (mem_childNodes_of_mem_childNodes_as_NodesWithAddress c_mem), root_subderivation_for_NodeWithAddress, FactSet.terms_union] at t_mem
 
-      have aux : t ∈ new_root.node.facts.terms -> t ∈ td.root.facts.terms ∨ ∃ (node2 : td.NodeWithAddress), node2 ≼ (NodeWithAddress.cast_for_new_root_node new_root c) ∧ node2.node.origin.is_some_and (fun origin => t ∈ origin.fst.val.fresh_terms_for_head_disjunct origin.snd.val (by rw [← PreTrigger.length_mapped_head]; exact origin.snd.isLt)) := by
+      have aux : t ∈ new_root.node.facts.terms -> t ∈ td.root.facts.terms ∨ ∃ (node2 : td.NodeWithAddress), node2 ≼ (NodeWithAddress.cast_for_new_root_node new_root c) ∧ ∃ orig ∈ node2.node.origin, t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val (by rw [← PreTrigger.length_mapped_head]; exact orig.snd.isLt) := by
         intro t_mem
         cases ih t_mem with
         | inl ih => apply Or.inl; exact ih
@@ -714,9 +705,8 @@ namespace TreeDerivation
         | inr t_mem =>
           apply Or.inr; exists new_root.cast_for_new_root_node c; constructor
           . exact predecessor_refl
-          . rw [Option.is_some_and_iff]
-            exists c.node.origin.get (isSome_origin_of_mem_childNodes _ (mem_childNodes_of_mem_childNodes_as_NodesWithAddress c_mem))
-            simp only [NodeWithAddress.cast_for_new_root_node, Option.some_get, true_and]
+          . exists c.node.origin.get (isSome_origin_of_mem_childNodes _ (mem_childNodes_of_mem_childNodes_as_NodesWithAddress c_mem))
+            simp only [NodeWithAddress.cast_for_new_root_node, Option.get_mem, true_and]
             exact t_mem
         | inl t_mem =>
           apply aux
@@ -739,7 +729,7 @@ namespace TreeDerivation
       {disj_idx : Nat}
       {lt : disj_idx < trg.val.rule.head.length}
       (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :
-      t ∈ td.root.facts.terms ∨ ∃ node2, node2 ≼ node ∧ node2.node.origin.is_some_and (fun origin => origin.fst.equiv trg ∧ origin.snd.val = disj_idx) := by
+      t ∈ td.root.facts.terms ∨ ∃ node2, node2 ≼ node ∧ ∃ orig ∈ node2.node.origin, orig.fst.equiv trg ∧ orig.snd.val = disj_idx := by
     cases functional_term_originates_from_some_trigger node (by
       cases eq : t with
       | const _ =>
@@ -750,9 +740,7 @@ namespace TreeDerivation
     | inl t_mem => apply Or.inl; exact t_mem
     | inr t_mem =>
       apply Or.inr
-      simp only [Option.is_some_and_iff] at t_mem
       rcases t_mem with ⟨node2, prec, origin, origin_eq, t_mem⟩
-      simp only [Option.is_some_and_iff]
       exists node2; simp only [prec, true_and]
       exists origin; simp only [origin_eq, true_and]
       exact RTrigger.equiv_of_term_mem_fresh_terms_for_head_disjunct t_mem t_mem_trg
@@ -771,13 +759,10 @@ namespace TreeDerivation
     | inl t_mem => apply Or.inl; exact t_mem
     | inr t_mem =>
       apply Or.inr
-      simp only [Option.is_some_and_iff] at t_mem
       rcases t_mem with ⟨node2, prec, origin, origin_eq, equiv, index_eq⟩
       apply Set.subset_trans _ (td.facts_node_subset_of_prec prec)
-      have := node2.node.facts_contain_origin_result
-      simp only [origin_eq, Option.is_none_or] at this
       simp only [← PreTrigger.result_eq_of_equiv equiv, ← index_eq]
-      exact this
+      exact node2.node.facts_contain_origin_result _ origin_eq
 
 end TreeDerivation
 

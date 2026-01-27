@@ -10,7 +10,7 @@ def exists_trigger_opt_fs (obs : ObsoletenessCondition sig) (rules : RuleSet sig
   ∃ trg : (RTrigger (obs : LaxObsoletenessCondition sig) rules), trg.val.active before.facts ∧ ∃ i, after = some {
     facts := before.facts ∪ (trg.val.mapped_head[i.val]'(i.isLt)).toSet,
     origin := some ⟨trg, i⟩
-    facts_contain_origin_result := by simp [Option.is_none_or]; apply Set.subset_union_of_subset_right; apply Set.subset_refl
+    facts_contain_origin_result := by intro _ eq; rw [Option.mem_def, Option.some_inj] at eq; rw [← eq]; apply Set.subset_union_of_subset_right; apply Set.subset_refl
   }
 
 def not_exists_trigger_opt_fs (obs : ObsoletenessCondition sig) (rules : RuleSet sig) (before : ChaseNode obs rules) (after : Option (ChaseNode obs rules)) : Prop :=
@@ -19,12 +19,12 @@ def not_exists_trigger_opt_fs (obs : ObsoletenessCondition sig) (rules : RuleSet
 structure ChaseDerivation (obs : ObsoletenessCondition sig) (rules : RuleSet sig) where
   branch : PossiblyInfiniteList (ChaseNode obs rules)
   isSome_head : branch.head.isSome
-  triggers_exist : ∀ n : Nat, (branch.drop n).head.is_none_or (fun before =>
+  triggers_exist : ∀ n : Nat, ∀ before ∈ (branch.drop n).head,
     let after := (branch.drop n).tail.head
     (exists_trigger_opt_fs obs rules before after) ∨
-    (not_exists_trigger_opt_fs obs rules before after))
-  fairness : ∀ trg : (RTrigger obs rules), ∃ i : Nat, ((branch.drop i).head.is_some_and (fun fs => ¬ trg.val.active fs.facts))
-    ∧ (∀ j : Nat, ((branch.drop i).tail.get? j).is_none_or (fun fs => ¬ trg.val.active fs.facts))
+    (not_exists_trigger_opt_fs obs rules before after)
+  fairness : ∀ trg : (RTrigger obs rules), ∃ i : Nat, (∃ node ∈ (branch.drop i).head, ¬ trg.val.active node.facts)
+    ∧ (∀ j : Nat, ∀ node2 ∈ (branch.drop i).tail.get? j, ¬ trg.val.active node2.facts)
 
 namespace ChaseDerivation
 
@@ -75,15 +75,12 @@ namespace ChaseDerivation
         rcases Nat.exists_eq_add_of_lt lt with ⟨diff, lt⟩
         exists 0
         constructor
-        . have fairness := fairness.right diff
-          rw [Option.is_none_or_iff] at fairness
-          rw [Option.is_some_and_iff]
-          simp only [PossiblyInfiniteList.drop_zero]
-          exists l2_head; constructor
-          . rw [suffix, l2_head_eq]
-          . apply fairness
+        . exists l2_head
+          constructor
+          . simp only [PossiblyInfiniteList.drop_zero]; rw [suffix, l2_head_eq]; rfl
+          . apply (fairness.right diff)
             rw [PossiblyInfiniteList.get?_tail, PossiblyInfiniteList.get?_drop, ← PossiblyInfiniteList.head_drop, Nat.succ_eq_add_one, ← Nat.add_assoc, ← lt]
-            rw [suffix, l2_head_eq]
+            rw [suffix, l2_head_eq]; rfl
         . intro j
           have fairness := fairness.right (diff.succ + j)
           simp only [PossiblyInfiniteList.drop_zero, PossiblyInfiniteList.get?_tail, PossiblyInfiniteList.get?_drop] at *
@@ -99,22 +96,20 @@ namespace ChaseDerivation
 
   theorem fairness' {cd : ChaseDerivation obs rules} : ∀ (trg : RTrigger obs rules), ∃ (cd2 : ChaseDerivation obs rules), cd2 <:+ cd ∧ ∀ node ∈ cd2, ¬ trg.val.active node.facts := by
     intro trg
-    rcases cd.fairness trg with ⟨n, fairness_head, fairness_tail⟩
-    rw [Option.is_some_and_iff] at fairness_head
-    rcases fairness_head with ⟨node, node_eq, fairness_head⟩
-    exists cd.derivation_for_branch_suffix (cd.branch.drop n) (cd.branch.IsSuffix_drop n) (by simp [node_eq])
+    rcases cd.fairness trg with ⟨n, ⟨node, node_mem, fairness_head⟩, fairness_tail⟩
+    exists cd.derivation_for_branch_suffix (cd.branch.drop n) (cd.branch.IsSuffix_drop n) (by rw [node_mem]; simp)
     constructor
     . exact cd.branch.IsSuffix_drop n
     . intro node2 node2_mem
       rcases node2_mem with ⟨m, node2_mem⟩
       simp only [derivation_for_branch_suffix, PossiblyInfiniteList.drop, InfiniteList.get_drop] at node2_mem
       cases m with
-      | zero => simp only [PossiblyInfiniteList.head_drop, PossiblyInfiniteList.get?] at node_eq; rw [Nat.add_zero, node_eq, Option.some_inj] at node2_mem; rw [← node2_mem]; exact fairness_head
+      | zero => simp only [PossiblyInfiniteList.head_drop, PossiblyInfiniteList.get?] at node_mem; rw [Nat.add_zero, node_mem, Option.some_inj] at node2_mem; rw [← node2_mem]; exact fairness_head
       | succ m =>
         specialize fairness_tail m
         simp only [PossiblyInfiniteList.get?_tail, PossiblyInfiniteList.get?_drop] at fairness_tail
         simp only [PossiblyInfiniteList.get?] at fairness_tail
-        simp only [node2_mem, Option.is_none_or] at fairness_tail
+        specialize fairness_tail node2 node2_mem
         exact fairness_tail
 
   def head (cd : ChaseDerivation obs rules) : ChaseNode obs rules := cd.branch.head.get (cd.isSome_head)
@@ -147,17 +142,15 @@ namespace ChaseDerivation
   def next (cd : ChaseDerivation obs rules) : Option (ChaseNode obs rules) := cd.branch.tail.head
   theorem next_mem_of_mem {cd : ChaseDerivation obs rules} : ∀ next ∈ cd.next, next ∈ cd := by intro next next_mem; apply cd.branch.tail.mem_of_mem_suffix cd.branch.IsSuffix_tail; apply cd.branch.tail.head_mem; exact next_mem
   theorem isSome_origin_next {cd : ChaseDerivation obs rules} {next : ChaseNode obs rules} (eq : cd.next = some next) : next.origin.isSome := by
-    have trg_ex := cd.triggers_exist 0
-    rw [PossiblyInfiniteList.drop_zero, Option.is_none_or_iff] at trg_ex
-    specialize trg_ex cd.head (by simp [head])
+    have trg_ex := cd.triggers_exist 0 cd.head (by simp [PossiblyInfiniteList.drop_zero, head])
+    rw [PossiblyInfiniteList.drop_zero] at trg_ex
     cases trg_ex with
     | inl trg_ex => rcases trg_ex with ⟨_, _, _, trg_ex⟩; unfold ChaseDerivation.next at eq; rw [eq, Option.some_inj] at trg_ex; rw [trg_ex]; simp
     | inr trg_ex => have contra := trg_ex.right; unfold ChaseDerivation.next at eq; simp [eq] at contra
   theorem active_trigger_origin_next {cd : ChaseDerivation obs rules} {next : ChaseNode obs rules} (eq : cd.next = some next) :
       (next.origin.get (cd.isSome_origin_next eq)).fst.val.active cd.head.facts := by
-    have trg_ex := cd.triggers_exist 0
-    rw [PossiblyInfiniteList.drop_zero, Option.is_none_or_iff] at trg_ex
-    specialize trg_ex cd.head (by simp [head])
+    have trg_ex := cd.triggers_exist 0 cd.head (by simp [PossiblyInfiniteList.drop_zero, head])
+    rw [PossiblyInfiniteList.drop_zero] at trg_ex
     cases trg_ex with
     | inl trg_ex => rcases trg_ex with ⟨trg', trg'_active, _, trg_ex⟩; unfold ChaseDerivation.next at eq; rw [eq, Option.some_inj] at trg_ex; simp only [trg_ex, Option.get_some]; exact trg'_active
     | inr trg_ex => have contra := trg_ex.right; unfold ChaseDerivation.next at eq; simp [eq] at contra
@@ -171,17 +164,15 @@ namespace ChaseDerivation
       apply Decidable.byContradiction
       rw [Option.not_isSome_iff_eq_none]
       intro eq_none
-      have trg_ex := cd.triggers_exist 0
-      rw [PossiblyInfiniteList.drop_zero, Option.is_none_or_iff] at trg_ex
-      specialize trg_ex cd.head (by simp [head])
+      have trg_ex := cd.triggers_exist 0 cd.head (by simp [PossiblyInfiniteList.drop_zero, head])
+      rw [PossiblyInfiniteList.drop_zero] at trg_ex
       cases trg_ex with
       | inl trg_ex => rcases trg_ex with ⟨_, _, _, contra⟩; unfold next at eq_none; simp [eq_none] at contra
       | inr trg_ex => apply trg_ex.left; exists trg
   theorem facts_next {cd : ChaseDerivation obs rules} {next : ChaseNode obs rules} (eq : cd.next = some next) :
       next.facts = cd.head.facts ∪ (next.origin_result (cd.isSome_origin_next eq)).toSet := by
-    have trg_ex := cd.triggers_exist 0
-    rw [PossiblyInfiniteList.drop_zero, Option.is_none_or_iff] at trg_ex
-    specialize trg_ex cd.head (by simp [head])
+    have trg_ex := cd.triggers_exist 0 cd.head (by simp [PossiblyInfiniteList.drop_zero, head])
+    rw [PossiblyInfiniteList.drop_zero] at trg_ex
     cases trg_ex with
     | inl trg_ex => rcases trg_ex with ⟨trg', trg'_active, _, trg_ex⟩; unfold ChaseDerivation.next at eq; rw [eq, Option.some_inj] at trg_ex; simp only [trg_ex]; rfl
     | inr trg_ex => have contra := trg_ex.right; unfold ChaseDerivation.next at eq; simp [eq] at contra
@@ -330,10 +321,7 @@ namespace ChaseDerivation
     rcases contra with ⟨cd2, suffix, contra⟩
     apply (cd2.active_trigger_origin_next contra).right
     apply obs.contains_trg_result_implies_cond
-    have := cd.head.facts_contain_origin_result
-    rw [Option.is_none_or_iff] at this
-    specialize this (cd.head.origin.get (cd2.isSome_origin_next contra)) (by simp)
-    apply Set.subset_trans this
+    apply Set.subset_trans (cd.head.facts_contain_origin_result (cd.head.origin.get (cd2.isSome_origin_next contra)) (by simp))
     apply cd.facts_node_subset_every_mem
     apply mem_of_mem_suffix suffix
     exact cd2.head_mem
@@ -537,13 +525,13 @@ namespace ChaseDerivation
       {t : GroundTerm sig}
       (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok)
       (t_mem : t ∈ node.val.facts.terms) :
-      t ∈ cd.head.facts.terms ∨ ∃ node2, node2 ≼ node ∧ node2.val.origin.is_some_and (fun origin => t ∈ origin.fst.val.fresh_terms_for_head_disjunct origin.snd.val (by rw [← PreTrigger.length_mapped_head]; exact origin.snd.isLt)) := by
+      t ∈ cd.head.facts.terms ∨ ∃ node2, node2 ≼ node ∧ ∃ orig ∈ node2.val.origin, t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val (by rw [← PreTrigger.length_mapped_head]; exact orig.snd.isLt) := by
     induction node using mem_rec with
     | head => apply Or.inl; exact t_mem
     | step cd2 suffix ih next next_mem =>
       rw [cd2.facts_next next_mem, FactSet.terms_union] at t_mem
 
-      have aux : t ∈ cd2.head.facts.terms -> t ∈ cd.head.facts.terms ∨ ∃ (node2 : cd.Node), node2 ≼ ⟨next, cd2.mem_of_mem_suffix suffix _ (cd2.next_mem_of_mem _ next_mem)⟩ ∧ node2.val.origin.is_some_and (fun origin => t ∈ origin.fst.val.fresh_terms_for_head_disjunct origin.snd.val (by rw [← PreTrigger.length_mapped_head]; exact origin.snd.isLt)) := by
+      have aux : t ∈ cd2.head.facts.terms -> t ∈ cd.head.facts.terms ∨ ∃ (node2 : cd.Node), node2 ≼ ⟨next, cd2.mem_of_mem_suffix suffix _ (cd2.next_mem_of_mem _ next_mem)⟩ ∧ ∃ orig ∈ node2.val.origin, t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val (by rw [← PreTrigger.length_mapped_head]; exact orig.snd.isLt) := by
         intro t_mem
         cases ih t_mem with
         | inl ih => apply Or.inl; exact ih
@@ -566,9 +554,8 @@ namespace ChaseDerivation
         | inr t_mem =>
           apply Or.inr; exists ⟨next, cd2.mem_of_mem_suffix suffix _ (cd2.next_mem_of_mem _ next_mem)⟩; constructor
           . exact predecessor_refl
-          . rw [Option.is_some_and_iff]
-            exists next.origin.get (cd2.isSome_origin_next next_mem)
-            simp only [Option.some_get, true_and]
+          . exists next.origin.get (cd2.isSome_origin_next next_mem)
+            simp only [Option.get_mem, true_and]
             exact t_mem
         | inl t_mem =>
           apply aux
@@ -589,7 +576,7 @@ namespace ChaseDerivation
       {disj_idx : Nat}
       {lt : disj_idx < trg.val.rule.head.length}
       (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :
-      t ∈ cd.head.facts.terms ∨ ∃ node2, node2 ≼ node ∧ node2.val.origin.is_some_and (fun origin => origin.fst.equiv trg ∧ origin.snd.val = disj_idx) := by
+      t ∈ cd.head.facts.terms ∨ ∃ node2, node2 ≼ node ∧ ∃ orig ∈ node2.val.origin, orig.fst.equiv trg ∧ orig.snd.val = disj_idx := by
     cases functional_term_originates_from_some_trigger node (by
       cases eq : t with
       | const _ =>
@@ -600,9 +587,7 @@ namespace ChaseDerivation
     | inl t_mem => apply Or.inl; exact t_mem
     | inr t_mem =>
       apply Or.inr
-      simp only [Option.is_some_and_iff] at t_mem
       rcases t_mem with ⟨node2, prec, origin, origin_eq, t_mem⟩
-      simp only [Option.is_some_and_iff]
       exists node2; simp only [prec, true_and]
       exists origin; simp only [origin_eq, true_and]
       exact RTrigger.equiv_of_term_mem_fresh_terms_for_head_disjunct t_mem t_mem_trg
@@ -621,13 +606,10 @@ namespace ChaseDerivation
     | inl t_mem => apply Or.inl; exact t_mem
     | inr t_mem =>
       apply Or.inr
-      simp only [Option.is_some_and_iff] at t_mem
       rcases t_mem with ⟨node2, prec, origin, origin_eq, equiv, index_eq⟩
       apply Set.subset_trans _ (cd.facts_node_subset_of_prec prec)
-      have := node2.val.facts_contain_origin_result
-      simp only [origin_eq, Option.is_none_or] at this
       simp only [← PreTrigger.result_eq_of_equiv equiv, ← index_eq]
-      exact this
+      exact node2.val.facts_contain_origin_result _ origin_eq
 
 end ChaseDerivation
 
@@ -666,7 +648,7 @@ section StrictPredecessor
           apply InfiniteList.ext; intro n
           simp only [InfiniteList.get_drop, ← Nat.add_assoc, Nat.add_sub_of_le le]
         exact cd.facts_node_subset_of_prec prec
-      exact Set.subset_trans (by have := node.facts_contain_origin_result; rw [Option.is_none_or_iff] at this; specialize this (node.origin.get (cd2.isSome_origin_next next_eq)); rw [Option.some_get] at this; apply this; rfl) sub
+      exact Set.subset_trans (node.facts_contain_origin_result (node.origin.get (cd2.isSome_origin_next next_eq)) (by simp)) sub
 
     theorem get?_branch_injective (cd : ChaseDerivation obs rules) : ∀ node, ∀ i j, cd.branch.get? i = some node -> cd.branch.get? j = some node -> i = j := by
       intro node i j eq_i eq_j

@@ -6,7 +6,7 @@ structure ChaseBranch (obs : ObsoletenessCondition sig) (kb : KnowledgeBase sig)
   database_first : branch.head = some {
     facts := kb.db.toFactSet,
     origin := none,
-    facts_contain_origin_result := by simp [Option.is_none_or]
+    facts_contain_origin_result := by simp
   }
 
 namespace ChaseBranch
@@ -16,7 +16,7 @@ namespace ChaseBranch
   theorem database_first' {cb : ChaseBranch obs kb} : cb.head = {
     facts := kb.db.toFactSet,
     origin := none,
-    facts_contain_origin_result := by simp [Option.is_none_or]
+    facts_contain_origin_result := by simp
   } := by simp only [ChaseDerivation.head, cb.database_first, Option.get_some]
 
   theorem facts_finite_of_mem {cb : ChaseBranch obs kb} (node : cb.Node) : node.val.facts.finite := by
@@ -56,7 +56,7 @@ namespace ChaseBranch
       {t : GroundTerm sig}
       (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok)
       (t_mem : t ∈ node.val.facts.terms) :
-      ∃ node2, node2 ≼ node ∧ node2.val.origin.is_some_and (fun origin => t ∈ origin.fst.val.fresh_terms_for_head_disjunct origin.snd.val (by rw [← PreTrigger.length_mapped_head]; exact origin.snd.isLt)) := by
+      ∃ node2, node2 ≼ node ∧ ∃ orig ∈ node2.val.origin, t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val (by rw [← PreTrigger.length_mapped_head]; exact orig.snd.isLt) := by
     cases ChaseDerivation.functional_term_originates_from_some_trigger node t_is_func t_mem with
     | inl t_mem => apply False.elim; exact cb.func_term_not_mem_head t_is_func t_mem
     | inr t_mem => exact t_mem
@@ -70,7 +70,7 @@ namespace ChaseBranch
       {disj_idx : Nat}
       {lt : disj_idx < trg.val.rule.head.length}
       (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :
-      ∃ node2, node2 ≼ node ∧ node2.val.origin.is_some_and (fun origin => origin.fst.equiv trg ∧ origin.snd.val = disj_idx) := by
+      ∃ node2, node2 ≼ node ∧ ∃ orig ∈ node2.val.origin, orig.fst.equiv trg ∧ orig.snd.val = disj_idx := by
     cases ChaseDerivation.trigger_introducing_functional_term_occurs_in_chase node t_mem_node t_mem_trg with
     | inl t_mem => apply False.elim; exact cb.func_term_not_mem_head (PreTrigger.term_functional_of_mem_fresh_terms _ t_mem_trg) t_mem
     | inr t_mem => exact t_mem

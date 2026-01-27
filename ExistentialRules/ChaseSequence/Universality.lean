@@ -203,7 +203,8 @@ theorem childNodes_empty_of_hom_step_none
   . simp
   . intros
     have trg_ex := ct.triggers_exist prev_res.val.fst.address
-    rw [FiniteDegreeTree.root_drop, prev_res.val.fst.eq] at trg_ex
+    rw [FiniteDegreeTree.root_drop] at trg_ex
+    specialize trg_ex _ prev_res.val.fst.eq
     cases trg_ex with
     | inl trg_ex => contradiction
     | inr trg_ex =>

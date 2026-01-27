@@ -86,7 +86,7 @@ namespace TreeDerivation
             have one_childTree : td.childTrees.length = 1 := by
               have head_eq_root : deriv.head = td.root := by simp [ChaseDerivation.head, root, deriv_mem.left]
               have trg_ex := td.triggers_exist []
-              rw [FiniteDegreeTree.drop_nil, Option.is_none_or_iff] at trg_ex
+              rw [FiniteDegreeTree.drop_nil] at trg_ex
               specialize trg_ex td.root (by simp [root])
               cases trg_ex with
               | inr trg_ex => rw [ChaseDerivation.isSome_next_iff_trg_ex] at next_isSome; apply False.elim; apply trg_ex.left; rw [← head_eq_root]; exact next_isSome
@@ -152,7 +152,6 @@ namespace ChaseDerivation
       tree := FiniteDegreeTree.from_branch cd.branch
       isSome_root := cd.isSome_head
       triggers_exist := by
-        simp only [Option.is_none_or_iff]
         intro ns node eq
         simp only [FiniteDegreeTree.from_branch, PossiblyInfiniteTree.from_branch, FiniteDegreeTree.root_drop, FiniteDegreeTree.get?, PossiblyInfiniteTree.get?, InfiniteTreeSkeleton.get] at eq
         cases all_zero : ns.all (fun e => e = 0) with
@@ -161,7 +160,7 @@ namespace ChaseDerivation
           simp only [all_zero, ↓reduceIte] at eq
           have trg_ex := cd.triggers_exist ns.length
           simp only [PossiblyInfiniteList.head_drop, PossiblyInfiniteList.get?, InfiniteList.get] at trg_ex
-          simp only [eq, Option.is_none_or] at trg_ex
+          specialize trg_ex _ eq
           cases trg_ex with
           | inl trg_ex =>
             apply Or.inl
@@ -218,19 +217,22 @@ namespace ChaseDerivation
             have := cd.branch.get?_eq_none_of_le_of_eq_none node_children _ le
             rw [PossiblyInfiniteList.head_drop] at fairness
             rw [this] at fairness
-            simp [Option.is_some_and] at fairness
+            simp at fairness
           cases Nat.lt_or_eq_of_le this with
           | inr eq =>
             have fairness := fairness.left
-            rw [eq, PossiblyInfiniteList.head_drop] at fairness; simp only [PossiblyInfiniteList.get?, InfiniteList.get, node_eq, Option.is_some_and] at fairness
+            rw [eq, PossiblyInfiniteList.head_drop] at fairness; simp only [PossiblyInfiniteList.get?, InfiniteList.get, node_eq] at fairness
+            rcases fairness with ⟨_, eq, fairness⟩
+            rw [Option.mem_def, Option.some_inj] at eq; rw [eq]
             exact fairness
           | inl lt =>
             have fairness := fairness.right (node.length - fairness_step - 1)
             rw [PossiblyInfiniteList.get?_tail, PossiblyInfiniteList.get?_drop] at fairness
             have : fairness_step + (node.length - fairness_step - 1).succ = node.length := by omega
             rw [this] at fairness
-            simp only [PossiblyInfiniteList.get?, InfiniteList.get, node_eq, Option.is_none_or] at fairness
-            exact fairness
+            simp only [PossiblyInfiniteList.get?, InfiniteList.get, node_eq] at fairness
+            apply fairness
+            simp
       fairness_infinite_branches := by
         intro trg
         rcases cd.fairness trg with ⟨fairness_step, fairness⟩
@@ -238,7 +240,7 @@ namespace ChaseDerivation
         intro ns ns_length
         simp only [FiniteDegreeTree.from_branch, PossiblyInfiniteTree.from_branch, FiniteDegreeTree.get?, PossiblyInfiniteTree.get?, InfiniteTreeSkeleton.get]
         cases eq : ns.all (fun e => e = 0) with
-        | false => simp [Option.is_none_or]
+        | false => simp
         | true =>
           simp only [↓reduceIte]
           have fairness := fairness.right (ns.length - fairness_step - 1)

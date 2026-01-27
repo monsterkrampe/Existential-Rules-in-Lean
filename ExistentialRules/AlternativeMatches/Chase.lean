@@ -335,10 +335,7 @@ namespace ChaseBranch
     . rcases altMatch with ⟨h_alt_hom, same_on_frontier, n, n_mem, n_not_mem_mapped⟩
       exists n
       rw [same_as_before n (by
-        have := next.facts_contain_origin_result
-        rw [Option.is_none_or_iff] at this
-        specialize this (next.origin.get (cd.isSome_origin_next next_mem)) (by simp)
-        apply FactSet.terms_subset_of_subset this
+        apply FactSet.terms_subset_of_subset (next.facts_contain_origin_result (next.origin.get (cd.isSome_origin_next next_mem)) (by simp))
         rw [FactSet.mem_terms_toSet, PreTrigger.mem_terms_mapped_head_iff]
         apply Or.inr; apply Or.inr; exact n_mem)]
       have : ¬ n ∈ ts := by
@@ -466,9 +463,8 @@ namespace ChaseBranch
       constructor
       . constructor
         . exact hom_res'.left
-        . have origin_res_in_facts := node.val.facts_contain_origin_result
-          have eq_origin : node.val.origin = some (node.val.origin.get (cd2.isSome_origin_next next_eq)) := by simp
-          rw [eq_origin, Option.is_none_or] at origin_res_in_facts
+        . have eq_origin : node.val.origin = some (node.val.origin.get (cd2.isSome_origin_next next_eq)) := by simp
+          have origin_res_in_facts := node.val.facts_contain_origin_result _ eq_origin
           apply Set.subset_trans (b := (h.repeat_hom ((k + 1) * l)).applyFactSet node.val.facts)
           . exact ((h.repeat_hom ((k + 1) * l)).apply_generalized_atom_set_subset_of_subset _ _ origin_res_in_facts)
           . apply Set.subset_trans (b := (h.repeat_hom ((k + 1) * l)).applyFactSet cb.result)

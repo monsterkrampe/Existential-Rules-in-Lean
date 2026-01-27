@@ -6,7 +6,7 @@ structure ChaseNode (obs : ObsoletenessCondition sig) (rules : RuleSet sig) wher
   facts : FactSet sig
   -- the origin is none only for the database
   origin : Option ((trg : RTrigger (obs : LaxObsoletenessCondition sig) rules) × Fin trg.val.mapped_head.length)
-  facts_contain_origin_result : origin.is_none_or (fun origin => origin.fst.val.mapped_head[origin.snd.val].toSet ⊆ facts)
+  facts_contain_origin_result : ∀ orig ∈ origin, orig.fst.val.mapped_head[orig.snd.val].toSet ⊆ facts
 
 namespace ChaseNode
 
