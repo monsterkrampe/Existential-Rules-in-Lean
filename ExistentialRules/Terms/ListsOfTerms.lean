@@ -1,8 +1,18 @@
 import BasicLeanDatastructures.List.AllListsOfLength
 import ExistentialRules.Terms.Basic
 
+/-!
+# Computing all GroundTerms of a given depth
+
+This file defined a single function `all_terms_limited_by_depth` and an accompanying membership theorem `mem_all_terms_limited_by_depth`.
+The function computes all possible terms that can be constructed given a list of constants and a list of function symsols such that
+the depth of the terms do not exceed a given depth.
+This is required for MFA later since we want to argue that when a rule set is MFA, then the number of function symbols in the chase is finite.
+-/
+
 variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
 
+/-- We recursively construct all `GroundTerm`s that have at most a given depth. For example, the terms with at most depth 1 are exactly the constants. The recursion step uses all terms that have at most the previous depth and then combines them in all possible ways using each of the available function symbols as the new root. -/
 def all_terms_limited_by_depth (constants : List sig.C) (funcs : List (SkolemFS sig)) : Nat -> List (GroundTerm sig)
 | 0 => []
 | 1 => constants.map GroundTerm.const
@@ -17,6 +27,7 @@ def all_terms_limited_by_depth (constants : List sig.C) (funcs : List (SkolemFS 
     )
   ) ++ prev
 
+/-- This theorem expresses the desired property of the definition above. The constructed list of `GroundTerm`s contains exactly the terms that have at most the desired depth and feature only constants and function symbols from the allowed lists. This theorem is at the same time a sanity check that our definition above is behaving as expected. -/
 theorem mem_all_terms_limited_by_depth (constants : List sig.C) (funcs : List (SkolemFS sig)) (depth : Nat) :
     ∀ t, t ∈ (all_terms_limited_by_depth constants funcs depth) ↔ (t.depth ≤ depth ∧ (∀ c, c ∈ t.constants -> c ∈ constants) ∧ (∀ func, func ∈ t.functions -> func ∈ funcs)) := by
   induction depth with
