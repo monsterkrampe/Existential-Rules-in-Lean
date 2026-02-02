@@ -1,5 +1,3 @@
-import BasicLeanDatastructures.List.Repeat
-
 import ExistentialRules.ChaseSequence.Termination.Basic
 import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts
 import ExistentialRules.ChaseSequence.Termination.ConstantMappings.Basic

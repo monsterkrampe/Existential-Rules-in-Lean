@@ -205,6 +205,8 @@ namespace TreeDerivation
   def IsSuffix (td1 td2 : TreeDerivation obs rules) : Prop := td1.tree <:+ td2.tree
   infixl:50 " <:+ " => IsSuffix
 
+  theorem IsSuffix_iff {td1 td2 : TreeDerivation obs rules} : td1 <:+ td2 ↔ td1.tree <:+ td2.tree := by rfl
+
   theorem mem_of_mem_suffix {cd1 cd2 : TreeDerivation obs rules} (suffix : cd1 <:+ cd2) : ∀ node ∈ cd1, node ∈ cd2 := FiniteDegreeTree.mem_of_mem_suffix suffix
 
   def derivation_for_suffix
@@ -325,9 +327,9 @@ namespace TreeDerivation
 
   theorem suffix_iff_eq_or_suffix_childTree {td1 td2 : TreeDerivation obs rules} : td1 <:+ td2 ↔ td1 = td2 ∨ ∃ td3 ∈ td2.childTrees, td1 <:+ td3 := by
     constructor
-    . rintro ⟨ns, suffix⟩
+    . rw [IsSuffix_iff, FiniteDegreeTree.IsSuffix_iff]; rintro ⟨ns, suffix⟩
       cases ns with
-      | nil => apply Or.inl; rw [TreeDerivation.mk.injEq, FiniteDegreeTree.mk.injEq, PossiblyInfiniteTree.mk.injEq]; rw [InfiniteTreeSkeleton.drop_nil] at suffix; apply Eq.symm; exact suffix
+      | nil => apply Or.inl; rw [TreeDerivation.mk.injEq]; rw [FiniteDegreeTree.drop_nil] at suffix; apply Eq.symm; exact suffix
       | cons hd tl =>
         apply Or.inr
         cases eq : td2.childTrees[hd]? with
@@ -335,22 +337,22 @@ namespace TreeDerivation
           have contra := td1.isSome_root
           rw [Option.isSome_iff_ne_none] at contra
           apply False.elim; apply contra
-          simp only [FiniteDegreeTree.root_eq, FiniteDegreeTree.get?, PossiblyInfiniteTree.get?]
-          rw [← suffix, InfiniteTreeSkeleton.get_drop, List.append_nil]
-          have no_orphans := td2.tree.no_orphans_closure [hd]
+          have suf : td1.tree <:+ td2.tree.drop [hd] := by
+            rw [FiniteDegreeTree.IsSuffix_iff]
+            exists tl
+          rw [← FiniteDegreeTree.empty_iff_root_none]
           simp only [childTrees, List.getElem?_map, List.getElem?_attach, Option.map_eq_none_iff, Option.pmap_eq_none_iff] at eq
-          rw [FiniteDegreeTree.get?_childTrees, FiniteDegreeTree.FiniteDegreeTreeWithRoot.tree_to_opt_none_iff, FiniteDegreeTree.root_drop] at eq
-          specialize no_orphans eq tl
-          rw [FiniteDegreeTree.get?_drop] at no_orphans
-          simp only [FiniteDegreeTree.get?, PossiblyInfiniteTree.get?, List.singleton_append] at no_orphans
-          exact no_orphans
+          rw [FiniteDegreeTree.get?_childTrees, FiniteDegreeTree.FiniteDegreeTreeWithRoot.tree_to_opt_none_iff] at eq
+          rw [← FiniteDegreeTree.empty_iff_root_none] at eq
+          rw [eq] at suf
+          apply FiniteDegreeTree.empty_suffix_of_empty suf
         | some c =>
           rw [List.getElem?_eq_some_iff] at eq
           rcases eq with ⟨_, eq⟩
           exists c
           constructor
           . simp [← eq]
-          . exists tl; rw [← eq]; simp only [childTrees, derivation_for_suffix, List.getElem_map, List.getElem_attach, FiniteDegreeTree.get_childTrees]; exact suffix
+          . rw [IsSuffix_iff, FiniteDegreeTree.IsSuffix_iff]; exists tl; rw [← eq]; simp only [childTrees, derivation_for_suffix, List.getElem_map, List.getElem_attach, FiniteDegreeTree.get_childTrees]; exact suffix
     . intro h; cases h with
       | inl eq => rw [eq]; exact FiniteDegreeTree.IsSuffix_refl
       | inr suffix => rcases suffix with ⟨td3, td3_mem, suffix⟩; apply FiniteDegreeTree.IsSuffix_trans suffix; exact IsSuffix_of_mem_childTrees _ td3_mem
@@ -485,10 +487,13 @@ namespace TreeDerivation
         intro n n_mem
         cases eq : td.tree.get? tl.reverse with
         | none =>
-          have contra := td.tree.no_orphans_closure tl.reverse eq [hd]
-          rw [FiniteDegreeTree.get?_drop] at contra
-          rw [List.reverse_cons, contra] at n_mem
-          simp at n_mem
+          have contra := td.tree.no_orphans (td.tree.drop tl.reverse) (FiniteDegreeTree.IsSuffix_drop tl.reverse) (by rw [FiniteDegreeTree.root_drop]; exact eq)
+          have n_mem : n ∈ (td.tree.drop tl.reverse).childNodes[hd]? := by
+            rw [FiniteDegreeTree.get?_childNodes, FiniteDegreeTree.get?_childTrees, FiniteDegreeTree.FiniteDegreeTreeWithRoot.opt_to_tree_after_tree_to_opt]
+            rw [FiniteDegreeTree.drop_drop, FiniteDegreeTree.root_drop]
+            rw [List.reverse_cons] at n_mem
+            exact n_mem
+          simp [contra] at n_mem
         | some m =>
           have n_mem : n ∈ (td.tree.drop tl.reverse).childNodes[hd]? := by rw [FiniteDegreeTree.get?_childNodes, FiniteDegreeTree.get?_childTrees, FiniteDegreeTree.FiniteDegreeTreeWithRoot.opt_to_tree_after_tree_to_opt, FiniteDegreeTree.root_drop, FiniteDegreeTree.get?_drop]; rw [List.reverse_cons] at n_mem; exact n_mem
           let new_root : td.NodeWithAddress := { node := m, address := tl.reverse, eq := eq }
@@ -524,10 +529,10 @@ namespace TreeDerivation
         . apply FiniteDegreeTree.IsSuffix_trans IsSuffix_subderivation_for_NodeWithAddress; exact IsSuffix_of_mem_childTrees _ t_mem
         . rw [childNodes_as_NodesWithAddress_eq_childNodes]; apply List.mem_map_of_mem; exact c_mem
     . rintro ⟨td2, suffix, node_mem⟩
-      rcases suffix with ⟨ns, suffix⟩
+      rw [IsSuffix_iff, FiniteDegreeTree.IsSuffix_iff] at suffix; rcases suffix with ⟨ns, suffix⟩
       cases ns with
       | nil =>
-        have : td = td2 := by rw [TreeDerivation.mk.injEq, FiniteDegreeTree.mk.injEq, PossiblyInfiniteTree.mk.injEq]; rw [InfiniteTreeSkeleton.drop_nil] at suffix; exact suffix
+        have : td = td2 := by rw [TreeDerivation.mk.injEq]; rw [FiniteDegreeTree.drop_nil] at suffix; exact suffix
         rw [childNodes_eq, List.mem_map] at node_mem; rcases node_mem with ⟨t, t_mem, node_mem⟩; exists t; constructor; rw [this]; exact t_mem; rw [← node_mem]; exact root_mem
       | cons hd tl =>
         cases eq : td.childTrees[hd]? with
@@ -535,19 +540,19 @@ namespace TreeDerivation
           have contra := td2.isSome_root
           rw [Option.isSome_iff_ne_none] at contra
           apply False.elim; apply contra
-          simp only [FiniteDegreeTree.root_eq, FiniteDegreeTree.get?, PossiblyInfiniteTree.get?]
-          rw [← suffix, InfiniteTreeSkeleton.get_drop, List.append_nil]
-          have no_orphans := td.tree.no_orphans_closure [hd]
+          have suf : td2.tree <:+ td.tree.drop [hd] := by
+            rw [FiniteDegreeTree.IsSuffix_iff]
+            exists tl
+          rw [← FiniteDegreeTree.empty_iff_root_none]
           simp only [childTrees, List.getElem?_map, List.getElem?_attach, Option.map_eq_none_iff, Option.pmap_eq_none_iff] at eq
-          rw [FiniteDegreeTree.get?_childTrees, FiniteDegreeTree.FiniteDegreeTreeWithRoot.tree_to_opt_none_iff, FiniteDegreeTree.root_drop] at eq
-          specialize no_orphans eq tl
-          rw [FiniteDegreeTree.get?_drop] at no_orphans
-          simp only [FiniteDegreeTree.get?, PossiblyInfiniteTree.get?, List.singleton_append] at no_orphans
-          exact no_orphans
+          rw [FiniteDegreeTree.get?_childTrees, FiniteDegreeTree.FiniteDegreeTreeWithRoot.tree_to_opt_none_iff] at eq
+          rw [← FiniteDegreeTree.empty_iff_root_none] at eq
+          rw [eq] at suf
+          apply FiniteDegreeTree.empty_suffix_of_empty suf
         | some t =>
           rw [List.getElem?_eq_some_iff] at eq; rcases eq with ⟨_, eq⟩
           exists t; constructor; simp [← eq]
-          have : td2 <:+ t := by exists tl; rw [← eq]; simp only [childTrees, derivation_for_suffix, List.getElem_map, List.getElem_attach, FiniteDegreeTree.get_childTrees, FiniteDegreeTree.drop, PossiblyInfiniteTree.drop]; rw [InfiniteTreeSkeleton.drop_drop, List.singleton_append]; exact suffix
+          have : td2 <:+ t := by rw [IsSuffix_iff, FiniteDegreeTree.IsSuffix_iff]; exists tl; rw [← eq]; simp only [childTrees, derivation_for_suffix, List.getElem_map, List.getElem_attach, FiniteDegreeTree.get_childTrees]; rw [FiniteDegreeTree.drop_drop, List.singleton_append]; exact suffix
           apply mem_of_mem_suffix this
           apply mem_of_mem_childNodes
           exact node_mem

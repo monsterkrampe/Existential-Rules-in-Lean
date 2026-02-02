@@ -1,5 +1,3 @@
-import BasicLeanDatastructures.List.Repeat
-
 import ExistentialRules.ChaseSequence.ChaseTree
 import ExistentialRules.ChaseSequence.Universality
 
