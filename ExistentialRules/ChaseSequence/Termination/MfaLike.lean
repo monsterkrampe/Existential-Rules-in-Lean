@@ -1294,7 +1294,7 @@ namespace RuleSet
       apply each_step_sub_db_and_filtered
       exact f_mem
 
-    rw [← result_eq]
+    rw [result_eq]
     apply Set.finite_of_subset_finite _ res_sub_db_and_filtered
     apply Set.union_finite_of_both_finite
     . exact db.toFactSet.property.left

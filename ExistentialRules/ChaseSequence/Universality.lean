@@ -12,7 +12,7 @@ noncomputable def hom_step_of_trg_ex
     (node : ct.NodeWithAddress)
     (prev_hom : GroundTermMapping sig)
     (prev_hom_is_homomorphism : prev_hom.isHomomorphism node.node.facts m)
-    (trg_ex : exists_trigger_list obs kb.rules node.node (ct.subderivation_for_NodeWithAddress node).childNodes) :
+    (trg_ex : exists_trigger_list obs kb.rules node.node node.subderivation.childNodes) :
     InductiveHomomorphismResult ct m :=
   let trg := Classical.choose trg_ex
   let trg_spec := Classical.choose_spec trg_ex
@@ -65,23 +65,23 @@ noncomputable def hom_step_of_trg_ex
       case isFalse _ => rfl
       case isTrue h => apply False.elim; have contra := trg.val.term_functional_of_mem_fresh_terms _ h; simp [GroundTerm.func, GroundTerm.const] at contra
 
-  ⟨(TreeDerivation.NodeWithAddress.cast_for_new_root_node node ((ct.subderivation_for_NodeWithAddress node).childNodes_as_NodesWithAddress[head_index_for_m_subs.val]'(by rw [TreeDerivation.length_childNodes_as_Nodes, trg_result_used_for_next_chase_step, List.length_map, List.length_attach, List.length_zipIdx_with_lt, PreTrigger.length_mapped_head]; exact head_index_for_m_subs.isLt)), next_hom), by
+  ⟨(TreeDerivation.NodeWithAddress.cast_for_new_root_node node ((TreeDerivation.NodeWithAddress.childNodes node.subderivation)[head_index_for_m_subs.val]'(by rw [TreeDerivation.NodeWithAddress.length_childNodes, trg_result_used_for_next_chase_step, List.length_map, List.length_attach, List.length_zipIdx_with_lt, PreTrigger.length_mapped_head]; exact head_index_for_m_subs.isLt)), next_hom), by
     constructor
     . exact next_hom_id_const
     rintro mapped_f ⟨f, f_mem, mapped_f_eq⟩
-    rw [(ct.subderivation_for_NodeWithAddress node).facts_childNodes (by apply TreeDerivation.mem_childNodes_of_mem_childNodes_as_NodesWithAddress; apply List.getElem_mem)] at f_mem
+    rw [node.subderivation.facts_childNodes (by apply TreeDerivation.NodeWithAddress.mem_childNodes_of_mem_childNodes; apply List.getElem_mem)] at f_mem
     rw [mapped_f_eq]
     cases f_mem with
     | inl f_mem =>
       apply prev_hom_is_homomorphism.right
-      exists f; rw [TreeDerivation.root_subderivation_for_NodeWithAddress] at f_mem; simp only [f_mem, true_and]
+      exists f; rw [TreeDerivation.NodeWithAddress.root_subderivation'] at f_mem; simp only [f_mem, true_and]
       apply TermMapping.apply_generalized_atom_congr_left
       intro t t_mem
       have t_mem : t ∈ node.node.facts.terms := by exists f
       simp [next_hom, t_mem]
     | inr f_mem =>
       have f_mem : f ∈ trg.val.mapped_head[result_index_for_trg.val] := by
-        simp only [List.mem_toSet, TreeDerivation.NodeWithAddress.cast_for_new_root_node, TreeDerivation.node_getElem_childNodes_as_nodesWithAddress, trg_result_used_for_next_chase_step] at f_mem
+        simp only [List.mem_toSet, TreeDerivation.NodeWithAddress.cast_for_new_root_node, TreeDerivation.NodeWithAddress.node_getElem_childNodes, trg_result_used_for_next_chase_step] at f_mem
         simp only [List.getElem_map, List.getElem_attach] at f_mem
         have : ((Classical.choose trg_ex).val.mapped_head.zipIdx_with_lt[head_index_for_m_subs.val]'(by rw [List.length_zipIdx_with_lt]; exact result_index_for_trg.isLt)).fst.toSet = ((Classical.choose trg_ex).val.mapped_head[head_index_for_m_subs.val]'(result_index_for_trg.isLt)).toSet := by rw [List.zipIdx_with_lt_getElem_fst_eq_getElem]
         simp only [this] at f_mem
@@ -151,8 +151,8 @@ theorem mem_childNodes_of_mem_hom_step_of_trg_ex
     {node : ct.NodeWithAddress}
     {prev_hom : GroundTermMapping sig}
     {prev_hom_is_homomorphism : prev_hom.isHomomorphism node.node.facts m}
-    {trg_ex : exists_trigger_list obs kb.rules node.node (ct.subderivation_for_NodeWithAddress node).childNodes} :
-    (hom_step_of_trg_ex ct m m_is_model node prev_hom prev_hom_is_homomorphism trg_ex).val.fst ∈ (ct.subderivation_for_NodeWithAddress node).childNodes_as_NodesWithAddress.map (fun c => TreeDerivation.NodeWithAddress.cast_for_new_root_node _ c) := by simp only [hom_step_of_trg_ex]; apply List.mem_map_of_mem; apply List.getElem_mem
+    {trg_ex : exists_trigger_list obs kb.rules node.node node.subderivation.childNodes} :
+    (hom_step_of_trg_ex ct m m_is_model node prev_hom prev_hom_is_homomorphism trg_ex).val.fst ∈ (TreeDerivation.NodeWithAddress.childNodes node.subderivation).map (fun c => TreeDerivation.NodeWithAddress.cast_for_new_root_node _ c) := by simp only [hom_step_of_trg_ex]; apply List.mem_map_of_mem; apply List.getElem_mem
 
 theorem hom_extends_next_in_hom_step_of_trg_ex
     {ct : ChaseTree obs kb}
@@ -161,7 +161,7 @@ theorem hom_extends_next_in_hom_step_of_trg_ex
     {node : ct.NodeWithAddress}
     {prev_hom : GroundTermMapping sig}
     {prev_hom_is_homomorphism : prev_hom.isHomomorphism node.node.facts m}
-    {trg_ex : exists_trigger_list obs kb.rules node.node (ct.subderivation_for_NodeWithAddress node).childNodes} :
+    {trg_ex : exists_trigger_list obs kb.rules node.node node.subderivation.childNodes} :
     ∀ t ∈ node.node.facts.terms, prev_hom t = (hom_step_of_trg_ex ct m m_is_model node prev_hom prev_hom_is_homomorphism trg_ex).val.snd t := by intro t t_mem; simp only [hom_step_of_trg_ex, t_mem, ↓reduceIte]
 
 noncomputable def hom_step
@@ -170,7 +170,7 @@ noncomputable def hom_step
     (m_is_model : m.modelsKb kb)
     (prev_res : InductiveHomomorphismResult ct m) :
     Option (InductiveHomomorphismResult ct m) :=
-  let trg_ex := exists_trigger_list obs kb.rules prev_res.val.fst.node (ct.subderivation_for_NodeWithAddress prev_res.val.fst).childNodes
+  let trg_ex := exists_trigger_list obs kb.rules prev_res.val.fst.node prev_res.val.fst.subderivation.childNodes
   have _trg_eq_dec := Classical.propDecidable trg_ex
   if trg_ex_true : trg_ex then
     some (hom_step_of_trg_ex ct m m_is_model prev_res.val.fst prev_res.val.snd prev_res.property trg_ex_true)
@@ -182,7 +182,7 @@ theorem mem_childNodes_of_mem_hom_step
     {m : FactSet sig}
     {m_is_model : m.modelsKb kb}
     {prev_res : InductiveHomomorphismResult ct m} :
-    ∀ res ∈ hom_step ct m m_is_model prev_res, res.val.fst ∈ (ct.subderivation_for_NodeWithAddress prev_res.val.fst).childNodes_as_NodesWithAddress.map (fun c => TreeDerivation.NodeWithAddress.cast_for_new_root_node _ c) := by
+    ∀ res ∈ hom_step ct m m_is_model prev_res, res.val.fst ∈ (TreeDerivation.NodeWithAddress.childNodes prev_res.val.fst.subderivation).map (fun c => TreeDerivation.NodeWithAddress.cast_for_new_root_node _ c) := by
   intro res
   simp only [hom_step]
   split
@@ -197,7 +197,7 @@ theorem childNodes_empty_of_hom_step_none
     {m : FactSet sig}
     {m_is_model : m.modelsKb kb}
     {prev_res : InductiveHomomorphismResult ct m} :
-    hom_step ct m m_is_model prev_res = none -> (ct.subderivation_for_NodeWithAddress prev_res.val.fst).childNodes_as_NodesWithAddress = [] := by
+    hom_step ct m m_is_model prev_res = none -> (TreeDerivation.NodeWithAddress.childNodes prev_res.val.fst.subderivation) = [] := by
   simp only [hom_step]
   split
   . simp
@@ -208,8 +208,8 @@ theorem childNodes_empty_of_hom_step_none
     cases trg_ex with
     | inl trg_ex => contradiction
     | inr trg_ex =>
-      have : (TreeDerivation.subderivation_for_NodeWithAddress prev_res.val.fst).childNodes_as_NodesWithAddress.map TreeDerivation.NodeWithAddress.node = [] := by
-        rw [← TreeDerivation.childNodes_as_NodesWithAddress_eq_childNodes]
+      have : (TreeDerivation.NodeWithAddress.childNodes prev_res.val.fst.subderivation).map TreeDerivation.NodeWithAddress.node = [] := by
+        rw [← TreeDerivation.NodeWithAddress.childNodes_eq_childNodes]
         exact trg_ex.right
       rw [List.map_eq_nil_iff] at this
       exact this
@@ -232,8 +232,8 @@ theorem hom_extends_next_in_hom_step
 theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet sig), m.modelsKb kb -> ∃ (fs : FactSet sig) (h : GroundTermMapping sig), fs ∈ ct.result ∧ h.isHomomorphism fs m := by
   intro m m_is_model
 
-  let start : Option (InductiveHomomorphismResult ct m) := some ⟨(ct.root_NodeWithAddress, id), by
-    simp only [TreeDerivation.root_NodeWithAddress]; rw [ct.database_first']; simp only
+  let start : Option (InductiveHomomorphismResult ct m) := some ⟨(TreeDerivation.NodeWithAddress.root ct.toTreeDerivation, id), by
+    simp only [TreeDerivation.NodeWithAddress.root]; rw [ct.database_first']; simp only
     constructor
     . unfold GroundTermMapping.isIdOnConstants; simp
     . rintro e ⟨f, hf⟩
@@ -243,7 +243,7 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
       exact hf.left⟩
   let nodes_with_homs := PossiblyInfiniteList.generate start (hom_step ct m m_is_model) id
   have nodes_with_homs_properties : ∀ pair ∈ nodes_with_homs, pair.val.snd.isHomomorphism pair.val.fst.node.facts m := by intro pair _; exact pair.property
-  let nodes : PossiblyInfiniteList (ChaseNode obs kb.rules) := FiniteDegreeTree.generate_branch start (hom_step ct m m_is_model) (fun res => (ct.subderivation_for_NodeWithAddress res.val.fst).toFiniteDegreeTreeWithRoot)
+  let nodes : PossiblyInfiniteList (ChaseNode obs kb.rules) := FiniteDegreeTree.generate_branch start (hom_step ct m m_is_model) (fun res => res.val.fst.subderivation.toFiniteDegreeTreeWithRoot)
   let homs : PossiblyInfiniteList (GroundTermMapping sig) := PossiblyInfiniteList.generate start (hom_step ct m m_is_model) (fun res => res.val.snd)
 
   have nodes_eq : nodes = nodes_with_homs.map (fun res => res.val.fst.node) := by
@@ -251,7 +251,7 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
     simp only [nodes, nodes_with_homs, FiniteDegreeTree.get?_generate_branch, PossiblyInfiniteList.get?_map, PossiblyInfiniteList.get?_generate]
     cases (InfiniteList.iterate start fun x => x.bind (hom_step ct m m_is_model)).get n with
     | none => simp
-    | some _ => simp only [Option.map_some, id, TreeDerivation.toFiniteDegreeTreeWithRoot, ← TreeDerivation.root.eq_def, TreeDerivation.root_subderivation_for_NodeWithAddress]
+    | some _ => simp only [Option.map_some, id, TreeDerivation.toFiniteDegreeTreeWithRoot, ← TreeDerivation.root.eq_def, TreeDerivation.NodeWithAddress.root_subderivation']
   have homs_eq : homs = nodes_with_homs.map (fun res => res.val.snd) := by
     apply PossiblyInfiniteList.ext; intro n
     simp only [homs, nodes_with_homs, PossiblyInfiniteList.get?_map, PossiblyInfiniteList.get?_generate]
@@ -265,15 +265,15 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
       have := mem_childNodes_of_mem_hom_step res res_mem
       rw [List.mem_map] at this
       rcases this with ⟨node, node_mem, res_eq⟩
-      have : (TreeDerivation.subderivation_for_NodeWithAddress res.val.fst) = (TreeDerivation.subderivation_for_NodeWithAddress node) := by
-        rw [TreeDerivation.mk.injEq, ← res_eq]; simp only [TreeDerivation.subderivation_for_NodeWithAddress, TreeDerivation.derivation_for_suffix, TreeDerivation.NodeWithAddress.cast_for_new_root_node, FiniteDegreeTree.drop_drop]
+      have : res.val.fst.subderivation = node.subderivation := by
+        rw [TreeDerivation.mk.injEq, ← res_eq]; simp only [TreeDerivation.NodeWithAddress.subderivation, TreeDerivation.derivation_for_suffix, TreeDerivation.NodeWithAddress.cast_for_new_root_node, FiniteDegreeTree.drop_drop]
       rw [this]
-      apply TreeDerivation.subderivation_mem_childTrees_of_mem_childNodes_as_NodesWithAddress
+      apply TreeDerivation.NodeWithAddress.subderivation_mem_childTrees_of_mem_childNodes
       exact node_mem
     . intro prev eq_none
-      have : (TreeDerivation.subderivation_for_NodeWithAddress prev.val.fst).childNodes_as_NodesWithAddress.map TreeDerivation.NodeWithAddress.node = [] := by
+      have : (TreeDerivation.NodeWithAddress.childNodes prev.val.fst.subderivation).map TreeDerivation.NodeWithAddress.node = [] := by
         rw [List.map_eq_nil_iff]; exact childNodes_empty_of_hom_step_none eq_none
-      rw [← TreeDerivation.childNodes_as_NodesWithAddress_eq_childNodes, TreeDerivation.childNodes_eq, List.map_eq_nil_iff] at this
+      rw [← TreeDerivation.NodeWithAddress.childNodes_eq_childNodes, TreeDerivation.childNodes_eq, List.map_eq_nil_iff] at this
       simp only [TreeDerivation.childTrees, List.map_eq_nil_iff, List.attach_eq_nil_iff] at this
       exact this
     . simp [start]

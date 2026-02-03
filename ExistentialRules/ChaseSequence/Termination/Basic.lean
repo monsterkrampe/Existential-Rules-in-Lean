@@ -153,12 +153,12 @@ section GeneralResults
         exists b
         constructor
         . rw [← iff]; exact mem
-        . exact eq
+        . exact Eq.symm eq
       . rintro ⟨b, mem, eq⟩
         exists b
         constructor
         . rw [iff]; exact mem
-        . exact eq
+        . exact Eq.symm eq
 
   end TreeDerivation
 
@@ -171,7 +171,7 @@ section GeneralResults
       . rintro each_b_term res ⟨b, mem, eq⟩
         let b' := ChaseTree.chaseBranch_for_branch mem
         have : b'.result = b.result := rfl
-        rw [← eq, ← this]
+        rw [eq, ← this]
         rw [← ChaseBranch.terminates_iff_result_finite]
         apply each_b_term
         exact mem

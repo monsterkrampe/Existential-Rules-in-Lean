@@ -136,7 +136,7 @@ namespace ChaseTree
       rcases chaseTreeResultIsUniversal ct m m_is_model with ⟨res, hom, ⟨b, b_mem, res_mem⟩, hom_is_hom⟩
       rw [TreeDerivation.branches_eq_firstBranch_of_determinsitic det] at b_mem
       unfold TreeDerivation.firstResult
-      rw [← b_mem, res_mem]
+      rw [← b_mem, ← res_mem]
       exact ⟨_, hom_is_hom⟩
 
 end ChaseTree
