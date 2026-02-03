@@ -1,9 +1,34 @@
 import ExistentialRules.Triggers.Basic
 
+/-!
+# Obsoleteness (Conditions)
+
+For the chase, we need to be able to define when a trigger should not be applied even though it might be loaded.
+In such a case (even when not loaded), we say that the trigger is "obsolete".
+We make this decision based on a given `PreTrigger` and a `FactSet`.
+Different chase variants use different notions of obsoleteness.
+For example the restricted (aka. standard) chase says that a trigger is obsolete when it is satisfied.
+On the other hand, the Skolem chase says that a trigger is obsolete when its excat result is already present.
+We aim to capture both of these notions and everything in-between using a generic `ObsoletenessCondition`
+that conveys the necessary properties.
+
+The condition itself is a function taking a `PreTrigger` and a `FactSet` returning a `Prop` indicating if the trigger is obsolete for the fact set or not.
+Then, we require 4 conditions:
+
+1. The condition is subset monotone. That is, if a trigger is obsolete for a fact set, it is also obsolete for all supersets.
+2. If a trigger is obsolete then it is also satisfied.
+3. If the exact trigger result already occurs in the fact set, then the trigger is obsolete.
+4. Equivalent triggers are obsolete on exactly the same fact sets.
+
+`RestrictedObsoleteness` and `SkolemObsoleteness` are the two extremes of what is allowed according to these conditions, `SkolemObsoleteness` being the most liberal and `RestrictedObsoleteness` being, quite expectedly, the most restricted.
+-/
+
+/-- `LaxObsoletenessCondition` is a more liberal version of `ObsoletenessCondition` enforcing only subset monotonicity (i.e. condition 1 above). We use such a more liberal condition for MFA later. For the most part, you can completely ignore that this exists and only consider `ObsoletenessCondition`s instead. -/
 structure LaxObsoletenessCondition (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] where
   cond : PreTrigger sig -> FactSet sig -> Prop
   monotone : ∀ {trg} {A B : FactSet sig}, A ⊆ B -> cond trg A -> cond trg B
 
+/-- An `ObsoletenessCondition` is a function from `PreTrigger` and `FactSet` into `Prop` with the 4 conditions mentioned above. -/
 structure ObsoletenessCondition (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] extends LaxObsoletenessCondition sig where
   cond_implies_trg_is_satisfied : cond trg fs -> trg.satisfied fs
   contains_trg_result_implies_cond : ∀ {trg : PreTrigger sig} {fs} (disj_index : Fin trg.mapped_head.length),
@@ -14,6 +39,15 @@ instance {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq 
     Coe (ObsoletenessCondition sig) (LaxObsoletenessCondition sig) where
   coe obs := { cond := obs.cond, monotone := obs.monotone }
 
+section SpecificConditions
+
+/-!
+## SpecificConditions
+
+We briefly define the `ObsoletenessCondition`s for Skolem and restricted chase to show that these indeed have the 4 necessary properties. However, most definitions are still expressed in terms of the generic `ObsoletenessCondition` so the specific ones are rarely used throughout the code; only when results indeed do not hold for the generic case but only specific obsoleteness conditions.
+-/
+
+/-- Obsoleteness for the Skolem chase is indeed a `ObsoletenessCondition`, i.e. it has all 4 properties. According to this condition, a trigger is obsolete if its exact result, for one of the head disjuncts, already occurs in the fact set. -/
 def SkolemObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] : ObsoletenessCondition sig := {
   cond := fun (trg : PreTrigger sig) (fs : FactSet sig) => ∃ i : Fin trg.mapped_head.length, (trg.mapped_head[i.val]).toSet ⊆ fs
   monotone := by
@@ -47,6 +81,7 @@ def SkolemObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C]
       exact h
 }
 
+/-- Obsoleteness for the restricted chase is indeed a `ObsoletenessCondition`, i.e. it has all 4 properties. According to this condition, a trigger is obsolete if it is satisfied. -/
 def RestrictedObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] : ObsoletenessCondition sig := {
   cond := fun (trg : PreTrigger sig) (fs : FactSet sig) => trg.satisfied fs
   monotone := by
@@ -72,6 +107,19 @@ def RestrictedObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq si
     exact equiv
 }
 
+end SpecificConditions
+
+section Trigger
+
+/-!
+## (Proper) Triggers
+
+A `Trigger` is a `PreTrigger` that has a fixed obsoleteness condition.
+We say that a `Trigger` is `active` if it is loaded and not obsolete.
+
+`SkolemTrigger` and `RestrictedTrigger` are just defined as examples.
+-/
+
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 structure Trigger (obsolete : LaxObsoletenessCondition sig) extends PreTrigger sig
@@ -84,8 +132,8 @@ variable {obs : LaxObsoletenessCondition sig}
 instance : CoeOut (Trigger obs) (PreTrigger sig) where
   coe trigger := { rule := trigger.rule, subs := trigger.subs }
 
-namespace Trigger
-  def active (trg : Trigger obs) (F : FactSet sig) : Prop :=
-    trg.loaded F ∧ ¬ (obs.cond trg F)
+def Trigger.active (trg : Trigger obs) (F : FactSet sig) : Prop :=
+  trg.loaded F ∧ ¬ (obs.cond trg F)
+
 end Trigger
 
