@@ -1,10 +1,35 @@
 import ExistentialRules.ChaseSequence.ChaseTree
 
+/-!
+# Chase Tree Result is Universal Model Set
+
+This whole file is dedicated to showing that the result of a `ChaseTree` is a universal model set.
+More precisely, we want to show the universality part as we have already shown in `ChaseTree.result_models_kb` that each
+element of the result is a model.
+So what exactly remains to be shown?
+
+We aim to show that for a given `ChaseTree` for a `KnowledgeBase` and any model $M$ of the `KnowledgeBase`,
+we can pick a fact set $F$ from the result of the chase tree such that there is a homomorphism from $F$ to $M$.
+This result is shown in `chaseTreeResultIsUniversal`.
+
+The proof works by step-wise construction of both a branch in the chase tree as well as a suitable homomorphism.
+The constructions builds both at the same time.
+One step of the construction is done by the `hom_step` function below, which calls `hom_step_of_trg_ex` for the heavy lifting.
+The base of the construction is simply an empty branch and the id mapping.
+In each step of the construction, we consider an `InductiveHomomorphismResult`, which we define to be a pair of a node in the chase tree and a `GroundTermMapping` such that the mapping is a homomorphism from the node into the model $M$.
+
+In the proof of `chaseTreeResultIsUniversal`, we leverage the `FiniteDegreeTree.generate_branch` function with `hom_step` as the generator function. By that, with a bit of massage, we can easily show that the constructed branch is indeed a branch in the tree using `FiniteDegreeTree.generate_branch_mem_branches`.
+Besides that, all the homomorphisms from the individual steps need to be combined into a single function. The definition is not too hard and all relevant properties are also not too hard to show once we can establish that the homomorphisms for each step always extend the previous one.
+-/
+
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
 
-abbrev InductiveHomomorphismResult (ct : ChaseTree obs kb) (m : FactSet sig) := { pair : ct.NodeWithAddress × (GroundTermMapping sig) // pair.snd.isHomomorphism pair.fst.node.facts m }
+/-- The `InductiveHomomorphismResult` is used for the step-wise construction is forms the element that is the input and output of the generator function used in `FiniteDegreeTree.generate_branch` later. It consists of a node in the chase tree and a `GroundTermMapping` that is a homomorphism from the node to the target model. The generated branch is the chain of all the generated nodes.  -/
+abbrev InductiveHomomorphismResult (ct : ChaseTree obs kb) (m : FactSet sig) :=
+  { pair : ct.NodeWithAddress × (GroundTermMapping sig) // pair.snd.isHomomorphism pair.fst.node.facts m }
 
+/-- Consider any node in the chase tree together with a homomorphism from this node to the target model. Given that there is an active trigger for the node, we return one of its child nodes together with an extended homomorphism. How do we know that such a node and homomorphism exist? This is because the existing trigger is loaded for the target model but since it is a model, we can also show that it also needs to be satisfied for the model. The way in which the trigger is satisfied in the model dictates which child node we pick and how we define the homomorphisms for the fresh terms introduced by the trigger. This is already all that happens here but it is not quite trivial to show that the constructed `GroundTermMapping` is indeed a homomorphism. -/
 noncomputable def hom_step_of_trg_ex
     (ct : ChaseTree obs kb)
     (m : FactSet sig)
@@ -144,6 +169,7 @@ noncomputable def hom_step_of_trg_ex
           exact v_exis
   ⟩
 
+/-- The node that we pick in `hom_step_of_trg_ex` is in the childNodes of the previous node. This is trivial. -/
 theorem mem_childNodes_of_mem_hom_step_of_trg_ex
     {ct : ChaseTree obs kb}
     {m : FactSet sig}
@@ -154,7 +180,8 @@ theorem mem_childNodes_of_mem_hom_step_of_trg_ex
     {trg_ex : exists_trigger_list obs kb.rules node.node node.subderivation.childNodes} :
     (hom_step_of_trg_ex ct m m_is_model node prev_hom prev_hom_is_homomorphism trg_ex).val.fst ∈ (TreeDerivation.NodeWithAddress.childNodes node.subderivation).map (fun c => TreeDerivation.NodeWithAddress.cast_for_new_root_node _ c) := by simp only [hom_step_of_trg_ex]; apply List.mem_map_of_mem; apply List.getElem_mem
 
-theorem hom_extends_next_in_hom_step_of_trg_ex
+/-- The homomorphisms that we construct in `hom_step_of_trg_ex` agrees with the previous one on all terms in the previous node. This is also trivial. -/
+theorem hom_extends_prev_in_hom_step_of_trg_ex
     {ct : ChaseTree obs kb}
     {m : FactSet sig}
     {m_is_model : m.modelsKb kb}
@@ -164,6 +191,7 @@ theorem hom_extends_next_in_hom_step_of_trg_ex
     {trg_ex : exists_trigger_list obs kb.rules node.node node.subderivation.childNodes} :
     ∀ t ∈ node.node.facts.terms, prev_hom t = (hom_step_of_trg_ex ct m m_is_model node prev_hom prev_hom_is_homomorphism trg_ex).val.snd t := by intro t t_mem; simp only [hom_step_of_trg_ex, t_mem, ↓reduceIte]
 
+/-- When extending the `InductiveHomomorphismResult` from one step to the next, we do not necessarily know that a trigger is active for the current node. Indeed the chase might just have already finished. So we do a simple case distinction here and return an `Option` either with the result from `hom_step_of_trg_ex` or simply none. -/
 noncomputable def hom_step
     (ct : ChaseTree obs kb)
     (m : FactSet sig)
@@ -177,6 +205,7 @@ noncomputable def hom_step
   else
     none
 
+/-- If there is a new node returned by `hom_step`, then it is in the `childNodes` of the current node. -/
 theorem mem_childNodes_of_mem_hom_step
     {ct : ChaseTree obs kb}
     {m : FactSet sig}
@@ -192,6 +221,7 @@ theorem mem_childNodes_of_mem_hom_step
     exact mem_childNodes_of_mem_hom_step_of_trg_ex
   . simp
 
+/-- If `hom_step` returns none, then the current node does not have any children. -/
 theorem childNodes_empty_of_hom_step_none
     {ct : ChaseTree obs kb}
     {m : FactSet sig}
@@ -214,7 +244,8 @@ theorem childNodes_empty_of_hom_step_none
       rw [List.map_eq_nil_iff] at this
       exact this
 
-theorem hom_extends_next_in_hom_step
+/-- The homomorphism returns in `hom_step` agrees with the current one on all terms from the current node. -/
+theorem hom_extends_prev_in_hom_step
     {ct : ChaseTree obs kb}
     {m : FactSet sig}
     {m_is_model : m.modelsKb kb}
@@ -226,9 +257,10 @@ theorem hom_extends_next_in_hom_step
   . intro res_mem
     rw [Option.mem_def, Option.some_inj] at res_mem
     rw [← res_mem]
-    exact hom_extends_next_in_hom_step_of_trg_ex
+    exact hom_extends_prev_in_hom_step_of_trg_ex
   . simp
 
+/-- As outlined at the very top of this file, we now use `FiniteDegreeTree.generate_branch` with the `hom_step` generator to obtain the branch in the tree that yields the result `FactSet` for which the combined `GroundTermMapping`s form a homomorphism into the target model. -/
 theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet sig), m.modelsKb kb -> ∃ (fs : FactSet sig) (h : GroundTermMapping sig), fs ∈ ct.result ∧ h.isHomomorphism fs m := by
   intro m m_is_model
 
@@ -293,7 +325,7 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
       rw [Option.bind_eq_some_iff] at pair_mem
       rcases pair_mem with ⟨prev_pair, prev_pair_mem, pair_mem⟩
       rw [ih prev_pair.val.snd (by rw [homs_eq, PossiblyInfiniteList.get?_map]; apply Option.mem_map_of_mem; simp only [nodes_with_homs, PossiblyInfiniteList.get?_generate, Option.map_id, id_eq]; exact prev_pair_mem), ← hom2_mem]
-      apply hom_extends_next_in_hom_step _ pair_mem
+      apply hom_extends_prev_in_hom_step _ pair_mem
       apply FactSet.terms_subset_of_subset _ _ t_mem
       let node1 : deriv.Node := ⟨node, by exists i⟩
       let node2 : deriv.Node := ⟨prev_pair.val.fst.node, by
