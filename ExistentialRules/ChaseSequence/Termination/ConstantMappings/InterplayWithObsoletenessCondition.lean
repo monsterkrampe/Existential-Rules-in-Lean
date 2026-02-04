@@ -1,11 +1,18 @@
 import ExistentialRules.ChaseSequence.Termination.ConstantMappings.InterplayWithRenamingConstantsApart
 
+/-!
+# Interactions of ConstantMappings with Obsoleteness
+
+For MFA-like conditions, we want to make an additional assumption on `ObsoletenessCondition` that we did not demand before.
+Namely, we want that the condition `propagates_under_constant_mapping`, meaning that of a trigger is obsolete for a fact set, then
+the version of the trigger where a `ConstantMapping` is composed with the original substitution is also obsolete for the version of the fact set where the `ConstantMapping` was applied. At least this shall be the case if the `ConstantMapping` does not touch the head constants of the rule in the trigger.
+
+We briefly demonstrate that this property holds for both `SkolemObsoleteness` and `RestrictedObsoleteness`.
+-/
+
 variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [DecidableEq sig.P]
 
--- we want to assume this property for obsoleteness conditions for MFA
 def ObsoletenessCondition.propagates_under_constant_mapping (obs : ObsoletenessCondition sig) : Prop := ∀ {trg : PreTrigger sig} {fs : FactSet sig} {g : ConstantMapping sig}, (∀ c ∈ trg.rule.head_constants, g c = GroundTerm.const c) -> obs.cond trg fs -> obs.cond { rule := trg.rule, subs := g.apply_ground_term ∘ trg.subs } (g.apply_fact_set fs)
-
--- we show in the following that this property indeed holds for skolem and restricted obsoleteness so the condition is not really a restriction
 
 theorem SkolemObsoleteness.propagates_under_constant_mapping : (SkolemObsoleteness sig).propagates_under_constant_mapping := by
   intro trg fs g g_id cond

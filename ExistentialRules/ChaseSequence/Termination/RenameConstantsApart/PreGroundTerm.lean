@@ -2,8 +2,19 @@ import BasicLeanDatastructures.GetFreshInhabitant
 import ExistentialRules.ChaseSequence.Termination.Basic
 import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts
 
+/-!
+# Renaming Constants apart in a PreGroundTerm
+
+For MFA we need to be able to rename constants apart in terms.
+For example, for $f(g(c,c),d)$, we want to consider $f(g(c,e),d)$ instead.
+Actually, we are way more radical and just consider $f(g(c_1, c_2), c_3)$, so we blindly introduce a fresh constant for each leaf in the term.
+We show that the new constants are indeed fresh `rename_constants_apart_leaves_fresh` and
+we also prove that the renaming does not mess with term validity as required for backtrackings.
+-/
+
 variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
 
+/-- We rename constants apart by introducing a fresh constant for each leaf position in the term. -/
 def PreGroundTerm.rename_constants_apart
     [GetFreshInhabitant sig.C]
     (term : PreGroundTerm sig)
@@ -83,6 +94,7 @@ theorem PreGroundTerm.rename_constants_apart.mem_foldl_list_implies
       exists t', (hd.rename_constants_apart forbidden_constants).leaves ++ new_consts
       simp [ih]
 
+/-- Indeed the fresh constants are fresh. -/
 theorem PreGroundTerm.rename_constants_apart_leaves_fresh
     [GetFreshInhabitant sig.C]
     {term : FiniteTree (SkolemFS sig) sig.C}

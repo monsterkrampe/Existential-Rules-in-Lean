@@ -1,5 +1,11 @@
 import ExistentialRules.ChaseSequence.Termination.ConstantMappings.InterplayWithBacktracking.BacktrackingUnderConstantMappingSubsetOfComposingWithSubs.PreGroundTerm
 
+/-!
+# Interaction of Backtrackings and Strict Constant Mappings on GroundTerm
+
+We merely lift `PreGroundTerm.backtrackFacts_under_constant_mapping_subset_of_composing_with_subs` to `GroundTerm` here.
+-/
+
 variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [DecidableEq sig.P]
 
 theorem GroundTerm.backtrackFacts_under_constant_mapping_subset_of_composing_with_subs

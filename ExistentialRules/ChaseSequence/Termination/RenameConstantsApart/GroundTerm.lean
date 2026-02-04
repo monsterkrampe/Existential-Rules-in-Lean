@@ -1,5 +1,11 @@
 import ExistentialRules.ChaseSequence.Termination.RenameConstantsApart.PreGroundTerm
 
+/-!
+# Renaming Constants apart in a GroundTerm
+
+We lift the `PreGroundTerm.rename_constants_apart` functionality to `GroundTerm`.
+-/
+
 variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
 
 def GroundTerm.rename_constants_apart

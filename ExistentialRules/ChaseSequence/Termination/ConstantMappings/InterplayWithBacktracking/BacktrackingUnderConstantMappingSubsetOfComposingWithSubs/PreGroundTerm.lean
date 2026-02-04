@@ -1,6 +1,17 @@
 import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts
 import ExistentialRules.ChaseSequence.Termination.ConstantMappings.InterplayWithObsoletenessCondition
 
+/-!
+# Interaction of Backtrackings and Strict Constant Mappings on PreGroundTerm
+
+This file mainly shows two results for `PreGroundTerm`.
+
+1. `backtrackFacts_under_strict_constant_mapping_same_number_of_fresh_constants` shows that applying a `StrictConstantMapping` to a `PreGroundTerm` does not change the total number of fresh constants introduced in the backtracking.
+2. `backtrackFacts_under_constant_mapping_subset_of_composing_with_subs` shows that applying a `StrictConstantMapping` to the backtracking of a `PreGroundTerm` yields a subset of the backtracking for the term resulting from applying the constant mapping to the original term. However, fresh constants need to be remapped here potentially and other terms and conditions apply as well but this is at least the intuition.
+
+If you have been looking for the most horrible theorem in this repo, then your search likely concludes here :D
+-/
+
 variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [DecidableEq sig.P]
 
 mutual
@@ -25,7 +36,7 @@ mutual
           forbidden_constants_2).snd.length := by
     intro g
     cases term with
-    | leaf c => simp only [ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, StrictConstantMapping.toConstantMapping, GroundTerm.const, backtrackFacts]
+    | leaf c => simp only [Function.comp_apply, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, StrictConstantMapping.toConstantMapping, GroundTerm.const, backtrackFacts]
     | inner func ts =>
       simp only [ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, backtrackFacts]
       simp only [backtrackTrigger]
@@ -107,7 +118,7 @@ mutual
         rcases e_mem with ⟨f, f_mem, e_eq⟩
         simp [List.mem_toSet, backtracking, backtrackFacts] at f_mem
       . simp only [ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves]
-        simp only [backtracking, backtrackFacts, GroundTerm.const, StrictConstantMapping.toConstantMapping]
+        simp only [backtracking, backtrackFacts, Function.comp_apply, GroundTerm.const, StrictConstantMapping.toConstantMapping]
         simp
     | inner func ts =>
       have term_arity_ok' : ts.length == func.arity && ts.attach.all (fun ⟨t, _⟩ => arity_ok t) := by unfold arity_ok at term_arity_ok; exact term_arity_ok
@@ -281,7 +292,7 @@ mutual
             simp only [pure_body_vars, rule] at v_mem_pure_body
             simp only [Function.comp_apply, v_mem_frontier, v_mem_pure_body, ↓reduceDIte]
             simp only [ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, StrictConstantMapping.toConstantMapping]
-            simp only [GroundTerm.const, FiniteTree.mapLeaves, Subtype.mk.injEq, FiniteTree.leaf.injEq]
+            simp only [Function.comp_apply, GroundTerm.const, FiniteTree.mapLeaves, Subtype.mk.injEq, FiniteTree.leaf.injEq]
             have : fresh_consts_for_pure_body_vars.val[pure_body_vars.idxOf v]'(by rw [fresh_consts_for_pure_body_vars.property.left]; apply List.idxOf_lt_length_of_mem; exact v_mem_pure_body) ∈ backtracking.snd := by
               simp only [backtracking, backtrackFacts]
               apply List.mem_append_left
@@ -352,7 +363,7 @@ mutual
                   apply forbidden_constants_subsumes_rules
                   exact d_mem'
                 simp only [ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, StrictConstantMapping.toConstantMapping]
-                simp only [GroundTerm.const, FiniteTree.mapLeaves, Subtype.mk.injEq, FiniteTree.leaf.injEq]
+                simp only [Function.comp_apply, GroundTerm.const, FiniteTree.mapLeaves, Subtype.mk.injEq, FiniteTree.leaf.injEq]
                 simp only [this, ↓reduceIte]
                 apply g_id
                 exact d_mem'
@@ -396,7 +407,7 @@ mutual
                   apply forbidden_constants_subsumes_rules
                   exact d_mem'
                 simp only [StrictConstantMapping.toConstantMapping]
-                simp only [GroundTerm.const, Subtype.mk.injEq, FiniteTree.leaf.injEq]
+                simp only [Function.comp_apply, GroundTerm.const, Subtype.mk.injEq, FiniteTree.leaf.injEq]
                 simp only [this, ↓reduceIte]
                 apply g_id
                 exact d_mem'
@@ -420,7 +431,7 @@ mutual
                 apply backtrackFacts_fresh_constants_not_forbidden d contra
                 apply forbidden_constants_subsumes_rules
                 exact d_mem
-              simp only [StrictConstantMapping.toConstantMapping, this, ↓reduceIte]
+              simp only [StrictConstantMapping.toConstantMapping, Function.comp_apply, this, ↓reduceIte]
               simp only [backtracking, backtrackFacts] at this
               rw [List.mem_append] at this
               split
@@ -439,7 +450,7 @@ mutual
                   apply forbidden_constants_subsumes_term
                   simp only [FiniteTree.leaves]
                   exact d_mem
-                simp only [StrictConstantMapping.toConstantMapping, this, ↓reduceIte]
+                simp only [StrictConstantMapping.toConstantMapping, Function.comp_apply, this, ↓reduceIte]
                 simp only [backtracking, backtrackFacts] at this
                 rw [List.mem_append] at this
                 split
@@ -456,7 +467,7 @@ mutual
                   apply Or.inr
                   exact d_mem
                 simp only [PreGroundTerm.backtrackTrigger] at d_mem
-                simp only [StrictConstantMapping.toConstantMapping, fresh_consts_for_pure_body_vars, rule, d_mem, this, ↓reduceIte]
+                simp only [StrictConstantMapping.toConstantMapping, Function.comp_apply, fresh_consts_for_pure_body_vars, rule, d_mem, this, ↓reduceIte]
                 have : d ∉ fresh_consts_for_pure_body_vars.val := by
                   intro contra
                   apply PreGroundTerm.backtrackFacts_list_fresh_constants_not_forbidden d d_mem
@@ -568,7 +579,7 @@ mutual
         intro t t_mem
         apply ConstantMapping.apply_pre_ground_term_congr_left
         intro d d_mem
-        simp only [StrictConstantMapping.toConstantMapping, new_inner_g]
+        simp only [StrictConstantMapping.toConstantMapping, Function.comp_apply, new_inner_g]
         have : d ∉ t_res.snd := by
           intro contra
           apply backtrackFacts_fresh_constants_not_forbidden d contra
@@ -633,7 +644,7 @@ mutual
                 apply backtrackFacts_list_fresh_constants_not_forbidden d contra
                 apply forbidden_constants_subsumes_rules
                 exact d_mem
-              simp only [StrictConstantMapping.toConstantMapping, this, ↓reduceIte]
+              simp only [StrictConstantMapping.toConstantMapping, Function.comp_apply, this, ↓reduceIte]
               simp only [backtracking, backtrackFacts_list] at this
               rw [List.mem_append] at this
               split
@@ -647,7 +658,7 @@ mutual
                   apply backtrackFacts_list_fresh_constants_not_forbidden d contra
                   apply forbidden_constants_subsumes_term.left
                   exact d_mem
-                simp only [StrictConstantMapping.toConstantMapping, this, ↓reduceIte]
+                simp only [StrictConstantMapping.toConstantMapping, Function.comp_apply, this, ↓reduceIte]
                 simp only [backtracking, backtrackFacts_list] at this
                 rw [List.mem_append] at this
                 split
@@ -659,7 +670,7 @@ mutual
                   rw [List.mem_append]
                   apply Or.inl
                   exact d_mem
-                simp only [StrictConstantMapping.toConstantMapping, fresh_constant_remapping, t_res, d_mem, this, ↓reduceIte]
+                simp only [StrictConstantMapping.toConstantMapping, Function.comp_apply, fresh_constant_remapping, t_res, d_mem, this, ↓reduceIte]
         | inr f_mem =>
           apply Or.inr
           have inner_ih := g_tl_h.right.left
@@ -681,7 +692,7 @@ mutual
                 apply backtrackFacts_list_fresh_constants_not_forbidden d contra
                 apply forbidden_constants_subsumes_rules
                 exact d_mem
-              simp only [StrictConstantMapping.toConstantMapping, this, ↓reduceIte]
+              simp only [StrictConstantMapping.toConstantMapping, Function.comp_apply, this, ↓reduceIte]
               simp only [backtracking, backtrackFacts_list] at this
               rw [List.mem_append] at this
               split
@@ -699,7 +710,7 @@ mutual
                   apply backtrackFacts_list_fresh_constants_not_forbidden d contra
                   apply forbidden_constants_subsumes_term.right
                   exact d_mem
-                simp only [StrictConstantMapping.toConstantMapping, this, ↓reduceIte]
+                simp only [StrictConstantMapping.toConstantMapping, Function.comp_apply, this, ↓reduceIte]
                 simp only [backtracking, backtrackFacts_list] at this
                 rw [List.mem_append] at this
                 split
@@ -715,7 +726,7 @@ mutual
                   rw [List.mem_append]
                   apply Or.inr
                   exact d_mem
-                simp only [StrictConstantMapping.toConstantMapping, t_res, d_mem, this, ↓reduceIte]
+                simp only [StrictConstantMapping.toConstantMapping, Function.comp_apply, t_res, d_mem, this, ↓reduceIte]
                 have : d ∉ t_res.snd := by
                   intro contra
                   apply backtrackFacts_list_fresh_constants_not_forbidden d d_mem

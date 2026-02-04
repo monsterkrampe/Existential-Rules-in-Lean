@@ -1,8 +1,17 @@
 import ExistentialRules.ChaseSequence.Termination.RenameConstantsApart.GroundTerm
 
+/-!
+# Renaming Constants apart in a GroundSubstitution and PreTrigger
+
+We lift the `PreGroundTerm.rename_constants_apart` functionality to `GroundSubstitution` and `PreTrigger`.
+This pretty much happens in the obvious way and apart from being technical, this is not interesting.
+-/
+
 variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
 
-def GroundSubstitution.rename_constants_apart_for_vars [GetFreshInhabitant sig.C] (subs : GroundSubstitution sig) (forbidden_constants : List sig.C) : List sig.V -> GroundSubstitution sig
+namespace GroundSubstitution
+
+def rename_constants_apart_for_vars [GetFreshInhabitant sig.C] (subs : GroundSubstitution sig) (forbidden_constants : List sig.C) : List sig.V -> GroundSubstitution sig
 | .nil => subs
 | .cons hd tl =>
   let renamed_term_for_hd := (subs hd).rename_constants_apart forbidden_constants
@@ -10,7 +19,7 @@ def GroundSubstitution.rename_constants_apart_for_vars [GetFreshInhabitant sig.C
   fun v => if v = hd then renamed_term_for_hd else
     subs.rename_constants_apart_for_vars new_forbidden tl v
 
-theorem GroundSubstitution.rename_constants_apart_for_vars_constants_fresh
+theorem rename_constants_apart_for_vars_constants_fresh
     [GetFreshInhabitant sig.C]
     (subs : GroundSubstitution sig)
     (forbidden_constants : List sig.C)
@@ -36,7 +45,7 @@ theorem GroundSubstitution.rename_constants_apart_for_vars_constants_fresh
 
 variable [DecidableEq sig.P]
 
-theorem GroundSubstitution.rename_constants_apart_for_vars_preserves_ruleId_validity [GetFreshInhabitant sig.C] (subs : GroundSubstitution sig) (forbidden_constants : List sig.C) (vars : List sig.V) :
+theorem rename_constants_apart_for_vars_preserves_ruleId_validity [GetFreshInhabitant sig.C] (subs : GroundSubstitution sig) (forbidden_constants : List sig.C) (vars : List sig.V) :
     ∀ rl, ∀ v ∈ vars, (subs v).skolem_ruleIds_valid rl -> (subs.rename_constants_apart_for_vars forbidden_constants vars v).skolem_ruleIds_valid rl := by
   intro rl v
   induction vars generalizing forbidden_constants with
@@ -55,7 +64,7 @@ theorem GroundSubstitution.rename_constants_apart_for_vars_preserves_ruleId_vali
       | inl v_mem => contradiction
       | inr v_mem => exact v_mem
 
-theorem GroundSubstitution.rename_constants_apart_for_vars_preserves_disjIdx_validity [GetFreshInhabitant sig.C] (subs : GroundSubstitution sig) (forbidden_constants : List sig.C) (vars : List sig.V) :
+theorem rename_constants_apart_for_vars_preserves_disjIdx_validity [GetFreshInhabitant sig.C] (subs : GroundSubstitution sig) (forbidden_constants : List sig.C) (vars : List sig.V) :
     ∀ rl, ∀ v, (v_mem : v ∈ vars) -> (h : (subs v).skolem_ruleIds_valid rl) -> (subs v).skolem_disjIdx_valid rl h -> (subs.rename_constants_apart_for_vars forbidden_constants vars v).skolem_disjIdx_valid rl (subs.rename_constants_apart_for_vars_preserves_ruleId_validity forbidden_constants vars rl v v_mem h) := by
   intro rl v
   induction vars generalizing forbidden_constants with
@@ -74,7 +83,7 @@ theorem GroundSubstitution.rename_constants_apart_for_vars_preserves_disjIdx_val
       | inl v_mem => contradiction
       | inr v_mem => exact v_mem
 
-theorem GroundSubstitution.rename_constants_apart_for_vars_preserves_rule_arity_validity [GetFreshInhabitant sig.C] (subs : GroundSubstitution sig) (forbidden_constants : List sig.C) (vars : List sig.V) :
+theorem rename_constants_apart_for_vars_preserves_rule_arity_validity [GetFreshInhabitant sig.C] (subs : GroundSubstitution sig) (forbidden_constants : List sig.C) (vars : List sig.V) :
     ∀ rl, ∀ v, (v_mem : v ∈ vars) -> (h : (subs v).skolem_ruleIds_valid rl) -> (subs v).skolem_rule_arity_valid rl h -> (subs.rename_constants_apart_for_vars forbidden_constants vars v).skolem_rule_arity_valid rl (subs.rename_constants_apart_for_vars_preserves_ruleId_validity forbidden_constants vars rl v v_mem h) := by
   intro rl v
   induction vars generalizing forbidden_constants with
@@ -93,11 +102,16 @@ theorem GroundSubstitution.rename_constants_apart_for_vars_preserves_rule_arity_
       | inl v_mem => contradiction
       | inr v_mem => exact v_mem
 
+end GroundSubstitution
 
-def PreTrigger.rename_constants_apart [GetFreshInhabitant sig.C] (trg : PreTrigger sig) (forbidden_constants : List sig.C) : PreTrigger sig :=
+namespace PreTrigger
+
+variable [DecidableEq sig.P]
+
+def rename_constants_apart [GetFreshInhabitant sig.C] (trg : PreTrigger sig) (forbidden_constants : List sig.C) : PreTrigger sig :=
   ⟨trg.rule, trg.subs.rename_constants_apart_for_vars forbidden_constants trg.rule.body.vars.eraseDupsKeepRight⟩
 
-theorem PreTrigger.rename_constants_apart_constants_fresh
+theorem rename_constants_apart_constants_fresh
     [GetFreshInhabitant sig.C]
     (trg : PreTrigger sig)
     (forbidden_constants : List sig.C) :
@@ -111,7 +125,7 @@ theorem PreTrigger.rename_constants_apart_constants_fresh
   rw [← t_eq] at c_mem
   exact c_mem
 
-theorem PreTrigger.rename_constants_apart_preserves_ruleId_validity [GetFreshInhabitant sig.C] (trg : PreTrigger sig) (forbidden_constants : List sig.C) :
+theorem rename_constants_apart_preserves_ruleId_validity [GetFreshInhabitant sig.C] (trg : PreTrigger sig) (forbidden_constants : List sig.C) :
     ∀ rl, PreTrigger.skolem_ruleIds_valid rl trg -> PreTrigger.skolem_ruleIds_valid rl (PreTrigger.rename_constants_apart trg forbidden_constants) := by
   intro rl valid
   unfold skolem_ruleIds_valid at *
@@ -132,7 +146,7 @@ theorem PreTrigger.rename_constants_apart_preserves_ruleId_validity [GetFreshInh
       apply Or.inr
       exists v
 
-theorem PreTrigger.rename_constants_apart_preserves_disjIdx_validity [GetFreshInhabitant sig.C] (trg : PreTrigger sig) (forbidden_constants : List sig.C) :
+theorem rename_constants_apart_preserves_disjIdx_validity [GetFreshInhabitant sig.C] (trg : PreTrigger sig) (forbidden_constants : List sig.C) :
     ∀ rl, (h : PreTrigger.skolem_ruleIds_valid rl trg) -> PreTrigger.skolem_disjIdx_valid rl trg h -> PreTrigger.skolem_disjIdx_valid rl (PreTrigger.rename_constants_apart trg forbidden_constants) (PreTrigger.rename_constants_apart_preserves_ruleId_validity trg forbidden_constants rl h) := by
   intro rl h valid
   unfold skolem_disjIdx_valid at *
@@ -153,7 +167,7 @@ theorem PreTrigger.rename_constants_apart_preserves_disjIdx_validity [GetFreshIn
       apply Or.inr
       exists v
 
-theorem PreTrigger.rename_constants_apart_preserves_rule_arity_validity [GetFreshInhabitant sig.C] (trg : PreTrigger sig) (forbidden_constants : List sig.C) :
+theorem rename_constants_apart_preserves_rule_arity_validity [GetFreshInhabitant sig.C] (trg : PreTrigger sig) (forbidden_constants : List sig.C) :
     ∀ rl, (h : PreTrigger.skolem_ruleIds_valid rl trg) -> PreTrigger.skolem_rule_arity_valid rl trg h -> PreTrigger.skolem_rule_arity_valid rl (PreTrigger.rename_constants_apart trg forbidden_constants) (PreTrigger.rename_constants_apart_preserves_ruleId_validity trg forbidden_constants rl h) := by
   intro rl h valid
   unfold skolem_rule_arity_valid at *
@@ -173,4 +187,6 @@ theorem PreTrigger.rename_constants_apart_preserves_rule_arity_validity [GetFres
       rw [mem_terms_mapped_body_iff]
       apply Or.inr
       exists v
+
+end PreTrigger
 

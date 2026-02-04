@@ -1,5 +1,11 @@
 import ExistentialRules.ChaseSequence.Termination.ConstantMappings.InterplayWithBacktracking.BacktrackingUnderConstantMappingSubsetOfComposingWithSubs.GroundTerm
 
+/-!
+# Interaction of Backtrackings and Strict Constant Mappings on PreTrigger
+
+We merely lift `GroundTerm.backtrackFacts_under_constant_mapping_subset_of_composing_with_subs` to `PreTrigger` here.
+-/
+
 variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [DecidableEq sig.P]
 
 theorem PreTrigger.backtracking_under_constant_mapping_subset_of_composing_with_subs
@@ -37,7 +43,7 @@ theorem PreTrigger.backtracking_under_constant_mapping_subset_of_composing_with_
     cases voc with
     | const c =>
       rw [ConstantMapping.apply_ground_term_constant]
-      simp only [StrictConstantMapping.toConstantMapping, GroundTerm.const, Subtype.mk.injEq, FiniteTree.leaf.injEq]
+      simp only [StrictConstantMapping.toConstantMapping, Function.comp_apply, GroundTerm.const, Subtype.mk.injEq, FiniteTree.leaf.injEq]
       apply g_id
       rw [List.mem_flatMap]
       exists trg.rule
@@ -139,7 +145,7 @@ theorem PreTrigger.backtracking_under_constant_mapping_subset_of_composing_with_
               exact d_mem
           simp [StrictConstantMapping.toConstantMapping, this]
         . intro d d_mem
-          simp only [ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, StrictConstantMapping.toConstantMapping, GroundTerm.const, Subtype.mk.injEq, FiniteTree.mapLeaves, FiniteTree.leaf.injEq]
+          simp only [ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, StrictConstantMapping.toConstantMapping, Function.comp_apply, GroundTerm.const, Subtype.mk.injEq, FiniteTree.mapLeaves, FiniteTree.leaf.injEq]
           apply g_id
           rw [List.mem_flatMap]
           exists trg.rule
