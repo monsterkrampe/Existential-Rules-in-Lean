@@ -807,7 +807,7 @@ section Addresses
   structure Forest (fs : FactSet sig) (rs : LinearRuleSet sig) where
     f : Set (Address fs rs)
     fs_contained : ∀ fact ∈ fs, ∃ a ∈ f , fact = a.initialAtom ∧ a.path = []  -- fs shall be contained in f (this should likely involve auxiliary definitions)
-    isPrefixClosed : ∀ a ∈ f, immed_prefix_address_in_set a f --as we enforce this check on all a ∈ f, we only need to veryfy that it's immediate predecessor is in f as well
+    isPrefixClosed : ∀ a ∈ f, immed_prefix_address_in_set a f --as we enforce this check on all a ∈ f, we only need to verify that it's immediate predecessor is in f as well
 
   def Forest.subforest_of {fs: FactSet sig} (g : Forest fs rs) (f : Forest fs rs) : Prop := g.f ⊆ f.f
 
@@ -901,6 +901,19 @@ section TriggersAndChaseDerivation
         simp only [Option.map_map, Option.isSome_map]
         exact pi.hom_exists
 
+    theorem labellingFunction_trg_apply_is_some {fs: FactSet sig} {pi: LinearRuleTrigger fs rs}:
+        (labellingFunction pi.apply.fst).isSome ∧ (labellingFunction pi.apply.snd).isSome := by
+      unfold labellingFunction apply
+      simp only [Fin.isValue, ↓reduceIte]
+      have l_some: (labellingFunction pi.addr.val).isSome := by exact pi.addr.property;
+      cases h: labellingFunction pi.addr.val with
+      |none =>
+        rw[← Option.not_isSome_iff_eq_none] at h
+        contradiction
+      |some a =>
+        simp only [Option.isSome_map]
+        rw[← Option.get_of_eq_some l_some h]
+        simp[ruleApply_of_trigger_labelling_is_some]
 
     --this gives some shortcut that avoids dealing with the "Option" ...
     def labelling_of_apply {fs: FactSet sig} (pi: LinearRuleTrigger fs rs) : (Fact sig) × (Fact sig) :=
@@ -1491,47 +1504,110 @@ section TriggersAndChaseDerivation
       active : trg.isActive_in_forest before
       result : after = some (LinearRuleTrigger.active_trigger_apply_resulting_forest trg before active)
 
-    def Forest_seq_valid {fs: FactSet sig} (trg_seq : PreChaseDerivation fs rs) (forest_seq : PossiblyInfiniteList (Forest fs rs)):=
+    def forest_seq_valid {fs: FactSet sig} (trg_seq : PreChaseDerivation fs rs) (forest_seq : PossiblyInfiniteList (Forest fs rs)): Prop :=
       forest_seq.infinite_list 0 = some fs.toForest ∧
-      ∀ n : Nat, (trg_seq.infinite_list n).is_none_or (fun trg =>
-        (forest_seq.infinite_list n).is_some_and (fun before =>
+      ∀ n : Nat, match (trg_seq.infinite_list n) with
+        | none => (forest_seq.infinite_list (n+1)).isNone
+        | some trg => (forest_seq.infinite_list n).is_some_and (fun before =>
           let after := forest_seq.infinite_list (n+1)
-          trg_application_cond trg before after))
+          trg_application_cond trg before after)
 
-    def Forest_seq_valid_implies_unique {fs: FactSet sig}{trg_seq: PreChaseDerivation fs rs}:
-      --Was, wenn die trg_sequenz (mehr als 1 element) kürzer ist, als die forest-sequenz?
-      --Dann könnte die forest seqeunz ab dort beliebig sein.
-      --Will man das zulassen, oder verhindern?
-      ∀ forest_seq_1 forest_seq_2, Forest_seq_valid trg_seq forest_seq_1 ∧ Forest_seq_valid trg_seq forest_seq_2
-      -> forest_seq_1 = forest_seq_2 := by
+    theorem seq_succ_of_none_is_none {seq: PossiblyInfiniteList α} :
+      (seq.infinite_list n) = none -> (seq.infinite_list (n+1)) = none := by
+        intro n_none
+        false_or_by_contra
+        rename_i h
+        let l:= seq.no_holes
+        specialize l (n+1)
+        simp only [ne_eq, h, not_false_eq_true, forall_const] at l
+        specialize l (Fin.ofNat (n+1) n)
+        simp only [Fin.val_ofNat, Nat.mod_succ] at l
+        contradiction
+
+    theorem Forest_seq_valid_implies_unique {fs: FactSet sig}{trg_seq: PreChaseDerivation fs rs}:
+        ∀ forest_seq_1 forest_seq_2, forest_seq_valid trg_seq forest_seq_1 ∧ forest_seq_valid trg_seq forest_seq_2
+        -> forest_seq_1 = forest_seq_2 := by
       intro forest_seq_1 forest_seq_2
-
-      unfold Forest_seq_valid
-      simp[and_imp]
+      unfold forest_seq_valid
+      simp only [Option.isNone_iff_eq_none, and_imp]
       intro valid_1_start valid_1_rest valid_2_start valid_2_rest
-      --unfold Forest_seq_valid
       rw[PossiblyInfiniteList.eq_iff_same_on_all_indices]
       intro n
-      --revert valid_1_rest
       induction n with
       |zero =>
-        --unfold Forest_seq_valid at valid_1 valid_2
         simp[valid_1_start, valid_2_start]
       |succ n ih =>
-        revert valid_1_rest
-        simp[Option.is]
-        rw[ih] at valid_1_rest
-        sorry
+        specialize valid_1_rest (n)
+        specialize valid_2_rest (n)
+        cases trg_n: trg_seq.infinite_list n with
+        |none =>
+          simp only [trg_n] at valid_1_rest valid_2_rest
+          rw[valid_1_rest,valid_2_rest]
+        |some trg =>
+          simp only[trg_n] at valid_1_rest valid_2_rest
+          rw[ih] at valid_1_rest
+          simp only[Option.is_some_and_iff] at valid_1_rest valid_2_rest
+          rcases valid_1_rest with ⟨f,f_eq,cond⟩
+          rcases valid_2_rest with ⟨f2,f2_eq,cond2⟩
+          rw[f2_eq] at f_eq
+          simp only [Option.some.injEq] at f_eq
+          rw[f_eq] at cond2
+          let cond_result := cond.result
+          let cond2_result := cond2.result
+          simp[cond2_result, cond_result]
+
+    theorem forest_seq_valid_subset_oblivious_chase {fs: FactSet sig}{trg_seq: PreChaseDerivation fs rs}:
+          ∀ forest_seq, forest_seq_valid trg_seq forest_seq -> ∀ n, (forest_seq.infinite_list n).is_none_or (fun f => f.subforest_of (oblivious_chase fs rs)) := by
+        intro forest_seq seq_valid n
+        induction n with
+        |zero =>
+          unfold forest_seq_valid at seq_valid
+          simp only[Option.is_none_or_iff]
+          intro f0 fn
+          simp only [seq_valid, Option.some.injEq] at fn
+          rw[← fn]
+          unfold Forest.subforest_of FactSet.toForest oblivious_chase labellingFunction
+          simp only[Subset, Membership.mem]
+          intro addr addr_fs
+          rw[addr_fs]
+          simp
+        |succ n ih =>
+          simp only[Option.is_none_or_iff]
+          intro fn1 fn1_eq
+          unfold PreChaseDerivation.forest_seq_valid at seq_valid
+          let seq_valid' := And.right seq_valid
+          specialize seq_valid' n
+          cases trg_n: trg_seq.infinite_list n with
+          |none =>
+            simp only [trg_n, Option.isNone_iff_eq_none] at seq_valid'
+            rw[seq_valid'] at fn1_eq
+            simp at fn1_eq
+          |some trg =>
+            simp only[trg_n] at seq_valid'
+            simp only[Option.is_some_and_iff] at seq_valid'
+            rcases seq_valid' with ⟨forest, forest_eq, trg_active, after_eq⟩
+            simp only [forest_eq, Option.is_none_or_iff, Option.some.injEq, forall_eq'] at ih
+            simp only [fn1_eq, Option.some.injEq] at after_eq
+            rw[after_eq]
+            unfold LinearRuleTrigger.active_trigger_apply_resulting_forest
+            unfold Forest.subforest_of
+            simp only[Subset, Membership.mem]
+            intro addr addr_from
+            apply Or.elim addr_from
+            . unfold Forest.subforest_of at ih
+              simp only [Subset, Membership.mem] at ih
+              specialize ih addr
+              exact ih
+            . unfold oblivious_chase
+              intro addr_eq
+              apply Or.elim addr_eq
+              repeat intro addr_eq;simp[addr_eq, LinearRuleTrigger.labellingFunction_trg_apply_is_some]
 
     end PreChaseDerivation
 
     structure chaseDerivation(fs: FactSet sig) (rs: LinearRuleSet sig) where
       trigger_seq : PreChaseDerivation fs rs
-      cond : ∃ forest_seq , PreChaseDerivation.Forest_seq_valid trigger_seq forest_seq
-
-    theorem chase_subset_of_obliviousChase {fs: FactSet sig} {chasederiv: chaseDerivation fs rs}:
-      ∀ forests_seq, PreChaseDerivation.Forest_seq_valid chasederiv.trigger_seq forests_seq ->
-      ∀ n, (forests_seq.infinite_list n).is_none_or (fun f => f.subforest_of (oblivious_chase fs rs)) := by sorry
+      cond : ∃ forest_seq , PreChaseDerivation.forest_seq_valid trigger_seq forest_seq
 
 
 end TriggersAndChaseDerivation
