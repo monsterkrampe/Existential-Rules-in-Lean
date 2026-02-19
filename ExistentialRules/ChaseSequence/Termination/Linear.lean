@@ -90,6 +90,23 @@ section Rules
         apply VarOrConst.filterVars_occur_in_original_list
         exact hr
 
+    theorem frontier_occurs_in_body (r : Rule sig) : ∀ v, v ∈ r.frontier -> ∃ f, f ∈ r.body ∧ (VarOrConst.var v) ∈ f.terms := by
+      unfold Rule.frontier
+      cases r.body with
+      | nil => intros; contradiction
+      | cons head tail =>
+        intro v vInFrontier
+        rw [List.mem_filter] at vInFrontier
+        have mem_body := vInFrontier.left
+        unfold FunctionFreeConjunction.vars at mem_body
+        rw [List.mem_flatMap] at mem_body
+        rcases mem_body with ⟨a, a_mem, v_mem⟩
+        exists a
+        constructor
+        . exact a_mem
+        . unfold FunctionFreeAtom.variables at v_mem
+          apply VarOrConst.filterVars_occur_in_original_list
+          exact v_mem
 
     def is_frontier_position_fst (rule: LinearRule sig)  (i: Nat) (i_valid: i < rule.head.fst.terms.length) : Prop :=
       ∃ v, rule.head.fst.terms[i] = VarOrConst.var v ∧ v ∈ rule.rule.frontier
@@ -105,7 +122,7 @@ section Rules
         constructor
         . unfold VarOrConst.isVar
           simp only[h.left]
-        . rcases rule.rule.frontier_occurs_in_body v h.right with ⟨a, a_body, v_a⟩
+        . rcases frontier_occurs_in_body rule.rule v h.right with ⟨a, a_body, v_a⟩
           simp only[h]
           simp only[List.mem_iff_getElem] at v_a
           simp only [LinearRule.body_eq, List.mem_cons, List.not_mem_nil, or_false] at a_body
@@ -162,7 +179,7 @@ section Rules
         constructor
         . unfold VarOrConst.isVar
           simp[h.left]
-        . rcases rule.rule.frontier_occurs_in_body v h.right with ⟨a, a_body, v_a⟩
+        . rcases frontier_occurs_in_body rule.rule v h.right with ⟨a, a_body, v_a⟩
           simp only[h]
           simp only[List.mem_iff_getElem] at v_a
           simp only [LinearRule.body_eq, List.mem_cons, List.not_mem_nil, or_false] at a_body
@@ -1137,10 +1154,9 @@ section TriggersAndChaseDerivation
             . intro c c_eq
               simp only [← a.right.left, List.getElem_map]
               have hc_id : h (GroundTerm.const c) = (GroundTerm.const c) := by
-                unfold GroundTerm.const
-                let h_const_id:= a.right.right.right
+                let h_const_id:= a.right.right--.right.right
                 unfold GroundTermMapping.isIdOnConstants at h_const_id
-                rw[h_const_id ⟨FiniteTree.leaf c, GroundTerm.const._proof_1 c⟩ ]
+                rw[h_const_id.right]
               unfold labelling_of_apply
               simp only [ruleApply_eq, Option.get_map]
               unfold PreTrigger.apply_to_function_free_atom
@@ -1176,10 +1192,9 @@ section TriggersAndChaseDerivation
             . intro c c_eq
               simp only [← a.right.right.left, List.getElem_map]
               have hc_id : h (GroundTerm.const c) = (GroundTerm.const c) := by
-                unfold GroundTerm.const
-                let h_const_id:= a.right.right.right
+                let h_const_id:= a.right.right
                 unfold GroundTermMapping.isIdOnConstants at h_const_id
-                rw[h_const_id ⟨FiniteTree.leaf c, GroundTerm.const._proof_1 c⟩ ]
+                rw[h_const_id.right]
               unfold labelling_of_apply
               simp only [ruleApply_eq, Option.get_map]
               unfold PreTrigger.apply_to_function_free_atom
@@ -1337,33 +1352,26 @@ section TriggersAndChaseDerivation
               -- shows h.isIdOnConstants
               . unfold GroundTermMapping.isIdOnConstants
                 intro t
-                by_cases e_def: ∃ c, t = GroundTerm.const c
-                . rcases e_def with ⟨c, c_def⟩
-                  unfold GroundTerm.const at c_def
-                  simp only[c_def]
-                  rw[← c_def]
-                  unfold h
-                  by_cases mem_apply_label: t ∈ pi.val.labelling_of_apply.fst.terms
-                  -- if t occurs in pi.val.labelling_of_apply.fst then:
-                  -- t can either be in a frontier position, then h(t) = t by the snd.condition,
-                  -- or t is not frontier, then
-                  -- either c was a Constant already in the rule or it was an ex. Variable and therefore will be mapped to a null, not a constant which gives a contradiction
-                  . simp only [mem_apply_label, ↓reduceDIte]
-                    have listIdx_lt_rule_head: List.idxOf t pi.val.labelling_of_apply.fst.terms < pi.val.rule.val.head.fst.terms.length := by
-                      rw[trg_apply_labelling_fst_terms_len]
-                      simp only[List.idxOf_lt_length_iff]
-                      exact mem_apply_label
-                    simp only[List.mem_iff_getElem] at mem_apply_label
-                    rcases mem_apply_label with ⟨i, i_lt, t_eq⟩
+                unfold h
+                by_cases mem_apply_label: GroundTerm.const t ∈ pi.val.labelling_of_apply.fst.terms
+                -- if t occurs in pi.val.labelling_of_apply.fst then:
+                -- t can either be in a frontier position, then h(t) = t by the snd.condition,
+                -- or t is not frontier, then
+                -- either c was a Constant already in the rule or it was an ex. Variable and therefore will be mapped to a null, not a constant which gives a contradiction
+                . simp only [mem_apply_label, ↓reduceDIte]
+                  have listIdx_lt_rule_head: List.idxOf (GroundTerm.const t) pi.val.labelling_of_apply.fst.terms < pi.val.rule.val.head.fst.terms.length := by
+                    rw[trg_apply_labelling_fst_terms_len]
+                    simp only[List.idxOf_lt_length_iff]
+                    exact mem_apply_label
+                  simp only[List.mem_iff_getElem] at mem_apply_label
+                  rcases mem_apply_label with ⟨i, i_lt, t_eq⟩
+                  by_cases inFrontier: is_frontier_position_fst pi.val.rule.val (List.idxOf (GroundTerm.const t) pi.val.labelling_of_apply.fst.terms) listIdx_lt_rule_head
+                  . rw[← snd.left (List.idxOf (GroundTerm.const t) pi.val.labelling_of_apply.fst.terms) listIdx_lt_rule_head (Or.inl inFrontier)]
+                    rw[List.getElem_idxOf_of_mem mem_apply_label]
 
-                    by_cases inFrontier: is_frontier_position_fst pi.val.rule.val (List.idxOf t pi.val.labelling_of_apply.fst.terms) listIdx_lt_rule_head
-                    -- term is in frontier
-                    . rw[← snd.left (List.idxOf t pi.val.labelling_of_apply.fst.terms) listIdx_lt_rule_head (Or.inl inFrontier)]
-                      rw[List.getElem_idxOf_of_mem mem_apply_label]
-                    -- term not in frontier
-                    . cases const_var: pi.val.rule.val.head.fst.terms[(List.idxOf t pi.val.labelling_of_apply.fst.terms)] with
+                  . cases const_var: pi.val.rule.val.head.fst.terms[(List.idxOf (GroundTerm.const t) pi.val.labelling_of_apply.fst.terms)] with
                       |const c =>
-                        rw[← snd.left (List.idxOf t pi.val.labelling_of_apply.fst.terms) listIdx_lt_rule_head (Or.inr (Exists.intro c const_var))]
+                        rw[← snd.left (List.idxOf (GroundTerm.const t) pi.val.labelling_of_apply.fst.terms) listIdx_lt_rule_head (Or.inr (Exists.intro c const_var))]
                         rw[List.getElem_idxOf_of_mem mem_apply_label]
                       |var v => -- term is non-frontier-variable; should lead to contradiction
                         simp only[cond.b1_label_eq]
@@ -1383,53 +1391,48 @@ section TriggersAndChaseDerivation
                         rw[list_elem_eq] at t_eq
                         conv at t_eq => left; arg 1; unfold labelling_of_apply
                         rw[rA_eq_func] at t_eq
-                        simp[c_def] at t_eq
-                        unfold GroundTerm.func at t_eq
+                        unfold GroundTerm.func GroundTerm.const at t_eq
                         simp at t_eq
-                  --the same if t occurs not in pi.val.labelling_of_apply.fst but .snd
-                  . simp only [mem_apply_label, ↓reduceDIte, dite_eq_right_iff]
-                    intro t_in_snd_label
-                    have listIdx_lt_rule_head: List.idxOf t pi.val.labelling_of_apply.snd.terms < pi.val.rule.val.head.snd.terms.length := by
-                      rw[trg_apply_labelling_snd_terms_len]
-                      simp only[List.idxOf_lt_length_iff]
-                      exact t_in_snd_label
-                    simp only[List.mem_iff_getElem] at t_in_snd_label
-                    rcases t_in_snd_label with ⟨i, i_lt, t_eq⟩
+                . simp only [mem_apply_label, ↓reduceDIte, dite_eq_right_iff]
+                  intro t_in_snd_label
+                  have listIdx_lt_rule_head: List.idxOf (GroundTerm.const t) pi.val.labelling_of_apply.snd.terms < pi.val.rule.val.head.snd.terms.length := by
+                    rw[trg_apply_labelling_snd_terms_len]
+                    simp only[List.idxOf_lt_length_iff]
+                    exact t_in_snd_label
+                  simp only[List.mem_iff_getElem] at t_in_snd_label
+                  rcases t_in_snd_label with ⟨i, i_lt, t_eq⟩
 
-                    by_cases inFrontier: is_frontier_position_snd pi.val.rule.val (List.idxOf t pi.val.labelling_of_apply.snd.terms) listIdx_lt_rule_head
-                     -- term is in frontier
-                    . rw[← snd.right (List.idxOf t pi.val.labelling_of_apply.snd.terms) listIdx_lt_rule_head (Or.inl inFrontier)]
+                  by_cases inFrontier: is_frontier_position_snd pi.val.rule.val (List.idxOf ( GroundTerm.const t) pi.val.labelling_of_apply.snd.terms) listIdx_lt_rule_head
+                    -- term is in frontier
+                  . rw[← snd.right (List.idxOf (GroundTerm.const t) pi.val.labelling_of_apply.snd.terms) listIdx_lt_rule_head (Or.inl inFrontier)]
+                    rw[List.getElem_idxOf_of_mem t_in_snd_label]
+                    -- term not in frontier
+                  . cases const_var: pi.val.rule.val.head.snd.terms[(List.idxOf (GroundTerm.const t) pi.val.labelling_of_apply.snd.terms)] with
+                    |const c =>
+                      rw[← snd.right (List.idxOf (GroundTerm.const t) pi.val.labelling_of_apply.snd.terms) listIdx_lt_rule_head (Or.inr (Exists.intro c const_var))]
                       rw[List.getElem_idxOf_of_mem t_in_snd_label]
-                      -- term not in frontier
-                    . cases const_var: pi.val.rule.val.head.snd.terms[(List.idxOf t pi.val.labelling_of_apply.snd.terms)] with
-                      |const c =>
-                        rw[← snd.right (List.idxOf t pi.val.labelling_of_apply.snd.terms) listIdx_lt_rule_head (Or.inr (Exists.intro c const_var))]
-                        rw[List.getElem_idxOf_of_mem t_in_snd_label]
-                      |var v =>
-                        simp only[cond.b2_label_eq]
-                        have list_elem_eq: pi.val.labelling_of_apply.snd.terms[i] =
-                          pi.val.labelling_of_apply.snd.terms[List.idxOf pi.val.labelling_of_apply.snd.terms[i] pi.val.labelling_of_apply.snd.terms]'(by simp only[← t_eq] at listIdx_lt_rule_head; rw[← trg_apply_labelling_snd_terms_len]; exact listIdx_lt_rule_head) := by
-                           simp[List.getElem_idxOf_of_mem]
-                        unfold is_frontier_position_snd at inFrontier
-                        rw[not_exists] at inFrontier
-                        simp only [const_var, VarOrConst.var.injEq, not_and, forall_eq'] at inFrontier
-                        simp  only[← t_eq]
-                        simp only[← t_eq] at const_var
+                    |var v =>
+                      simp only[cond.b2_label_eq]
+                      have list_elem_eq: pi.val.labelling_of_apply.snd.terms[i] =
+                        pi.val.labelling_of_apply.snd.terms[List.idxOf pi.val.labelling_of_apply.snd.terms[i] pi.val.labelling_of_apply.snd.terms]'(by simp only[← t_eq] at listIdx_lt_rule_head; rw[← trg_apply_labelling_snd_terms_len]; exact listIdx_lt_rule_head) := by
+                          simp[List.getElem_idxOf_of_mem]
+                      unfold is_frontier_position_snd at inFrontier
+                      rw[not_exists] at inFrontier
+                      simp only [const_var, VarOrConst.var.injEq, not_and, forall_eq'] at inFrontier
+                      simp  only[← t_eq]
+                      simp only[← t_eq] at const_var
 
-                        rcases ruleApply_non_frontier_var_sndHead_is_fun (rule := pi.val.rule.val) (fact := (Option.get (labellingFunction pi.val.addr.val) pi.val.addr.property))
-                          (i := List.idxOf pi.val.labelling_of_apply.snd.terms[i] pi.val.labelling_of_apply.snd.terms)
-                          (by rw[← t_eq] at listIdx_lt_rule_head; exact listIdx_lt_rule_head) (by simp[ruleApply_of_trigger_labelling_is_some]) (Exists.intro v (And.intro const_var inFrontier))
-                          with ⟨x, y, z, rA_eq_func⟩
+                      rcases ruleApply_non_frontier_var_sndHead_is_fun (rule := pi.val.rule.val) (fact := (Option.get (labellingFunction pi.val.addr.val) pi.val.addr.property))
+                        (i := List.idxOf pi.val.labelling_of_apply.snd.terms[i] pi.val.labelling_of_apply.snd.terms)
+                        (by rw[← t_eq] at listIdx_lt_rule_head; exact listIdx_lt_rule_head) (by simp[ruleApply_of_trigger_labelling_is_some]) (Exists.intro v (And.intro const_var inFrontier))
+                        with ⟨x, y, z, rA_eq_func⟩
 
-                        rw[list_elem_eq] at t_eq
-                        conv at t_eq => left; arg 1; unfold labelling_of_apply
-                        rw[rA_eq_func] at t_eq
-                        simp[c_def] at t_eq
-                        unfold GroundTerm.func at t_eq
-                        simp at t_eq
-                . unfold GroundTerm.const at e_def
-                  simp[not_exists] at e_def
-                  simp
+                      rw[list_elem_eq] at t_eq
+                      conv at t_eq => left; arg 1; unfold labelling_of_apply
+                      rw[rA_eq_func] at t_eq
+
+                      unfold GroundTerm.func GroundTerm.const at t_eq
+                      simp at t_eq
 
     def active_trigger_apply_resulting_forest {fs: FactSet sig} (pi: LinearRuleTrigger fs rs) (g: Forest fs rs) (pi_active: pi.isActive_in_forest g) : Forest fs rs where
     --returns the resulting forest if one adds the result of pi.apply to forest g if pi is a Trigger that is active in g
@@ -1505,23 +1508,23 @@ section TriggersAndChaseDerivation
       result : after = some (LinearRuleTrigger.active_trigger_apply_resulting_forest trg before active)
 
     def forest_seq_valid {fs: FactSet sig} (trg_seq : PreChaseDerivation fs rs) (forest_seq : PossiblyInfiniteList (Forest fs rs)): Prop :=
-      forest_seq.infinite_list 0 = some fs.toForest ∧
-      ∀ n : Nat, match (trg_seq.infinite_list n) with
-        | none => (forest_seq.infinite_list (n+1)).isNone
-        | some trg => (forest_seq.infinite_list n).is_some_and (fun before =>
-          let after := forest_seq.infinite_list (n+1)
+      forest_seq.get? 0 = some fs.toForest ∧
+      ∀ n : Nat, match (trg_seq.get? n) with
+        | none => (forest_seq.get? (n+1)).isNone
+        | some trg => (forest_seq.get? n).elim False (fun before =>
+          let after := forest_seq.get? (n+1)
           trg_application_cond trg before after)
 
     theorem seq_succ_of_none_is_none {seq: PossiblyInfiniteList α} :
-      (seq.infinite_list n) = none -> (seq.infinite_list (n+1)) = none := by
+      (seq.get? n) = none -> (seq.get? (n+1)) = none := by
         intro n_none
         false_or_by_contra
         rename_i h
         let l:= seq.no_holes
-        specialize l (n+1)
-        simp only [ne_eq, h, not_false_eq_true, forall_const] at l
-        specialize l (Fin.ofNat (n+1) n)
-        simp only [Fin.val_ofNat, Nat.mod_succ] at l
+        unfold InfiniteList.no_holes at l
+        specialize l (n)
+        unfold PossiblyInfiniteList.get? at h n_none
+        simp[n_none] at l
         contradiction
 
     theorem Forest_seq_valid_implies_unique {fs: FactSet sig}{trg_seq: PreChaseDerivation fs rs}:
@@ -1531,7 +1534,7 @@ section TriggersAndChaseDerivation
       unfold forest_seq_valid
       simp only [Option.isNone_iff_eq_none, and_imp]
       intro valid_1_start valid_1_rest valid_2_start valid_2_rest
-      rw[PossiblyInfiniteList.eq_iff_same_on_all_indices]
+      rw[PossiblyInfiniteList.ext_iff]
       intro n
       induction n with
       |zero =>
@@ -1539,69 +1542,77 @@ section TriggersAndChaseDerivation
       |succ n ih =>
         specialize valid_1_rest (n)
         specialize valid_2_rest (n)
-        cases trg_n: trg_seq.infinite_list n with
+        cases trg_n: trg_seq.get? n with
         |none =>
           simp only [trg_n] at valid_1_rest valid_2_rest
           rw[valid_1_rest,valid_2_rest]
         |some trg =>
           simp only[trg_n] at valid_1_rest valid_2_rest
           rw[ih] at valid_1_rest
-          simp only[Option.is_some_and_iff] at valid_1_rest valid_2_rest
-          rcases valid_1_rest with ⟨f,f_eq,cond⟩
-          rcases valid_2_rest with ⟨f2,f2_eq,cond2⟩
-          rw[f2_eq] at f_eq
-          simp only [Option.some.injEq] at f_eq
-          rw[f_eq] at cond2
-          let cond_result := cond.result
-          let cond2_result := cond2.result
-          simp[cond2_result, cond_result]
+          cases h : forest_seq_2.get? n with
+          |none =>
+            simp[h] at valid_1_rest valid_2_rest
+          |some f =>
+            simp[h] at valid_1_rest valid_2_rest
+            let cond_result := valid_1_rest.result
+            let cond2_result := valid_2_rest.result
+            simp[cond2_result, cond_result]
 
     theorem forest_seq_valid_subset_oblivious_chase {fs: FactSet sig}{trg_seq: PreChaseDerivation fs rs}:
-          ∀ forest_seq, forest_seq_valid trg_seq forest_seq -> ∀ n, (forest_seq.infinite_list n).is_none_or (fun f => f.subforest_of (oblivious_chase fs rs)) := by
+          ∀ forest_seq, forest_seq_valid trg_seq forest_seq -> ∀ n, (forest_seq.get? n).elim True (fun f => f.subforest_of (oblivious_chase fs rs)) := by
         intro forest_seq seq_valid n
         induction n with
         |zero =>
           unfold forest_seq_valid at seq_valid
-          simp only[Option.is_none_or_iff]
-          intro f0 fn
-          simp only [seq_valid, Option.some.injEq] at fn
-          rw[← fn]
-          unfold Forest.subforest_of FactSet.toForest oblivious_chase labellingFunction
-          simp only[Subset, Membership.mem]
-          intro addr addr_fs
-          rw[addr_fs]
-          simp
-        |succ n ih =>
-          simp only[Option.is_none_or_iff]
-          intro fn1 fn1_eq
-          unfold PreChaseDerivation.forest_seq_valid at seq_valid
-          let seq_valid' := And.right seq_valid
-          specialize seq_valid' n
-          cases trg_n: trg_seq.infinite_list n with
-          |none =>
-            simp only [trg_n, Option.isNone_iff_eq_none] at seq_valid'
-            rw[seq_valid'] at fn1_eq
-            simp at fn1_eq
-          |some trg =>
-            simp only[trg_n] at seq_valid'
-            simp only[Option.is_some_and_iff] at seq_valid'
-            rcases seq_valid' with ⟨forest, forest_eq, trg_active, after_eq⟩
-            simp only [forest_eq, Option.is_none_or_iff, Option.some.injEq, forall_eq'] at ih
-            simp only [fn1_eq, Option.some.injEq] at after_eq
-            rw[after_eq]
-            unfold LinearRuleTrigger.active_trigger_apply_resulting_forest
-            unfold Forest.subforest_of
+          cases h: forest_seq.get? 0 with
+          |none => simp
+          |some f0 =>
+            simp only [Option.elim_some]--only[Option.is_none_or_iff]
+            --intro f0 fn
+            simp only [seq_valid, Option.some.injEq] at h
+            rw[← h]
+            unfold Forest.subforest_of oblivious_chase labellingFunction FactSet.toForest
             simp only[Subset, Membership.mem]
-            intro addr addr_from
-            apply Or.elim addr_from
-            . unfold Forest.subforest_of at ih
-              simp only [Subset, Membership.mem] at ih
-              specialize ih addr
-              exact ih
-            . unfold oblivious_chase
-              intro addr_eq
-              apply Or.elim addr_eq
-              repeat intro addr_eq;simp[addr_eq, LinearRuleTrigger.labellingFunction_trg_apply_is_some]
+            intro addr addr_fs
+            rw[addr_fs]
+            simp
+        |succ n ih =>
+          cases h: forest_seq.get? (n+1) with
+          |none => simp
+          |some fn1 =>
+            simp
+            --intro fn1 fn1_eq
+            unfold PreChaseDerivation.forest_seq_valid at seq_valid
+            let seq_valid' := And.right seq_valid
+            specialize seq_valid' n
+            cases trg_n: trg_seq.get? n with
+            |none =>
+              simp [trg_n, Option.isNone_iff_eq_none] at seq_valid'
+              rw[seq_valid'] at h
+              simp at h
+            |some trg =>
+              simp only[trg_n] at seq_valid'
+              cases forest_eq: forest_seq.get? (n) with
+              |none => simp[forest_eq] at seq_valid'
+              |some fn =>
+                simp[forest_eq] at seq_valid'
+                rcases seq_valid' with ⟨trg_active, after_eq⟩
+                simp only [forest_eq, Option.elim_some] at ih
+                simp only [h, Option.some.injEq] at after_eq
+                rw[after_eq]
+                unfold LinearRuleTrigger.active_trigger_apply_resulting_forest
+                unfold Forest.subforest_of
+                simp only[Subset, Membership.mem]
+                intro addr addr_from
+                apply Or.elim addr_from
+                . unfold Forest.subforest_of at ih
+                  simp only [Subset, Membership.mem] at ih
+                  specialize ih addr
+                  exact ih
+                . unfold oblivious_chase
+                  intro addr_eq
+                  apply Or.elim addr_eq
+                  repeat intro addr_eq;simp[addr_eq, LinearRuleTrigger.labellingFunction_trg_apply_is_some]
 
     end PreChaseDerivation
 
