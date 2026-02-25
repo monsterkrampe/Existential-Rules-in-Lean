@@ -31,6 +31,47 @@ end Definitions
 
 section GeneralResults
 
+namespace ChaseDerivationSkeleton
+
+variable {obs : ObsoletenessCondition sig} {rules : RuleSet sig}
+
+/-- If a `ChaseDerivationSkeleton` terminates, then there is a maximal node according to the `≼` relation. -/
+theorem has_last_node_of_terminates (cds : ChaseDerivationSkeleton obs rules) :
+    cds.terminates -> ∃ (node : cds.Node), ∀ (node2 : cds.Node), node2 ≼ node := by
+  rintro ⟨n, h⟩
+  induction n with
+  | zero => have contra := cds.isSome_head; rw [PossiblyInfiniteList.head_eq, h] at contra; simp at contra
+  | succ n ih =>
+    cases eq : cds.branch.get? n with
+    | none => apply ih; exact eq
+    | some node =>
+      let node : cds.Node := ⟨node, by exists n⟩
+      exists node
+      intro node2
+      -- TODO: Maybe it helps that ≼ is total here but this is tricky since right now we depend on the specific d1..
+      let d1 := cds.derivation_for_branch_suffix (cds.branch.drop n) (cds.branch.IsSuffix_drop n) (by rw [PossiblyInfiniteList.head_drop]; simp [eq])
+      have head_eq1 : d1.head = node.val := by simp [d1, derivation_for_branch_suffix, head, PossiblyInfiniteList.head_drop, eq, node]
+      have suf1 : d1 <:+ cds := (cds.branch.IsSuffix_drop n)
+      rcases subderivation_of_node_mem node2.property with ⟨d2, head_eq2, suf2⟩
+      cases PossiblyInfiniteList.suffix_or_suffix_of_suffix suf1 suf2 with
+      | inl suf3 => exists d2; constructor; exact suf2; simp only [head_eq2, true_and]; apply d1.mem_of_mem_suffix suf3; rw [← head_eq1]; exact d1.head_mem
+      | inr suf3 =>
+        cases suffix_iff_eq_or_suffix_tail.mp suf3 with
+        | inl suf3 =>
+          have : node = node2 := by rw [Subtype.mk.injEq, ← head_eq2, suf3, head_eq1]
+          rw [this]
+          exact predecessor_refl
+        | inr suf3 =>
+          rcases suf3 with ⟨contra, suf3⟩
+          apply False.elim
+          unfold next at contra
+          rw [Option.isSome_iff_ne_none] at contra
+          apply contra
+          simp only [d1, derivation_for_branch_suffix, PossiblyInfiniteList.tail_drop, PossiblyInfiniteList.head_drop]
+          exact h
+
+end ChaseDerivationSkeleton
+
 namespace ChaseDerivation
 
 variable {obs : ObsoletenessCondition sig} {rules : RuleSet sig}
@@ -38,37 +79,7 @@ variable {obs : ObsoletenessCondition sig} {rules : RuleSet sig}
 /-- A `ChaseDerivation` terminates if and only if there is a maximal node according to the `≼` relation. -/
 theorem terminating_has_last_node (cd : ChaseDerivation obs rules) : cd.terminates ↔ ∃ (node : cd.Node), ∀ (node2 : cd.Node), node2 ≼ node := by
   constructor
-  . rintro ⟨n, h⟩
-    induction n with
-    | zero => have contra := cd.isSome_head; rw [PossiblyInfiniteList.head_eq, h] at contra; simp at contra
-    | succ n ih =>
-      cases eq : cd.branch.get? n with
-      | none => apply ih; exact eq
-      | some node =>
-        let node : cd.Node := ⟨node, by exists n⟩
-        exists node
-        intro node2
-        -- TODO: Maybe it helps that ≼ is total here but this is tricky since right now we depend on the specific d1..
-        let d1 := cd.derivation_for_branch_suffix (cd.branch.drop n) (cd.branch.IsSuffix_drop n) (by rw [PossiblyInfiniteList.head_drop]; simp [eq])
-        have head_eq1 : d1.head = node.val := by simp [d1, ChaseDerivationSkeleton.derivation_for_branch_suffix, ChaseDerivationSkeleton.head, PossiblyInfiniteList.head_drop, eq, node]
-        have suf1 : d1 <:+ cd.toChaseDerivationSkeleton := (cd.branch.IsSuffix_drop n)
-        rcases subderivation_of_node_mem node2.property with ⟨d2, head_eq2, suf2⟩
-        cases PossiblyInfiniteList.suffix_or_suffix_of_suffix suf1 suf2 with
-        | inl suf3 => exists d2.toChaseDerivationSkeleton; constructor; exact suf2; simp only [head_eq2, true_and]; apply d1.mem_of_mem_suffix suf3; rw [← head_eq1]; exact d1.head_mem
-        | inr suf3 =>
-          cases ChaseDerivationSkeleton.suffix_iff_eq_or_suffix_tail.mp suf3 with
-          | inl suf3 =>
-            have : node = node2 := by rw [Subtype.mk.injEq, ← head_eq2, suf3, head_eq1]
-            rw [this]
-            exact ChaseDerivationSkeleton.predecessor_refl
-          | inr suf3 =>
-            rcases suf3 with ⟨contra, suf3⟩
-            apply False.elim
-            unfold ChaseDerivationSkeleton.next at contra
-            rw [Option.isSome_iff_ne_none] at contra
-            apply contra
-            simp only [d1, ChaseDerivationSkeleton.derivation_for_branch_suffix, PossiblyInfiniteList.tail_drop, PossiblyInfiniteList.head_drop]
-            exact h
+  . exact cd.toChaseDerivationSkeleton.has_last_node_of_terminates
   . rintro ⟨node, all_pred⟩
     rcases node.property with ⟨n, node_eq⟩
     exists n+1

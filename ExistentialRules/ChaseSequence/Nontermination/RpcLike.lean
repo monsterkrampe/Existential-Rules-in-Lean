@@ -86,6 +86,20 @@ theorem result_infinite {cd : CyclicityDerivation obs rules} : ¬ cd.result.fini
   apply FactSet.terms_subset_of_subset (cd.facts_node_subset_result node2.val node2.property)
   exact t_mem
 
+/-- TODO; it might surprise that this is independant from the above as a we can only relate finiteness of the result and termination for proper ChaseBranches -/
+theorem infinite {cd : CyclicityDerivation obs rules} : ¬ cd.terminates := by
+  intro contra
+  rcases cd.has_last_node_of_terminates contra with ⟨node, node_last⟩
+  rcases cd.growing' node with ⟨node2, prec, ⟨t, t_not_mem, t_mem⟩⟩
+  apply t_not_mem
+  apply FactSet.terms_subset_of_subset (cd.facts_node_subset_of_prec (node_last node2))
+  exact t_mem
+
+theorem corresponding_tree_branch_exists {cd : CyclicityDerivation obs rules} (td : TreeDerivation obs rules) :
+    ∃ deriv ∈ td.branches, deriv.result = cd.result := by
+  -- The construction is going to be annoying. The idea is to get a derivation from the "unblockable" condition, which can generate an infinite list of tree nodes for us. However, they do not directly correspond to a branch as there are big "holes" between. But we can easily fill them in by the node addresses. So the idea is clear. Only executing it will be not so nice. Maybe we can introduce some more machinery to ease the process.
+  sorry
+
 end CyclicityDerivation
 
 
@@ -97,10 +111,26 @@ structure CyclicityBranch (obs : ObsoletenessCondition sig) (kb : KnowledgeBase 
     facts_contain_origin_result := by simp
   }
 
+namespace CyclicityBranch
+
+variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
+
+/-- TODO -/
+theorem corresponding_tree_branch_exists {cb : CyclicityBranch obs kb} (ct : ChaseTree obs kb) :
+    ∃ branch : ChaseBranch obs kb, branch.toChaseDerivation ∈ ct.branches ∧ branch.result = cb.result := by
+  rcases cb.toCyclicityDerivation.corresponding_tree_branch_exists ct.toTreeDerivation with ⟨cd, cd_mem, res_eq⟩
+  exists ct.chaseBranch_for_branch cd_mem
+
 /-- TODO -/
 theorem neverTerminates_of_cyclicityBranch {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
     (cb : CyclicityBranch obs kb) : kb.rules.neverTerminates obs := by
   exists kb.db
-  intro ct
-  sorry
+  intro ct terminates
+  rcases cb.corresponding_tree_branch_exists ct with ⟨branch, branch_mem, res_eq⟩
+  specialize terminates _ branch_mem
+  apply cb.result_infinite
+  rw [← res_eq, ← branch.terminates_iff_result_finite]
+  exact terminates
+
+end CyclicityBranch
 
