@@ -170,7 +170,7 @@ noncomputable def extend_hom_to_next_step
     (prev_res : InductiveHomomorphismExtensionResult cd h) :
     Option (InductiveHomomorphismExtensionResult cd h) :=
   prev_res.val.fst.next.attach.map (fun next =>
-    let step := extend_hom_to_next_step_of_next_eq_some cb det prev_res.val.fst (PossiblyInfiniteList.IsSuffix_trans prev_res.property.left suffix) prev_res.val.snd (by rw [ChaseDerivation.result_suffix prev_res.property.left]; exact prev_res.property.right.right) next.val next.property
+    let step := extend_hom_to_next_step_of_next_eq_some cb det prev_res.val.fst (PossiblyInfiniteList.IsSuffix_trans prev_res.property.left suffix) prev_res.val.snd (by rw [ChaseDerivationSkeleton.result_suffix prev_res.property.left]; exact prev_res.property.right.right) next.val next.property
     ⟨step.val, by
       constructor
       . exact PossiblyInfiniteList.IsSuffix_trans step.property.left prev_res.property.left
@@ -179,9 +179,9 @@ noncomputable def extend_hom_to_next_step
         rw [← prev_res.property.right.left _ t_mem]
         apply step.property.right.left
         apply FactSet.terms_subset_of_subset
-        . apply cd.facts_node_subset_every_mem; apply ChaseDerivation.mem_of_mem_suffix prev_res.property.left; apply ChaseDerivation.head_mem
+        . apply cd.facts_node_subset_every_mem; apply ChaseDerivation.mem_of_mem_suffix prev_res.property.left; apply ChaseDerivationSkeleton.head_mem
         . exact t_mem
-      . simp only [← ChaseDerivation.result_suffix prev_res.property.left]; exact step.property.right.right⟩
+      . simp only [← ChaseDerivationSkeleton.result_suffix prev_res.property.left]; exact step.property.right.right⟩
   )
 
 /-- The `ChaseDerivation` returned by `extend_hom_to_next_step` is the `ChaseDerivation.tail` of the previous derivation. -/
@@ -226,7 +226,7 @@ theorem hom_for_node_extendable_to_result
     . exact PossiblyInfiniteList.IsSuffix_refl
     constructor
     . intros; rfl
-    . simp only [deriv_for_node_head, ChaseDerivation.result_suffix deriv_suffix]; exact hom
+    . simp only [deriv_for_node_head, ChaseDerivationSkeleton.result_suffix deriv_suffix]; exact hom
   ⟩
   let pairs := PossiblyInfiniteList.generate start (extend_hom_to_next_step cb det deriv_for_node deriv_suffix h) id
 
@@ -256,7 +256,7 @@ theorem hom_for_node_extendable_to_result
       rw [ih prev_pair prev_pair_mem]
       apply Eq.symm; apply hom_extends_prev_in_extend_hom_to_next_step
       . apply FactSet.terms_subset_of_subset (pair.val.fst.facts_node_subset_every_mem prev_pair.val.fst.head (by
-          apply ChaseDerivation.mem_of_mem_suffix (derivs_suffix_of_each_other i k pair pair_mem prev_pair prev_pair_mem); exact ChaseDerivation.head_mem))
+          apply ChaseDerivation.mem_of_mem_suffix (derivs_suffix_of_each_other i k pair pair_mem prev_pair prev_pair_mem); exact ChaseDerivationSkeleton.head_mem))
         exact t_mem
       . exact pair2_mem
 
@@ -276,8 +276,8 @@ theorem hom_for_node_extendable_to_result
             rw [Nat.zero_add, pair_mem]
             simp
           . exact suffix
-          . simp only at head_eq; rw [head_eq]; exact ChaseDerivation.head_mem
-        . rw [← head_eq]; exact ChaseDerivation.head_mem
+          . simp only at head_eq; rw [head_eq]; exact ChaseDerivationSkeleton.head_mem
+        . rw [← head_eq]; exact ChaseDerivationSkeleton.head_mem
       exists (pairs.get? i.succ).get (by
         rw [pairs_get?_succ, pair_mem, Option.bind_some]
         simp only [extend_hom_to_next_step, Option.isSome_map, Option.isSome_attach]
@@ -311,7 +311,7 @@ theorem hom_for_node_extendable_to_result
   have global_agrees_with_h : (∀ t ∈ node.facts.terms, global_h t = h t) := by
     intro t t_mem
     rw [← deriv_for_node_head] at t_mem
-    have : t ∈ deriv_for_node.result.terms := by apply FactSet.terms_subset_of_subset (deriv_for_node.facts_node_subset_result _ ChaseDerivation.head_mem); exact t_mem
+    have : t ∈ deriv_for_node.result.terms := by apply FactSet.terms_subset_of_subset (deriv_for_node.facts_node_subset_result _ ChaseDerivationSkeleton.head_mem); exact t_mem
     simp only [global_h, this, ↓reduceDIte]
     let pair := Classical.choose (each_result_terms_occurs_in_some_pair _ this)
     apply pair.property.right.left
@@ -337,7 +337,7 @@ theorem hom_for_node_extendable_to_result
       apply not_mem
       exists f; simp only [t_mem, and_true]
       apply deriv_for_node.facts_node_subset_result pair.val.fst.head
-      . apply ChaseDerivation.mem_of_mem_suffix pair.property.left; exact ChaseDerivation.head_mem
+      . apply ChaseDerivation.mem_of_mem_suffix pair.property.left; exact ChaseDerivationSkeleton.head_mem
       . exact f_mem
     case a.isTrue t_mem_true =>
       have spec := Classical.choose_spec (each_result_terms_occurs_in_some_pair _ t_mem_true)
@@ -379,7 +379,7 @@ theorem hom_for_node_extendable_to_result
   . exact global_agrees_with_h
   constructor
   . exact global_id_const
-  . rw [← ChaseDerivation.result_suffix deriv_suffix]
+  . rw [← ChaseDerivationSkeleton.result_suffix deriv_suffix]
     rintro f' ⟨f, ⟨node, node_mem, f_mem⟩, f'_eq⟩
     rw [f'_eq]
     apply global_h_hom node node_mem

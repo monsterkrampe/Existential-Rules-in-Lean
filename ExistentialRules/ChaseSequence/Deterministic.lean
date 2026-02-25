@@ -57,7 +57,7 @@ theorem branches_eq_firstBranch_of_determinsitic {td : TreeDerivation obs rules}
   constructor
   . intro deriv_mem
     simp only [Membership.mem, TreeDerivation.branches] at deriv_mem
-    rw [ChaseDerivation.mk.injEq]
+    rw [ChaseDerivation.mk.injEq, ChaseDerivationSkeleton.mk.injEq]
     apply PossiblyInfiniteList.ext
     intro n
     induction n generalizing td deriv with
@@ -75,7 +75,7 @@ theorem branches_eq_firstBranch_of_determinsitic {td : TreeDerivation obs rules}
       | none =>
         have contra : ¬∃ (trg : RTrigger obs rules), trg.val.active deriv.head.facts := by rw [← deriv.isSome_next_iff_trg_ex, Option.isSome_iff_ne_none]; intro h; apply h; exact eq_next
         have head_eq_head : deriv.head = td.firstBranch.head := by
-          simp only [firstBranch, derivation_for_branch, toFiniteDegreeTreeWithRoot, ChaseDerivation.head]
+          simp only [firstBranch, derivation_for_branch, toFiniteDegreeTreeWithRoot, ChaseDerivationSkeleton.head]
           apply Option.get_congr
           rw [FiniteDegreeTree.head_generate_branch, Option.map_some]
           simp only [Option.some_get]
@@ -87,19 +87,19 @@ theorem branches_eq_firstBranch_of_determinsitic {td : TreeDerivation obs rules}
           apply contra
           rw [← td.firstBranch.isSome_next_iff_trg_ex, Option.isSome_iff_ne_none]
           exact contra'
-        unfold ChaseDerivation.next at eq_next
-        unfold ChaseDerivation.next at this
+        unfold ChaseDerivationSkeleton.next at eq_next
+        unfold ChaseDerivationSkeleton.next at this
         rw [← PossiblyInfiniteList.empty_iff_head_none] at eq_next
         rw [← PossiblyInfiniteList.empty_iff_head_none] at this
         rw [eq_next, this]
       | some next =>
         have next_isSome : deriv.next.isSome := by rw [Option.isSome_iff_exists]; exists next
         cases deriv_mem.right with
-        | inl deriv_mem_r => rw [PossiblyInfiniteList.empty_iff_head_none] at deriv_mem_r ;simp [ChaseDerivation.next, deriv_mem_r.right] at next_isSome
+        | inl deriv_mem_r => rw [PossiblyInfiniteList.empty_iff_head_none] at deriv_mem_r ;simp [ChaseDerivationSkeleton.next, deriv_mem_r.right] at next_isSome
         | inr deriv_mem_r =>
           rcases deriv_mem_r with ⟨child, child_mem, tail_mem⟩
           have one_childTree : td.childTrees.length = 1 := by
-            have head_eq_root : deriv.head = td.root := by simp [ChaseDerivation.head, root, deriv_mem.left]
+            have head_eq_root : deriv.head = td.root := by simp [ChaseDerivationSkeleton.head, root, deriv_mem.left]
             have trg_ex := td.triggers_exist []
             rw [FiniteDegreeTree.drop_nil] at trg_ex
             specialize trg_ex td.root (by simp [root])
@@ -126,12 +126,12 @@ theorem branches_eq_firstBranch_of_determinsitic {td : TreeDerivation obs rules}
             simp only [h] at child_mem
             apply Eq.symm; exact child_mem
           have : (deriv.tail next_isSome) ∈ (td.childTrees[0]'(by simp [one_childTree])).branches := by
-            simp only [ChaseDerivation.tail, ChaseDerivation.derivation_for_branch_suffix, Membership.mem]
+            simp only [Membership.mem]
             simp only [branches, childTrees, List.getElem_map, List.getElem_attach, derivation_for_suffix]
             rw [← this]
             exact tail_mem
           specialize ih (deriv.tail next_isSome) this
-          simp only [ChaseDerivation.tail, ChaseDerivation.derivation_for_branch_suffix] at ih
+          simp only [ChaseDerivation.tail, ChaseDerivation.derivation_for_skeleton, ChaseDerivationSkeleton.tail, ChaseDerivationSkeleton.derivation_for_branch_suffix] at ih
           simp only [firstBranch, derivation_for_branch]
           rw [ih, FiniteDegreeTree.tail_generate_branch, Option.bind_some]
           simp only [firstBranch, derivation_for_branch]
@@ -154,6 +154,7 @@ theorem deterministicChaseTreeResultUniversallyModelsKb {ct : ChaseTree obs kb} 
     rcases chaseTreeResultIsUniversal ct m m_is_model with ⟨res, hom, ⟨b, b_mem, res_mem⟩, hom_is_hom⟩
     rw [TreeDerivation.branches_eq_firstBranch_of_determinsitic det] at b_mem
     unfold TreeDerivation.firstResult
+    simp only at res_mem
     rw [← b_mem, ← res_mem]
     exact ⟨_, hom_is_hom⟩
 
@@ -163,6 +164,7 @@ namespace ChaseDerivation
 
 variable {obs : ObsoletenessCondition sig} {rules : RuleSet sig}
 
+-- TODO: the following definition is in desperate need of being shortened
 /-- We can straightforwardly convert a `ChaseDerivation` into a `TreeDerivation` that has the original `ChaseDerivation` as its only branch. -/
 def intoTree (cd : ChaseDerivation obs rules) (deterministic : rules.isDeterministic) : TreeDerivation obs rules :=
   {
@@ -178,45 +180,70 @@ def intoTree (cd : ChaseDerivation obs rules) (deterministic : rules.isDetermini
         have trg_ex := cd.triggers_exist ns.length
         simp only [PossiblyInfiniteList.head_drop, PossiblyInfiniteList.get?, InfiniteList.get] at trg_ex
         specialize trg_ex _ eq
-        cases trg_ex with
-        | inl trg_ex =>
-          apply Or.inl
-          rcases trg_ex with ⟨trg, trg_active, i, trg_eq⟩
-          exists trg; constructor; exact trg_active
-          have length_mapped_head_eq : trg.val.mapped_head.length = 1 := by
-            rw [PreTrigger.length_mapped_head]
-            specialize deterministic trg.val.rule trg.property
-            simp only [Rule.isDeterministic, decide_eq_true_iff] at deterministic
-            exact deterministic
-          have i_zero : i.val = 0 := by have isLt := i.isLt; simp only [length_mapped_head_eq, Nat.lt_one_iff] at isLt; exact isLt
-          apply List.ext_getElem?
-          intro j
-          cases j with
-          | succ j =>
-            rw [FiniteDegreeTree.get?_childNodes, FiniteDegreeTree.get?_childTrees, FiniteDegreeTree.FiniteDegreeTreeWithRoot.opt_to_tree_after_tree_to_opt, FiniteDegreeTree.drop_drop, FiniteDegreeTree.root_drop]
-            simp only [FiniteDegreeTree.from_branch, PossiblyInfiniteTree.from_branch, FiniteDegreeTree.get?, PossiblyInfiniteTree.get?, InfiniteTreeSkeleton.get]
-            simp [List.length_zipIdx_with_lt, length_mapped_head_eq]
-          | zero =>
-            rw [FiniteDegreeTree.get?_childNodes, FiniteDegreeTree.get?_childTrees, FiniteDegreeTree.FiniteDegreeTreeWithRoot.opt_to_tree_after_tree_to_opt, FiniteDegreeTree.drop_drop, FiniteDegreeTree.root_drop]
-            simp only [FiniteDegreeTree.from_branch, PossiblyInfiniteTree.from_branch, FiniteDegreeTree.get?, PossiblyInfiniteTree.get?, InfiniteTreeSkeleton.get]
-            simp only [List.all_append, all_zero, List.all_cons, List.all_nil, Bool.and_true, decide_eq_true, ↓reduceIte, List.length_append, List.length_singleton]
-            rw [PossiblyInfiniteList.tail_drop, PossiblyInfiniteList.head_drop] at trg_eq
-            simp only [PossiblyInfiniteList.get?, InfiniteList.get] at trg_eq
-            rw [trg_eq]
-            rw [List.getElem?_eq_getElem (by simp [List.length_zipIdx_with_lt, length_mapped_head_eq]), Option.some_inj, List.getElem_map, List.getElem_attach]
-            rw [ChaseNode.mk.injEq]; constructor
-            . rw [List.zipIdx_with_lt_getElem_fst_eq_getElem (by simp [length_mapped_head_eq])]; simp only [i_zero]
-            . rw [List.zipIdx_with_lt_getElem_snd_eq_index (by simp [length_mapped_head_eq])]; rw [Option.some_inj, Sigma.mk.injEq]; simp only [true_and, heq_eq_eq]; apply Fin.eq_of_val_eq; rw [i_zero]
-        | inr trg_ex =>
+        cases after_eq : (cd.branch.drop ns.length).tail.head with
+        | none =>
           apply Or.inr
           constructor
-          . exact trg_ex.left
-          . have trg_ex := trg_ex.right
-            rw [← List.head?_eq_none_iff, List.head?_eq_getElem?, FiniteDegreeTree.get?_childNodes, FiniteDegreeTree.get?_childTrees, FiniteDegreeTree.FiniteDegreeTreeWithRoot.opt_to_tree_after_tree_to_opt, FiniteDegreeTree.drop_drop, FiniteDegreeTree.root_drop]
+          . -- taken from ChaseDerivation.isSome_next_iff_trg_ex (but slightly adjusted)
+            rintro ⟨trg, active⟩
+            rcases cd.fairness trg with ⟨i, ⟨node', node'_mem, not_active⟩, fair⟩
+            cases Decidable.em (i < ns.length) with
+            | inl lt =>
+              apply fair (ns.length - i.succ) node (by
+                rw [Option.mem_def] at eq; rw [Option.mem_def, ← eq]
+                rw [PossiblyInfiniteList.tail_drop, PossiblyInfiniteList.get?_drop, Nat.add_sub_of_le (Nat.succ_le_of_lt lt)]
+                rfl)
+              exact active
+            | inr lt =>
+              rcases Nat.exists_eq_add_of_le (Nat.le_of_not_lt lt) with ⟨k, le⟩
+              cases k with
+              | zero =>
+                apply not_active
+                have eq : node = node' := by rw [← Option.some_inj, ← eq, ← node'_mem, le]; rfl
+                rw [← eq]
+                exact active
+              | succ k =>
+                simp only [← PossiblyInfiniteList.empty_iff_head_none, PossiblyInfiniteList.tail_drop] at after_eq
+                rw [PossiblyInfiniteList.head_drop, le, Nat.add_comm k 1, ← Nat.add_assoc, ← PossiblyInfiniteList.get?_drop, after_eq, PossiblyInfiniteList.get?_empty] at node'_mem
+                simp at node'_mem
+          . rw [← List.head?_eq_none_iff, List.head?_eq_getElem?, FiniteDegreeTree.get?_childNodes, FiniteDegreeTree.get?_childTrees, FiniteDegreeTree.FiniteDegreeTreeWithRoot.opt_to_tree_after_tree_to_opt, FiniteDegreeTree.drop_drop, FiniteDegreeTree.root_drop]
             simp only [FiniteDegreeTree.from_branch, PossiblyInfiniteTree.from_branch, FiniteDegreeTree.get?, PossiblyInfiniteTree.get?, InfiniteTreeSkeleton.get]
             simp only [List.all_append, all_zero, List.all_cons, List.all_nil, Bool.and_true, decide_eq_true, ↓reduceIte, List.length_append, List.length_singleton]
-            rw [PossiblyInfiniteList.tail_drop, PossiblyInfiniteList.head_drop] at trg_ex
-            exact trg_ex
+            rw [← after_eq]
+            rfl
+        | some after =>
+          specialize trg_ex after after_eq
+          apply Or.inl
+          rcases trg_ex with ⟨trg, i, trg_eq⟩
+          exists trg; constructor
+          . rcases cd.triggers_active ns.length node eq after after_eq with ⟨orig, orig_mem, orig_act⟩
+            rw [trg_eq, Option.mem_def, Option.some_inj] at orig_mem
+            rw [← orig_mem] at orig_act
+            exact orig_act
+          . have length_mapped_head_eq : trg.val.mapped_head.length = 1 := by
+              rw [PreTrigger.length_mapped_head]
+              specialize deterministic trg.val.rule trg.property
+              simp only [Rule.isDeterministic, decide_eq_true_iff] at deterministic
+              exact deterministic
+            have i_zero : i.val = 0 := by have isLt := i.isLt; simp only [length_mapped_head_eq, Nat.lt_one_iff] at isLt; exact isLt
+            apply List.ext_getElem?
+            intro j
+            cases j with
+            | succ j =>
+              rw [FiniteDegreeTree.get?_childNodes, FiniteDegreeTree.get?_childTrees, FiniteDegreeTree.FiniteDegreeTreeWithRoot.opt_to_tree_after_tree_to_opt, FiniteDegreeTree.drop_drop, FiniteDegreeTree.root_drop]
+              simp only [FiniteDegreeTree.from_branch, PossiblyInfiniteTree.from_branch, FiniteDegreeTree.get?, PossiblyInfiniteTree.get?, InfiniteTreeSkeleton.get]
+              simp [List.length_zipIdx_with_lt, length_mapped_head_eq]
+            | zero =>
+              rw [FiniteDegreeTree.get?_childNodes, FiniteDegreeTree.get?_childTrees, FiniteDegreeTree.FiniteDegreeTreeWithRoot.opt_to_tree_after_tree_to_opt, FiniteDegreeTree.drop_drop, FiniteDegreeTree.root_drop]
+              simp only [FiniteDegreeTree.from_branch, PossiblyInfiniteTree.from_branch, FiniteDegreeTree.get?, PossiblyInfiniteTree.get?, InfiniteTreeSkeleton.get]
+              simp only [List.all_append, all_zero, List.all_cons, List.all_nil, Bool.and_true, decide_eq_true, ↓reduceIte, List.length_append, List.length_singleton]
+              rw [← Option.some_inj, ← after_eq, PossiblyInfiniteList.tail_drop, PossiblyInfiniteList.head_drop] at trg_eq
+              simp only [PossiblyInfiniteList.get?, InfiniteList.get] at trg_eq
+              rw [trg_eq]
+              rw [List.getElem?_eq_getElem (by simp [List.length_zipIdx_with_lt, length_mapped_head_eq]), Option.some_inj, List.getElem_map, List.getElem_attach]
+              rw [ChaseNode.mk.injEq]; constructor
+              . rw [List.zipIdx_with_lt_getElem_fst_eq_getElem (by simp [length_mapped_head_eq])]; simp only [i_zero]
+              . rw [List.zipIdx_with_lt_getElem_snd_eq_index (by simp [length_mapped_head_eq])]; rw [Option.some_inj, Sigma.mk.injEq]; simp only [true_and, heq_eq_eq]; apply Fin.eq_of_val_eq; rw [i_zero]
     fairness_leaves := by
       rintro leaf ⟨node, node_eq, node_children⟩ trg
       simp only [FiniteDegreeTree.from_branch, PossiblyInfiniteTree.from_branch, PossiblyInfiniteTree.get?, InfiniteTreeSkeleton.get] at node_eq
@@ -270,7 +297,7 @@ def intoTree (cd : ChaseDerivation obs rules) (deterministic : rules.isDetermini
 /-- The `firstBranch` of `intoTree` is the original `ChaseDerivation`. -/
 theorem firstBranch_intoTree_eq_self (cd : ChaseDerivation obs rules) (deterministic : rules.isDeterministic) :
     (cd.intoTree deterministic).firstBranch = cd := by
-  rw [ChaseDerivation.mk.injEq]
+  rw [ChaseDerivation.mk.injEq, ChaseDerivationSkeleton.mk.injEq]
   apply PossiblyInfiniteList.ext
   intro n
   induction n generalizing cd with
@@ -283,16 +310,16 @@ theorem firstBranch_intoTree_eq_self (cd : ChaseDerivation obs rules) (determini
     | none =>
       have : (cd.intoTree deterministic).firstBranch.next = none := by
         simp only [intoTree, TreeDerivation.firstBranch, TreeDerivation.derivation_for_branch, FiniteDegreeTree.from_branch, PossiblyInfiniteTree.from_branch]
-        unfold next
+        unfold ChaseDerivationSkeleton.next
         simp only [FiniteDegreeTree.tail_generate_branch, FiniteDegreeTree.head_generate_branch, Option.bind_some, Option.map_eq_none_iff]
         simp only [TreeDerivation.childTrees, List.getElem?_map, List.getElem?_attach, Option.map_eq_none_iff, Option.pmap_eq_none_iff]
         rw [FiniteDegreeTree.get?_childTrees, FiniteDegreeTree.FiniteDegreeTreeWithRoot.tree_to_opt_none_iff, FiniteDegreeTree.root_drop]
         simp only [FiniteDegreeTree.get?, PossiblyInfiniteTree.get?, InfiniteTreeSkeleton.get]
-        simp only [next, PossiblyInfiniteList.head_eq, PossiblyInfiniteList.get?_tail] at eq_next
+        simp only [ChaseDerivationSkeleton.next, PossiblyInfiniteList.head_eq, PossiblyInfiniteList.get?_tail] at eq_next
         simp only [PossiblyInfiniteList.get?, InfiniteList.get] at eq_next
         simp [eq_next]
-      unfold ChaseDerivation.next at eq_next
-      unfold ChaseDerivation.next at this
+      unfold ChaseDerivationSkeleton.next at eq_next
+      unfold ChaseDerivationSkeleton.next at this
       rw [← PossiblyInfiniteList.empty_iff_head_none] at eq_next
       rw [← PossiblyInfiniteList.empty_iff_head_none] at this
       rw [eq_next, this]
@@ -300,7 +327,7 @@ theorem firstBranch_intoTree_eq_self (cd : ChaseDerivation obs rules) (determini
       have next_isSome : cd.next.isSome := by rw [Option.isSome_iff_exists]; exists next
       simp only [intoTree, TreeDerivation.firstBranch, TreeDerivation.derivation_for_branch, FiniteDegreeTree.from_branch, PossiblyInfiniteTree.from_branch]
       specialize ih (cd.tail next_isSome)
-      simp only [ChaseDerivation.tail, ChaseDerivation.derivation_for_branch_suffix] at ih
+      simp only [ChaseDerivation.tail, ChaseDerivation.derivation_for_skeleton, ChaseDerivationSkeleton.tail, ChaseDerivationSkeleton.derivation_for_branch_suffix] at ih
       rw [← ih, FiniteDegreeTree.tail_generate_branch]
       congr
       simp only [Option.bind_some]
@@ -312,10 +339,10 @@ theorem firstBranch_intoTree_eq_self (cd : ChaseDerivation obs rules) (determini
           constructor
           . apply FiniteDegreeTree.ext; intro ns; rw [FiniteDegreeTree.get?_drop]
             simp only [FiniteDegreeTree.get?, PossiblyInfiniteTree.get?, InfiniteTreeSkeleton.get]
-            simp only [tail, derivation_for_branch_suffix, PossiblyInfiniteList.tail, InfiniteList.tail, InfiniteList.get]
+            simp only [tail, derivation_for_skeleton, ChaseDerivationSkeleton.tail, ChaseDerivationSkeleton.derivation_for_branch_suffix, PossiblyInfiniteList.tail, InfiniteList.tail, InfiniteList.get]
             simp
           . simp only [FiniteDegreeTree.get?, PossiblyInfiniteTree.get?, InfiniteTreeSkeleton.get]
-            simp only [ChaseDerivation.next, PossiblyInfiniteList.head_eq, PossiblyInfiniteList.get?_tail] at next_isSome
+            simp only [ChaseDerivationSkeleton.next, PossiblyInfiniteList.head_eq, PossiblyInfiniteList.get?_tail] at next_isSome
             simp only [PossiblyInfiniteList.get?, InfiniteList.get] at next_isSome
             simp [next_isSome]
         exists ((cd.tail next_isSome).intoTree deterministic).toFiniteDegreeTreeWithRoot

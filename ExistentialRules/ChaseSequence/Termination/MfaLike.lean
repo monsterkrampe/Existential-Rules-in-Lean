@@ -516,7 +516,7 @@ theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
       induction elem using parallelDeterminizedDerivation_mem_rec with
       | head =>
         simp only [parallelDeterminizedDerivation_head]
-        apply Set.subset_trans _ (ChaseDerivation.facts_node_subset_result _ cb.head_mem)
+        apply Set.subset_trans _ (ChaseDerivationSkeleton.facts_node_subset_result _ cb.head_mem)
         rw [cb.database_first']
         apply Set.subset_refl
       | step _ ih =>
@@ -539,7 +539,7 @@ theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
 
                 cases cb.predecessor_total ⟨n_from_ih, n_from_ih_mem⟩ ⟨n_from_hd, n_from_hd_mem⟩ with
                 | inl prec =>
-                  exists n_from_hd; simp only [n_from_hd_mem, true_and]
+                  exists n_from_hd; constructor; exact n_from_hd_mem
                   intro f f_mem; rw [List.mem_cons] at f_mem; cases f_mem with
                   | inl f_mem => rw [f_mem]; exact from_hd
                   | inr f_mem =>
@@ -574,7 +574,7 @@ theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
 
           cases cb.predecessor_total ⟨node, node_mem⟩ fairness_node with
           | inl prec =>
-            exists fairness_node.val; simp only [fairness_node.property, true_and]
+            exists fairness_node.val; constructor; exact fairness_node.property
             specialize fair fairness_node cb.predecessor_refl
             unfold Trigger.active at fair
             simp only [not_and, Classical.not_not] at fair
@@ -597,7 +597,7 @@ theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
             simp only [List.mem_toSet, disj_index_zero]
             exact f_mem
           | inr prec =>
-            exists node; simp only [node_mem, true_and]
+            exists node; constructor; exact node_mem
             specialize fair ⟨node, node_mem⟩ prec
             unfold Trigger.active at fair
             simp only [not_and, Classical.not_not] at fair

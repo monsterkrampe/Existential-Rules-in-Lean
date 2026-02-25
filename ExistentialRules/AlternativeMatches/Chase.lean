@@ -119,7 +119,7 @@ theorem result_isWeakCore_of_noAltMatch {cb : ChaseBranch obs kb} (det : kb.isDe
           . exact h_k_hom.left
           . apply Set.subset_trans _ h_k_hom.right
             apply TermMapping.apply_generalized_atom_set_subset_of_subset
-            rw [← ChaseDerivation.result_suffix suffix]
+            rw [← ChaseDerivationSkeleton.result_suffix suffix]
             apply Set.subset_trans _ (cd2.facts_node_subset_result next (cd2.next_mem_of_mem _ next_mem))
             rw [cd2.facts_next next_mem]
             apply Set.subset_union_of_subset_right
@@ -189,7 +189,7 @@ theorem result_isWeakCore_of_noAltMatch {cb : ChaseBranch obs kb} (det : kb.isDe
         . have is_hom := h_k.repeat_hom_isHomomorphism cb.result h_k_hom repetition_number
           apply Set.subset_trans _ is_hom.right
           apply inv.apply_generalized_atom_set_subset_of_subset
-          rw [← ChaseDerivation.result_suffix suffix]
+          rw [← ChaseDerivationSkeleton.result_suffix suffix]
           exact (cd2.facts_node_subset_result next (cd2.next_mem_of_mem _ next_mem))
 
       rcases cb.hom_for_node_extendable_to_result det (cd2.mem_of_mem_suffix suffix _ (cd2.next_mem_of_mem _ next_mem)) inv_hom with ⟨extended_inv, extended_inv_eq, extended_inv_hom⟩
@@ -231,7 +231,7 @@ theorem result_isWeakCore_of_noAltMatch {cb : ChaseBranch obs kb} (det : kb.isDe
       have f_dom : f.terms.toSet ⊆ cb.result.terms := by intro _ mem; rw [List.mem_toSet] at mem; apply f_dom; exact mem
       rcases FactSet.list_of_facts_for_list_of_terms f_dom with ⟨l, l_sub, ts_sub⟩
       rcases cb.facts_mem_some_node_of_mem_result _ l_sub with ⟨node, node_mem, l_sub⟩
-      exists node; simp only [node_mem, true_and]
+      exists node; constructor; exact node_mem
       intro t t_mem
       apply FactSet.terms_subset_of_subset l_sub
       rw [FactSet.mem_terms_toSet]
@@ -316,7 +316,7 @@ theorem non_id_endomorphism_of_altMatch {cb : ChaseBranch obs kb} (det : kb.isDe
         intro t t_mem
         have : t ∈ ts := by rw [eq_ts]; exists f'
         simp [h, this]
-      rw [this, ← ChaseDerivation.result_suffix suffix]; apply cd.facts_node_subset_result _ cd.head_mem _ f'_mem
+      rw [this, ← ChaseDerivationSkeleton.result_suffix suffix]; apply cd.facts_node_subset_result _ cd.head_mem _ f'_mem
     | inr f'_mem =>
       apply altMatch.left.right
       have : f = h_alt.applyFact f' := by
@@ -406,7 +406,7 @@ theorem altMatch_of_some_not_reaches_self (cb : ChaseBranch obs kb) (fs : FactSe
 
     specialize smallest ⟨cd2.head, by apply cd2.mem_of_mem_suffix suffix; exact cd2.head_mem⟩ (by
       have : ⟨cd2.head, cd2.head_mem⟩ ≺ ⟨node.val, cd2.next_mem_of_mem _ next_eq⟩ := cd2.head_strict_prec_next next_eq
-      exact ChaseDerivation.strict_predecessor_of_suffix suffix this)
+      exact ChaseDerivationSkeleton.strict_predecessor_of_suffix suffix this)
     simp only [node_property, term_property, not_exists, not_and, Classical.not_forall, ne_eq, Decidable.not_not] at smallest
 
     have : ∃ l, 1 ≤ l ∧ ∀ s, s ∈ cd2.head.facts.terms -> (h.repeat_hom l) s = s := by

@@ -337,11 +337,11 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
         exact prev_pair_mem⟩
       have prec : node1 ≼ node2 := by
         exists deriv.derivation_for_branch_suffix _ (nodes.IsSuffix_drop i) (by rw [PossiblyInfiniteList.head_drop, node_mem]; simp)
-        simp only [ChaseDerivation.derivation_for_branch_suffix]
+        simp only [ChaseDerivationSkeleton.derivation_for_branch_suffix]
         constructor
         . exact nodes.IsSuffix_drop i
         constructor
-        . simp only [ChaseDerivation.head, PossiblyInfiniteList.head_drop]
+        . simp only [ChaseDerivationSkeleton.head, PossiblyInfiniteList.head_drop]
           conv => left; left; rw [node_mem]
           simp [node1]
         . exists k

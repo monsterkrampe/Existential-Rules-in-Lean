@@ -12,8 +12,11 @@ variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq 
 
 section Definitions
 
-/-- A `ChaseDerivation` terminates if the underlying `PossiblyInfiniteList` is finite. -/
-def ChaseDerivation.terminates {obs : ObsoletenessCondition sig} {rules : RuleSet sig} (cd : ChaseDerivation obs rules) : Prop := cd.branch.finite
+/-- A `ChaseDerivationSkeleton` terminates if the underlying `PossiblyInfiniteList` is finite. -/
+def ChaseDerivationSkeleton.terminates {obs : ObsoletenessCondition sig} {rules : RuleSet sig} (cds : ChaseDerivationSkeleton obs rules) : Prop := cds.branch.finite
+
+/-- A `ChaseDerivation` terminates if the underlying `ChaseDerivationSkeleton` is finite. -/
+def ChaseDerivation.terminates {obs : ObsoletenessCondition sig} {rules : RuleSet sig} (cd : ChaseDerivation obs rules) : Prop := cd.toChaseDerivationSkeleton.terminates
 
 /-- A `TreeDerivation` terminates if all of its branches terminate. -/
 def TreeDerivation.terminates {obs : ObsoletenessCondition sig} {rules : RuleSet sig} (td : TreeDerivation obs rules) : Prop := ∀ branch, branch ∈ td.branches -> branch.terminates
@@ -47,24 +50,24 @@ theorem terminating_has_last_node (cd : ChaseDerivation obs rules) : cd.terminat
         intro node2
         -- TODO: Maybe it helps that ≼ is total here but this is tricky since right now we depend on the specific d1..
         let d1 := cd.derivation_for_branch_suffix (cd.branch.drop n) (cd.branch.IsSuffix_drop n) (by rw [PossiblyInfiniteList.head_drop]; simp [eq])
-        have head_eq1 : d1.head = node.val := by simp [d1, derivation_for_branch_suffix, head, PossiblyInfiniteList.head_drop, eq, node]
-        have suf1 : d1 <:+ cd := (cd.branch.IsSuffix_drop n)
+        have head_eq1 : d1.head = node.val := by simp [d1, ChaseDerivationSkeleton.derivation_for_branch_suffix, ChaseDerivationSkeleton.head, PossiblyInfiniteList.head_drop, eq, node]
+        have suf1 : d1 <:+ cd.toChaseDerivationSkeleton := (cd.branch.IsSuffix_drop n)
         rcases subderivation_of_node_mem node2.property with ⟨d2, head_eq2, suf2⟩
         cases PossiblyInfiniteList.suffix_or_suffix_of_suffix suf1 suf2 with
-        | inl suf3 => exists d2; simp only [suf2, head_eq2, true_and]; apply d1.mem_of_mem_suffix suf3; rw [← head_eq1]; exact d1.head_mem
+        | inl suf3 => exists d2.toChaseDerivationSkeleton; constructor; exact suf2; simp only [head_eq2, true_and]; apply d1.mem_of_mem_suffix suf3; rw [← head_eq1]; exact d1.head_mem
         | inr suf3 =>
-          cases ChaseDerivation.suffix_iff_eq_or_suffix_tail.mp suf3 with
+          cases ChaseDerivationSkeleton.suffix_iff_eq_or_suffix_tail.mp suf3 with
           | inl suf3 =>
             have : node = node2 := by rw [Subtype.mk.injEq, ← head_eq2, suf3, head_eq1]
             rw [this]
-            exact ChaseDerivation.predecessor_refl
+            exact ChaseDerivationSkeleton.predecessor_refl
           | inr suf3 =>
             rcases suf3 with ⟨contra, suf3⟩
             apply False.elim
-            unfold next at contra
+            unfold ChaseDerivationSkeleton.next at contra
             rw [Option.isSome_iff_ne_none] at contra
             apply contra
-            simp only [d1, derivation_for_branch_suffix, PossiblyInfiniteList.tail_drop, PossiblyInfiniteList.head_drop]
+            simp only [d1, ChaseDerivationSkeleton.derivation_for_branch_suffix, PossiblyInfiniteList.tail_drop, PossiblyInfiniteList.head_drop]
             exact h
   . rintro ⟨node, all_pred⟩
     rcases node.property with ⟨n, node_eq⟩
@@ -76,15 +79,16 @@ theorem terminating_has_last_node (cd : ChaseDerivation obs rules) : cd.terminat
     let next_node : cd.Node := ⟨next, by exists n+1⟩
     specialize all_pred next_node
     let d1 := cd.derivation_for_branch_suffix (cd.branch.drop n) (cd.branch.IsSuffix_drop n) (by simp [PossiblyInfiniteList.head_drop, PossiblyInfiniteList.get?, node_eq])
-    have head_eq1 : d1.head = node.val := by simp [d1, derivation_for_branch_suffix, head, PossiblyInfiniteList.head_drop, PossiblyInfiniteList.get?, node_eq]
-    have suf1 : d1 <:+ cd := (cd.branch.IsSuffix_drop n)
-    have next_d1 : d1.next = some next := by rw [← next_eq]; simp [d1, derivation_for_branch_suffix, ChaseDerivation.next, PossiblyInfiniteList.tail_drop, PossiblyInfiniteList.head_drop]
+    have head_eq1 : d1.head = node.val := by simp [d1, ChaseDerivationSkeleton.derivation_for_branch_suffix, ChaseDerivationSkeleton.head, PossiblyInfiniteList.head_drop, PossiblyInfiniteList.get?, node_eq]
+    have suf1 : d1 <:+ cd.toChaseDerivationSkeleton := (cd.branch.IsSuffix_drop n)
+    have next_d1 : d1.next = some next := by rw [← next_eq]; simp [d1, ChaseDerivationSkeleton.derivation_for_branch_suffix, ChaseDerivationSkeleton.next, PossiblyInfiniteList.tail_drop, PossiblyInfiniteList.head_drop]
     have node_pred_next : node ≼ next_node := by exists d1; simp only [head_eq1, suf1, true_and]; apply d1.next_mem_of_mem; exact next_d1
     have node_eq_next : node = next_node := cd.predecessor_antisymm node_pred_next all_pred
-    apply d1.head_not_mem_tail
-    rw [d1.mem_tail_iff];
+    apply (cd.derivation_for_skeleton d1 suf1).head_not_mem_tail
+    simp only [derivation_for_skeleton, tail, instMembershipChaseNode]
+    rw [d1.mem_tail_iff]
     . exists d1; constructor; exact d1.branch.IsSuffix_refl; rw [next_d1, head_eq1, node_eq_next]
-    . simp [next_d1]
+    . simp [derivation_for_skeleton, next_d1]
 
 end ChaseDerivation
 
@@ -151,7 +155,7 @@ theorem branches_finite_of_terminates (td : TreeDerivation obs rules) : td.termi
 theorem result_finite_of_branches_finite (td : TreeDerivation obs rules) : td.branches.finite -> td.result.finite := by
   rintro ⟨l, _, iff⟩
   have : DecidableEq (FactSet sig) := Classical.typeDecidableEq (FactSet sig)
-  apply Set.finite_of_list_with_same_elements (l.map ChaseDerivation.result)
+  apply Set.finite_of_list_with_same_elements (l.map (fun deriv => deriv.result))
   intro fs
   rw [List.mem_map]
   constructor
@@ -178,7 +182,7 @@ theorem terminates_iff_result_finite (ct : ChaseTree obs kb) : ct.terminates ↔
   . rintro each_b_term res ⟨b, mem, eq⟩
     let b' := ChaseTree.chaseBranch_for_branch mem
     have : b'.result = b.result := rfl
-    rw [eq, ← this]
+    simp only [eq, ← this]
     rw [← ChaseBranch.terminates_iff_result_finite]
     apply each_b_term
     exact mem
