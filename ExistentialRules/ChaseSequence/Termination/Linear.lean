@@ -826,7 +826,21 @@ section Addresses
     fs_contained : ∀ fact ∈ fs, ∃ a ∈ f , fact = a.initialAtom ∧ a.path = []  -- fs shall be contained in f (this should likely involve auxiliary definitions)
     isPrefixClosed : ∀ a ∈ f, immed_prefix_address_in_set a f --as we enforce this check on all a ∈ f, we only need to verify that it's immediate predecessor is in f as well
 
-  def Forest.subforest_of {fs: FactSet sig} (g : Forest fs rs) (f : Forest fs rs) : Prop := g.f ⊆ f.f
+  namespace Forest
+
+  def subforest_of {fs: FactSet sig} (g : Forest fs rs) (f : Forest fs rs) : Prop := g.f ⊆ f.f
+
+  theorem subforest_refl {fs: FactSet sig} {f: Forest fs rs}: --subforest relation is reflexive
+      f.subforest_of f := by
+    unfold subforest_of
+    simp[Subset]
+
+  theorem subforest_trans {fs: FactSet sig} {f g h : Forest fs rs}: --subforest-relation is transitive
+      f.subforest_of g ->  g.subforest_of h -> f.subforest_of h := by
+    unfold subforest_of
+    apply Set.subset_trans
+
+  end Forest
 
   def FactSet.toForest (fs: FactSet sig) : Forest fs rs where
   f:= fun x => x.path = []
@@ -1626,28 +1640,91 @@ section TriggersAndChaseDerivation
         |none => simp
         |some _ => simp
 
-    theorem trg_n_forest_trigger {fs: FactSet sig} {deriv: LChaseDerivation fs rs} :
-        ∀ n, (trg_n_some: (deriv.trigger_seq.get? n).isSome)
-        -> ∃ trg, (deriv.trigger_seq.get? n) = some trg ∧  trg.appears_in_forest ((deriv.forest_seq.get? n).get (by apply trg_seq_n_some_then_forest_seq_n_some; exact trg_n_some)) := by
-      intro n trg_n_some
-      simp[Option.isSome_iff_exists] at trg_n_some
-      rcases trg_n_some with ⟨trg, trg_eq⟩
-      exists trg
-      simp only [trg_eq, true_and]
-      have h:= deriv.cond.right
-      have trg_active: trg.isActive_in_forest ((deriv.forest_seq.get? n).get (by apply trg_seq_n_some_then_forest_seq_n_some; exact trg_n_some)) := by
-        specialize h n
-        rw[trg_eq] at h
-        simp only at h
-        by_cases f_some: (deriv.forest_seq.get? n).isSome
-        . simp[Option.isSome_iff_exists] at f_some
-          rcases f_some with ⟨f, f_eq⟩
-          simp only[f_eq] at h
-          simp only[f_eq]
-          exact h.active
-        . simp only [Bool.not_eq_true, Option.isSome_eq_false_iff, Option.isNone_iff_eq_none] at f_some
-          simp only [f_some, Option.elim_none] at h
+    theorem forest_succc_n_some_then_trg_n_some {fs: FactSet sig} {deriv : LChaseDerivation fs rs} :
+        ∀ n, (deriv.forest_seq.get? (n+1)).isSome -> (deriv.trigger_seq.get? n).isSome := by
+      intro n f1_some
+      let c:= deriv.cond.right n
+      cases trg_eq: deriv.trigger_seq.get? n with
+      |none =>
+        simp only [trg_eq, Option.isNone_iff_eq_none] at c
+        simp[c] at f1_some
+      |some trg =>
+        simp
+
+    theorem trg_n_active {fs: FactSet sig} {deriv: LChaseDerivation fs rs}:
+        ∀ n, ∀ trg, (trg_n: trg ∈ deriv.trigger_seq.get? n)
+        -> trg.isActive_in_forest ((deriv.forest_seq.get? n).get (by apply trg_seq_n_some_then_forest_seq_n_some; simp only[Option.isSome_iff_exists]; exists trg)) := by
+      intro n trg trg_elem
+      simp only[Membership.mem] at trg_elem
+      let h := deriv.cond.right n
+      simp only[trg_elem] at h
+      by_cases f_some: (deriv.forest_seq.get? n).isSome
+      . simp[Option.isSome_iff_exists] at f_some
+        rcases f_some with ⟨f, f_eq⟩
+        simp only[f_eq] at h
+        simp only[f_eq]
+        exact h.active
+      . simp only [Bool.not_eq_true, Option.isSome_eq_false_iff, Option.isNone_iff_eq_none] at f_some
+        simp only [f_some, Option.elim_none] at h
+
+    theorem trg_n_forest_trigger {fs: FactSet sig} {deriv: LChaseDerivation fs rs}:
+        ∀ n, ∀ trg, (trg_n: trg ∈ deriv.trigger_seq.get? n)
+        -> trg.appears_in_forest ((deriv.forest_seq.get? n).get (by apply trg_seq_n_some_then_forest_seq_n_some; simp only[Option.isSome_iff_exists]; exists trg)) := by
+      intro n trg trg_elem
+      have trg_active := trg_n_active n trg trg_elem
+      unfold LinearRuleTrigger.isActive_in_forest at trg_active
       exact trg_active.left
+
+    theorem forest_n_subforest_succ {fs: FactSet sig} {deriv: LChaseDerivation fs rs}:
+        ∀ n, ∀ f ∈ deriv.forest_seq.get? n, ∀ f2 ∈ deriv.forest_seq.get? (n.succ), f.subforest_of f2 := by
+      intro n f f_elem f2 f2_elem
+      let cond := deriv.cond.right n
+      simp only [Membership.mem] at f_elem f2_elem
+      have trg_some : (deriv.trigger_seq.get? n).isSome := by
+        rw[forest_succc_n_some_then_trg_n_some]
+        simp[f2_elem]
+      simp only[Option.isSome_iff_exists] at trg_some
+      rcases trg_some with ⟨trg, trg_eq⟩
+      simp[trg_eq, f_elem] at cond
+      let res := cond.result
+      simp only [f2_elem, Option.some.injEq] at res
+      rw[res]
+      simp[LinearRuleTrigger.forest_subforest_trigger_apply_result]
+
+    theorem forest_n_subforest_all_succ {fs:FactSet sig} {deriv: LChaseDerivation fs rs}:
+        ∀ n, ∀ f ∈ deriv.forest_seq.get? n, ∀ n2 ≥  n, ∀ f2 ∈ deriv.forest_seq.get? (n2), f.subforest_of f2 := by
+      intro n f f_elem n2 n2_gt f2 f2_elem
+      simp[ge_iff_le] at n2_gt
+      induction diff: n2 - n generalizing n2 f2 with
+      |zero =>
+        rw[Nat.sub_eq_iff_eq_add n2_gt] at diff
+        simp only [Nat.zero_add] at diff
+        rw[diff] at f2_elem
+        simp only [Option.mem_def] at f_elem f2_elem
+        simp only [f2_elem, Option.some.injEq] at f_elem
+        simp only[f_elem]
+        simp[Forest.subforest_refl]
+      |succ k h =>
+        rw[Nat.sub_eq_iff_eq_add n2_gt] at diff
+
+        specialize h (n+k)
+        simp at h
+        simp at f2_elem
+        simp only[Nat.add_comm, ← Nat.add_assoc, Nat.add_one] at diff
+        rw[diff] at f2_elem
+        simp only[Nat.add_succ] at f2_elem
+        have some_g : ∃ g, deriv.forest_seq.get? (n+k) = some g := by
+          simp[← Option.isSome_iff_exists]
+
+          simp[Option.isSome_iff_ne_none]
+          false_or_by_contra
+          rename_i fk_none
+          --simp only[Nat.add_succ] at f2_elem
+          simp [PossiblyInfiniteList.no_holes' (n+k) fk_none] at f2_elem
+        rcases some_g with ⟨g, g_eq⟩
+        specialize h g g_eq
+        have g_sub: g.subforest_of f2 := by apply forest_n_subforest_succ (n+k) g g_eq f2 f2_elem
+        simp[Forest.subforest_trans h g_sub]
 
 
     def chaseForest {fs : FactSet sig} (deriv : LChaseDerivation fs rs) : Forest fs rs where
@@ -1677,7 +1754,7 @@ section TriggersAndChaseDerivation
             exists forest
             simp[mem_f,addr_mem]
 
-    theorem chaseForest_subset_obliviousChase {fs: FactSet sig} {deriv: LChaseDerivation fs rs}:
+    theorem chaseForest_subforest_obliviousChase {fs: FactSet sig} {deriv: LChaseDerivation fs rs}:
       (chaseForest deriv).subforest_of (oblivious_chase fs rs) := by
       unfold chaseForest
       simp [Membership.mem]
@@ -1698,9 +1775,8 @@ section TriggersAndChaseDerivation
     def is_oblivious {fs: FactSet sig} (deriv: LChaseDerivation fs rs) : Prop :=
       chaseForest deriv = oblivious_chase fs rs
 
-
-    def is_resricted {fs: FactSet sig} (deriv: LChaseDerivation fs rs) : Prop :=
-      ∀ n , (trgn_some: (deriv.trigger_seq.get? n).isSome) ->
+    def trg_n_not_blocked_in_forest {fs: FactSet sig} (n: Nat) (deriv: LChaseDerivation fs rs): Prop :=
+      (trgn_some: (deriv.trigger_seq.get? n).isSome) ->
       have fn_some : (deriv.forest_seq.get? n).isSome := by
         apply trg_seq_n_some_then_forest_seq_n_some
         exact trgn_some
@@ -1713,18 +1789,34 @@ section TriggersAndChaseDerivation
         simp only [fn_eq, Option.get_some]
         exact h
       have trg_in_f : ((deriv.trigger_seq.get? n).get trgn_some).appears_in_forest ((deriv.forest_seq.get? n).get fn_some) := by
-        have trg_in:= trg_n_forest_trigger n trgn_some
         simp[Option.isSome_iff_exists] at trgn_some
         rcases trgn_some with ⟨trg, trg_eq⟩
-        rcases trg_in with ⟨trg', trg'_eq, h⟩
-        simp only[trg'_eq]
-        exact h
-        ¬ ∃ b1 b2, LinearRuleTrigger.blockingTeam fn_sub b1 b2 ⟨((deriv.trigger_seq.get? n).get trgn_some), trg_in_f⟩
+        have trg_in_f := trg_n_forest_trigger n trg trg_eq
+        simp[trg_eq]
+        exact trg_in_f
+      ¬ ∃ b1 b2, LinearRuleTrigger.blockingTeam fn_sub b1 b2 ⟨((deriv.trigger_seq.get? n).get trgn_some), trg_in_f⟩
+
+    def is_resricted {fs: FactSet sig} (deriv: LChaseDerivation fs rs) : Prop :=
+      ∀ n , trg_n_not_blocked_in_forest n deriv
 
     def is_fair {fs: FactSet sig} (deriv: LChaseDerivation fs rs) : Prop :=
       let m := chaseForest deriv
       ∀ trg: LinearRuleTrigger.forest_Trigger m, LinearRuleTrigger.isActive_in_forest trg.val m ->
-      ∃ b1 b2, LinearRuleTrigger.blockingTeam (by apply chaseForest_subset_obliviousChase) b1 b2 trg
+      ∃ b1 b2, LinearRuleTrigger.blockingTeam (by apply chaseForest_subforest_obliviousChase) b1 b2 trg
+
+
+    def subsequence {fs: FactSet sig} (deriv1 deriv2: LChaseDerivation fs rs) : Prop := --TODO
+      --deriv1 is a subsequence of deriv2, wenn man deriv1.trigger_seq aus deriv2.trigger_seq durch entfernen 'überschüssiger' Elemente erzeugen kann
+      ∀ n, ∃ k, ∀ trg ∈ deriv1.trigger_seq.get? n, trg ∈ deriv2.trigger_seq.get? k ∧ ∀ trg2 ∈ deriv1.trigger_seq.drop n, trg2 ∈ deriv2.trigger_seq.drop k
+     --können sich Trigger wiederholen? Eigentlich nicht, oder?
+
+    structure mixedDerivation (fs: FactSet sig) (rs: LinearRuleSet sig) where
+      m : LChaseDerivation fs rs
+      m_obliv : m.is_oblivious ∧ ¬ m.trigger_seq.finite
+      r : LChaseDerivation fs rs
+      r_restr: r.is_resricted ∧ r.is_fair ∧ ¬ r.trigger_seq.finite
+      sub: r.subsequence m
+      trg_blocked: ∀ n, ∃ trg, m.trigger_seq.get? n = some trg ∧ trg ∈ r.trigger_seq -> trg_n_not_blocked_in_forest n m
 
 
     end LChaseDerivation
