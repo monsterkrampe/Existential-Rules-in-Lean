@@ -18,14 +18,14 @@ One step of the construction is done by the `hom_step` function below, which cal
 The base of the construction is simply an empty branch and the id mapping.
 In each step of the construction, we consider an `InductiveHomomorphismResult`, which we define to be a pair of a node in the chase tree and a `GroundTermMapping` such that the mapping is a homomorphism from the node into the model $M$.
 
-In the proof of `chaseTreeResultIsUniversal`, we leverage the `FiniteDegreeTree.generate_branch` function with `hom_step` as the generator function. By that, with a bit of massage, we can easily show that the constructed branch is indeed a branch in the tree using `FiniteDegreeTree.generate_branch_mem_branches`.
+In the proof of `chaseTreeResultIsUniversal`, we leverage the `TreeDerivation.generate_derivation` function with `hom_step` as the generator function.
 Besides that, all the homomorphisms from the individual steps need to be combined into a single function. The definition is not too hard and all relevant properties are also not too hard to show once we can establish that the homomorphisms for each step always extend the previous one.
 -/
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
 
-/-- The `InductiveHomomorphismResult` is used for the step-wise construction is forms the element that is the input and output of the generator function used in `FiniteDegreeTree.generate_branch` later. It consists of a node in the chase tree and a `GroundTermMapping` that is a homomorphism from the node to the target model. The generated branch is the chain of all the generated nodes.  -/
+/-- The `InductiveHomomorphismResult` is used for the step-wise construction is forms the element that is the input and output of the generator function used in `TreeDerivation.generate_derivation` later. It consists of a node in the chase tree and a `GroundTermMapping` that is a homomorphism from the node to the target model. The generated branch is the chain of all the generated nodes.  -/
 abbrev InductiveHomomorphismResult (ct : ChaseTree obs kb) (m : FactSet sig) :=
   { pair : ct.NodeWithAddress × (GroundTermMapping sig) // pair.snd.isHomomorphism pair.fst.node.facts m }
 
@@ -260,11 +260,11 @@ theorem hom_extends_prev_in_hom_step
     exact hom_extends_prev_in_hom_step_of_trg_ex
   . simp
 
-/-- As outlined at the very top of this file, we now use `FiniteDegreeTree.generate_branch` with the `hom_step` generator to obtain the branch in the tree that yields the result `FactSet` for which the combined `GroundTermMapping`s form a homomorphism into the target model. -/
+/-- As outlined at the very top of this file, we now use `TreeDerivation.generate_derivation` with the `hom_step` generator to obtain the branch in the tree that yields the result `FactSet` for which the combined `GroundTermMapping`s form a homomorphism into the target model. -/
 theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet sig), m.modelsKb kb -> ∃ (fs : FactSet sig) (h : GroundTermMapping sig), fs ∈ ct.result ∧ h.isHomomorphism fs m := by
   intro m m_is_model
 
-  let start : Option (InductiveHomomorphismResult ct m) := some ⟨(TreeDerivation.NodeWithAddress.root ct.toTreeDerivation, id), by
+  let start : InductiveHomomorphismResult ct m := ⟨(TreeDerivation.NodeWithAddress.root ct.toTreeDerivation, id), by
     simp only [TreeDerivation.NodeWithAddress.root]; rw [ct.database_first']; simp only
     constructor
     . unfold GroundTermMapping.isIdOnConstants; simp
@@ -273,109 +273,120 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
       have : f = e := by have hfr := hf.right; rw [hfr]; simp [TermMapping.apply_generalized_atom]
       rw [this] at hf
       exact hf.left⟩
-  let nodes_with_homs := PossiblyInfiniteList.generate start (hom_step ct m m_is_model) id
-  have nodes_with_homs_properties : ∀ pair ∈ nodes_with_homs, pair.val.snd.isHomomorphism pair.val.fst.node.facts m := by intro pair _; exact pair.property
-  let nodes : PossiblyInfiniteList (ChaseNode obs kb.rules) := FiniteDegreeTree.generate_branch start (hom_step ct m m_is_model) (fun res => res.val.fst.subderivation.toFiniteDegreeTreeWithRoot)
-  let homs : PossiblyInfiniteList (GroundTermMapping sig) := PossiblyInfiniteList.generate start (hom_step ct m m_is_model) (fun res => res.val.snd)
 
-  have nodes_eq : nodes = nodes_with_homs.map (fun res => res.val.fst.node) := by
-    apply PossiblyInfiniteList.ext; intro n
-    simp only [nodes, nodes_with_homs, FiniteDegreeTree.get?_generate_branch, PossiblyInfiniteList.get?_map, PossiblyInfiniteList.get?_generate]
-    cases (InfiniteList.iterate start fun x => x.bind (hom_step ct m m_is_model)).get n with
-    | none => simp
-    | some _ => simp only [Option.map_some, id, TreeDerivation.toFiniteDegreeTreeWithRoot, ← TreeDerivation.root.eq_def, TreeDerivation.NodeWithAddress.root_subderivation']
-  have homs_eq : homs = nodes_with_homs.map (fun res => res.val.snd) := by
-    apply PossiblyInfiniteList.ext; intro n
-    simp only [homs, nodes_with_homs, PossiblyInfiniteList.get?_map, PossiblyInfiniteList.get?_generate]
-    cases (InfiniteList.iterate start fun x => x.bind (hom_step ct m m_is_model)).get n <;> simp
+  let derivs_with_homs : PossiblyInfiniteList (ChaseDerivation obs kb.rules × GroundTermMapping sig) :=
+    PossiblyInfiniteList.generate start (hom_step ct m m_is_model) (fun res =>
+      let deriv : ChaseDerivation obs kb.rules := ct.generate_subderivation res (hom_step ct m m_is_model)
+        (fun res => res.val.fst)
+        (by intro prev res res_mem; exact mem_childNodes_of_mem_hom_step res res_mem)
+        (by intro prev eq_none
+            have : prev.val.fst.subderivation.childNodes = [] := by
+              rw [TreeDerivation.NodeWithAddress.childNodes_eq_childNodes, List.map_eq_nil_iff]
+              exact childNodes_empty_of_hom_step_none eq_none
+            rw [TreeDerivation.childNodes_eq, List.map_eq_nil_iff] at this
+            exact this)
+      (deriv, res.val.snd)
+    )
 
-  have nodes_mem : nodes ∈ ct.tree.branches := by
-    apply FiniteDegreeTree.generate_branch_mem_branches
-    . intro prev res res_mem
-      conv => left; simp only [TreeDerivation.toFiniteDegreeTreeWithRoot]
-      rw [← TreeDerivation.mem_childTrees_iff]
-      have := mem_childNodes_of_mem_hom_step res res_mem
-      rw [List.mem_map] at this
-      rcases this with ⟨node, node_mem, res_eq⟩
-      have : res.val.fst.subderivation = node.subderivation := by
-        rw [TreeDerivation.mk.injEq, ← res_eq]; simp only [TreeDerivation.NodeWithAddress.subderivation, TreeDerivation.derivation_for_suffix, TreeDerivation.NodeWithAddress.cast_for_new_root_node, FiniteDegreeTree.drop_drop]
-      rw [this]
-      apply TreeDerivation.NodeWithAddress.subderivation_mem_childTrees_of_mem_childNodes
-      exact node_mem
-    . intro prev eq_none
-      have : (TreeDerivation.NodeWithAddress.childNodes prev.val.fst.subderivation).map TreeDerivation.NodeWithAddress.node = [] := by
-        rw [List.map_eq_nil_iff]; exact childNodes_empty_of_hom_step_none eq_none
-      rw [← TreeDerivation.NodeWithAddress.childNodes_eq_childNodes, TreeDerivation.childNodes_eq, List.map_eq_nil_iff] at this
-      simp only [TreeDerivation.childTrees, List.map_eq_nil_iff, List.attach_eq_nil_iff] at this
-      exact this
-    . simp [start]
-  let deriv := (ct.derivation_for_branch _ nodes_mem)
-  have deriv_mem : deriv ∈ ct.branches := nodes_mem
+  have derivs_with_homs_properties : ∀ step ∈ derivs_with_homs, step.snd.isHomomorphism step.fst.head.facts m := by
+    intro step step_mem
+    simp only [derivs_with_homs, PossiblyInfiniteList.mem_iff] at step_mem
+    rcases step_mem with ⟨_, step_mem⟩
+    rw [PossiblyInfiniteList.get?_generate, Option.map_eq_some_iff] at step_mem
+    rcases step_mem with ⟨res, step_mem⟩
+    rw [← step_mem.right, TreeDerivation.head_generate_subderivation]
+    exact res.property
+
+  let deriv := (derivs_with_homs.head.get (by simp [derivs_with_homs, PossiblyInfiniteList.head_generate])).fst
+  have deriv_mem : deriv ∈ ct.branches := by
+    simp only [deriv, derivs_with_homs, PossiblyInfiniteList.head_generate, Option.map_some, Option.get_some]
+    apply ct.generate_subderivation_mem_branches
+    rfl
+
   let branch := ct.chaseBranch_for_branch deriv_mem
 
-  have homs_extend_each_other : ∀ (i k : Nat), ∀ node ∈ nodes.get? i, ∀ hom1 ∈ homs.get? i, ∀ hom2 ∈ homs.get? (i + k), ∀ t ∈ node.facts.terms, hom1 t = hom2 t := by
-    intro i k node node_mem hom1 hom1_mem hom2 hom2_mem t t_mem
-    induction k generalizing hom2 with
-    | zero => rw [Nat.add_zero, hom1_mem, Option.mem_def, Option.some_inj] at hom2_mem; rw [hom2_mem]
-    | succ k ih =>
-      rw [← Nat.add_assoc, homs_eq, PossiblyInfiniteList.get?_map] at hom2_mem
-      simp only [nodes_with_homs, PossiblyInfiniteList.get?_succ_generate] at hom2_mem
-      rw [Option.mem_def, Option.map_eq_some_iff, Option.map_id, id_eq] at hom2_mem
-      rcases hom2_mem with ⟨pair, pair_mem, hom2_mem⟩
-      rw [Option.bind_eq_some_iff] at pair_mem
-      rcases pair_mem with ⟨prev_pair, prev_pair_mem, pair_mem⟩
-      rw [ih prev_pair.val.snd (by rw [homs_eq, PossiblyInfiniteList.get?_map]; apply Option.mem_map_of_mem; simp only [nodes_with_homs, PossiblyInfiniteList.get?_generate, Option.map_id, id_eq]; exact prev_pair_mem), ← hom2_mem]
-      apply hom_extends_prev_in_hom_step _ pair_mem
+  have deriv_eq : deriv.branch = derivs_with_homs.map (fun step => step.fst.head) := by
+    let pairs : PossiblyInfiniteList (InductiveHomomorphismResult ct m) :=
+      PossiblyInfiniteList.generate start (hom_step ct m m_is_model) id
+    have pairs_eq : pairs.map (fun res => res.val.fst.node) = derivs_with_homs.map (fun step => step.fst.head) := by
+      simp only [pairs, derivs_with_homs]
+      apply PossiblyInfiniteList.ext; intro n
+      simp only [PossiblyInfiniteList.get?_map, PossiblyInfiniteList.get?_generate, Option.map_map]
+      apply Option.map_congr
+      intro _ _
+      simp only [Function.comp_apply, id_eq]
+      rw [TreeDerivation.head_generate_subderivation]
+    rw [← pairs_eq]
+    apply PossiblyInfiniteList.ext; intro n
+    rw [PossiblyInfiniteList.get?_map]
+    simp only [pairs, deriv, derivs_with_homs, PossiblyInfiniteList.head_generate, Option.map_some, Option.get_some]
+    simp only [TreeDerivation.generate_subderivation, TreeDerivation.generate_branch, TreeDerivation.derivation_for_branch, FiniteDegreeTree.get?_generate_branch]
+    simp only [PossiblyInfiniteList.get?_generate, Option.map_map]
+    apply Option.map_congr
+    intro _ _
+    simp only [Function.comp_apply, id_eq]
+    simp only [TreeDerivation.toFiniteDegreeTreeWithRoot]
+    rw [← TreeDerivation.root.eq_def, TreeDerivation.NodeWithAddress.root_subderivation']
+
+  have homs_extend_each_other : ∀ n, ∀ step ∈ derivs_with_homs.get? n, ∀ step2 ∈ derivs_with_homs.drop n,
+      ∀ t ∈ step.fst.head.facts.terms, step.snd t = step2.snd t := by
+    intro n step step_mem step2 step2_mem t t_mem
+    let step2 : (derivs_with_homs.drop n).Element := ⟨step2, step2_mem⟩
+    show step.snd t = step2.val.snd t
+    induction step2 using PossiblyInfiniteList.mem_rec with
+    | head head head_mem => rw [PossiblyInfiniteList.head_drop, step_mem, Option.mem_def, Option.some_inj] at head_mem; rw [head_mem]
+    | step l2 suffix ih next next_mem =>
+      rcases ih with ⟨head, head_mem, ih⟩
+      rw [ih]
+      rw [PossiblyInfiniteList.IsSuffix_iff] at suffix; rcases suffix with ⟨m, suffix⟩
+      simp only [derivs_with_homs] at suffix
+      simp only [← suffix, PossiblyInfiniteList.head_drop, PossiblyInfiniteList.get?_drop] at head_mem
+      simp only [← suffix, PossiblyInfiniteList.tail_drop, PossiblyInfiniteList.head_drop, PossiblyInfiniteList.get?_drop, Nat.add_succ] at next_mem
+      rw [PossiblyInfiniteList.get?_generate, Option.mem_def, Option.map_eq_some_iff] at head_mem
+      rcases head_mem with ⟨pair, pair_mem, head_mem⟩
+      rw [PossiblyInfiniteList.get?_succ_generate, Option.mem_def, Option.map_eq_some_iff] at next_mem
+      rcases next_mem with ⟨pair2, pair2_mem, next_mem⟩
+      rw [pair_mem] at pair2_mem
+      rw [Option.bind_some] at pair2_mem
+      simp only [← head_mem, ← next_mem]
+      apply hom_extends_prev_in_hom_step _ pair2_mem
       apply FactSet.terms_subset_of_subset _ _ t_mem
-      let node1 : deriv.Node := ⟨node, by exists i⟩
-      let node2 : deriv.Node := ⟨prev_pair.val.fst.node, by
-        exists (i + k)
-        simp only [deriv, TreeDerivation.derivation_for_branch]
-        rw [← Option.mem_def, ← PossiblyInfiniteList.get?.eq_def, nodes_eq, PossiblyInfiniteList.get?_map]
-        simp only [nodes_with_homs, PossiblyInfiniteList.get?_generate, Option.map_id, id_eq]
-        apply Option.mem_map_of_mem
-        exact prev_pair_mem⟩
+      have step_mem_deriv : deriv.branch.get? n = some step.fst.head := by
+        rw [← PossiblyInfiniteList.head_drop]
+        rw [deriv_eq, PossiblyInfiniteList.head_drop, PossiblyInfiniteList.get?_map, step_mem]
+        simp
+      let node1 : deriv.Node := ⟨step.fst.head, by exists n⟩
+      have pair_mem_deriv : deriv.branch.get? (n+m) = some pair.val.fst.node := by
+        rw [deriv_eq]
+        simp only [derivs_with_homs, PossiblyInfiniteList.get?_map, PossiblyInfiniteList.get?_generate]
+        rw [pair_mem]
+        simp only [Option.map_some, Option.some_inj]
+        rw [TreeDerivation.head_generate_subderivation]
+      let node2 : deriv.Node := ⟨pair.val.fst.node, by exists (n + m)⟩
       have prec : node1 ≼ node2 := by
-        exists deriv.derivation_for_branch_suffix _ (nodes.IsSuffix_drop i) (by rw [PossiblyInfiniteList.head_drop, node_mem]; simp)
+        exists deriv.derivation_for_branch_suffix _ (deriv.branch.IsSuffix_drop n) (by rw [PossiblyInfiniteList.head_drop, step_mem_deriv]; simp)
         simp only [ChaseDerivationSkeleton.derivation_for_branch_suffix]
         constructor
-        . exact nodes.IsSuffix_drop i
+        . exact deriv.branch.IsSuffix_drop n
         constructor
         . simp only [ChaseDerivationSkeleton.head, PossiblyInfiniteList.head_drop]
-          conv => left; left; rw [node_mem]
+          conv => left; left; rw [step_mem_deriv]
           simp [node1]
-        . exists k
-          rw [← PossiblyInfiniteList.get?.eq_def]
-          simp only [PossiblyInfiniteList.get?_drop]
-          rw [← Option.mem_def, nodes_eq, PossiblyInfiniteList.get?_map]
-          simp only [nodes_with_homs, PossiblyInfiniteList.get?_generate, Option.map_id, id_eq]
-          apply Option.mem_map_of_mem
-          exact prev_pair_mem
-      have := deriv.facts_node_subset_of_prec prec
-      exact this
+        . exists m
+      exact deriv.facts_node_subset_of_prec prec
 
   let global_h : GroundTermMapping sig := fun t =>
-    let t_mem := t ∈ branch.result.terms
+    let t_mem := ∃ step ∈ derivs_with_homs, t ∈ step.fst.head.facts.terms
     have t_mem_dec := Classical.propDecidable t_mem
     if t_mem_true : t_mem then
-      have node_mem := (Classical.choose_spec (Classical.choose_spec t_mem_true).left).left
-      let i := Classical.choose node_mem
-      have i_spec := Classical.choose_spec node_mem
-      let target_h := ((homs.get? i).get (by
-        rw [← PossiblyInfiniteList.get?.eq_def] at i_spec
-        simp only [branch, ChaseTree.chaseBranch_for_branch, deriv, TreeDerivation.derivation_for_branch] at i_spec
-        conv at i_spec => left; left; rw [nodes_eq]
-        rw [PossiblyInfiniteList.get?_map, Option.map_eq_some_iff] at i_spec
-        rcases i_spec with ⟨_, i_spec, _⟩
-        rw [homs_eq, PossiblyInfiniteList.get?_map, i_spec]
-        simp
-      ))
+      let step := Classical.choose t_mem_true
+      let target_h := step.snd
       target_h t
     else
       t
 
-  have global_h_eq_each_hom : ∀ pair ∈ nodes_with_homs, ∀ f ∈ pair.val.fst.node.facts, global_h.applyFact f = pair.val.snd.applyFact f := by
-    intro pair pair_mem f f_mem
+  have global_h_eq_each_hom : ∀ step ∈ derivs_with_homs, ∀ f ∈ step.fst.head.facts, global_h.applyFact f = step.snd.applyFact f := by
+    intro step step_mem f f_mem
     apply TermMapping.apply_generalized_atom_congr_left
     intro t t_mem
     simp only [global_h]
@@ -383,50 +394,36 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
     case a.isFalse not_mem =>
       apply False.elim
       apply not_mem
-      exists f; simp only [t_mem, and_true]
-      apply branch.facts_node_subset_result pair.val.fst.node
-      . simp only [branch, ChaseTree.chaseBranch_for_branch, deriv, TreeDerivation.derivation_for_branch]
-        show pair.val.fst.node ∈ nodes
-        rw [nodes_eq, PossiblyInfiniteList.mem_map]
-        exists pair
-      . exact f_mem
+      exists step; simp only [step_mem, true_and]
+      exists f
     case a.isTrue t_mem_true =>
-      rcases pair_mem with ⟨j, pair_mem⟩
-      have : homs.get? j = some pair.val.snd := by
-        rw [homs_eq, PossiblyInfiniteList.get?_map, Option.map_eq_some_iff]; exists pair
-      rw [Option.eq_some_iff_get_eq] at this
-      rcases this with ⟨_, this⟩
-      rw [← this]
-      have node_mem := (Classical.choose_spec (Classical.choose_spec t_mem_true).left).left
-      let i := Classical.choose node_mem
-      have i_spec := Classical.choose_spec node_mem
+      rcases step_mem with ⟨j, step_mem⟩
+      let step2 := Classical.choose t_mem_true
+      rcases Classical.choose_spec t_mem_true with ⟨⟨i, step2_mem⟩, t_mem⟩
       cases Nat.le_total i j with
       | inl i_le_j =>
         rcases Nat.le.dest i_le_j with ⟨k, i_le_j⟩
-        conv => right; fun; left; rw [← i_le_j]
-        apply homs_extend_each_other i k _ i_spec
-        . simp [i]
-        . simp
-        . exact ⟨_, ⟨(Classical.choose_spec (Classical.choose_spec t_mem_true).left).right, (Classical.choose_spec t_mem_true).right⟩⟩
+        apply homs_extend_each_other i step2 step2_mem step
+        . rw [PossiblyInfiniteList.mem_iff]; exists k; rw [PossiblyInfiniteList.get?_drop, i_le_j]; exact step_mem
+        . exact t_mem
       | inr j_le_i =>
         rcases Nat.le.dest j_le_i with ⟨k, j_le_i⟩
-        simp only [i] at j_le_i
-        conv => left; fun; left; rw [← j_le_i]
         apply Eq.symm
-        apply homs_extend_each_other j k pair.val.fst.node
-        . rw [nodes_eq, PossiblyInfiniteList.get?_map]; apply Option.mem_map_of_mem; exact pair_mem
-        . simp
-        . simp
+        apply homs_extend_each_other j step step_mem step2
+        . rw [PossiblyInfiniteList.mem_iff]; exists k; rw [PossiblyInfiniteList.get?_drop, j_le_i]; exact step2_mem
         . exists f
 
-  have global_h_hom : ∀ node ∈ nodes, global_h.applyFactSet node.facts ⊆ m := by
+  have global_h_hom : ∀ node ∈ deriv, global_h.applyFactSet node.facts ⊆ m := by
     intro node node_mem
-    rw [nodes_eq, PossiblyInfiniteList.mem_map] at node_mem
-    rcases node_mem with ⟨pair, pair_mem, node_eq⟩
+    have node_mem : node ∈ deriv.branch := node_mem
+    rw [deriv_eq, PossiblyInfiniteList.mem_map] at node_mem
+    rcases node_mem with ⟨step, step_mem, node_mem⟩
     rintro f' ⟨f, f_mem, f'_eq⟩
-    rw [← node_eq] at f_mem
-    rw [f'_eq, ← GroundTermMapping.applyFact.eq_def, global_h_eq_each_hom pair pair_mem f f_mem]
-    apply pair.property.right; apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set; exact f_mem
+    rw [← node_mem] at f_mem
+    rw [f'_eq, ← GroundTermMapping.applyFact.eq_def, global_h_eq_each_hom step step_mem f f_mem]
+    apply (derivs_with_homs_properties _ step_mem).right
+    apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
+    exact f_mem
 
   exists branch.result, global_h; constructor; exists deriv; constructor
   . intro c
@@ -434,15 +431,8 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
     split
     case isFalse _ => rfl
     case isTrue t_mem_true =>
-      have node_mem := (Classical.choose_spec (Classical.choose_spec t_mem_true).left).left
-      let i := Classical.choose node_mem
-      conv => left; fun; left; left; rw [homs_eq]
-      conv => left; fun; left; rw [PossiblyInfiniteList.get?_map]
-      rw [Option.get_map]
-      apply (nodes_with_homs_properties _ _).left
-      exists i
-      simp only [Option.some_get]
-      rfl
+      have ⟨step_mem, _⟩ := Classical.choose_spec t_mem_true
+      apply (derivs_with_homs_properties _ step_mem).left
   . rintro f' ⟨f, ⟨node, node_mem, f_mem⟩, f'_eq⟩
     rw [f'_eq]
     apply global_h_hom node node_mem
