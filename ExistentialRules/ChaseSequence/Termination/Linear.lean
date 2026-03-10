@@ -1,10 +1,21 @@
 import ExistentialRules.ChaseSequence.Termination.Basic
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] [Inhabited sig.C]
+--some of those variables are not needed for all definitions. Therefore it might be advisable to think about including them more fine-grained in the specific sections. However this would need some careful code restructuring
+--most of the later definitions and theorem include  `FactSet sig` and  `RuleSet sig` as parameters. Maybe one could think about declaring them as section variables too.
 
 section Rules
+  /-!
+  ## Linear Existential Rule
 
+  A linear rule is an existential Rule that has only a single atom in the body.
+  Here we additionally restrict the rule heads to be a conjunction of exactly two head atoms
+  (usually linear rule heads admit conjunctions of an arbitrary numberof atoms).
+  -/
+
+  /-- A Rule is linear if it's body consists of exactli one atom-/
   def Rule.isLinear (rule : Rule sig) : Prop := rule.body.length = 1 -- maybe this should be ≤ 1 but equality makes things more elegant for now
+
   def Rule.exactlyTwoHeadAtoms (rule : Rule sig) (det : rule.isDeterministic) : Prop := (rule.head[0]'(by simp only [isDeterministic, decide_eq_true_iff] at det; simp [det])).length = 2
   --general rules in (AtomsAndFacts.Basic) allow lists of conjunctions in their head (instead of just cunjunctions of atoms), this is why the above def. is so complicated
 
@@ -16,15 +27,17 @@ section Rules
     exactlyTwoHeadAtoms : rule.exactlyTwoHeadAtoms deterministic
 
   namespace LinearRule
-
+    /-- This function returns the body of a linear rule-/
     def body (rule : LinearRule sig) : FunctionFreeAtom sig := rule.rule.body[0]'(by have linear := rule.linear; simp only [Rule.isLinear] at linear; simp [linear])
+
+    /--This function returns the head of a linear rule as a Pair of the two head-atoms-/
     def head (rule : LinearRule sig) : FunctionFreeAtom sig × FunctionFreeAtom sig :=
       let conj := rule.rule.head[0]'(by have det := rule.deterministic; simp only [Rule.isDeterministic, decide_eq_true_iff] at det; simp [det])
       have length_conj : conj.length = 2 := by have twohead := rule.exactlyTwoHeadAtoms; simp only [Rule.exactlyTwoHeadAtoms] at twohead; simp[conj,twohead];
       (conj[0], conj[1])
 
   end LinearRule
-
+    /-- If two atoms have the same predicate, then they thave an equal number of terms-/
     theorem Atom_pred_eq_implies_eq_term_length {a b : GeneralizedAtom sig (T)}:
       a.predicate = b.predicate -> a.terms.length = b.terms.length := by
         intro pred_eq
@@ -59,9 +72,11 @@ section Rules
         rcases rest with ⟨x, y ⟩
         simp[y]
 
+    /--An integer i is frontier position in the body of a rule, if the term at the i'th position in the body atom is a frontier variable -/
     def is_frontier_position_body (rule: LinearRule sig) (i:Nat) (i_valid: i < rule.body.terms.length) : Prop :=
       ∃ v, rule.body.terms[i] = VarOrConst.var v ∧ v ∈ rule.rule.frontier
 
+    /--If i is a frontier position in the body of a rule r, then the term at this position occurs in the head of the rule-/
     theorem frontier_occus_in_head {rule: LinearRule sig}:
         ∀ i, (i_valid : i < rule.body.terms.length) -> is_frontier_position_body rule i i_valid ->
         rule.body.terms[i] ∈ rule.head.fst.terms ∨ rule.body.terms[i] ∈ rule.head.snd.terms := by
@@ -90,6 +105,7 @@ section Rules
         apply VarOrConst.filterVars_occur_in_original_list
         exact hr
 
+    /--if v is a frontier variable of rule r, then v occurs in the body of r-/
     theorem frontier_occurs_in_body (r : Rule sig) : ∀ v, v ∈ r.frontier -> ∃ f, f ∈ r.body ∧ (VarOrConst.var v) ∈ f.terms := by
       unfold Rule.frontier
       cases r.body with
@@ -108,9 +124,11 @@ section Rules
           apply VarOrConst.filterVars_occur_in_original_list
           exact v_mem
 
+    /--i is frontier position in the first head atom of a rule, if the term at the i'th position in that atom is a frontier variable-/
     def is_frontier_position_fst (rule: LinearRule sig)  (i: Nat) (i_valid: i < rule.head.fst.terms.length) : Prop :=
       ∃ v, rule.head.fst.terms[i] = VarOrConst.var v ∧ v ∈ rule.rule.frontier
 
+    /--i is frontier position in the first head atom of a rule iff the term at this position is a variable and also occurs in the rulebody-/
     theorem frontier_pos_fst_iff_in_body {rule: LinearRule sig} {i: Nat} {i_valid: i < rule.head.fst.terms.length} :
       is_frontier_position_fst rule i i_valid ↔
       ∃ j , ∃ h: j < rule.body.terms.length, rule.head.fst.terms[i].isVar ∧ rule.head.fst.terms[i] = rule.body.terms[j] := by
@@ -165,9 +183,11 @@ section Rules
           simp only[List.mem_iff_getElem]
           exists i, i_valid
 
+    /--i is frontier position in the second head atom of a rule, if the term at the i'th position in that atom is a frontier variable-/
     def is_frontier_position_snd (rule: LinearRule sig)  (i: Nat) (i_valid: i < rule.head.snd.terms.length) : Prop :=
       ∃ v, (rule.head.snd.terms[i]'(by exact i_valid)) = VarOrConst.var v ∧ v ∈ rule.rule.frontier
 
+    /--i is frontier position in the second head atom of a rule iff the term at this position is a variable and also occurs in the rulebody-/
     theorem frontier_pos_snd_iff_in_body {rule: LinearRule sig} {i: Nat} {i_valid: i < rule.head.snd.terms.length} :
       is_frontier_position_snd rule i i_valid ↔
       ∃ j , ∃ h: j < rule.body.terms.length, rule.head.snd.terms[i].isVar ∧ rule.head.snd.terms[i] = rule.body.terms[j] := by
@@ -232,17 +252,20 @@ end Rules
 
 section SubstitutionsAndTriggers
 
+  /--This function modifies the Substitution s such that v ↦ c and otherwise s is the same as before-/
   def extend_Substitutution  (s: GroundSubstitution sig) (v: sig.V) (c: GroundTerm sig) : GroundSubstitution sig := fun x => if x = v then c else s x
 
+  /--This function modifies the Substitution s such that t ↦ gt and returns the modified substitution if possible. Otherwise it returns Option.none
+  The parameter 'vars' serves as a list of variables for which the substition is already 'properly' defined and cannot be changed anymore -/
   def matchVarorConst (s: GroundSubstitution sig) (t : VarOrConst sig) (gt : GroundTerm sig)(vars : List (sig.V)) : Option (GroundSubstitution sig) :=
-  -- modifies Substitustion s such that t->gt if possible
     match t with
       | .const c => if gt = GroundTerm.const c then Option.some s else Option.none
       | .var v =>
           if v ∈ vars -- vars: List of variables, for which the substitutiion s is already 'properly' defined (has not just the dummy value anymore)
-          then if gt = s v then Option.some s else Option.none--triit auf, wenn es für v schon eine andere substitution gab
+          then if gt = s v then Option.some s else Option.none --triit auf, wenn es für v schon eine andere substitution gab
           else some (extend_Substitutution s v gt)
 
+  /--if 'matchVarOrConst s t gt' returns an actual substitution (Option.some subs) then subs applied on t will return gt-/
   theorem matchVarorConst.apply_var_or_const {s : GroundSubstitution sig} {t : VarOrConst sig} {gt : GroundTerm sig} {vars : List sig.V} :
     ∀ subs ∈  matchVarorConst s t gt vars, subs.apply_var_or_const t = gt := by
     simp only [Option.mem_def]
@@ -269,7 +292,7 @@ section SubstitutionsAndTriggers
       . simp[eq_c]
       . simp[eq_c]
 
-
+  /--If a variable v occurs in vars, then the resulting substitution from any call of matchVarorConst (with vars) will behave on v exactly as the substituion before the call -/
   theorem matchVarorConst.noChange_vars {s : GroundSubstitution sig} {t : VarOrConst sig} {gt : GroundTerm sig} {vars : List sig.V} :
       ∀ subs ∈ matchVarorConst s t gt vars, v∈ vars ->  subs v = s v := by
     simp only [Option.mem_def]
@@ -296,7 +319,9 @@ section SubstitutionsAndTriggers
       intro a eq_sub var_v
       simp[eq_sub]
 
-
+  /--If possible, this function returns substitution subs s.t. subs the List of VarOrConst to the List of GroundTerms (elementwise).
+  Variables in 'vars' need to be mapped exactly as in Substitution s.
+  If such a substitution is not possible, the function returns  Option.none-/
   def matchTermList (s: GroundSubstitution sig) (vars : List (sig.V)) (l : List ((VarOrConst sig) × (GroundTerm sig))) : Option (GroundSubstitution sig) :=
     --if possible, gives substitution subs s.t.  subs maps the List of VarOrConst to the List of GroundTerms
     match l with
@@ -310,7 +335,7 @@ section SubstitutionsAndTriggers
         | .var v => matchTermList s' (v::vars) ls
         | .const _ => matchTermList s' vars ls
 
-
+  /--Variables that occur in vars are (in the resulting substitution from `matchTermList`) mapped exactly as in Substitution s-/
   theorem matchTermList.v_in_vars_noChange  {v: sig.V} :  ∀ s vars, v ∈ vars -> ∀ s' ∈ (matchTermList s vars ls) , s' v = s v := by
     induction ls with
     |nil =>
@@ -347,6 +372,7 @@ section SubstitutionsAndTriggers
           apply ih
           exact var_v
 
+  /--The resulting substitution s from `matchTermList` (if there is one) will map for each pair of l the first element(VarOrConst) to the second one (GroundTerm) when s is applied to l -/
   theorem matchTermList.apply_lists {l: List ((VarOrConst sig) × (GroundTerm sig))}:
   ∀ s vars, ∀ subs ∈ matchTermList s vars l , l.unzip.fst.map subs.apply_var_or_const = l.unzip.snd := by
     induction l with
@@ -376,6 +402,7 @@ section SubstitutionsAndTriggers
           |var x => simp only; apply ih;
           |const c => simp only; apply ih;
 
+  /--If there exists a substitution than maps the first element to the second in each pair of l, then `matchTermList` will find such a substitution-/
   theorem matchTermList.some_if
     {l : List ((VarOrConst sig) × (GroundTerm sig))}
     {subs : GroundSubstitution sig}
@@ -428,16 +455,13 @@ section SubstitutionsAndTriggers
               . exact map_unzip_eq.right
               . exact subs_agrees_on_vars
 
-
-
-  -- The paper just calles this a homomorphism but we call this special kind of homomorphism a (ground) substitution.
-  -- This will require auxiliary definitions.
+  /--A ground substitution is a homomorphism from an atom to a fact. This function returns such a GroundSubstitution if there exists one. (Otherwise returns Option.none) -/
   def GroundSubstitution.from_atom_and_fact (atom : FunctionFreeAtom sig) (fact : Fact sig) : Option (GroundSubstitution sig) :=
     if atom.predicate = fact.predicate
     then matchTermList (fun _ => default) List.nil (List.zip atom.terms fact.terms)  -- calls matchTermList with a dummy substiution and the Notion, that no variables have a meaningful substitution yet (Empty List)
     else Option.none
 
-
+  /--If `GroundSubstitution.from_atom_and_fact` finds a Substitution s, then s applied on the atom retruns exactly the fact-/
   theorem GroundSubstitution.apply_function_free_atom_from_atom_and_fact {atom : FunctionFreeAtom sig} {fact : Fact sig} :
       ∀ subs ∈ GroundSubstitution.from_atom_and_fact atom fact, subs.apply_function_free_atom atom = fact := by
         intro subs;
@@ -455,21 +479,7 @@ section SubstitutionsAndTriggers
           := by rw[<-a,<-b];apply matchTermList.apply_lists; assumption
         simp[pred_eq, terms_eq]
 
-  theorem GroundSubstitution.i_lt_atom_terms_len_iff_fact_terms_len {atom: FunctionFreeAtom sig} {fact : Fact sig} :
-    ∀ subs ∈ GroundSubstitution.from_atom_and_fact atom fact, ∀ i, (i < atom.terms.length) ↔  i < fact.terms.length := by
-      intro subs subs_mem i
-      constructor
-      . intro i_valid
-        have subs_appy: subs.apply_function_free_atom atom = fact := by rw[GroundSubstitution.apply_function_free_atom_from_atom_and_fact]; exact subs_mem
-        rw[← subs_appy]
-        simp only [GroundSubstitution.apply_function_free_atom, TermMapping.length_terms_apply_generalized_atom]
-        exact i_valid
-      . intro i_valid
-        have subs_appy: subs.apply_function_free_atom atom = fact := by rw[GroundSubstitution.apply_function_free_atom_from_atom_and_fact]; exact subs_mem
-        rw[← subs_appy] at i_valid
-        simp only [GroundSubstitution.apply_function_free_atom, TermMapping.length_terms_apply_generalized_atom] at i_valid
-        exact i_valid
-
+  /--If a substitution is returned by `GroundSubstitution.from_atom_and_fact`,then the atom and fact have the same number of terms.-/
   theorem GroundSubstitution.atom_terms_len_eq_fact_terms_len {atom: FunctionFreeAtom sig} {fact : Fact sig} :
     ∀ subs ∈ GroundSubstitution.from_atom_and_fact atom fact, atom.terms.length = fact.terms.length := by
       intro subs subs_mem
@@ -477,7 +487,14 @@ section SubstitutionsAndTriggers
       rw[← subs_appy]
       simp only [GroundSubstitution.apply_function_free_atom, TermMapping.length_terms_apply_generalized_atom]
 
+  /--If a substitution is returned by `GroundSubstitution.from_atom_and_fact`,then every number i is less than than the length of the term list of the atomm iff it is also less than the term list lenght of the fact  -/
+  theorem GroundSubstitution.i_lt_atom_terms_len_iff_fact_terms_len {atom: FunctionFreeAtom sig} {fact : Fact sig} :
+    ∀ subs ∈ GroundSubstitution.from_atom_and_fact atom fact, ∀ i, (i < atom.terms.length) ↔  i < fact.terms.length := by
+      intro subs subs_mem i
+      have len_eq := GroundSubstitution.atom_terms_len_eq_fact_terms_len subs subs_mem
+      rw[len_eq]
 
+  /--`GroundSubstitution.from_atom_and_fact` finds a substituition iff there exists one that maps the atom to the fact-/
   theorem GroundSubstitution.from_atom_and_fact_some_iff {atom : FunctionFreeAtom sig} {fact : Fact sig} :
       (∃ subs, (GroundSubstitution.from_atom_and_fact atom fact) = some subs) ↔ ∃ (subs : GroundSubstitution sig), subs.apply_function_free_atom atom = fact := by
         apply Iff.intro
@@ -503,17 +520,15 @@ section SubstitutionsAndTriggers
             . simp only[List.not_mem_nil, false_implies, implies_true]
 
 
-
+  /--A PreTrigger consists of a rule and a substitution form the rulebody to a fact. Here we get this substitution via `GroundSubstitution.from_atom_and_fact`-/
   def PreTrigger.from_rule_and_fact (rule : LinearRule sig) (fact : Fact sig) : Option (PreTrigger sig) :=
     (GroundSubstitution.from_atom_and_fact rule.body fact).map (fun subs => {
       rule := rule.rule
       subs := subs
     })
 
+  --this is just a slight variation of the definition given above
   theorem PreTrigger.from_rule_and_fact_some_implies {rule : LinearRule sig} {fact : Fact sig} :
-    -- TODO for Laila: again that could use Option.is_none_or again. Actually there is even the possibility of writing
-    -- ∀ trg ∈ PreTrigger.from_rule_and_fact rule fact -> ...
-    -- since Membership is defined on Option. Now that I think about it, maybe this is in fact the best option (no pun intended) all throughout.
       ∀ trg ∈ PreTrigger.from_rule_and_fact rule fact,  trg.rule = rule.rule ∧ GroundSubstitution.from_atom_and_fact rule.body fact = some trg.subs := by
         unfold PreTrigger.from_rule_and_fact;
         cases PreTrigger.from_rule_and_fact rule fact;
@@ -522,6 +537,8 @@ section SubstitutionsAndTriggers
 
   -- this is definition 6 but we do not need the address u
   -- we use the already existing (Pre)Triggers to define the actual result of the rule application
+  /--A rule can be appiled to a fact, if there exists a homomorphism from the rulebody to the fact (iff `PreTrigger.from_rule_and_fact` is some).
+  The result of the Rule Applycation is then given by `trg.mapped_head` and consist of two facts (that are obtained from the rulehaed by applying the substitution and skolemization)-/
   def ruleApply (rule : LinearRule sig) (fact : Fact sig) : Option (Fact sig × Fact sig) :=
     (PreTrigger.from_rule_and_fact rule fact).attach.map (fun ⟨trg, trg_orig⟩ =>
       have h:= And.left (PreTrigger.from_rule_and_fact_some_implies trg trg_orig);
@@ -565,11 +582,13 @@ section SubstitutionsAndTriggers
       exists htr;
       simp[And.left (PreTrigger.from_rule_and_fact_some_implies val htr)];
 
+  /--If `ruleApply` returns some value for a rule and a fact, then `PreTrigger.from_rule_and_fact` also returns some value for the same rule and fact-/
   theorem ruleApply.some_implies_PreTrigger_some {rule: LinearRule sig} {fact: Fact sig}:
     (ruleApply rule fact).isSome -> (PreTrigger.from_rule_and_fact rule fact).isSome := by
     rw[ruleApply_eq]
     simp
 
+  /--If `ruleApply` returns some for a rule and a fact, then this means, that rulebody and fact have the same number of terms in their resp. atom-/
   theorem ruleApply.body_length_eq_fact_length {rule: LinearRule sig} {fact: Fact sig} :
   (ruleApply_some : (ruleApply rule fact).isSome) -> rule.body.terms.length = fact.terms.length := by
   intro ruleApply_some
@@ -580,6 +599,7 @@ section SubstitutionsAndTriggers
   rw[GroundSubstitution.atom_terms_len_eq_fact_terms_len trg.subs]
   simp[some_subs]
 
+  /--The resulting first Atom from `ruleApply` (if it doesn'r return none) hase the same number of terms as the first head atom of the rule -/
   theorem ruleApply_fst_term_lenght_eq_rule_head_length {rule:LinearRule sig} {fact: Fact sig} {ruleApply_some: (ruleApply rule fact).isSome}:
     ((ruleApply rule fact).get ruleApply_some).fst.terms.length = rule.head.fst.terms.length := by
       have trg_some : (PreTrigger.from_rule_and_fact rule fact).isSome := by apply ruleApply.some_implies_PreTrigger_some; exact ruleApply_some
@@ -589,6 +609,7 @@ section SubstitutionsAndTriggers
       simp only [PreTrigger.apply_to_function_free_atom]
       simp only [TermMapping.apply_generalized_atom, List.length_map]
 
+  /--The resulting second Atom from `ruleApply` (if it doesn'r return none) hase the same number of terms as the second head atom of the rule -/
   theorem ruleApply_snd_term_lenght_eq_rule_head_length {rule:LinearRule sig} {fact: Fact sig} {ruleApply_some: (ruleApply rule fact).isSome}:
     ((ruleApply rule fact).get ruleApply_some).snd.terms.length = rule.head.snd.terms.length := by
       have trg_some : (PreTrigger.from_rule_and_fact rule fact).isSome := by apply ruleApply.some_implies_PreTrigger_some; exact ruleApply_some
@@ -598,6 +619,7 @@ section SubstitutionsAndTriggers
       simp only [PreTrigger.apply_to_function_free_atom]
       simp only [TermMapping.apply_generalized_atom, List.length_map]
 
+  /--If i is a frontier-Position in the first head of the rule, then there exists some position j in fact such that `ruleApply rule fact` will map the term at the frontier-Position to the term at position j in the fact.-/
   theorem ruleApply_frontierPos_fstHead {rule : LinearRule sig} {fact : Fact sig} {i : Nat} (i_valid: i < rule.head.fst.terms.length) (h_frontier : is_frontier_position_fst rule i i_valid):
      (ruleApplySome: (ruleApply rule fact).isSome) ->
     ∃ j: Nat, ∃ (j_valid: j < fact.terms.length), ((ruleApply rule fact).get ruleApplySome).fst.terms[i]'(by
@@ -628,6 +650,7 @@ section SubstitutionsAndTriggers
     rw [← trg_eq]
     rfl
 
+  /--If some positions in the first atom of the rule head and the body contain the same term, then the heads position of the second fact produced by `ruleApply`  will contain the term that occurs at the rule bodies position in the fact that is given as parameter to ruleApply.-/
   theorem rule_terms_eq_implies_ruleApply_terms_eq_fstHead {rule: LinearRule sig} {fact : Fact sig} {idxH idxB: Nat} (idxH_valid: idxH < rule.head.fst.terms.length) (idxB_valid: idxB < rule.body.terms.length) :
       (ruleApplySome: (ruleApply rule fact).isSome) -> rule.head.fst.terms[idxH] = rule.body.terms[idxB] ->
       ((ruleApply rule fact).get ruleApplySome).fst.terms[idxH]'(by rw[ruleApply_fst_term_lenght_eq_rule_head_length]; exact idxH_valid)
@@ -663,6 +686,7 @@ section SubstitutionsAndTriggers
       rw [← trg_eq]
       rfl
 
+  /--If some positions in rule head and body contain the same term, then the heads position of the second fact produced by `ruleApply`  will contain the term that occurs at the rule bodies position in the fact that is given as parameter to ruleApply.-/
   theorem rule_terms_eq_implies_ruleApply_terms_eq_sndHead {rule: LinearRule sig} {fact : Fact sig} {idxH idxB: Nat} (idxH_valid: idxH < rule.head.snd.terms.length) (idxB_valid: idxB < rule.body.terms.length) :
       (ruleApplySome: (ruleApply rule fact).isSome) -> rule.head.snd.terms[idxH] = rule.body.terms[idxB] ->
       ((ruleApply rule fact).get ruleApplySome).snd.terms[idxH]'(by rw[ruleApply_snd_term_lenght_eq_rule_head_length]; exact idxH_valid)
@@ -697,6 +721,7 @@ section SubstitutionsAndTriggers
       rw [← trg_eq]
       rfl
 
+  --If i is a frontier-Position in the second head of the rule, then there exists some position j in fact such that `ruleApply rule fact` will map the term at the frontier-Position to the term at position j in the fact.-/
   theorem ruleApply_frontierPos_sndHead {rule : LinearRule sig} {fact : Fact sig} {i : Nat} (i_valid: i < rule.head.snd.terms.length) (h_frontier : is_frontier_position_snd rule i i_valid):
      (ruleApplySome: (ruleApply rule fact).isSome) ->
     ∃ j: Nat, ∃ (j_valid: j < fact.terms.length), ((ruleApply rule fact).get ruleApplySome).snd.terms[i]'(by
@@ -734,6 +759,7 @@ section SubstitutionsAndTriggers
     rw [← trg_eq]
     rfl
 
+  /--If i is a position in the first rule head containing a non-frontier-variable (i.e. an existential variable),then `ruleApply` will map the term at this position to a functional term (a SkolemFunction)-/
   theorem ruleApply_non_frontier_var_fstHead_is_fun {rule: LinearRule sig} {fact: Fact sig} {i : Nat} (i_valid: i < rule.head.fst.terms.length):
      (ruleApplySome: (ruleApply rule fact).isSome) -> (∃ v, rule.head.fst.terms[i] = VarOrConst.var v ∧  v ∉ rule.rule.frontier) ->
       ∃ a b c, ((ruleApply rule fact).get ruleApplySome).fst.terms[i]'(by rw[ruleApply_fst_term_lenght_eq_rule_head_length]; exact i_valid) = GroundTerm.func a b c := by
@@ -761,6 +787,7 @@ section SubstitutionsAndTriggers
     exists (List.map trg.subs trg.rule.frontier)
     simp
 
+   /--If i is a position in the second rule head containing a non-frontier-variable (i.e. an existential variable),then `ruleApply` will map the term at this position to a functional term (a SkolemFunction)-/
    theorem ruleApply_non_frontier_var_sndHead_is_fun {rule: LinearRule sig} {fact: Fact sig} {i : Nat} (i_valid: i < rule.head.snd.terms.length):
      (ruleApplySome: (ruleApply rule fact).isSome) -> (∃ v, rule.head.snd.terms[i] = VarOrConst.var v ∧  v ∉ rule.rule.frontier) ->
       ∃ a b c, ((ruleApply rule fact).get ruleApplySome).snd.terms[i]'(by rw[ruleApply_snd_term_lenght_eq_rule_head_length]; exact i_valid) = GroundTerm.func a b c := by
@@ -792,35 +819,30 @@ end SubstitutionsAndTriggers
 
 section Addresses
 
+  /--an AddressSymbol consists of a Linear Rule and a Number 0 or 1 that references the first(0) or second(1) head of that rule-/
   structure AddressSymbol (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] where
     rule : LinearRule sig
     headIndex : Fin 2
 
-  -- address symbols for a rule set
+  /--This function defines the set of all possible Address symbols of a rule set -/
   def addressSymbols (rs : LinearRuleSet sig) : Set (AddressSymbol sig) :=
     fun sym => sym.rule ∈ rs.rules
 
-  -- NOTE: Maybe an inductive definition with multiple cases would be more useful here, not sure yet...
+  /--An Address consists of an initial fact from the fat set and a list of address symbols from the rule set. The paper considers them a a word wu ∈ (fact set)(addressSymbols)* which allows talking about prefixes of addresses-/
   structure Address (fs : FactSet sig) (rs : LinearRuleSet sig) where
     initialAtom : {f : Fact sig // f ∈ fs}
     path : List {sym : AddressSymbol sig // sym ∈ addressSymbols rs} --This List is intended to be filled from right to left (i.e. the last element of the List is the Address symbol that is direct successor of the initial Atom)
 
 
-/-
-  def all_prefix_addresses_in_set {fs: FactSet sig} (a: Address fs rs) (f: Set (Address fs rs)) : Prop :=
-    match a.path with
-    |[] => true
-    |list => let b:= {a with path := list.dropLastTR}; b ∈ f ∧ all_prefix_addresses_in_set b f
- -/
-
- -- with this definition, we use the List of address-symbols that bulids the path from rigth to left (contrary on how it's written in the paper)
- -- therefore we would write an address wuv ∈ IA* (with w ∈ I, u,v ∈ A) as {initialAtom := w , path :=[v,u]}
+  /--This definition returns true iff the immediate prefix of an address (i.e. the same Address just with the Address-path being shortend by the first symbol) is contained is Set f-/
   def immed_prefix_address_in_set {fs: FactSet sig} (a: Address fs rs) (f : Set (Address fs rs)) : Prop :=
+  -- with this definition, we use the List of address-symbols that bulids the path from rigth to left (contrary on how it's written in the paper)
+  -- therefore we would write an address wuv ∈ IA* (with w ∈ I, u,v ∈ A) as {initialAtom := w , path :=[v,u]}
     match a.path with
     |[] => true
     |_::ls => let b:= {a with path := ls}; b ∈ f
 
-
+  /--A forest is a set of addresses with the following two properties: (1) the fact set is fully contained in the forest and (2) for each addresses all its prefixae are in the forest too-/
   structure Forest (fs : FactSet sig) (rs : LinearRuleSet sig) where
     f : Set (Address fs rs)
     fs_contained : ∀ fact ∈ fs, ∃ a ∈ f , fact = a.initialAtom ∧ a.path = []  -- fs shall be contained in f (this should likely involve auxiliary definitions)
@@ -828,13 +850,16 @@ section Addresses
 
   namespace Forest
 
+  /--A forest is subforest of another one if it is a subset-/
   def subforest_of {fs: FactSet sig} (g : Forest fs rs) (f : Forest fs rs) : Prop := g.f ⊆ f.f
 
+  /--The subforest relation is reflexive-/
   theorem subforest_refl {fs: FactSet sig} {f: Forest fs rs}: --subforest relation is reflexive
       f.subforest_of f := by
     unfold subforest_of
     simp[Subset]
 
+  /-the subforest relation is transitive-/
   theorem subforest_trans {fs: FactSet sig} {f g h : Forest fs rs}: --subforest-relation is transitive
       f.subforest_of g ->  g.subforest_of h -> f.subforest_of h := by
     unfold subforest_of
@@ -842,6 +867,7 @@ section Addresses
 
   end Forest
 
+  /--A Fact set can be seen as a forest too where all adresses have an empty path-/
   def FactSet.toForest (fs: FactSet sig) : Forest fs rs where
   f:= fun x => x.path = []
   fs_contained := by intro fact fact_mem;  exists {initialAtom := ⟨fact, fact_mem⟩, path := []}
@@ -852,10 +878,11 @@ end Addresses
 
 section ObvliviousChaseRepresentation
 
-  -- TODO for Laila: formalize definition 7; this should mostly come down to recursively define the fact associated with an address
-  -- Maybe we need to discuss this as it might not be quite obvious how to do it.
-  -- I think the idea would be to first define the labelling function returning an option and then to define the oblivious chase representation as the forest of all addresses where the labelling function returns some ... on each address.
-
+  /--The Labelling Function maps an address to a fact if possible.
+  The fact is created by successively applying the rules of the address symbols.
+  Starting from the initial atom of the address, the rule of the first address symbol is applied then from the result one takes the head atom that is referenced by the address symbol and applies the naxt rule onto that.
+  As rule applycation may fail (if there is no homomorphism) the labelling can also return none
+   -/
   def labellingFunction {rs: LinearRuleSet sig} (w : Address fs rs) : Option (Fact sig) :=
     match eq : w.path with
     |[] => w.initialAtom
@@ -867,6 +894,7 @@ section ObvliviousChaseRepresentation
       |some lu => (ruleApply r.val.rule lu ).map (fun x => if r.val.headIndex = 0 then x.fst else x.snd)
   termination_by w.path.length
 
+  /--The oblivious chase representation is the forest of all addresses where the labelling function returns Option.some fact -/
   def oblivious_chase (fs : FactSet sig) (rs : LinearRuleSet sig) : Forest fs rs where
     f := fun addr => (labellingFunction addr).isSome
     fs_contained := by
@@ -893,9 +921,11 @@ section ObvliviousChaseRepresentation
           rw [eq, List.cons_eq_cons] at heq
           rw [← heq.right, contra]
 
+  /--The materialization of a forest is the set of all facts that can be produced by labellings from addresses of the forest-/
   def materialization_labelling {fs: FactSet sig} (g: Forest fs rs) : FactSet sig :=
     fun a => ∃ b∈ g.f, labellingFunction b = Option.some a
 
+  /--For all Addresses that are part of a subforest of the obllivious chase the labbeling function returns some fact-/
   theorem subforest_of_oblivious_chase_labelling_some {fs: FactSet sig} {g: Forest fs rs} {h: Forest.subforest_of g (oblivious_chase fs rs)}:
     ∀a, a ∈ g.f -> (labellingFunction a).isSome  := by
       intro a a_mem
@@ -909,6 +939,7 @@ end ObvliviousChaseRepresentation
 
 section TriggersAndChaseDerivation
 
+  /--A trigger consists of a Linear rule from the rule set and an address such that there exists an homomorphism from the rulebody to the labelling of the address-/
   structure LinearRuleTrigger (fs: FactSet sig) (rs: LinearRuleSet sig) where
   rule : {r: LinearRule sig // r ∈ rs.rules}
   addr : {u: Address fs rs // (labellingFunction u).isSome}
@@ -916,8 +947,8 @@ section TriggersAndChaseDerivation
 
   namespace LinearRuleTrigger
 
+    /--from the trigger's rule on can bild two address symbols (one for each head). The Appplication of the trigger produces the two addresses that arise from adding one of those address symbols each to the trigger's address -/
     def apply {fs:FactSet sig} (pi : LinearRuleTrigger fs rs) : (Address fs rs) × (Address fs rs) :=
-      -- NOTE: using let instead of have since have only remembers the type but not the actual expression. let remembers the expression.
       let fst: {f : AddressSymbol sig // f ∈ addressSymbols rs}:=
         {val:= {rule:= pi.rule.val,headIndex:=0}, property:= by unfold addressSymbols; exact pi.rule.property;}
       let snd: {f : AddressSymbol sig // f ∈ addressSymbols rs}:=
@@ -925,6 +956,7 @@ section TriggersAndChaseDerivation
       ({initialAtom:= pi.addr.val.initialAtom, path:=(fst ::pi.addr.val.path)},
       {initialAtom:= pi.addr.val.initialAtom, path:=(snd ::pi.addr.val.path)})
 
+    /--If you call `ruleApply` on the trigger's rule and labelling of the address, then you get Option.some value-/
     theorem ruleApply_of_trigger_labelling_is_some {fs: FactSet sig} {pi: LinearRuleTrigger fs rs}:
       (ruleApply pi.rule.val (Option.get (labellingFunction pi.addr.val) pi.addr.property)).isSome := by
         rw[ruleApply_eq]
@@ -932,6 +964,7 @@ section TriggersAndChaseDerivation
         simp only [Option.map_map, Option.isSome_map]
         exact pi.hom_exists
 
+    /--The labelling of the addresses produced by the trigger applicstion is some-/
     theorem labellingFunction_trg_apply_is_some {fs: FactSet sig} {pi: LinearRuleTrigger fs rs}:
         (labellingFunction pi.apply.fst).isSome ∧ (labellingFunction pi.apply.snd).isSome := by
       unfold labellingFunction apply
@@ -946,13 +979,13 @@ section TriggersAndChaseDerivation
         rw[← Option.get_of_eq_some l_some h]
         simp[ruleApply_of_trigger_labelling_is_some]
 
-    --this gives some shortcut that avoids dealing with the "Option" ...
+    /--this function gives a shortcut for retrieving the actual labellings for the addresses created by the trigger application-/
     def labelling_of_apply {fs: FactSet sig} (pi: LinearRuleTrigger fs rs) : (Fact sig) × (Fact sig) :=
       let lu := Option.get (labellingFunction pi.addr.val) pi.addr.property
       have ruleApply_some: (ruleApply pi.rule.val lu).isSome := by unfold lu; simp[ruleApply_of_trigger_labelling_is_some]
       Option.get (ruleApply pi.rule.val lu) ruleApply_some
 
-    --this shows that the schortcut of 'labelling_of_apply' is actually correct
+    /--this shows that the schortcut of `labelling_of_apply` is actually correct-/
     theorem labelling_of_apply_eq {fs: FactSet sig} {pi : LinearRuleTrigger fs rs} :
       (labelling_of_apply pi).map Option.some Option.some = (labellingFunction pi.apply.fst,labellingFunction pi.apply.snd) := by
         unfold labellingFunction
@@ -969,6 +1002,7 @@ section TriggersAndChaseDerivation
             rw[← Option.map_some]
             simp[Option.some_get]
 
+    /--The predicates of the first atom of the trigger'st rule head and the first fact produced by `labelling_of_apply` are the same-/
     theorem trg_apply_labelling_fst_predicate_eq {fs: FactSet sig} {pi: LinearRuleTrigger fs rs} :
           pi.rule.val.head.fst.predicate = (labelling_of_apply pi).fst.predicate := by
             unfold labelling_of_apply;
@@ -976,6 +1010,7 @@ section TriggersAndChaseDerivation
             unfold PreTrigger.apply_to_function_free_atom PreTrigger.apply_to_var_or_const TermMapping.apply_generalized_atom;
             simp;
 
+    /--The predicates of the  second atom of the  rule head and the second fact produced by `labelling_of_apply` are the same-/
     theorem trg_apply_labelling_snd_predicate_eq {fs: FactSet sig} {pi: LinearRuleTrigger fs rs} :
           pi.rule.val.head.snd.predicate = (labelling_of_apply pi).snd.predicate := by
             unfold labelling_of_apply;
@@ -983,18 +1018,21 @@ section TriggersAndChaseDerivation
             unfold PreTrigger.apply_to_function_free_atom PreTrigger.apply_to_var_or_const TermMapping.apply_generalized_atom;
             simp;
 
+    /--The number of terms in the first atom of the trigger's rule head and in the first fact produced by `labelling_of_apply` are the same-/
     theorem trg_apply_labelling_fst_terms_len {fs: FactSet sig} {pi: LinearRuleTrigger fs rs} :
           pi.rule.val.head.fst.terms.length = (labelling_of_apply pi).fst.terms.length := by
         rw[GeneralizedAtom.arity_ok]
         simp only[trg_apply_labelling_fst_predicate_eq]
         rw[← GeneralizedAtom.arity_ok]
 
+    /--The number of terms in the second atom of the trigger's rule head and in the second fact produced by `labelling_of_apply` are the same-/
     theorem trg_apply_labelling_snd_terms_len {fs: FactSet sig} {pi: LinearRuleTrigger fs rs} :
           pi.rule.val.head.snd.terms.length = (labelling_of_apply pi).snd.terms.length := by
         rw[GeneralizedAtom.arity_ok]
         simp only[trg_apply_labelling_snd_predicate_eq]
         rw[← GeneralizedAtom.arity_ok]
 
+    /--The atom in the trigger's rule's body has the same number of terms ar the fact produced by the labelling of the trigger's address-/
     theorem rule_body_terms_len_eq_addr_labelling_terms_len {fs: FactSet sig} {pi: LinearRuleTrigger fs rs} :
         pi.rule.val.body.terms.length = (Option.get (labellingFunction pi.addr.val) pi.addr.property).terms.length := by
       let sub := pi.hom_exists
@@ -1003,6 +1041,7 @@ section TriggersAndChaseDerivation
       rw [GroundSubstitution.atom_terms_len_eq_fact_terms_len sub]
       simp [sub_eq]
 
+    /--If some positions idxH,idxB in the trigger's first rule head and body (resp.) contain the same term (this is then either a frontier variable or constant), then the first fact produced by `labelling_of_apply` contains the same term at position idxH, as the labelling of the trigger's address contains at idxB.-/
     theorem term_in_rule_eq_implies_in_labelling_eq_fstHead {fs: FactSet sig} {pi: LinearRuleTrigger fs rs} {idxB idxH : Nat} (idxB_valid : idxB < pi.rule.val.body.terms.length) (idxH_valid: idxH < pi.rule.val.head.fst.terms.length):
         pi.rule.val.body.terms[idxB] = pi.rule.val.head.fst.terms[idxH] ->
         (Option.get (labellingFunction pi.addr.val) pi.addr.property).terms[idxB]'(by rw[rule_body_terms_len_eq_addr_labelling_terms_len] at idxB_valid; exact idxB_valid)
@@ -1014,6 +1053,7 @@ section TriggersAndChaseDerivation
       rw[eq_comm]
       exact t_eq
 
+    /--If some positions idxH,idxB in the trigger's second rule head and body (resp.) contain the same term (this is then either a frontier variable or constant), then the second fact produced by `labelling_of_apply` contains the same term at position idxH, as the labelling of the trigger's address contains at idxB.-/
     theorem term_in_rule_eq_implies_in_labelling_eq_sndHead {fs: FactSet sig} {pi: LinearRuleTrigger fs rs} {idxB idxH : Nat} (idxB_valid : idxB < pi.rule.val.body.terms.length) (idxH_valid: idxH < pi.rule.val.head.snd.terms.length):
         pi.rule.val.body.terms[idxB] = pi.rule.val.head.snd.terms[idxH] ->
         (Option.get (labellingFunction pi.addr.val) pi.addr.property).terms[idxB]'(by rw[rule_body_terms_len_eq_addr_labelling_terms_len] at idxB_valid; exact idxB_valid)
@@ -1025,15 +1065,19 @@ section TriggersAndChaseDerivation
       rw[eq_comm]
       exact t_eq
 
+    /--A trigger appears in a forest, if it's address is part of the forest-/
     def appears_in_forest {fs: FactSet sig} (pi: LinearRuleTrigger fs rs) (g: Forest fs rs): Prop := pi.addr.val ∈ g.f
 
     -- TODO for Laila: If you want, you can instantiate the Membership typeclass for triggers and forests to be able to write: pi ∈ g and define this to be pi.appears_in_forest g
 
+    /--A trigger is active in a forest, if it's address is part of that forest, but at least one of the addresses that are produced by trigger application isn't part of the forest.-/
     def isActive_in_forest {fs: FactSet sig} (pi:LinearRuleTrigger fs rs) (g: Forest fs rs) : Prop :=
       pi.appears_in_forest g ∧ ¬ (pi.apply.fst ∈ g.f ∧ pi.apply.snd ∈ g.f)
 
+    /--A forest-address is just an address that occurs in a specific forest-/
     def forest_Address {fs: FactSet sig} (g : Forest fs rs) := {addr : Address fs rs // addr ∈ g.f }
 
+    /--every forest address where the forest is subforest of the oblivious chase is labelled to Option.some ... by the `labellingFunction`-/
     theorem forest_addr_label_some {fs: FactSet sig} {g: Forest fs rs} {g_sub: g.subforest_of (oblivious_chase fs rs)} {b: forest_Address g}:
       (labellingFunction b.val).isSome := by
         revert b
@@ -1042,25 +1086,24 @@ section TriggersAndChaseDerivation
         apply subforest_of_oblivious_chase_labelling_some
         exact g_sub
 
+    /--A forest_trigger of a forest is a trigger that appears in that specific forest-/
     def forest_Trigger {fs: FactSet sig} (g : Forest fs rs) := {trg : LinearRuleTrigger fs rs // trg.appears_in_forest g}
 
+    /--Two addresses b1, b2 are Blocking team for a trigger iff ...(See definition 11 in the paper). Note that this definition slighliy differs from the definition in the paper in the sense that we don't requite h to be the identity on ⟨u⟩ but only on the frontier-positional terms in ⟨u⟩-/
     def blockingTeam {fs: FactSet sig} {g : Forest fs rs} (g_sub : g.subforest_of (oblivious_chase fs rs)) (b1 b2 : forest_Address g) (pi : forest_Trigger g) : Prop :=
-      -- Note: this definition differs from the original paper in the sense that we don't requite h to be the identity on ⟨u⟩ but only on the frontier-positionel terms in ⟨u⟩
+      -- Note: this definition differs from the original paper
       ∃ h: GroundTermMapping sig,
+      -- h is the identity on frontier-terms in the labelling of te trigger's address
       (∀ i, (i_valid: i < pi.val.rule.val.body.terms.length) -> is_frontier_position_body pi.val.rule.val i i_valid ->
         (h.applyFact (Option.get (labellingFunction pi.val.addr.val) pi.val.addr.property)).terms[i]'(by unfold GroundTermMapping.applyFact; rw[TermMapping.length_terms_apply_generalized_atom]; rw[← rule_body_terms_len_eq_addr_labelling_terms_len]; exact i_valid)
         = (Option.get (labellingFunction pi.val.addr.val) pi.val.addr.property).terms[i]'(by rw[← rule_body_terms_len_eq_addr_labelling_terms_len]; exact i_valid))
+      -- h on the first fact from the labelling of the trigger application equals the labelling of b1
       ∧ h.applyFact (labelling_of_apply pi.val).fst = Option.get (labellingFunction b1.val) (by apply forest_addr_label_some; exact g_sub)
+      -- h on the second fact from the labelling of the trigger application equals the labelling of b2
       ∧ h.applyFact (labelling_of_apply pi.val).snd = Option.get (labellingFunction b2.val) (by apply forest_addr_label_some; exact g_sub)
-      ∧ h.isIdOnConstants --Frage: ist diese Bedingung hinreichend & notwendig?
-      -- Antwort: Ich glaube es genügt in der letzten Zeile zu fordern, dass `h.isIdOnConstants` gilt. Ehrlicherweise scheint diese Bedingung im Paper bei der Homomorphismen Definition zu fehlen.
-      -- Alternativ könnte man die Bedingungen so schreiben:
-      /- ∃ h: GroundTermMapping sig, h.applyFact (Option.get (labellingFunction pi.val.addr.val) pi.val.addr.property) = Option.get (labellingFunction pi.val.addr.val) pi.val.addr.property -/
-      /- ∧ h.isHomomorphism (labelling_of_apply pi.val).fst (Option.get (labellingFunction b1.val) (by apply forest_addr_label_some; exact g_sub)) -/
-      /- ∧ h.isHomomorphism (labelling_of_apply pi.val).snd (Option.get (labellingFunction b2.val) (by apply forest_addr_label_some; exact g_sub)) -/
-      -- In der ersten Zeile könnte man wahrscheinlich sogar fordern, dass `h` die Identität auf allen Termen aus (Option.get (labellingFunction pi.val.addr.val) pi.val.addr.property) ist. Das klingt erstmal stärker, ist es aber wahrscheinlich nicht.
+      ∧ h.isIdOnConstants
 
-
+    /--these are the three conditions from the alternative blocking-team definition. If they hold true then b1 and b2 are a plocking team for the trigger (see Observation 12 in the paper). Note that we needed to add the treatment of constants at condition two. -/
     structure Conditions {fs: FactSet sig} {g : Forest fs rs} (g_sub: g.subforest_of (oblivious_chase fs rs)) (b1 b2: forest_Address g) (pi: forest_Trigger g) where
       b1_label := Option.get (labellingFunction b1.val) (by apply forest_addr_label_some; exact g_sub)
       b2_label:= Option.get (labellingFunction b2.val) (by apply forest_addr_label_some; exact g_sub)
@@ -1073,10 +1116,11 @@ section TriggersAndChaseDerivation
           (labelling_of_apply pi.val).fst.terms[j]'(by rw[← trg_apply_labelling_fst_terms_len]; exact lt_fst) = b1_label.terms[j]'(by rw[GeneralizedAtom.arity_ok, first.left, ← trg_apply_labelling_fst_predicate_eq, ← GeneralizedAtom.arity_ok]; simp[lt_fst]))
         ∧ (∀ j, (lt_snd: j < pi.val.rule.val.head.snd.terms.length) -> (is_frontier_position_snd pi.val.rule.val j lt_snd) ∨ (∃ c, pi.val.rule.val.head.snd.terms[j] = VarOrConst.const c) ->
           (labelling_of_apply pi.val).snd.terms[j]'(by rw[← trg_apply_labelling_snd_terms_len]; exact lt_snd) = b2_label.terms[j]'(by rw[GeneralizedAtom.arity_ok, first.right, ← trg_apply_labelling_snd_predicate_eq, ← GeneralizedAtom.arity_ok]; simp[lt_snd]))
-      third : (∀ i j:Nat, (labelling_of_apply pi.val).fst.terms[i]? = (labelling_of_apply pi.val).fst.terms[j]? -> b1_label.terms[i]? = b1_label.terms[j]?) --funktioniert das mit dem indizieren mit [.]? so?
+      third : (∀ i j:Nat, (labelling_of_apply pi.val).fst.terms[i]? = (labelling_of_apply pi.val).fst.terms[j]? -> b1_label.terms[i]? = b1_label.terms[j]?)
         ∧ (∀ i j:Nat, (labelling_of_apply pi.val).fst.terms[i]? = (labelling_of_apply pi.val).snd.terms[j]? -> b1_label.terms[i]? = b2_label.terms[j]?)
         ∧ (∀ i j:Nat, (labelling_of_apply pi.val).snd.terms[i]? = (labelling_of_apply pi.val).snd.terms[j]? -> b2_label.terms[i]? = b2_label.terms[j]?)
 
+    /--this is just a helper theorem to simplify the expression `cond.b1_label.terms[List.idxOf pi.val.labelling_of_apply.fst.terms[i] pi.val.labelling_of_apply.fst.terms]` Maybe this could be stated in a more general result (?) -/
     theorem b1_label_terms_idxOf_eq {fs: FactSet sig} {g : Forest fs rs} {g_sub: g.subforest_of (oblivious_chase fs rs)} {b1 b2: forest_Address g} {pi: forest_Trigger g} {cond: Conditions g_sub b1 b2 pi}:
         ∀i, (i_lt:  i < pi.val.labelling_of_apply.fst.terms.length) -> cond.b1_label.terms[List.idxOf pi.val.labelling_of_apply.fst.terms[i] pi.val.labelling_of_apply.fst.terms]'
           (by rw[GeneralizedAtom.arity_ok, cond.first.left, ← GeneralizedAtom.arity_ok]; simp[List.idxOf_lt_length_iff])
@@ -1097,6 +1141,7 @@ section TriggersAndChaseDerivation
         rw[List.getElem_idxOf_of_mem mem_l]
         simp
 
+    /--this is just a helper theorem to simplify the expression `cond.b2_label.terms[List.idxOf pi.val.labelling_of_apply.snd.terms[i] pi.val.labelling_of_apply.snd.terms]` -/
     theorem b2_label_terms_idxOf_eq {fs: FactSet sig} {g : Forest fs rs} {g_sub: g.subforest_of (oblivious_chase fs rs)} {b1 b2: forest_Address g} {pi: forest_Trigger g} {cond: Conditions g_sub b1 b2 pi}:
         ∀i, (i_lt:  i < pi.val.labelling_of_apply.snd.terms.length) -> cond.b2_label.terms[List.idxOf pi.val.labelling_of_apply.snd.terms[i] pi.val.labelling_of_apply.snd.terms]'
           (by rw[GeneralizedAtom.arity_ok, cond.first.right, ← GeneralizedAtom.arity_ok]; simp[List.idxOf_lt_length_iff])
@@ -1117,6 +1162,7 @@ section TriggersAndChaseDerivation
         rw[List.getElem_idxOf_of_mem mem_l]
         simp
 
+    /--this shows the equivalence of the two definitons for blocking teams (This is the proof for observation 12 in the paper)-/
     theorem blockingTeam.iff {fs: FactSet sig} {g : Forest fs rs} {g_sub: g.subforest_of (oblivious_chase fs rs)} {b1 b2: forest_Address g} {pi: forest_Trigger g} :
       blockingTeam g_sub b1 b2 pi ↔ ∃ _: Conditions g_sub b1 b2 pi, True := by
         unfold blockingTeam
@@ -1448,8 +1494,8 @@ section TriggersAndChaseDerivation
                       unfold GroundTerm.func GroundTerm.const at t_eq
                       simp at t_eq
 
+    /--returns the resulting forest that arises if one adds the result of pi.apply to forest g if pi is a Trigger that is active in g-/
     def active_trigger_apply_resulting_forest {fs: FactSet sig} (pi: LinearRuleTrigger fs rs) (g: Forest fs rs) (pi_active: pi.isActive_in_forest g) : Forest fs rs where
-    --returns the resulting forest if one adds the result of pi.apply to forest g if pi is a Trigger that is active in g
       f:= fun x => x∈ g.f ∨  x= pi.apply.fst ∨  x= pi.apply.snd
       fs_contained := by
         intro fact fact_mem;
@@ -1495,6 +1541,7 @@ section TriggersAndChaseDerivation
               rw[← b]
               apply pi_active.left
 
+    /--the original forest g is a subforest of the one produced by `active_trigger_apply_resulting_forest`-/
     theorem forest_subforest_trigger_apply_result {fs: FactSet sig} {g: Forest fs rs} {pi: LinearRuleTrigger fs rs} {pi_active: pi.isActive_in_forest g}:
     g.subforest_of (active_trigger_apply_resulting_forest pi g pi_active) := by
       unfold Forest.subforest_of
@@ -1513,14 +1560,20 @@ section TriggersAndChaseDerivation
     -- Da wird man aber eine Prästruktur brauchen, wo man erstmal nur die Trigger Sequenz hat, dann da alle möglichen Bedingungen definiert und dann ist die tatsächliche ChaseDerivation eine Struktur bestehend aus der Prästruktur und eben den Bedingungen. (Wahrscheinlich beschränkt sich das im ersten Moment darauf, dass jeder Trigger aktiv sein muss.)
     -- Bei der ChaseBranch werden Faktenmengen und Trigger gemeinsam in den Elementen der Sequenz gehalten. Falls du denkst, dass das hilfreich ist, wäre das auch hier eine Option. (Nur, dass es hier Trigger und Forests sind.) Ich bin mir nicht mehr sicher, ob ich einen guten Grund hatte das bei der `ChaseBranch` so zu machen oder ob das einfach das erste war, was mir eingefallen ist :D
     -- Nur die Trigger zu speichern und Fakten/Forests daraus abzuleiten, kommt mir etwas sauberer vor und wenn ich mal Zeit habe, passe ich vielleicht auch die `ChaseBranch` dahingehend an :)
+
+    /--A `PossiblyInfiniteList` of triggers is called `PreChaseDerivation`-/
     abbrev PreChaseDerivation (fs: FactSet sig) (rs: LinearRuleSet sig) := PossiblyInfiniteList (LinearRuleTrigger fs rs)
 
     namespace PreChaseDerivation
 
+    /--This structure defines two conditions that must hold for the correspondence between a trigger and two forests. It is be needed to define chase derivations.
+    (1) the trigger must be active in the forest 'before'
+    (2) adding the application of the trigger to forest 'before' results in the forest 'after' -/
     structure trg_application_cond {fs: FactSet sig} (trg: LinearRuleTrigger fs rs) (before : Forest fs rs) (after : Option (Forest fs rs)) where
       active : trg.isActive_in_forest before
       result : after = some (LinearRuleTrigger.active_trigger_apply_resulting_forest trg before active)
 
+    /--A forest sequence is valid for a `PreChaseDerivation`-trigger sequence, if it (1) starts with the fact set and then (2) for each number n on which the trigger sequence is defined, the `trg_application_condition` holds for that trigger together with the forests at positions n and n+1 in the forest-sequence-/
     def forest_seq_valid {fs: FactSet sig} (trg_seq : PreChaseDerivation fs rs) (forest_seq : PossiblyInfiniteList (Forest fs rs)): Prop :=
       forest_seq.get? 0 = some fs.toForest ∧
       ∀ n : Nat, match (trg_seq.get? n) with
@@ -1529,6 +1582,7 @@ section TriggersAndChaseDerivation
           let after := forest_seq.get? (n+1)
           trg_application_cond trg before after)
 
+    /--if two forest sequences are both valid for the same trigger-sequence, then they are equal-/
     theorem forest_seq_valid_implies_unique {fs: FactSet sig}{trg_seq: PreChaseDerivation fs rs}:
         ∀ forest_seq_1 forest_seq_2, forest_seq_valid trg_seq forest_seq_1 ∧ forest_seq_valid trg_seq forest_seq_2
         -> forest_seq_1 = forest_seq_2 := by
@@ -1560,6 +1614,7 @@ section TriggersAndChaseDerivation
             let cond2_result := valid_2_rest.result
             simp[cond2_result, cond_result]
 
+    /--every forest that occurs in a valid forest-sequence is subforest of the oblivious chase-/
     theorem forest_seq_valid_subset_oblivious_chase {fs: FactSet sig}{trg_seq: PreChaseDerivation fs rs}:
           ∀ forest_seq, forest_seq_valid trg_seq forest_seq -> ∀ n, (forest_seq.get? n).elim True (fun f => f.subforest_of (oblivious_chase fs rs)) := by
         intro forest_seq seq_valid n
@@ -1618,6 +1673,7 @@ section TriggersAndChaseDerivation
 
     end PreChaseDerivation
 
+    /--A chase derivation consists of a Possibly infinite trigger sequence, together with a forest sequence that is valid for the trigger sequence-/
     structure LChaseDerivation(fs: FactSet sig) (rs: LinearRuleSet sig) where
       trigger_seq : PreChaseDerivation fs rs
       forest_seq: PossiblyInfiniteList (Forest fs rs)
@@ -1625,6 +1681,7 @@ section TriggersAndChaseDerivation
 
     namespace LChaseDerivation
 
+    /--If the trigger sequence of a chasederivation is defined (Option.isSome) at position n the so is the forest sequence-/
     theorem trg_seq_n_some_then_forest_seq_n_some {fs: FactSet sig} {deriv: LChaseDerivation fs rs} :
         ∀ n, (deriv.trigger_seq.get? n).isSome -> (deriv.forest_seq.get? n).isSome := by
       intro n trg_some
@@ -1640,6 +1697,7 @@ section TriggersAndChaseDerivation
         |none => simp
         |some _ => simp
 
+    /--if the forest sequence is defined (Option.isSome) at position n+1 then the trigger sequence is defined at position n-/
     theorem forest_succc_n_some_then_trg_n_some {fs: FactSet sig} {deriv : LChaseDerivation fs rs} :
         ∀ n, (deriv.forest_seq.get? (n+1)).isSome -> (deriv.trigger_seq.get? n).isSome := by
       intro n f1_some
@@ -1651,6 +1709,7 @@ section TriggersAndChaseDerivation
       |some trg =>
         simp
 
+    /--for every n, the trigger in the trigger sequence at position n (if there is some) is active in the forest of the forest-sequence at position n-/
     theorem trg_n_active {fs: FactSet sig} {deriv: LChaseDerivation fs rs}:
         ∀ n, ∀ trg, (trg_n: trg ∈ deriv.trigger_seq.get? n)
         -> trg.isActive_in_forest ((deriv.forest_seq.get? n).get (by apply trg_seq_n_some_then_forest_seq_n_some; simp only[Option.isSome_iff_exists]; exists trg)) := by
@@ -1667,6 +1726,7 @@ section TriggersAndChaseDerivation
       . simp only [Bool.not_eq_true, Option.isSome_eq_false_iff, Option.isNone_iff_eq_none] at f_some
         simp only [f_some, Option.elim_none] at h
 
+    /--/--for every n, the trigger in the trigger sequence at position n (if there is some) appears in the forest of the forest-sequence at position n-/-/
     theorem trg_n_forest_trigger {fs: FactSet sig} {deriv: LChaseDerivation fs rs}:
         ∀ n, ∀ trg, (trg_n: trg ∈ deriv.trigger_seq.get? n)
         -> trg.appears_in_forest ((deriv.forest_seq.get? n).get (by apply trg_seq_n_some_then_forest_seq_n_some; simp only[Option.isSome_iff_exists]; exists trg)) := by
@@ -1675,6 +1735,7 @@ section TriggersAndChaseDerivation
       unfold LinearRuleTrigger.isActive_in_forest at trg_active
       exact trg_active.left
 
+    /--every forest in the forest sequence is subforest of its successor forest in that sequence-/
     theorem forest_n_subforest_succ {fs: FactSet sig} {deriv: LChaseDerivation fs rs}:
         ∀ n, ∀ f ∈ deriv.forest_seq.get? n, ∀ f2 ∈ deriv.forest_seq.get? (n.succ), f.subforest_of f2 := by
       intro n f f_elem f2 f2_elem
@@ -1691,6 +1752,7 @@ section TriggersAndChaseDerivation
       rw[res]
       simp[LinearRuleTrigger.forest_subforest_trigger_apply_result]
 
+    /--every forest in the forest sequence is subforest of all its successor forests in that sequence-/
     theorem forest_n_subforest_all_succ {fs:FactSet sig} {deriv: LChaseDerivation fs rs}:
         ∀ n, ∀ f ∈ deriv.forest_seq.get? n, ∀ n2 ≥  n, ∀ f2 ∈ deriv.forest_seq.get? (n2), f.subforest_of f2 := by
       intro n f f_elem n2 n2_gt f2 f2_elem
@@ -1727,6 +1789,7 @@ section TriggersAndChaseDerivation
         simp[Forest.subforest_trans h g_sub]
 
 
+    /--a chase forest is defined as the union of all forests that occur in the forest sequence of the chase derivation. This is also a forest.-/
     def chaseForest {fs : FactSet sig} (deriv : LChaseDerivation fs rs) : Forest fs rs where
       f := fun addr => ∃ forest, addr ∈ forest.f ∧ forest ∈  (deriv.forest_seq)
       fs_contained := by
@@ -1754,6 +1817,7 @@ section TriggersAndChaseDerivation
             exists forest
             simp[mem_f,addr_mem]
 
+    /--the chase forest is subforest of the oblivious chase-/
     theorem chaseForest_subforest_obliviousChase {fs: FactSet sig} {deriv: LChaseDerivation fs rs}:
       (chaseForest deriv).subforest_of (oblivious_chase fs rs) := by
       unfold chaseForest
@@ -1771,10 +1835,11 @@ section TriggersAndChaseDerivation
       simp only[Membership.mem, a_mem] at h
       simp only[Membership.mem, h]
 
-
+    /--a chase derivation is called oblivous, if its chase forest equals the oblivious chase representation (defined by `oblivious_chase`) -/
     def is_oblivious {fs: FactSet sig} (deriv: LChaseDerivation fs rs) : Prop :=
       chaseForest deriv = oblivious_chase fs rs
 
+    /--In a chase derivation, the trigger at position n in the trigger sequence is not blocked in forest at position n (in the forest sequence), if there doesn't exist a blocking team for the trigger in that forest. -/
     def trg_n_not_blocked_in_forest {fs: FactSet sig} (n: Nat) (deriv: LChaseDerivation fs rs): Prop :=
       (trgn_some: (deriv.trigger_seq.get? n).isSome) ->
       have fn_some : (deriv.forest_seq.get? n).isSome := by
@@ -1796,20 +1861,23 @@ section TriggersAndChaseDerivation
         exact trg_in_f
       ¬ ∃ b1 b2, LinearRuleTrigger.blockingTeam fn_sub b1 b2 ⟨((deriv.trigger_seq.get? n).get trgn_some), trg_in_f⟩
 
+    /--a chese derivation is called restricted if no trigger of the trigger-sequence is blocked in its corresponding forest-/
     def is_resricted {fs: FactSet sig} (deriv: LChaseDerivation fs rs) : Prop :=
       ∀ n , trg_n_not_blocked_in_forest n deriv
 
+    /--a chase derivation is called fair, if every trigger that is active in the `chaseForest` of that derivation also has a blocking team in the chaseForest-/
     def is_fair {fs: FactSet sig} (deriv: LChaseDerivation fs rs) : Prop :=
       let m := chaseForest deriv
       ∀ trg: LinearRuleTrigger.forest_Trigger m, LinearRuleTrigger.isActive_in_forest trg.val m ->
       ∃ b1 b2, LinearRuleTrigger.blockingTeam (by apply chaseForest_subforest_obliviousChase) b1 b2 trg
 
 
-    def subsequence {fs: FactSet sig} (deriv1 deriv2: LChaseDerivation fs rs) : Prop := --TODO
-      --deriv1 is a subsequence of deriv2, wenn man deriv1.trigger_seq aus deriv2.trigger_seq durch entfernen 'überschüssiger' Elemente erzeugen kann
+    /--Derivation deriv1 is a subsequence of deriv2, if it can be created from deriv2 by dropping 'unneccessary' elements.-/
+    def subsequence {fs: FactSet sig} (deriv1 deriv2: LChaseDerivation fs rs) : Prop :=
       ∀ n, ∃ k, ∀ trg ∈ deriv1.trigger_seq.get? n, trg ∈ deriv2.trigger_seq.get? k ∧ ∀ trg2 ∈ deriv1.trigger_seq.drop n, trg2 ∈ deriv2.trigger_seq.drop k
      --können sich Trigger wiederholen? Eigentlich nicht, oder?
 
+    /--A mixed derivation consists of a oblivious chase derivation m, a restricted chase derivation r that is subsequence of m and we additionally have the condition that every trigger of m at position n that also occurs somewhere in r is not blocked in the forest at position n from m-/
     structure mixedDerivation (fs: FactSet sig) (rs: LinearRuleSet sig) where
       m : LChaseDerivation fs rs
       m_obliv : m.is_oblivious ∧ ¬ m.trigger_seq.finite
