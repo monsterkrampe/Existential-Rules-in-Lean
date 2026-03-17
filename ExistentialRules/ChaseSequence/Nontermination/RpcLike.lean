@@ -1,6 +1,67 @@
 import ExistentialRules.ChaseSequence.Termination.Basic
 
 /-!
+
+# Generate Branch in Tree Derivation from Sparse Sequence
+
+TODO
+-/
+
+namespace TreeDerivation
+
+variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
+variable {obs : ObsoletenessCondition sig} {rules : RuleSet sig}
+
+/-- TODO -/
+def nodes_along_address (td : TreeDerivation obs rules) : List Nat -> List (NodeWithAddress td)
+| [] => []
+| hd :: tl =>
+  ((TreeDerivation.NodeWithAddress.childNodes td)[hd]?.map (fun child =>
+    child :: (child.subderivation.nodes_along_address tl).map (TreeDerivation.NodeWithAddress.cast_for_new_root_node child)
+  )).getD []
+
+/-- TODO -/
+def densify_generator (td : TreeDerivation obs rules) (generator : β -> Option β) (mapper : β -> NodeWithAddress td) :
+    (β × List (NodeWithAddress td)) -> Option (β × List (NodeWithAddress td))
+| (b, []) =>
+  (generator b).map (fun b' =>
+    (b', ((mapper b).subderivation.nodes_along_address ((mapper b').address.drop (mapper b).address.length).dropLast).map (TreeDerivation.NodeWithAddress.cast_for_new_root_node (mapper b)))
+  )
+| (b, _::tl) => some (b, tl)
+
+def densify_mapper (td : TreeDerivation obs rules) (mapper : β -> NodeWithAddress td) : (β × List (NodeWithAddress td)) -> NodeWithAddress td
+| (b, []) => mapper b
+| (_, hd::_) => hd
+
+def generate_subderivation_from_sparse (td : TreeDerivation obs rules)
+    (start : β) (generator : β -> Option β) (mapper : β -> NodeWithAddress td)
+    (next_is_succ : ∀ b, ∀ b' ∈ generator b, mapper b ≼ mapper b' ∧ mapper b ≠ mapper b') -- TODO: we should introduce ≺ for TreeDerivation
+    (maximal : ∀ b, generator b = none -> (mapper b).subderivation.childTrees = []) :
+    ChaseDerivation obs rules :=
+  td.generate_subderivation (start, []) (td.densify_generator generator mapper) (td.densify_mapper mapper)
+    (by intro b b' mem
+        sorry)
+    (by intro b
+        simp only [densify_generator]
+        split
+        . rw [Option.map_eq_none_iff]
+          simp only [densify_mapper]
+          exact maximal _
+        . simp)
+
+def generate_subderivation_from_sparse_total (td : TreeDerivation obs rules)
+    (start : β) (generator : β -> β) (mapper : β -> NodeWithAddress td)
+    (next_is_succ : ∀ b, mapper b ≼ mapper (generator b) ∧ mapper b ≠ mapper (generator b)) : -- TODO: we should introduce ≺ for TreeDerivation
+    ChaseDerivation obs rules :=
+  td.generate_subderivation_from_sparse start (Option.some ∘ generator) mapper
+    (by intro b _ eq; rw [Function.comp_apply, Option.mem_def, Option.some_inj] at eq; rw [← eq]; exact next_is_succ b)
+    (by simp)
+
+end TreeDerivation
+
+
+
+/-!
 # RPC-like Non-Termination
 
 We are going to formalize sufficient conditions for chase non-termination.
