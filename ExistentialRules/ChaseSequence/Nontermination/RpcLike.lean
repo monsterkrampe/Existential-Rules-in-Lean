@@ -7,7 +7,7 @@ We are going to formalize sufficient conditions for chase non-termination.
 Mainly, we will introduce the necessary machinery from Restricted Prefix Cyclicity (RPC)
 but we also aim to generalize this to capture (Disjunctive) Model-Faithful Cyclicity ((D)MFC) at the same time.
 
-SO FAR, WE ONLY HAVE A FEW VERY BASIC DEFINITIONS ARE THERE IS A LONG WAY TO GO.
+SO FAR, WE ONLY HAVE A FEW VERY BASIC DEFINITIONS. THERE IS A LONG WAY TO GO.
 -/
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]

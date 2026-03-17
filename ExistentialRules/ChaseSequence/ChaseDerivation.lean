@@ -49,7 +49,7 @@ section Basics
 /-!
 ## Basic Definitions
 
-Here we introduce some auxiliary definitions and theorems and we lift some of the machinery of the underlying `PossiblyInfiniteList` to `ChaseDerivation`. Some has already been lifted to `ChaseDerivationSkeleton`.
+Here we introduce some auxiliary definitions and theorems and we lift some of the machinery of the underlying `PossiblyInfiniteList` to `ChaseDerivation`. Some have already been lifted to `ChaseDerivationSkeleton`.
 -/
 
 /-- Membership of `ChaseNode`s in the `ChaseDerivation` directly corresponds to membership in the `ChaseDerivationSkeleton`. -/
