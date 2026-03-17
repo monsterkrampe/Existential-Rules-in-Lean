@@ -3,7 +3,11 @@ import ExistentialRules.ChaseSequence.Termination.Basic
 /-!
 # RPC-like Non-Termination
 
-TODO
+We are going to formalize sufficient conditions for chase non-termination.
+Mainly, we will introduce the necessary machinery from Restricted Prefix Cyclicity (RPC)
+but we also aim to generalize this to capture (Disjunctive) Model-Faithful Cyclicity ((D)MFC) at the same time.
+
+SO FAR, WE ONLY HAVE A FEW VERY BASIC DEFINITIONS ARE THERE IS A LONG WAY TO GO.
 -/
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
@@ -21,7 +25,7 @@ def RuleSet.neverTerminates (rs : RuleSet sig) (obs : ObsoletenessCondition sig)
 end BasicDefinitions
 
 
-/-- TODO -/
+/-- A trigger is unblockable if its result necessarily occurs in every derivation where the trigger is loaded. In the introducing paper this is called g-unblockable. -/
 def Trigger.unblockable
     {obs : ObsoletenessCondition sig}
     (trg : Trigger obs.toLaxObsoletenessCondition)
@@ -31,7 +35,7 @@ def Trigger.unblockable
   ∃ node2 : td.NodeWithAddress, node ≼ node2 ∧
   trg.mapped_head[disjIdx.val].toSet ⊆ node2.node.facts
 
-/-- TODO -/
+/-- A `CyclicityDerivation` is an infinite list of `ChaseNode`s. We demand only that triggers are loaded, new terms keep being added (growing) and that triggers are unblockable. This is much different from a `ChaseDerivation` but intuitively, we can view a `CyclicityDerivation` as a very special non-continuous subderivation of a suitable `ChaseDerivation`. -/
 structure CyclicityDerivation (obs : ObsoletenessCondition sig) (rules : RuleSet sig) extends ChaseDerivationSkeleton obs rules where
   triggers_loaded : ∀ n : Nat, ∀ before ∈ (branch.drop n).head,
     ∀ after ∈ (branch.drop n).tail.head, ∃ orig ∈ after.origin, orig.fst.val.loaded before.facts
@@ -45,6 +49,7 @@ variable {obs : ObsoletenessCondition sig} {rules : RuleSet sig}
 instance : Membership (ChaseNode obs rules) (CyclicityDerivation obs rules) where
   mem cd node := node ∈ cd.toChaseDerivationSkeleton
 
+/-- We restate the `growing` property using vocabulary available for `ChaseDerivationSkeleton`s. -/
 theorem growing' {cd : CyclicityDerivation obs rules} : ∀ node : cd.Node,
     ∃ node2 : cd.Node, node ≺ node2 ∧ ∃ t, ¬ t ∈ node.val.facts.terms ∧ t ∈ node2.val.facts.terms := by
   rintro ⟨node, ⟨n, node_eq⟩⟩
@@ -74,6 +79,7 @@ theorem growing' {cd : CyclicityDerivation obs rules} : ∀ node : cd.Node,
     exact prec
   . exists t
 
+/-- The result of a `CyclicityDerivation` is infinite due to the `growing` property. -/
 theorem result_infinite {cd : CyclicityDerivation obs rules} : ¬ cd.result.finite := by
   rintro ⟨l, _, eq⟩
   have sub_res : l.toSet ⊆ cd.result := by intro e e_mem; rw [← eq, ← List.mem_toSet]; exact e_mem
@@ -86,7 +92,7 @@ theorem result_infinite {cd : CyclicityDerivation obs rules} : ¬ cd.result.fini
   apply FactSet.terms_subset_of_subset (cd.facts_node_subset_result node2.val node2.property)
   exact t_mem
 
-/-- TODO; it might surprise that this is independant from the above as a we can only relate finiteness of the result and termination for proper ChaseBranches -/
+/-- Each `CyclicityDerivation` is infinite because it is `growing`. It might surprise that this is independant from the above result. However, note that we can only relate finiteness of the result and termination for proper ChaseBranches so corresponding results are not applicable here. -/
 theorem infinite {cd : CyclicityDerivation obs rules} : ¬ cd.terminates := by
   intro contra
   rcases cd.has_last_node_of_terminates contra with ⟨node, node_last⟩
@@ -95,15 +101,17 @@ theorem infinite {cd : CyclicityDerivation obs rules} : ¬ cd.terminates := by
   apply FactSet.terms_subset_of_subset (cd.facts_node_subset_of_prec (node_last node2))
   exact t_mem
 
+/-
 theorem corresponding_tree_branch_exists {cd : CyclicityDerivation obs rules} (td : TreeDerivation obs rules) :
     ∃ deriv ∈ td.branches, deriv.result = cd.result := by
   -- The construction is going to be annoying. The idea is to get a derivation from the "unblockable" condition, which can generate an infinite list of tree nodes for us. However, they do not directly correspond to a branch as there are big "holes" between. But we can easily fill them in by the node addresses. So the idea is clear. Only executing it will be not so nice. Maybe we can introduce some more machinery to ease the process.
   sorry
+-/
 
 end CyclicityDerivation
 
 
-/-- TODO; (called CyclicitySequence in the RPC paper) -/
+/-- This is the CyclicitySequence from the RPC paper. For us, it is a `CyclicityDerivation` that starts on a database.  -/
 structure CyclicityBranch (obs : ObsoletenessCondition sig) (kb : KnowledgeBase sig) extends CyclicityDerivation obs kb.rules where
   database_first : branch.head = some {
     facts := kb.db.toFactSet,
@@ -111,17 +119,16 @@ structure CyclicityBranch (obs : ObsoletenessCondition sig) (kb : KnowledgeBase 
     facts_contain_origin_result := by simp
   }
 
+/-
 namespace CyclicityBranch
 
 variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
 
-/-- TODO -/
 theorem corresponding_tree_branch_exists {cb : CyclicityBranch obs kb} (ct : ChaseTree obs kb) :
     ∃ branch : ChaseBranch obs kb, branch.toChaseDerivation ∈ ct.branches ∧ branch.result = cb.result := by
   rcases cb.toCyclicityDerivation.corresponding_tree_branch_exists ct.toTreeDerivation with ⟨cd, cd_mem, res_eq⟩
   exists ct.chaseBranch_for_branch cd_mem
 
-/-- TODO -/
 theorem neverTerminates_of_cyclicityBranch {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
     (cb : CyclicityBranch obs kb) : kb.rules.neverTerminates obs := by
   exists kb.db
@@ -133,4 +140,5 @@ theorem neverTerminates_of_cyclicityBranch {obs : ObsoletenessCondition sig} {kb
   exact terminates
 
 end CyclicityBranch
+-/
 
