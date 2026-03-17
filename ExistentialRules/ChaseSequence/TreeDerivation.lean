@@ -388,8 +388,12 @@ theorem root_subderivation {td : TreeDerivation obs rules} {node : NodeWithAddre
   simp [subderivation, derivation_for_suffix, root, TreeDerivation.root, FiniteDegreeTree.root_drop, node.eq]
 
 /-- The root of the `subderivation` is the node itself. -/
-theorem root_subderivation' {td : TreeDerivation obs rules} {node : NodeWithAddress td}: node.subderivation.root = node.node := by
+theorem root_subderivation' {td : TreeDerivation obs rules} {node : NodeWithAddress td} : node.subderivation.root = node.node := by
   simp [subderivation, derivation_for_suffix, TreeDerivation.root, FiniteDegreeTree.root_drop, node.eq]
+
+/-- The `subderivation` of the root is the original `TreeDerivation`. -/
+theorem subderivation_root {td : TreeDerivation obs rules} : (root td).subderivation = td := by
+  simp only [subderivation, root, FiniteDegreeTree.drop_nil, derivation_for_suffix]
 
 /-- `NodeWithAddress.childNodes` has the same length as `TreeDerivation.childNodes`. -/
 theorem length_childNodes {td : TreeDerivation obs rules} : (childNodes td).length = td.childNodes.length := by
@@ -409,6 +413,11 @@ theorem mem_childNodes_of_mem_childNodes {td : TreeDerivation obs rules} : ∀ {
 
 /-- Getting specific elements from child nodes can be translated between `NodeWithAddress.childNodes` and `TreeDerivation.childNodes`. -/
 theorem node_getElem_childNodes {td : TreeDerivation obs rules} : ∀ i (lt : i < (childNodes td).length), (childNodes td)[i].node = td.childNodes[i]'(by rw [← length_childNodes]; exact lt) := by simp [childNodes_eq_childNodes]
+
+/-- Getting specific element addresses from child nodes can be translated between `NodeWithAddress.childNodes` and `TreeDerivation.childNodes`. -/
+theorem address_getElem_childNodes {td : TreeDerivation obs rules} : ∀ i (lt : i < (childNodes td).length), (childNodes td)[i].address = [i] := by
+  intro i lt; simp only [childNodes, List.getElem_map, List.getElem_attach]
+  rw [List.zipIdx_with_lt_getElem_snd_eq_index]; rw [length_childNodes] at lt; exact lt
 
 /-- The subderivation for a child node is a child tree. -/
 theorem subderivation_mem_childTrees_of_mem_childNodes {td : TreeDerivation obs rules} {node : NodeWithAddress td} :
@@ -638,6 +647,7 @@ section BranchesAndResult
 Here, we define the result of a `TreeDerivation`, which requires us to also define the branches of the `TreeDerivation`. It should be no surprise that these are `ChaseDerivation`s. The result is then just the set of the results of all the `ChaseDerivation`s in the tree. We already know from the `ChaseDerivation` that each element of `TreeDerivation.result` is therefore a model of the rules.
 -/
 
+-- TODO: the following definition is in desperate need of being shortened
 /-- Each branch of the underlying tree can be transformed into a proper `ChaseDerivation`. -/
 def derivation_for_branch (td : TreeDerivation obs rules) (branch : PossiblyInfiniteList (ChaseNode obs rules)) (branch_mem : branch ∈ td.tree.branches) : ChaseDerivation obs rules := {
   branch := branch,
@@ -650,73 +660,134 @@ def derivation_for_branch (td : TreeDerivation obs rules) (branch : PossiblyInfi
     rcases branch_mem with ⟨ns, branch_eq, ns_max⟩
     have branch_eq2 : ∀ n, (branch.drop n).head = (td.tree.drop (ns.take n)).root := by intro n; rw [branch_eq, FiniteDegreeTree.root_drop]; rfl
 
-    intro n node node_mem
+    intro n node node_mem after_opt after_node after_mem
     cases td.triggers_exist (ns.take n) node (by rw [← branch_eq2]; exact node_mem) with
     | inl trg_ex =>
-      apply Or.inl
       rcases trg_ex with ⟨trg, trg_ex⟩
       exists trg
-      constructor
-      . exact trg_ex.left
-      . cases Decidable.em (ns.get n < trg.val.rule.head.length) with
-        | inl n_lt_head_length =>
-          have length_aux_1 : ns.get n < trg.val.mapped_head.length := by
-            rw [trg.val.length_mapped_head]
-            exact n_lt_head_length
-          exists ⟨ns.get n, length_aux_1⟩
-          specialize branch_eq2 n.succ
-          rw [PossiblyInfiniteList.head_eq, PossiblyInfiniteList.get?_drop] at branch_eq2
-          rw [PossiblyInfiniteList.head_eq, PossiblyInfiniteList.get?_tail, PossiblyInfiniteList.get?_drop, branch_eq2]
-          rw [InfiniteList.take_succ', ← FiniteDegreeTree.drop_drop]
-          rw [← FiniteDegreeTree.FiniteDegreeTreeWithRoot.opt_to_tree_after_tree_to_opt (t := ((td.tree.drop (ns.take n)).drop [ns.get n]))]
-          rw [← FiniteDegreeTree.get?_childTrees]
-          rw [← FiniteDegreeTree.get?_childNodes]
-          rw [trg_ex.right]
-          simp only
-          rw [List.getElem?_eq_getElem (by rw [List.length_map, List.length_attach, List.length_zipIdx_with_lt]; exact length_aux_1)]
-          rw [Option.some_inj]
-          rw [List.getElem_map, List.getElem_attach, ChaseNode.mk.injEq]
-          rw [List.zipIdx_with_lt_getElem_fst_eq_getElem]
-          rw [List.zipIdx_with_lt_getElem_snd_eq_index]
-          constructor
-          . rfl
-          . rfl
-        | inr n_lt_head_length =>
-          have : (td.tree.drop (ns.take n)).childNodes[ns.get n]? = none := by
-            rw [trg_ex.right]
-            apply List.getElem?_eq_none
-            apply Nat.le_of_not_lt
-            rw [List.length_map, List.length_attach, List.length_zipIdx_with_lt, trg.val.length_mapped_head]
-            exact n_lt_head_length
-          have : node ∈ td.tree.leaves := by
-            unfold FiniteDegreeTree.leaves
-            unfold PossiblyInfiniteTree.leaves
-            exists (ns.take n)
-            constructor
-            . rw [branch_eq2, FiniteDegreeTree.root_drop] at node_mem
-              exact node_mem
-            . apply ns_max
-              rw [PossiblyInfiniteTree.get?_branchForAddress, InfiniteList.take_succ']
-              rw [FiniteDegreeTree.get?_childNodes, ← FiniteDegreeTree.FiniteDegreeTreeWithRoot.opt_to_tree_none_iff] at this
-              rw [FiniteDegreeTree.get?_childTrees, FiniteDegreeTree.FiniteDegreeTreeWithRoot.tree_to_opt_none_iff] at this
-              rw [FiniteDegreeTree.drop_drop, FiniteDegreeTree.root_drop] at this
-              exact this
-          have not_active : ¬ trg.val.active node.facts := by apply td.fairness_leaves; exact this
-          have active : trg.val.active node.facts := trg_ex.left
-          contradiction
-    | inr trg_ex =>
-      apply Or.inr
-      constructor
-      . exact trg_ex.left
-      . specialize branch_eq2 n.succ
+      cases Decidable.em (ns.get n < trg.val.rule.head.length) with
+      | inl n_lt_head_length =>
+        have length_aux_1 : ns.get n < trg.val.mapped_head.length := by
+          rw [trg.val.length_mapped_head]
+          exact n_lt_head_length
+        exists ⟨ns.get n, length_aux_1⟩
+        specialize branch_eq2 n.succ
         rw [PossiblyInfiniteList.head_eq, PossiblyInfiniteList.get?_drop] at branch_eq2
+        rw [← Option.some_inj, ← after_mem]; simp only [after_opt]
         rw [PossiblyInfiniteList.head_eq, PossiblyInfiniteList.get?_tail, PossiblyInfiniteList.get?_drop, branch_eq2]
         rw [InfiniteList.take_succ', ← FiniteDegreeTree.drop_drop]
         rw [← FiniteDegreeTree.FiniteDegreeTreeWithRoot.opt_to_tree_after_tree_to_opt (t := ((td.tree.drop (ns.take n)).drop [ns.get n]))]
         rw [← FiniteDegreeTree.get?_childTrees]
         rw [← FiniteDegreeTree.get?_childNodes]
         rw [trg_ex.right]
-        simp
+        simp only
+        rw [List.getElem?_eq_getElem (by rw [List.length_map, List.length_attach, List.length_zipIdx_with_lt]; exact length_aux_1)]
+        rw [Option.some_inj]
+        rw [List.getElem_map, List.getElem_attach, ChaseNode.mk.injEq]
+        rw [List.zipIdx_with_lt_getElem_fst_eq_getElem]
+        rw [List.zipIdx_with_lt_getElem_snd_eq_index]
+        constructor
+        . rfl
+        . rfl
+      | inr n_lt_head_length =>
+        have : (td.tree.drop (ns.take n)).childNodes[ns.get n]? = none := by
+          rw [trg_ex.right]
+          apply List.getElem?_eq_none
+          apply Nat.le_of_not_lt
+          rw [List.length_map, List.length_attach, List.length_zipIdx_with_lt, trg.val.length_mapped_head]
+          exact n_lt_head_length
+        have : node ∈ td.tree.leaves := by
+          unfold FiniteDegreeTree.leaves
+          unfold PossiblyInfiniteTree.leaves
+          exists (ns.take n)
+          constructor
+          . rw [branch_eq2, FiniteDegreeTree.root_drop] at node_mem
+            exact node_mem
+          . apply ns_max
+            rw [PossiblyInfiniteTree.get?_branchForAddress, InfiniteList.take_succ']
+            rw [FiniteDegreeTree.get?_childNodes, ← FiniteDegreeTree.FiniteDegreeTreeWithRoot.opt_to_tree_none_iff] at this
+            rw [FiniteDegreeTree.get?_childTrees, FiniteDegreeTree.FiniteDegreeTreeWithRoot.tree_to_opt_none_iff] at this
+            rw [FiniteDegreeTree.drop_drop, FiniteDegreeTree.root_drop] at this
+            exact this
+        have not_active : ¬ trg.val.active node.facts := by apply td.fairness_leaves; exact this
+        have active : trg.val.active node.facts := trg_ex.left
+        contradiction
+    | inr trg_ex =>
+      specialize branch_eq2 n.succ
+      simp only [Option.mem_def, after_opt] at after_mem
+      apply False.elim
+      apply Option.ne_none_iff_exists'.mpr
+      . exact ⟨_, after_mem⟩
+      rw [PossiblyInfiniteList.head_eq, PossiblyInfiniteList.get?_drop] at branch_eq2
+      rw [PossiblyInfiniteList.head_eq, PossiblyInfiniteList.get?_tail, PossiblyInfiniteList.get?_drop, branch_eq2]
+      rw [InfiniteList.take_succ', ← FiniteDegreeTree.drop_drop]
+      rw [← FiniteDegreeTree.FiniteDegreeTreeWithRoot.opt_to_tree_after_tree_to_opt (t := ((td.tree.drop (ns.take n)).drop [ns.get n]))]
+      rw [← FiniteDegreeTree.get?_childTrees]
+      rw [← FiniteDegreeTree.get?_childNodes]
+      rw [trg_ex.right]
+      simp
+  triggers_active:= by
+    rcases branch_mem with ⟨ns, branch_eq, ns_max⟩
+    have branch_eq2 : ∀ n, (branch.drop n).head = (td.tree.drop (ns.take n)).root := by intro n; rw [branch_eq, FiniteDegreeTree.root_drop]; rfl
+
+    intro n node node_mem after_node after_mem
+    cases td.triggers_exist (ns.take n) node (by rw [← branch_eq2]; exact node_mem) with
+    | inl trg_ex =>
+      rcases trg_ex with ⟨trg, trg_ex⟩
+      cases Decidable.em (ns.get n < trg.val.rule.head.length) with
+      | inl n_lt_head_length =>
+        have length_aux_1 : ns.get n < trg.val.mapped_head.length := by
+          rw [trg.val.length_mapped_head]
+          exact n_lt_head_length
+        specialize branch_eq2 n.succ
+        rw [PossiblyInfiniteList.head_eq, PossiblyInfiniteList.get?_drop] at branch_eq2
+        rw [PossiblyInfiniteList.head_eq, PossiblyInfiniteList.get?_tail, PossiblyInfiniteList.get?_drop, branch_eq2] at after_mem
+        rw [InfiniteList.take_succ', ← FiniteDegreeTree.drop_drop] at after_mem
+        rw [← FiniteDegreeTree.FiniteDegreeTreeWithRoot.opt_to_tree_after_tree_to_opt (t := ((td.tree.drop (ns.take n)).drop [ns.get n]))] at after_mem
+        rw [← FiniteDegreeTree.get?_childTrees] at after_mem
+        rw [← FiniteDegreeTree.get?_childNodes] at after_mem
+        rw [trg_ex.right] at after_mem
+        rw [List.getElem?_eq_getElem (by rw [List.length_map, List.length_attach, List.length_zipIdx_with_lt]; exact length_aux_1)] at after_mem
+        rw [Option.mem_def, Option.some_inj] at after_mem
+        rw [List.getElem_map, List.getElem_attach, ChaseNode.mk.injEq] at after_mem
+        exact ⟨_, ⟨Eq.symm after_mem.right, trg_ex.left⟩⟩
+      | inr n_lt_head_length =>
+        have : (td.tree.drop (ns.take n)).childNodes[ns.get n]? = none := by
+          rw [trg_ex.right]
+          apply List.getElem?_eq_none
+          apply Nat.le_of_not_lt
+          rw [List.length_map, List.length_attach, List.length_zipIdx_with_lt, trg.val.length_mapped_head]
+          exact n_lt_head_length
+        have : node ∈ td.tree.leaves := by
+          unfold FiniteDegreeTree.leaves
+          unfold PossiblyInfiniteTree.leaves
+          exists (ns.take n)
+          constructor
+          . rw [branch_eq2, FiniteDegreeTree.root_drop] at node_mem
+            exact node_mem
+          . apply ns_max
+            rw [PossiblyInfiniteTree.get?_branchForAddress, InfiniteList.take_succ']
+            rw [FiniteDegreeTree.get?_childNodes, ← FiniteDegreeTree.FiniteDegreeTreeWithRoot.opt_to_tree_none_iff] at this
+            rw [FiniteDegreeTree.get?_childTrees, FiniteDegreeTree.FiniteDegreeTreeWithRoot.tree_to_opt_none_iff] at this
+            rw [FiniteDegreeTree.drop_drop, FiniteDegreeTree.root_drop] at this
+            exact this
+        have not_active : ¬ trg.val.active node.facts := by apply td.fairness_leaves; exact this
+        have active : trg.val.active node.facts := trg_ex.left
+        contradiction
+    | inr trg_ex =>
+      specialize branch_eq2 n.succ
+      rw [Option.mem_def] at after_mem
+      apply False.elim
+      apply Option.ne_none_iff_exists'.mpr
+      . exact ⟨_, after_mem⟩
+      rw [PossiblyInfiniteList.head_eq, PossiblyInfiniteList.get?_drop] at branch_eq2
+      rw [PossiblyInfiniteList.head_eq, PossiblyInfiniteList.get?_tail, PossiblyInfiniteList.get?_drop, branch_eq2]
+      rw [InfiniteList.take_succ', ← FiniteDegreeTree.drop_drop]
+      rw [← FiniteDegreeTree.FiniteDegreeTreeWithRoot.opt_to_tree_after_tree_to_opt (t := ((td.tree.drop (ns.take n)).drop [ns.get n]))]
+      rw [← FiniteDegreeTree.get?_childTrees]
+      rw [← FiniteDegreeTree.get?_childNodes]
+      rw [trg_ex.right]
+      simp
   fairness := by
     rcases branch_mem with ⟨ns, branch_eq, ns_max⟩
     have branch_eq2 : ∀ n, (branch.drop n).head = (td.tree.drop (ns.take n)).root := by intro n; rw [branch_eq, FiniteDegreeTree.root_drop]; rfl
@@ -794,7 +865,7 @@ theorem derivation_for_branch_mem_branches {td : TreeDerivation obs rules} {bran
   td.derivation_for_branch branch branch_mem ∈ td.branches := branch_mem
 
 /-- The result is the set of `FactSet`s that correspond to the results of the `branches`. -/
-def result (td : TreeDerivation obs rules) : Set (FactSet sig) := td.branches.map ChaseDerivation.result
+def result (td : TreeDerivation obs rules) : Set (FactSet sig) := td.branches.map (fun deriv => deriv.result)
 
 /-- Each element of the `result` models the rules. -/
 theorem result_models_rules {td : TreeDerivation obs rules} : ∀ fs ∈ td.result, fs.modelsRules rules := by
@@ -990,6 +1061,97 @@ theorem result_of_trigger_introducing_functional_term_occurs_in_chase
     exact node2.node.facts_contain_origin_result _ origin_eq
 
 end TermsInChase
+
+section Generate
+
+/-!
+## Derivation Generation
+
+We lift `FiniteDegreeTree.generate_branch` to `TreeDerivation` using a generator over `NodeWithAddress` and combine it with `FiniteDegreeTree.generate_branch_mem_branches` to obtain a `ChaseDerivation` directly.
+-/
+
+/-- We lift `FiniteDegreeTree.generate_branch` to `TreeDerivation`. -/
+def generate_branch (td : TreeDerivation obs rules)
+    (start : β) (generator : β -> Option β) (mapper : β -> td.NodeWithAddress) :
+    PossiblyInfiniteList (ChaseNode obs rules) :=
+  FiniteDegreeTree.generate_branch (some start) generator (fun b => (mapper b).subderivation.toFiniteDegreeTreeWithRoot)
+
+/-- We lift `FiniteDegreeTree.generate_branch_mem_branches` to `TreeDerivation`. -/
+theorem generate_branch_mem_tree_branches {td : TreeDerivation obs rules}
+    {start : β} {generator : β -> Option β} {mapper : β -> td.NodeWithAddress}
+    (next_is_child : ∀ b, ∀ b' ∈ generator b, mapper b' ∈ (NodeWithAddress.childNodes (mapper b).subderivation).map (mapper b).cast_for_new_root_node)
+    (maximal : ∀ b, generator b = none -> (mapper b).subderivation.childTrees = []) :
+    td.generate_branch start generator mapper ∈ (mapper start).subderivation.tree.branches := by
+  apply FiniteDegreeTree.generate_branch_mem_branches
+  . intro b b' mem
+    specialize next_is_child _ _ mem
+    rw [List.mem_map] at next_is_child; rcases next_is_child with ⟨node, node_mem, b'_eq⟩
+    have : (mapper b').subderivation = node.subderivation := by
+      rw [← b'_eq]
+      simp only [NodeWithAddress.cast_for_new_root_node, NodeWithAddress.subderivation, derivation_for_suffix]
+      simp only [FiniteDegreeTree.drop_drop]
+    conv => left; simp only [toFiniteDegreeTreeWithRoot]
+    rw [this, ← mem_childTrees_iff]
+    exact NodeWithAddress.subderivation_mem_childTrees_of_mem_childNodes node_mem
+  . intro b eq_none
+    specialize maximal _ eq_none
+    simp only [childTrees, List.map_eq_nil_iff, List.attach_eq_nil_iff] at maximal
+    simp only [toFiniteDegreeTreeWithRoot]
+    exact maximal
+  . simp
+
+/-- We can genearte a `ChaseDerivation` within a `TreeDerivation` using a generator function that ensures that the cnsecutive elements are children of each other and that the genearted derivation is maximal. -/
+def generate_subderivation (td : TreeDerivation obs rules)
+    (start : β) (generator : β -> Option β) (mapper : β -> td.NodeWithAddress)
+    (next_is_child : ∀ b, ∀ b' ∈ generator b, mapper b' ∈ (NodeWithAddress.childNodes (mapper b).subderivation).map (mapper b).cast_for_new_root_node)
+    (maximal : ∀ b, generator b = none -> (mapper b).subderivation.childTrees = []) :
+    ChaseDerivation obs rules :=
+  (mapper start).subderivation.derivation_for_branch (td.generate_branch start generator mapper) (td.generate_branch_mem_tree_branches next_is_child maximal)
+
+/-- The result of `generate_derivation` occurs in `TreeDerivation.branches` if it starts on the root of the tree. -/
+theorem generate_subderivation_mem_branches {td : TreeDerivation obs rules}
+    {start : β} {generator : β -> Option β} {mapper : β -> td.NodeWithAddress}
+    {next_is_child : ∀ b, ∀ b' ∈ generator b, mapper b' ∈ (NodeWithAddress.childNodes (mapper b).subderivation).map (mapper b).cast_for_new_root_node}
+    {maximal : ∀ b, generator b = none -> (mapper b).subderivation.childTrees = []}
+    (start_eq : mapper start = NodeWithAddress.root td) :
+    td.generate_subderivation start generator mapper next_is_child maximal ∈ td.branches := by
+  have : td = (mapper start).subderivation := by rw [start_eq, NodeWithAddress.subderivation_root]
+  conv => left; rw [this]
+  exact td.generate_branch_mem_tree_branches next_is_child maximal
+
+/-- The head for the derivation produced by `generate_subderivation` is exactly the mapped start value. -/
+theorem head_generate_subderivation {td : TreeDerivation obs rules}
+    {start : β} {generator : β -> Option β} {mapper : β -> td.NodeWithAddress}
+    {next_is_child : ∀ b, ∀ b' ∈ generator b, mapper b' ∈ (NodeWithAddress.childNodes (mapper b).subderivation).map (mapper b).cast_for_new_root_node}
+    {maximal : ∀ b, generator b = none -> (mapper b).subderivation.childTrees = []} :
+    (td.generate_subderivation start generator mapper next_is_child maximal).head = (mapper start).node := by
+  simp only [generate_subderivation, generate_branch, derivation_for_branch, ChaseDerivationSkeleton.head]
+  simp only [FiniteDegreeTree.head_generate_branch, toFiniteDegreeTreeWithRoot, Option.map_some, Option.get_some]
+  rw [← root.eq_def, NodeWithAddress.root_subderivation']
+
+/-- The next node for the derivation produced by `generate_subderivation` is exactly the mapped value after the first generator application. -/
+theorem next_generate_subderivation {td : TreeDerivation obs rules}
+    {start : β} {generator : β -> Option β} {mapper : β -> td.NodeWithAddress}
+    {next_is_child : ∀ b, ∀ b' ∈ generator b, mapper b' ∈ (NodeWithAddress.childNodes (mapper b).subderivation).map (mapper b).cast_for_new_root_node}
+    {maximal : ∀ b, generator b = none -> (mapper b).subderivation.childTrees = []} :
+    (td.generate_subderivation start generator mapper next_is_child maximal).next = ((generator start).map mapper).map NodeWithAddress.node := by
+  simp only [generate_subderivation, generate_branch, ChaseDerivationSkeleton.next, derivation_for_branch, FiniteDegreeTree.tail_generate_branch, FiniteDegreeTree.head_generate_branch]
+  simp only [Option.bind_some, Option.map_map, toFiniteDegreeTreeWithRoot]
+  rw [Option.map_congr]; intros; rw [← root.eq_def, NodeWithAddress.root_subderivation']; rfl
+
+/-- The tail for the derivation produced by `generate_subderivation` is exactly the generated derivation when applying the generator once initially. -/
+theorem tail_generate_subderivation {td : TreeDerivation obs rules}
+    {start : β} {generator : β -> Option β} {mapper : β -> td.NodeWithAddress}
+    {next_is_child : ∀ b, ∀ b' ∈ generator b, mapper b' ∈ (NodeWithAddress.childNodes (mapper b).subderivation).map (mapper b).cast_for_new_root_node}
+    {maximal : ∀ b, generator b = none -> (mapper b).subderivation.childTrees = []}
+    (next : β) (next_mem : next ∈ (generator start)) :
+    (td.generate_subderivation start generator mapper next_is_child maximal).tail (by rw [next_generate_subderivation, next_mem]; simp) =
+      (td.generate_subderivation next generator mapper next_is_child maximal) := by
+  rw [ChaseDerivation.mk.injEq, ChaseDerivationSkeleton.mk.injEq]
+  simp only [generate_subderivation, generate_branch, ChaseDerivation.tail, ChaseDerivationSkeleton.tail, derivation_for_branch, ChaseDerivation.derivation_for_skeleton, ChaseDerivationSkeleton.derivation_for_branch_suffix]
+  rw [FiniteDegreeTree.tail_generate_branch, Option.bind_some, next_mem]
+
+end Generate
 
 end TreeDerivation
 

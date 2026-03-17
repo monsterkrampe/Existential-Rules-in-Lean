@@ -31,7 +31,7 @@ theorem database_first' {cb : ChaseBranch obs kb} : cb.head = {
   facts := kb.db.toFactSet,
   origin := none,
   facts_contain_origin_result := by simp
-} := by simp only [ChaseDerivation.head, cb.database_first, Option.get_some]
+} := by simp only [ChaseDerivationSkeleton.head, cb.database_first, Option.get_some]
 
 /-- Opposed to a `ChaseDerivation`, we know that each node in a `ChaseBranch` has a finite set of facts. This is because the database is finite and each trigger only adds finitely many new facts. -/
 theorem facts_finite_of_mem {cb : ChaseBranch obs kb} (node : cb.Node) : node.val.facts.finite := by

@@ -34,6 +34,7 @@ def chaseBranch_for_branch {ct : ChaseTree obs kb} {branch : ChaseDerivation obs
   branch := branch.branch
   isSome_head := branch.isSome_head
   triggers_exist := branch.triggers_exist
+  triggers_active := branch.triggers_active
   fairness := branch.fairness
   database_first := by rw [← ct.database_first]; unfold TreeDerivation.branches at branch_mem; rw [FiniteDegreeTree.branches_eq] at branch_mem; rw [branch_mem.left]
 }
@@ -74,7 +75,7 @@ theorem result_models_kb {ct : ChaseTree obs kb} : ∀ fs ∈ ct.result, fs.mode
   rintro fs ⟨branch, branch_mem, fs_mem⟩
   let cb := ct.chaseBranch_for_branch branch_mem
   have : branch.result = cb.result := by rfl
-  rw [fs_mem, this]
+  simp only [fs_mem, this]
   exact cb.result_models_kb
 
 /-- Constants in the chase must be in the database or in some rule. -/
