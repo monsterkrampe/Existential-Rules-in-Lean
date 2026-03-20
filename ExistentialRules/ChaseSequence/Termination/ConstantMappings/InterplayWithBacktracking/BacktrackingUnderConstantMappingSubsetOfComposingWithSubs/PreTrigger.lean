@@ -126,7 +126,7 @@ theorem PreTrigger.backtracking_under_constant_mapping_subset_of_composing_with_
       constructor
       . exact a_mem
       . rw [← GroundSubstitution.apply_function_free_atom.eq_def, GroundSubstitution.apply_function_free_atom_compose]
-        . rw [e_eq, ← f_eq]
+        . rw [← e_eq, ← f_eq]
           rw [← ConstantMapping.apply_fact_eq_groundTermMapping_applyFact]
           apply ConstantMapping.apply_fact_congr_left
           intro d d_mem

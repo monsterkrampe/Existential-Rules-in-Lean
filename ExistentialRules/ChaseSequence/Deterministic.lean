@@ -176,7 +176,7 @@ theorem deterministicChaseTreeResultUniversallyModelsKb {ct : ChaseTree obs kb} 
     rw [TreeDerivation.branches_eq_firstBranch_of_determinsitic det] at b_mem
     unfold TreeDerivation.firstResult
     simp only at res_mem
-    rw [← b_mem, ← res_mem]
+    rw [← b_mem, res_mem]
     exact ⟨_, hom_is_hom⟩
 
 end ChaseTree
@@ -212,8 +212,7 @@ def intoTree (cd : ChaseDerivation obs rules) (deterministic : rules.isDetermini
             | inl lt =>
               apply fair (ns.length - i.succ) node (by
                 rw [Option.mem_def] at eq; rw [Option.mem_def, ← eq]
-                rw [PossiblyInfiniteList.tail_drop, PossiblyInfiniteList.get?_drop, Nat.add_sub_of_le (Nat.succ_le_of_lt lt)]
-                rfl)
+                rw [PossiblyInfiniteList.tail_drop, PossiblyInfiniteList.get?_drop, Nat.add_sub_of_le (Nat.succ_le_of_lt lt)])
               exact active
             | inr lt =>
               rcases Nat.exists_eq_add_of_le (Nat.le_of_not_lt lt) with ⟨k, le⟩
@@ -259,7 +258,6 @@ def intoTree (cd : ChaseDerivation obs rules) (deterministic : rules.isDetermini
               simp only [FiniteDegreeTree.from_branch, PossiblyInfiniteTree.from_branch, FiniteDegreeTree.get?, PossiblyInfiniteTree.get?, InfiniteTreeSkeleton.get]
               simp only [List.all_append, all_zero, List.all_cons, List.all_nil, Bool.and_true, decide_eq_true, ↓reduceIte, List.length_append, List.length_singleton]
               rw [← Option.some_inj, ← after_eq, PossiblyInfiniteList.tail_drop, PossiblyInfiniteList.head_drop] at trg_eq
-              simp only [PossiblyInfiniteList.get?, InfiniteList.get] at trg_eq
               rw [trg_eq]
               rw [List.getElem?_eq_getElem (by simp [List.length_zipIdx_with_lt, length_mapped_head_eq]), Option.some_inj, List.getElem_map, List.getElem_attach]
               rw [ChaseNode.mk.injEq]; constructor
@@ -286,7 +284,7 @@ def intoTree (cd : ChaseDerivation obs rules) (deterministic : rules.isDetermini
         cases Nat.lt_or_eq_of_le this with
         | inr eq =>
           have fairness := fairness.left
-          rw [eq, PossiblyInfiniteList.head_drop] at fairness; simp only [PossiblyInfiniteList.get?, InfiniteList.get, node_eq] at fairness
+          rw [eq, PossiblyInfiniteList.head_drop] at fairness; simp only [node_eq] at fairness
           rcases fairness with ⟨_, eq, fairness⟩
           rw [Option.mem_def, Option.some_inj] at eq; rw [eq]
           exact fairness
@@ -295,7 +293,7 @@ def intoTree (cd : ChaseDerivation obs rules) (deterministic : rules.isDetermini
           rw [PossiblyInfiniteList.get?_tail, PossiblyInfiniteList.get?_drop] at fairness
           have : fairness_step + (node.length - fairness_step - 1).succ = node.length := by omega
           rw [this] at fairness
-          simp only [PossiblyInfiniteList.get?, InfiniteList.get, node_eq] at fairness
+          simp only [node_eq] at fairness
           apply fairness
           simp
     fairness_infinite_branches := by

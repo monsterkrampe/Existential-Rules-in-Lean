@@ -111,7 +111,7 @@ theorem apply_generalized_atom_set_compose (g : TermMapping S T) (h : TermMappin
     constructor
     . exact a''_mem
     . rw [apply_generalized_atom_compose, Function.comp_apply]
-      rw [a'_eq, a''_eq]
+      rw [a''_eq, a'_eq]
 
 /-- We can split the application of a composed `TermMapping` on a set of atoms. -/
 theorem apply_generalized_atom_set_compose' (g : TermMapping S T) (h : TermMapping T U) : ∀ s : Set (GeneralizedAtom sig S), apply_generalized_atom_set (h ∘ g) s = (apply_generalized_atom_set h) (apply_generalized_atom_set g s) := by
@@ -132,7 +132,7 @@ theorem apply_generalized_atom_set_subset_of_subset (h : TermMapping S T) (as bs
   intro subset
   intro a a_mem
   rcases a_mem with ⟨a', a'_mem, a'_eq⟩
-  rw [a'_eq]
+  rw [← a'_eq]
   apply apply_generalized_atom_mem_apply_generalized_atom_set
   apply subset
   exact a'_mem
@@ -239,14 +239,14 @@ theorem terms_applyFactSet {h : GroundTermMapping sig} {fs : FactSet sig} : (h.a
   apply Set.ext; intro t
   constructor
   . rintro ⟨f, ⟨f', f'_mem, f_eq⟩, t_mem⟩
-    rw [f_eq] at t_mem
+    rw [← f_eq] at t_mem
     simp only [TermMapping.apply_generalized_atom, List.mem_map] at t_mem
     rcases t_mem with ⟨t', t'_mem, t_eq⟩
     rw [← t_eq]
     exists t'; simp only [and_true]
     exists f'
   . rintro ⟨t', ⟨f', f'_mem, t'_mem⟩, t_eq⟩
-    rw [t_eq]
+    rw [← t_eq]
     exists h.applyFact f'; constructor
     . apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set; exact f'_mem
     . simp only [applyFact, TermMapping.apply_generalized_atom]; apply List.mem_map_of_mem; exact t'_mem

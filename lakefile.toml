@@ -8,10 +8,10 @@ name = "ExistentialRules"
 [[require]]
 name = "BasicLeanDatastructures"
 git = "https://github.com/monsterkrampe/Basic-Lean-Datastructures.git"
-rev = "main"
+rev = "use-modules"
 
 [[require]]
 name = "PossiblyInfiniteTrees"
 git = "https://github.com/monsterkrampe/Possibly-Infinite-Trees.git"
-rev = "main"
+rev = "use-modules"
 

@@ -312,7 +312,7 @@ theorem non_id_endomorphism_of_altMatch {cb : ChaseBranch obs kb} (det : kb.isDe
     cases f'_mem with
     | inl f'_mem =>
       have : f = f' := by
-        rw [f_eq]; apply TermMapping.apply_generalized_atom_eq_self_of_id_on_terms
+        rw [← f_eq]; apply TermMapping.apply_generalized_atom_eq_self_of_id_on_terms
         intro t t_mem
         have : t ∈ ts := by rw [eq_ts]; exists f'
         simp [h, this]
@@ -320,7 +320,7 @@ theorem non_id_endomorphism_of_altMatch {cb : ChaseBranch obs kb} (det : kb.isDe
     | inr f'_mem =>
       apply altMatch.left.right
       have : f = h_alt.applyFact f' := by
-        rw [f_eq]; apply TermMapping.apply_generalized_atom_congr_left
+        rw [← f_eq]; apply TermMapping.apply_generalized_atom_congr_left
         intro t t_mem
         have t_mem : t ∈ (next.origin_result (cd.isSome_origin_next next_mem)).flatMap GeneralizedAtom.terms := by rw [List.mem_flatMap]; exists f'
         simp only [ChaseNode.origin_result, PreTrigger.mem_terms_mapped_head_iff] at t_mem

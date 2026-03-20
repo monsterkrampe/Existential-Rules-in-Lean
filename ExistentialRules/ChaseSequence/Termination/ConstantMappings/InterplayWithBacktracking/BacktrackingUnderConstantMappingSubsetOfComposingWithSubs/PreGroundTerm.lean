@@ -345,7 +345,7 @@ mutual
             . exact a_mem
             . rw [← GroundSubstitution.apply_function_free_atom.eq_def]
               rw [GroundSubstitution.apply_function_free_atom_compose]
-              . rw [e_eq, ← f_eq]
+              . rw [← e_eq, ← f_eq]
               . intro d d_mem
                 have d_mem' : d ∈ rl.rules.flatMap Rule.constants := by
                   rw [List.mem_flatMap]
@@ -380,7 +380,7 @@ mutual
             exists a
             constructor
             . exact a_mem
-            . rw [e_eq, ← f_eq]
+            . rw [← e_eq, ← f_eq]
               rw [← GroundSubstitution.apply_function_free_atom.eq_def, ← GroundSubstitution.apply_function_free_atom.eq_def, PreTrigger.apply_subs_for_atom_eq, PreTrigger.apply_subs_for_atom_eq, ← ConstantMapping.apply_fact.eq_def, ConstantMapping.apply_fact_swap_apply_to_function_free_atom]
               . apply PreTrigger.apply_to_function_free_atom_eq_of_equiv
                 apply PreTrigger.equiv_of_strong_equiv
@@ -421,7 +421,7 @@ mutual
           exists f
           constructor
           . rw [List.mem_toSet]; exact f_mem
-          . rw [e_eq]
+          . rw [← e_eq]
             apply ConstantMapping.apply_fact_congr_left
             intro d d_mem
             cases PreGroundTerm.backtrackFacts_list_constants_in_rules_or_term_or_fresh f f_mem d d_mem with
@@ -634,7 +634,7 @@ mutual
           exists f
           constructor
           . rw [List.mem_toSet]; exact f_mem
-          . rw [e_eq]
+          . rw [← e_eq]
             apply ConstantMapping.apply_fact_congr_left
             intro d d_mem
             cases PreGroundTerm.backtrackFacts_constants_in_rules_or_term_or_fresh f f_mem d d_mem with
@@ -682,7 +682,7 @@ mutual
           exists f
           constructor
           . rw [List.mem_toSet]; exact f_mem
-          . rw [e_eq]
+          . rw [← e_eq]
             apply ConstantMapping.apply_fact_congr_left
             intro d d_mem
             cases PreGroundTerm.backtrackFacts_list_constants_in_rules_or_term_or_fresh f f_mem d d_mem with

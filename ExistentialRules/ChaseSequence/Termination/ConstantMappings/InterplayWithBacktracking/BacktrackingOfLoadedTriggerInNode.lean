@@ -218,7 +218,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
                     rw [g_tl_h.right]
                     . rw [List.mem_append]; apply Or.inl; exact this
                     . exact this
-                rw [f_eq, ← ConstantMapping.apply_fact.eq_def, this]
+                rw [← f_eq, ← ConstantMapping.apply_fact.eq_def, this]
                 rw [cd.facts_next next_mem]
                 apply Or.inl
                 apply g_hd_h.left
@@ -255,7 +255,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
                         apply Or.inr
                         exact d_mem'
 
-                rw [f_eq, ← ConstantMapping.apply_fact.eq_def, this]
+                rw [← f_eq, ← ConstantMapping.apply_fact.eq_def, this]
                 apply g_tl_h.left
                 apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
                 rw [List.mem_toSet]
@@ -377,7 +377,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
             cases f_mem with
             | inl f_mem =>
               apply Or.inl
-              rw [e_eq]
+              rw [← e_eq]
               apply origin_active.left
               rw [List.mem_toSet]
 
@@ -403,7 +403,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
                   exists a
             | inr f_mem =>
               apply Or.inr
-              rw [List.mem_toSet, e_eq]
+              rw [List.mem_toSet, ← e_eq]
               simp only [ChaseNode.origin_result]
               rw [mapped_head_eq]
               simp only [PreTrigger.mapped_head]
@@ -431,7 +431,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
                     exists a
           | inr f_mem =>
             apply g_mapped_frontier_h.left
-            rw [e_eq]
+            rw [← e_eq]
             have : g.apply_fact f = g_mapped_frontier.apply_fact f := by
               apply ConstantMapping.apply_fact_congr_left
               intro d d_mem
@@ -540,7 +540,7 @@ theorem backtracking_of_term_list_in_node [GetFreshInhabitant sig.C] [Inhabited 
             rw [g_tl_h.right]
             . rw [List.mem_append]; apply Or.inl; exact this
             . exact this
-        rw [f_eq, ← ConstantMapping.apply_fact.eq_def, this]
+        rw [← f_eq, ← ConstantMapping.apply_fact.eq_def, this]
         apply g_hd_h.left
         apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
         rw [List.mem_toSet]
@@ -570,7 +570,7 @@ theorem backtracking_of_term_list_in_node [GetFreshInhabitant sig.C] [Inhabited 
                 apply Or.inr
                 exact d_mem'
 
-        rw [f_eq, ← ConstantMapping.apply_fact.eq_def, this]
+        rw [← f_eq, ← ConstantMapping.apply_fact.eq_def, this]
         apply g_tl_h.left
         apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
         rw [List.mem_toSet]
@@ -632,7 +632,7 @@ theorem backtracking_of_loaded_trigger_in_node [GetFreshInhabitant sig.C] [Inhab
         apply Or.inl
         rw [List.mem_flatMap]
         exists f'
-      rw [f_eq, ← ConstantMapping.apply_fact.eq_def, this]
+      rw [← f_eq, ← ConstantMapping.apply_fact.eq_def, this]
       apply trg_loaded
       rw [List.mem_toSet]
       exact f'_mem

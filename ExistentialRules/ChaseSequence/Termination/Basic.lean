@@ -174,12 +174,12 @@ theorem result_finite_of_branches_finite (td : TreeDerivation obs rules) : td.br
     exists b
     constructor
     . rw [← iff]; exact mem
-    . exact Eq.symm eq
+    . exact eq
   . rintro ⟨b, mem, eq⟩
     exists b
     constructor
     . rw [iff]; exact mem
-    . exact Eq.symm eq
+    . exact eq
 
 end TreeDerivation
 
@@ -193,7 +193,7 @@ theorem terminates_iff_result_finite (ct : ChaseTree obs kb) : ct.terminates ↔
   . rintro each_b_term res ⟨b, mem, eq⟩
     let b' := ChaseTree.chaseBranch_for_branch mem
     have : b'.result = b.result := rfl
-    simp only [eq, ← this]
+    simp only [← eq, ← this]
     rw [← ChaseBranch.terminates_iff_result_finite]
     apply each_b_term
     exact mem

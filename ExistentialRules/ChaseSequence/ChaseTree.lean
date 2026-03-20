@@ -75,7 +75,7 @@ theorem result_models_kb {ct : ChaseTree obs kb} : ∀ fs ∈ ct.result, fs.mode
   rintro fs ⟨branch, branch_mem, fs_mem⟩
   let cb := ct.chaseBranch_for_branch branch_mem
   have : branch.result = cb.result := by rfl
-  simp only [fs_mem, this]
+  simp only [← fs_mem, this]
   exact cb.result_models_kb
 
 /-- Constants in the chase must be in the database or in some rule. -/
@@ -128,3 +128,4 @@ theorem result_of_trigger_introducing_functional_term_occurs_in_chase
   | inr t_mem => exact t_mem
 
 end ChaseTree
+

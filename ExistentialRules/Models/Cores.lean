@@ -546,7 +546,7 @@ theorem repeat_hom_isHomomorphism (h : GroundTermMapping sig) (fs : FactSet sig)
       rcases f_mem with ⟨f', f'_mem, f_eq⟩
       have : f = f' := by
         unfold TermMapping.apply_generalized_atom at f_eq
-        rw [f_eq]; simp
+        rw [← f_eq]; simp
       rw [this]
       exact f'_mem
     | succ i ih =>
@@ -733,7 +733,7 @@ theorem every_weakCore_isomorphic_to_strongCore_of_hom_both_ways
       . unfold GroundTermMapping.applyFact
         unfold TermMapping.apply_generalized_atom
         rw [List.mem_map]
-        exists arg; simp [f_eq, arg_eq]
+        exists arg
 
 /-- Strong cores of fact sets are unique up to isomorphism. That is, consider a fact set $F$. A strong core $C$ for $F$ is a strong core that is also a homomorphic subset of $F$. Now every (other) homomorphic subset $C'$ of $F$ that is at least a weak core has an isomorphism into $C$. -/
 theorem strongCore_unique_up_to_isomorphism_with_respect_to_weak_cores
@@ -834,7 +834,7 @@ theorem strong_core_of_model_is_model
         intro contra
         apply strong f
         . intro t t_mem
-          rw [f_eq] at t_mem
+          rw [← f_eq] at t_mem
           unfold TermMapping.apply_generalized_atom at t_mem
           rw [List.mem_map] at t_mem
           rcases t_mem with ⟨t', t'_mem, t_eq⟩
@@ -845,7 +845,7 @@ theorem strong_core_of_model_is_model
           simp only [t'_mem, ↓reduceDIte]
           exact spec.left
         . exact contra
-        . rw [f_eq]
+        . rw [← f_eq]
           unfold GroundTermMapping.applyFact
           rw [← TermMapping.apply_generalized_atom_compose']
           have : TermMapping.apply_generalized_atom (h_fs_sc ∘ inv) f' = f' := by

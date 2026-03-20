@@ -95,7 +95,7 @@ noncomputable def hom_step_of_trg_ex
     . exact next_hom_id_const
     rintro mapped_f ⟨f, f_mem, mapped_f_eq⟩
     rw [node.subderivation.facts_childNodes (by apply TreeDerivation.NodeWithAddress.mem_childNodes_of_mem_childNodes; apply List.getElem_mem)] at f_mem
-    rw [mapped_f_eq]
+    rw [← mapped_f_eq]
     cases f_mem with
     | inl f_mem =>
       apply prev_hom_is_homomorphism.right
@@ -270,7 +270,7 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
     . unfold GroundTermMapping.isIdOnConstants; simp
     . rintro e ⟨f, hf⟩
       apply m_is_model.left
-      have : f = e := by have hfr := hf.right; rw [hfr]; simp [TermMapping.apply_generalized_atom]
+      have : f = e := by have hfr := hf.right; rw [← hfr]; simp [TermMapping.apply_generalized_atom]
       rw [this] at hf
       exact hf.left⟩
 
@@ -420,7 +420,7 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
     rcases node_mem with ⟨step, step_mem, node_mem⟩
     rintro f' ⟨f, f_mem, f'_eq⟩
     rw [← node_mem] at f_mem
-    rw [f'_eq, ← GroundTermMapping.applyFact.eq_def, global_h_eq_each_hom step step_mem f f_mem]
+    rw [← f'_eq, ← GroundTermMapping.applyFact.eq_def, global_h_eq_each_hom step step_mem f f_mem]
     apply (derivs_with_homs_properties _ step_mem).right
     apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
     exact f_mem
@@ -434,7 +434,7 @@ theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet si
       have ⟨step_mem, _⟩ := Classical.choose_spec t_mem_true
       apply (derivs_with_homs_properties _ step_mem).left
   . rintro f' ⟨f, ⟨node, node_mem, f_mem⟩, f'_eq⟩
-    rw [f'_eq]
+    rw [← f'_eq]
     apply global_h_hom node node_mem
     apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
     exact f_mem

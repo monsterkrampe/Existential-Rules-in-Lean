@@ -116,9 +116,9 @@ noncomputable def extend_hom_to_next_step_of_next_eq_some
       . exact h'_is_id_on_const
       . rw [cd.facts_next next_eq]
         rintro f' ⟨f, f_mem, f'_eq⟩
-        rw [f'_eq]
+        rw [← f'_eq]
         cases f_mem with
-        | inl f_mem => apply hom.right; exists f; constructor; exact f_mem; apply TermMapping.apply_generalized_atom_congr_left; intro t t_mem; apply h'_is_h_on_terms_in_node; exists f
+        | inl f_mem => apply hom.right; exists f; constructor; exact f_mem; apply TermMapping.apply_generalized_atom_congr_left; intro t t_mem; apply Eq.symm; apply h'_is_h_on_terms_in_node; exists f
         | inr f_mem =>
           apply subs_contained
           have : (subs.apply_function_free_conj trg'.rule.head[disj.val]).toSet = h'.applyFactSet origin.fst.val.mapped_head[disj.val].toSet := by
@@ -371,7 +371,7 @@ theorem hom_for_node_extendable_to_result
     rcases each_node_in_some_pair node node_mem with ⟨pair, pair_mem, node_eq⟩
     rintro f' ⟨f, f_mem, f'_eq⟩
     rw [node_eq] at f_mem
-    rw [f'_eq, ← GroundTermMapping.applyFact.eq_def, global_h_eq_each_hom pair pair_mem f f_mem]
+    rw [← f'_eq, ← GroundTermMapping.applyFact.eq_def, global_h_eq_each_hom pair pair_mem f f_mem]
     apply pair.property.right.right.right; apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set; exact f_mem
 
   exists global_h
@@ -381,7 +381,7 @@ theorem hom_for_node_extendable_to_result
   . exact global_id_const
   . rw [← ChaseDerivationSkeleton.result_suffix deriv_suffix]
     rintro f' ⟨f, ⟨node, node_mem, f_mem⟩, f'_eq⟩
-    rw [f'_eq]
+    rw [← f'_eq]
     apply global_h_hom node node_mem
     apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
     exact f_mem

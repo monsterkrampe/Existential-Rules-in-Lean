@@ -188,7 +188,7 @@ theorem DeterministicSkolemObsoleteness.blocks_each_obs (obs : ObsoletenessCondi
       apply Or.inr
       apply List.mem_flatten_of_mem _ a_mem
       apply List.getElem_mem
-  . rw [f'_mem, ← f_eq]
+  . rw [← f'_mem, ← f_eq]
     simp only [Nat.zero_add]
     rw [← TermMapping.apply_generalized_atom_compose']
     conv => left; unfold PreTrigger.apply_to_function_free_atom
@@ -888,9 +888,9 @@ theorem mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_pred
                   . apply VarOrConst.mem_filterConsts_of_const; exact voc_mem
           . intro f f_mem
             rcases f_mem with ⟨f_pred, f', f'_mem, f_eq⟩
-            rw [f_eq]
+            rw [← f_eq]
             apply prev_node_subs_parallel_chase
-            . rw [f_eq] at f_pred
+            . rw [← f_eq] at f_pred
               exact f_pred
             . exact f'_mem
         . intro contra
@@ -962,7 +962,7 @@ theorem filtered_cb_result_subset_mfaSet (rs : RuleSet sig) (finite : rs.rules.f
   rcases f_mem with ⟨f', f'_mem, f_eq⟩
   rcases f'_mem with ⟨f'_pred, f'_mem⟩
   rcases f'_mem with ⟨node, node_mem, f'_mem⟩
-  rw [f_eq]
+  rw [← f_eq]
 
   have := rs.mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_predicates_not_from_rs finite special_const mfa_obs blocks cb ⟨node, node_mem⟩
   apply this
@@ -1080,7 +1080,7 @@ theorem terminates_of_mfaSet_finite [Inhabited sig.C] (rs : RuleSet sig) (rs_fin
     apply each_step_sub_db_and_filtered
     exact f_mem
 
-  rw [result_eq]
+  rw [← result_eq]
   apply Set.finite_of_subset_finite _ res_sub_db_and_filtered
   apply Set.union_finite_of_both_finite
   . exact db.toFactSet.property.left

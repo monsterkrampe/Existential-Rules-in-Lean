@@ -869,7 +869,7 @@ def result (td : TreeDerivation obs rules) : Set (FactSet sig) := td.branches.ma
 
 /-- Each element of the `result` models the rules. -/
 theorem result_models_rules {td : TreeDerivation obs rules} : ∀ fs ∈ td.result, fs.modelsRules rules := by
-  rintro fs ⟨branch, _, fs_mem⟩; rw [fs_mem]; apply branch.result_models_rules
+  rintro fs ⟨branch, _, fs_mem⟩; rw [← fs_mem]; apply branch.result_models_rules
 
 end BranchesAndResult
 
