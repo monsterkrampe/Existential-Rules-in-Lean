@@ -583,7 +583,7 @@ theorem functional_term_originates_from_some_trigger
         rw [FactSet.mem_terms_toSet, PreTrigger.mem_terms_mapped_body_iff]
         apply Or.inr
         exists v; simp only [t_mem, and_true]
-        apply Rule.frontier_subset_vars_body; rw [Rule.mem_frontier_iff_mem_frontier_for_head]; exact ⟨_, v_mem⟩
+        apply Rule.frontier_subset_vars_body; rw [Rule.mem_frontier_iff_mem_frontier_for_head]; exact ⟨_, ⟨_, v_mem⟩⟩
 
 /-- If a functional term occurs in the chase, then the trigger that introduces this term must have been used in the chase, unless the term already occurs in the initial fact set. -/
 theorem trigger_introducing_functional_term_occurs_in_chase

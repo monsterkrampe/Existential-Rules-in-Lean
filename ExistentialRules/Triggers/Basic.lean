@@ -352,7 +352,7 @@ theorem var_or_const_for_result_term_mem_terms_head {trg : PreTrigger sig} {f : 
 
 /-- A term occurs in the trigger result for a given head index if and only if one of the following three cases holds. 1. The term is a constant in the head. 2. The term results from mapping a frontier variable in the head. 3. The term is a fresh term of the head. -/
 theorem mem_terms_mapped_head_iff (trg : PreTrigger sig) (i : Nat) (lt : i < trg.mapped_head.length) :
-    ∀ t, t ∈ trg.mapped_head[i].flatMap GeneralizedAtom.terms ↔ (∃ c, c ∈ (trg.rule.head[i]'(by rw [← length_mapped_head]; exact lt)).consts ∧ GroundTerm.const c = t) ∨ t ∈ (trg.rule.frontier_for_head ⟨i, (by rw [← length_mapped_head]; exact lt)⟩).map trg.subs ∨ t ∈ trg.fresh_terms_for_head_disjunct i (by rw [← length_mapped_head]; exact lt) := by
+    ∀ t, t ∈ trg.mapped_head[i].flatMap GeneralizedAtom.terms ↔ (∃ c, c ∈ (trg.rule.head[i]'(by rw [← length_mapped_head]; exact lt)).consts ∧ GroundTerm.const c = t) ∨ t ∈ (trg.rule.frontier_for_head i (by rw [← length_mapped_head]; exact lt)).map trg.subs ∨ t ∈ trg.fresh_terms_for_head_disjunct i (by rw [← length_mapped_head]; exact lt) := by
   intro t
   rw [List.mem_flatMap, List.mem_map]
   constructor
@@ -373,7 +373,7 @@ theorem mem_terms_mapped_head_iff (trg : PreTrigger sig) (i : Nat) (lt : i < trg
       apply Or.inr
       cases Decidable.em (v ∈ trg.rule.frontier) with
       | inl v_mem_frontier =>
-        have v_mem_frontier : v ∈ trg.rule.frontier_for_head ⟨i, by rw [← length_mapped_head]; exact lt⟩ := by
+        have v_mem_frontier : v ∈ trg.rule.frontier_for_head i (by rw [← length_mapped_head]; exact lt) := by
           apply Rule.mem_frontier_for_head_of_mem_frontier_of_mem_head_terms
           . exact v_mem_frontier
           . rw [← eq]; apply var_or_const_for_result_term_mem_terms_head
@@ -381,7 +381,7 @@ theorem mem_terms_mapped_head_iff (trg : PreTrigger sig) (i : Nat) (lt : i < trg
         exists v
         constructor
         . exact v_mem_frontier
-        . rw [← trg.apply_on_var_or_const_for_result_term_is_term ⟨i, lt⟩ f_mem t_mem, eq, apply_to_var_or_const_frontier_var]; rw [Rule.mem_frontier_iff_mem_frontier_for_head]; exists ⟨i, by rw [← length_mapped_head]; exact lt⟩
+        . rw [← trg.apply_on_var_or_const_for_result_term_is_term ⟨i, lt⟩ f_mem t_mem, eq, apply_to_var_or_const_frontier_var]; rw [Rule.mem_frontier_iff_mem_frontier_for_head]; exists i, (by rw [← length_mapped_head]; exact lt)
       | inr v_nmem_frontier =>
         apply Or.inr
         unfold fresh_terms_for_head_disjunct Rule.existential_vars_for_head_disjunct
@@ -411,7 +411,7 @@ theorem mem_terms_mapped_head_iff (trg : PreTrigger sig) (i : Nat) (lt : i < trg
     cases h with
     | inl h =>
       rcases h with ⟨v, v_mem, t_eq⟩
-      rcases FunctionFreeConjunction.mem_vars.mp (trg.rule.frontier_for_head_subset_vars_head v_mem) with ⟨a, a_mem, v_mem'⟩
+      rcases FunctionFreeConjunction.mem_vars.mp (trg.rule.frontier_for_head_subset_vars_head _ v_mem) with ⟨a, a_mem, v_mem'⟩
       exists trg.apply_to_function_free_atom i a
       constructor
       . unfold mapped_head; simp only [List.getElem_map, List.getElem_zipIdx, Nat.zero_add]; apply List.mem_map_of_mem; exact a_mem
@@ -420,7 +420,7 @@ theorem mem_terms_mapped_head_iff (trg : PreTrigger sig) (i : Nat) (lt : i < trg
         exists .var v
         constructor
         . exact v_mem'
-        . rw [apply_to_var_or_const_frontier_var _ _ _ (by apply Rule.mem_frontier_iff_mem_frontier_for_head.mpr; exists ⟨i, (by rw [← length_mapped_head]; exact lt)⟩)]; exact t_eq
+        . rw [apply_to_var_or_const_frontier_var _ _ _ (by apply Rule.mem_frontier_iff_mem_frontier_for_head.mpr; exists i, (by rw [← length_mapped_head]; exact lt))]; exact t_eq
     | inr h =>
       unfold fresh_terms_for_head_disjunct Rule.existential_vars_for_head_disjunct at h
       simp only [List.mem_map, List.mem_filter, decide_eq_true_iff, FunctionFreeConjunction.mem_vars] at h
@@ -460,7 +460,7 @@ theorem mapped_head_constants_subset (trg : PreTrigger sig) (i : Fin trg.mapped_
     rw [List.mem_map] at t_mem; rcases t_mem with ⟨v, v_mem, t_mem⟩
     rw [List.mem_flatMap]; exists t; constructor
     . have v_mem : v ∈ trg.rule.frontier := by
-        apply Rule.mem_frontier_iff_mem_frontier_for_head.mpr; exact ⟨_, v_mem⟩
+        apply Rule.mem_frontier_iff_mem_frontier_for_head.mpr; exact ⟨_, ⟨_, v_mem⟩⟩
       rw [List.mem_map]; exists v; constructor;
       . exact v_mem
       . unfold subs_for_mapped_head; rw [apply_to_var_or_const_frontier_var]; exact t_mem; exact v_mem

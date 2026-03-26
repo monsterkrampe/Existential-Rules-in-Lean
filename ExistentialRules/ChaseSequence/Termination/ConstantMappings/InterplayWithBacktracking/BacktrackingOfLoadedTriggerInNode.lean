@@ -94,7 +94,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
           exists v; simp only [term_mem, and_true]
           apply Rule.frontier_subset_vars_body
           rw [Rule.mem_frontier_iff_mem_frontier_for_head]
-          exact ⟨_, v_mem⟩
+          exact ⟨_, ⟨_, v_mem⟩⟩
         ) forbidden_constants forbidden_constants_subsumes_term forbidden_constants_subsumes_rules with ⟨g, g_h⟩
         exists g
         constructor

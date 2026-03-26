@@ -176,6 +176,13 @@ variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
 
 /-- A `GroundTerm` can be direclty constructed from a constant. -/
 def const (c : sig.C) : GroundTerm sig := ⟨FiniteTree.leaf c, by simp [PreGroundTerm.arity_ok]⟩
+
+/-- The .const constructor is injective. -/
+@[grind inj]
+theorem const.inj : Function.Injective (GroundTerm.const (sig := sig)) := by intro c d; unfold const; simp
+@[simp]
+theorem const.injEq {c d : sig.C} : GroundTerm.const c = GroundTerm.const d ↔ c = d := by grind
+
 /-- Also, a `GroundTerm` can be constructed from a `SkolemFS` and a list of `GroundTerm`s as long as the length of the list matches the function symbol's arity. -/
 def func (func : SkolemFS sig) (ts : List (GroundTerm sig)) (arity_ok : ts.length = func.arity) : GroundTerm sig := ⟨FiniteTree.inner func ts.unattach, by
   unfold PreGroundTerm.arity_ok
@@ -190,6 +197,16 @@ def func (func : SkolemFS sig) (ts : List (GroundTerm sig)) (arity_ok : ts.lengt
     rw [← t_eq]
     exact t.val.property
 ⟩
+
+/-- The .func constructor is injective. -/
+@[grind ->]
+theorem func.inj
+  {func1 func2 : SkolemFS sig} {ts1 ts2 : List (GroundTerm sig)} {arity_ok1 : ts1.length = func1.arity} {arity_ok2 : ts2.length = func2.arity} :
+  GroundTerm.func func1 ts1 arity_ok1 = GroundTerm.func func2 ts2 arity_ok2 -> func1 = func2 ∧ ts1 = ts2 := by unfold func; simp
+@[simp]
+theorem func.injEq
+  {func1 func2 : SkolemFS sig} {ts1 ts2 : List (GroundTerm sig)} {arity_ok1 : ts1.length = func1.arity} {arity_ok2 : ts2.length = func2.arity} :
+  GroundTerm.func func1 ts1 arity_ok1 = GroundTerm.func func2 ts2 arity_ok2 ↔ func1 = func2 ∧ ts1 = ts2 := by grind
 
 /-- We define a cases eliminator for the `GroundTerm` having a case for each constructor. This allows to use the `cases` tactic direcly on `GroundTerm`s. -/
 @[elab_as_elim, cases_eliminator]
@@ -305,6 +322,10 @@ def constants (t : GroundTerm sig) : (List sig.C) := t.val.leaves
 
 /-- The `functions` (i.e. function symbols `SkolemFS`) occurring in a `GroundTerm` are exactly the inner labels of the underlying `FiniteTree`. -/
 def functions (t : GroundTerm sig) : (List (SkolemFS sig)) := t.val.innerLabels
+
+/-- Applyign `toConst` to a `GroundTerm.const` yields exactly the contained constant. -/
+@[simp, grind =]
+theorem toConst_const {c : sig.C} : (GroundTerm.const c).toConst (by exists c) = c := by rfl
 
 /-- Constants have `depth` 1. -/
 @[simp, grind =]

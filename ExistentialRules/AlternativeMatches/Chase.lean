@@ -144,7 +144,7 @@ theorem result_isWeakCore_of_noAltMatch {cb : ChaseBranch obs kb} (det : kb.isDe
             rcases t_mem with ⟨v, v_mem, t_mem⟩
             exists v; simp only [t_mem, and_true]
             rw [Rule.mem_frontier_iff_mem_frontier_for_head]
-            exact ⟨_, v_mem⟩
+            exact ⟨_, ⟨_, v_mem⟩⟩
           | inr t_mem =>
           exists t
           constructor
@@ -331,7 +331,7 @@ theorem non_id_endomorphism_of_altMatch {cb : ChaseBranch obs kb} (det : kb.isDe
         | inl t_mem =>
           have t_mem : t ∈ (next.origin.get (cd.isSome_origin_next next_mem)).fst.val.rule.frontier.map (next.origin.get (cd.isSome_origin_next next_mem)).fst.val.subs := by
             rw [List.mem_map] at t_mem; rw [List.mem_map]; rcases t_mem with ⟨v, v_mem, t_mem⟩; exists v; simp only [t_mem, and_true]
-            rw [Rule.mem_frontier_iff_mem_frontier_for_head]; exact ⟨_, v_mem⟩
+            rw [Rule.mem_frontier_iff_mem_frontier_for_head]; exact ⟨_, ⟨_, v_mem⟩⟩
           unfold h; split <;> simp [altMatch.right.left _ t_mem]
         | inr t_mem =>
           have : ¬ t ∈ ts := by
@@ -535,7 +535,7 @@ theorem altMatch_of_some_not_reaches_self (cb : ChaseBranch obs kb) (fs : FactSe
             exists v; simp only [t_mem, and_true]
             apply Rule.frontier_subset_vars_body
             rw [Rule.mem_frontier_iff_mem_frontier_for_head]
-            exact ⟨_, v_mem⟩
+            exact ⟨_, ⟨_, v_mem⟩⟩
           | inr t_mem => exact t_mem
       . intro t_mem; rw [List.mem_map] at t_mem; rcases t_mem with ⟨s, s_mem, t_eq⟩
         apply prop_node ((k + 1) * l) _ s
