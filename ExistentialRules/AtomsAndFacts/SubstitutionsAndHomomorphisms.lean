@@ -38,6 +38,7 @@ def apply_generalized_atom (h : TermMapping S T) (a : GeneralizedAtom sig S) : G
 }
 
 /-- A `TermMapping` is applied to a list of `GeneralizedAtom`s by applying it to each atom. -/
+@[expose]
 def apply_generalized_atom_list (h : TermMapping S T) (l : List (GeneralizedAtom sig S)) : List (GeneralizedAtom sig T) :=
   l.map h.apply_generalized_atom
 
@@ -102,6 +103,15 @@ theorem apply_generalized_atom_list_compose' (g : TermMapping S T) (h : TermMapp
   intro l
   rw [← Function.comp_apply (f := h.apply_generalized_atom_list)]
   rw [← apply_generalized_atom_list_compose]
+
+/-- Applying a `TermMapping` to both an atom and a set of atoms retains membership of the atom in the set. -/
+@[grind =>]
+theorem apply_generalized_atom_mem_apply_generalized_atom_list
+    (h : TermMapping S T) (a : GeneralizedAtom sig S) (as : List (GeneralizedAtom sig S)) :
+    a ∈ as -> h.apply_generalized_atom a ∈ h.apply_generalized_atom_list as := by
+  intro a_mem
+  simp only [apply_generalized_atom_list, List.mem_map]
+  exists a
 
 /-- Unfold the defintiion of apply_generalized_atom_set for membership. -/
 @[simp, grind =]

@@ -104,12 +104,13 @@ def filterConsts : List (VarOrConst sig) -> List sig.C
   | .const c => List.cons c (filterConsts vocs)
 
 /-- In the context of a rule and a disjunct (in that rule), we can turn a `VarOrConst` into a `SkolemTerm` using the frontier of the rule. This function is used for skolemizing existential variables in rules. -/
-def skolemize (ruleId : Nat) (disjunctIndex : Nat) (frontier : List sig.V) (voc : VarOrConst sig) : SkolemTerm sig :=
-  match voc with
-    | .var v => ite (v ∈ frontier)
-      (SkolemTerm.var v)
-      (SkolemTerm.func { ruleId, disjunctIndex, var := v, arity := frontier.length } frontier rfl)
-    | .const c => SkolemTerm.const c
+@[expose]
+def skolemize (ruleId : Nat) (disjunctIndex : Nat) (frontier : List sig.V) : VarOrConst sig -> SkolemTerm sig
+| .var v =>
+  if (v ∈ frontier)
+  then .var v
+  else .func { ruleId, disjunctIndex, var := v, arity := frontier.length } frontier rfl
+| .const c => SkolemTerm.const c
 
 /-- Each member of `filterVars` is in the original list (when applyign the `var` constructor again.) -/
 @[grind ->]
@@ -207,6 +208,18 @@ theorem func.inj
 theorem func.injEq
   {func1 func2 : SkolemFS sig} {ts1 ts2 : List (GroundTerm sig)} {arity_ok1 : ts1.length = func1.arity} {arity_ok2 : ts2.length = func2.arity} :
   GroundTerm.func func1 ts1 arity_ok1 = GroundTerm.func func2 ts2 arity_ok2 ↔ func1 = func2 ∧ ts1 = ts2 := by grind
+
+/-- GroundTerm.func can never be equal to GroundTerm.const -/
+theorem func_neq_const {func : SkolemFS sig} {ts : List (GroundTerm sig)} {arity_ok : ts.length = func.arity} {c : sig.C} :
+  GroundTerm.func func ts arity_ok ≠ GroundTerm.const c := by simp [GroundTerm.func, const]
+
+/-- A term cannot occur in its own child. -/
+theorem eq_while_contained_is_impossible {func : SkolemFS sig} {ts : List (GroundTerm sig)} {arity_ok : ts.length = func.arity} :
+    GroundTerm.func func ts arity_ok ∉ ts := by
+  intro mem
+  apply FiniteTree.tree_eq_while_contained_is_impossible (GroundTerm.func func ts arity_ok).val ts.unattach func
+  . rfl
+  . rw [List.mem_unattach]; exact ⟨_, mem⟩
 
 /-- We define a cases eliminator for the `GroundTerm` having a case for each constructor. This allows to use the `cases` tactic direcly on `GroundTerm`s. -/
 @[elab_as_elim, cases_eliminator]
