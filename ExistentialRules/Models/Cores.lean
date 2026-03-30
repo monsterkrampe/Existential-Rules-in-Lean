@@ -1,4 +1,7 @@
-import ExistentialRules.Models.Basic
+module
+
+public import BasicLeanDatastructures.List.EraseDupsKeepRight
+public import ExistentialRules.Models.Basic
 
 /-!
 # Cores
@@ -64,6 +67,8 @@ theorem equiv_of_nodup_of_length_eq_of_all_mem [DecidableEq α] (as bs : List α
 
 end List
 
+public section
+
 namespace Function
 
 /-!
@@ -121,11 +126,12 @@ theorem surjective_of_surjective_compose (f : α -> β) (g : β -> γ) (domain :
   rcases surj b b_mem with ⟨a, a_mem, a_eq⟩
   exists f a
   constructor
-  . exists a
+  . unfold image_set; rw [Set.mem_map]; exists a
   . exact a_eq
 
 /-- The injectivity definitions for set and list are interchangeable. -/
-theorem injective_set_list_equiv (f : α -> β) (domain_set : Set α) (domain_list : List α) (eq : ∀ e, e ∈ domain_list ↔ e ∈ domain_set) : f.injective_for_domain_set domain_set ↔ f.injective_for_domain_list domain_list := by
+theorem injective_set_list_equiv (f : α -> β) (domain_set : Set α) (domain_list : List α) (eq : ∀ e, e ∈ domain_list ↔ e ∈ domain_set) :
+    f.injective_for_domain_set domain_set ↔ f.injective_for_domain_list domain_list := by
   constructor
   . intro h a a' a_mem a'_mem f_eq
     apply h
@@ -187,7 +193,8 @@ theorem surjective_on_own_image [DecidableEq β] (f : α -> β) (domain : List �
   intro b b_mem; simp only [image, List.mem_eraseDupsKeepRight, List.mem_map] at b_mem; exact b_mem
 
 /-- If a mapping is closed, then its image is fully contained in its domain. -/
-theorem image_contained_of_closed [DecidableEq α] (f : α -> α) (domain : List α) (closed : ∀ e, e ∈ domain -> f e ∈ domain) : ∀ e, e ∈ image f domain -> e ∈ domain := by
+theorem image_contained_of_closed [DecidableEq α] (f : α -> α) (domain : List α) (closed : ∀ e, e ∈ domain -> f e ∈ domain) :
+    ∀ e, e ∈ image f domain -> e ∈ domain := by
   intro b b_mem
   rcases surjective_on_own_image f domain b b_mem with ⟨a, a_mem, a_eq⟩
   rw [← a_eq]
@@ -195,68 +202,52 @@ theorem image_contained_of_closed [DecidableEq α] (f : α -> α) (domain : List
   exact a_mem
 
 /-- Given a mapping and a domain list without duplicates, the mapping in injective on the domain if and only if the `image` contains the same number of elements as the domain.  -/
-theorem injective_iff_length_image_eq_of_nodup [DecidableEq β] (f : α -> β) (domain : List α) (nodup : domain.Nodup) : f.injective_for_domain_list domain ↔ (image f domain).length = domain.length := by
-  -- TODO: we can probably shorten this proof a lot by proving appropriate results about List.eraseDupsKeepRight
+theorem injective_iff_length_image_eq_of_nodup [DecidableEq β] (f : α -> β) (domain : List α) (nodup : domain.Nodup) :
+    f.injective_for_domain_list domain ↔ (image f domain).length = domain.length := by
   constructor
   . intro inj
-    induction domain with
-    | nil => simp [image, List.eraseDupsKeepRight]
-    | cons hd tl ih =>
-      cases Decidable.em (f hd ∈ image f tl) with
-      | inl hd_mem =>
-        apply False.elim
-        simp only [List.nodup_cons] at nodup
-        apply nodup.left
-        rcases surjective_on_own_image f tl (f hd) hd_mem with ⟨a, a_mem, a_eq⟩
-        specialize inj a hd (by simp [a_mem]) (by simp) a_eq
-        rw [← inj]
-        exact a_mem
-      | inr hd_not_mem =>
-        simp only [image, List.mem_eraseDupsKeepRight] at hd_not_mem
-        simp only [image, List.map_cons, List.eraseDupsKeepRight, hd_not_mem, ↓reduceIte, List.length_cons, Nat.add_right_cancel_iff]
-        apply ih
-        . simp only [List.nodup_cons] at nodup; exact nodup.right
-        . apply injective_for_domain_list_cons; exact inj
+    have domain_nodup : (domain.map f).Nodup := by
+      induction domain with
+      | nil => simp
+      | cons hd tl ih =>
+        rw [List.nodup_cons] at nodup
+        rw [List.map_cons, List.nodup_cons]
+        constructor
+        . intro hd_mem_tl
+          apply nodup.left
+          rcases surjective_on_own_image f tl (f hd) (by unfold image; rw [List.mem_eraseDupsKeepRight]; exact hd_mem_tl) with ⟨a, a_mem, a_eq⟩
+          specialize inj a hd (by simp [a_mem]) (by simp) a_eq
+          rw [← inj]
+          exact a_mem
+        . apply ih; exact nodup.right; apply injective_for_domain_list_cons; exact inj
+    unfold image
+    simp [domain_nodup]
   . intro length_eq
+    have domain_nodup : (domain.map f).Nodup := by
+      apply List.nodup_of_length_eraseDupsKeepRight_same
+      unfold image at length_eq
+      rw [length_eq]
+      simp
     induction domain with
     | nil => simp [injective_for_domain_list]
     | cons hd tl ih =>
-      cases Decidable.em (f hd ∈ image f tl) with
-      | inl hd_mem =>
-        simp only [image, List.mem_eraseDupsKeepRight] at hd_mem
-        simp only [image, List.map_cons, List.eraseDupsKeepRight, hd_mem, ↓reduceIte, List.length_cons] at length_eq
-        have contra := length_image f tl
-        simp only [image, length_eq] at contra
-        simp [Nat.succ_le_iff] at contra
-      | inr hd_not_mem =>
-        simp only [image, List.mem_eraseDupsKeepRight] at hd_not_mem
-        simp only [image, List.map_cons, List.eraseDupsKeepRight, hd_not_mem, ↓reduceIte, List.length_cons, Nat.add_right_cancel_iff] at length_eq
-        intro a a' a_mem a'_mem eq
-        rw [List.mem_cons] at a_mem
-        rw [List.mem_cons] at a'_mem
-        cases a_mem with
-        | inl a_mem => cases a'_mem with
-          | inl a'_mem => rw [a_mem, a'_mem]
-          | inr a'_mem =>
-            apply False.elim
-            apply hd_not_mem
-            rw [← a_mem, eq]
-            apply List.mem_map_of_mem
-            exact a'_mem
-        | inr a_mem => cases a'_mem with
-          | inl a'_mem =>
-            apply False.elim
-            apply hd_not_mem
-            rw [← a'_mem, ← eq]
-            apply List.mem_map_of_mem
-            exact a_mem
-          | inr a'_mem =>
-            simp only [List.nodup_cons] at nodup
-            specialize ih nodup.right length_eq
-            apply ih <;> assumption
+      rw [List.map_cons, List.nodup_cons] at domain_nodup
+      intro a a' a_mem a'_mem eq
+      rw [List.mem_cons] at a_mem
+      rw [List.mem_cons] at a'_mem
+      cases a_mem with
+      | inl a_mem => grind
+      | inr a_mem =>
+        cases a'_mem with
+        | inl a'_mem => grind
+        | inr a'_mem =>
+          simp only [List.nodup_cons] at nodup
+          specialize ih nodup.right (by simp [image, domain_nodup.right]) domain_nodup.right
+          apply ih <;> assumption
 
 /-- A mapping is surjective on a given domain and image if and only if the given image is contained in the actual image of the mapping. -/
-theorem surjective_on_target_iff_all_in_image [DecidableEq β] (f : α -> β) (domain : List α) (target_image : List β) : f.surjective_for_domain_and_image_list domain target_image ↔ ∀ b, b ∈ target_image -> b ∈ image f domain := by
+theorem surjective_on_target_iff_all_in_image [DecidableEq β] (f : α -> β) (domain : List α) (target_image : List β) :
+    f.surjective_for_domain_and_image_list domain target_image ↔ ∀ b, b ∈ target_image -> b ∈ image f domain := by
   constructor
   . intro surj b b_mem
     specialize surj b b_mem
@@ -270,7 +261,8 @@ theorem surjective_on_target_iff_all_in_image [DecidableEq β] (f : α -> β) (d
     exact b_mem
 
 /-- Given a single list without duplicates that represents both domain and image, if a mapping is surjective, then it is injective. -/
-theorem injective_of_surjective_of_nodup [DecidableEq α] (f : α -> α) (l : List α) (nodup : l.Nodup) : f.surjective_for_domain_and_image_list l l -> f.injective_for_domain_list l := by
+theorem injective_of_surjective_of_nodup [DecidableEq α] (f : α -> α) (l : List α) (nodup : l.Nodup) :
+    f.surjective_for_domain_and_image_list l l -> f.injective_for_domain_list l := by
   intro surj
   rw [surjective_on_target_iff_all_in_image] at surj
   rw [injective_iff_length_image_eq_of_nodup _ _ nodup]
@@ -283,7 +275,6 @@ theorem injective_of_surjective_of_nodup [DecidableEq α] (f : α -> α) (l : Li
 theorem injective_iff_surjective_of_nodup_of_closed [DecidableEq α] (f : α -> α) (l : List α) (nodup : l.Nodup) (closed : ∀ e, e ∈ l -> f e ∈ l) : f.injective_for_domain_list l ↔ f.surjective_for_domain_and_image_list l l := by
   constructor
   . intro inj
-
     have : ∀ e, e ∈ image f l ↔ e ∈ l := by
       apply List.equiv_of_nodup_of_length_eq_of_all_mem
       . apply nodup_image
@@ -294,14 +285,14 @@ theorem injective_iff_surjective_of_nodup_of_closed [DecidableEq α] (f : α -> 
         apply image_contained_of_closed
         . exact closed
         . exact e_mem
-
     rw [surjective_on_target_iff_all_in_image]
     intro b
     apply (this b).mpr
   . apply injective_of_surjective_of_nodup; exact nodup
 
 /-- Given a single list without duplicates that represents both domain and image, if a mapping both injective and surjective, then is must be closed on the list. -/
-theorem closed_of_injective_of_surjective_of_nodup [DecidableEq α] (f : α -> α) (l : List α) (nodup : l.Nodup) : f.injective_for_domain_list l -> f.surjective_for_domain_and_image_list l l -> ∀ e, e ∈ l -> f e ∈ l := by
+theorem closed_of_injective_of_surjective_of_nodup [DecidableEq α] (f : α -> α) (l : List α) (nodup : l.Nodup) :
+    f.injective_for_domain_list l -> f.surjective_for_domain_and_image_list l l -> ∀ e, e ∈ l -> f e ∈ l := by
   intro inj surj
   intro e e_mem
   rw [List.equiv_of_nodup_of_length_eq_of_all_mem l (image f l) nodup]
@@ -324,10 +315,12 @@ without requiring any additional properties for the underlying `GroundTermMappin
 variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [DecidableEq sig.P]
 
 /-- A `GroundTermMapping` is strong for `FactSet`s A and B if each element not in A, its mapping is not in B. However, we only demand this for elements that only feature terms from a given domain because we do not want to care about the mapping of terms outside the domain. -/
+@[expose]
 def strong (h : GroundTermMapping sig) (domain : Set (GroundTerm sig)) (A B : FactSet sig) : Prop :=
   ∀ (e : Fact sig), (∀ t, t ∈ e.terms -> t ∈ domain) -> ¬ e ∈ A -> ¬ (h.applyFact e) ∈ B
 
 /-- If the composition of two mappings is strong from A to C and the second mapping is a homomorphism from B to C, then the first mapping is strong from A to B. -/
+@[grind ->]
 theorem strong_of_compose_strong (g h : GroundTermMapping sig) (domain : Set (GroundTerm sig)) (A B C : FactSet sig) :
     h.isHomomorphism B C -> GroundTermMapping.strong (h ∘ g) domain A C -> g.strong domain A B := by
   intro h_hom compose_strong
@@ -336,12 +329,11 @@ theorem strong_of_compose_strong (g h : GroundTermMapping sig) (domain : Set (Gr
   . exact e_dom
   . exact e_not_mem_a
   . apply h_hom.right (GroundTermMapping.applyFact (h ∘ g) e)
+    rw [GroundTermMapping.mem_applyFactSet]
     exists (g.applyFact e)
     constructor
     . exact e_mem_b
-    . unfold applyFact
-      rw [TermMapping.apply_generalized_atom_compose]
-      simp
+    . simp
 
 end GroundTermMapping
 
@@ -372,6 +364,7 @@ theorem repeat_hom_swap (h : GroundTermMapping sig) (i : Nat) : ∀ t, h (h.repe
   | succ i ih => unfold repeat_hom; simp [ih]
 
 /-- A (n+m)-times repetition can be split into the composition of an m-times repetition followed by an n-times repetition. -/
+@[simp, grind =]
 theorem repeat_hom_add (h : GroundTermMapping sig) (n m : Nat) : ∀ t, h.repeat_hom (n + m) t = h.repeat_hom n (h.repeat_hom m t) := by
   intro t
   induction m with
@@ -386,20 +379,17 @@ theorem repeat_hom_cycle_mul (h : GroundTermMapping sig) (t : GroundTerm sig) (n
   intro cycle m
   induction m with
   | zero => simp [repeat_hom]
-  | succ m ih =>
-    rw [Nat.mul_add]
-    rw [repeat_hom_add]
-    simp [cycle, ih]
+  | succ m ih => rw [Nat.mul_add, repeat_hom_add]; simp [cycle, ih]
 
 /-- If some repetition maps a term to itself, then for each other term that is part of the loop, the same number of repetitions also maps that one to itself. -/
-theorem repeat_hom_move_cycle (h : GroundTermMapping sig) (t : GroundTerm sig) (n : Nat) : h.repeat_hom n t = t -> ∀ s m, h.repeat_hom m t = s -> h.repeat_hom n s = s := by
+theorem repeat_hom_move_cycle (h : GroundTermMapping sig) (t : GroundTerm sig) (n : Nat) :
+    h.repeat_hom n t = t -> ∀ s m, h.repeat_hom m t = s -> h.repeat_hom n s = s := by
   intro cycle s m reaches_s
   induction m generalizing t with
   | zero => simp only [repeat_hom, id_eq] at reaches_s; rw [← reaches_s]; exact cycle
   | succ m ih =>
     apply ih (h t)
-    . rw [← h.repeat_hom_swap]
-      rw [cycle]
+    . rw [← h.repeat_hom_swap, cycle]
     . simp only [repeat_hom, Function.comp_apply] at reaches_s
       rw [h.repeat_hom_swap] at reaches_s
       exact reaches_s
@@ -433,7 +423,7 @@ theorem repeat_each_reaches_self_of_each_reachable
             apply Nat.le_trans
             . exact k_le
             . apply Nat.le_of_lt
-              simp
+              rw [Nat.one_mul]
               -- NOTE: taken from https://github.com/leanprover-community/mathlib4/blob/3f813de52d8cffaa73e27edd62364eec90eac633/Mathlib/Data/Nat/Defs.lean#L473-L474
               rw [← Nat.succ_mul, ← Nat.div_lt_iff_lt_mul (by apply Nat.lt_of_succ_le; exact l_le)]; exact Nat.lt_succ_self _
           . exists t
@@ -500,7 +490,11 @@ theorem repeat_globally_of_each_repeats
       | inr s_mem => specialize ih s s_mem; rw [Nat.mul_comm, h.repeat_hom_cycle_mul]; exact ih
 
 /-- If a mapping is surjective for a given list of terms, then there exists a repetition count $k$ such that $k+1$ map each term from the list to itself. Note that we use $k+1$ repetitions as otherwise the result would be trivial for zero repetitions, which are the id by definition. -/
-theorem exists_repetition_that_is_inverse_of_surj (h : GroundTermMapping sig) (ts : List (GroundTerm sig)) (surj : h.surjective_for_domain_and_image_list ts ts) : ∃ k, ∀ t, t ∈ ts -> (h.repeat_hom k) (h t) = t := by
+theorem exists_repetition_that_is_inverse_of_surj
+    (h : GroundTermMapping sig)
+    (ts : List (GroundTerm sig))
+    (surj : h.surjective_for_domain_and_image_list ts ts) :
+    ∃ k, ∀ t, t ∈ ts -> (h.repeat_hom k) (h t) = t := by
   have each_repeats := h.repeat_each_reaches_self_of_each_reachable ts (by
     intro t t_mem
     exists 1
@@ -527,15 +521,13 @@ theorem repeat_hom_id_on_const (h : GroundTermMapping sig) (idOnConst : h.isIdOn
   intro i
   induction i with
   | zero => unfold repeat_hom; intro c; simp
-  | succ i ih =>
-    intro c
-    unfold repeat_hom
-    rw [Function.comp_apply, ih, idOnConst]
+  | succ i ih => unfold repeat_hom; intro c; rw [Function.comp_apply, ih, idOnConst]
 
 variable [DecidableEq sig.P]
 
 /-- Repeating a mapping retains the `isHomomorphism` property at least for endomorphisms. -/
-theorem repeat_hom_isHomomorphism (h : GroundTermMapping sig) (fs : FactSet sig) (hom : h.isHomomorphism fs fs) : ∀ i, (h.repeat_hom i).isHomomorphism fs fs := by
+theorem repeat_hom_isHomomorphism (h : GroundTermMapping sig) (fs : FactSet sig) (hom : h.isHomomorphism fs fs) :
+    ∀ i, (h.repeat_hom i).isHomomorphism fs fs := by
   intro i
   constructor
   . apply repeat_hom_id_on_const; exact hom.left
@@ -543,10 +535,13 @@ theorem repeat_hom_isHomomorphism (h : GroundTermMapping sig) (fs : FactSet sig)
     | zero =>
       simp only [repeat_hom]
       intro f f_mem
+      rw [GroundTermMapping.mem_applyFactSet] at f_mem
       rcases f_mem with ⟨f', f'_mem, f_eq⟩
       have : f = f' := by
-        unfold TermMapping.apply_generalized_atom at f_eq
-        rw [← f_eq]; simp
+        rw [f_eq]
+        unfold GroundTermMapping.applyFact
+        unfold TermMapping.apply_generalized_atom
+        simp
       rw [this]
       exact f'_mem
     | succ i ih =>
@@ -572,18 +567,24 @@ Here, we finally define `isWeakCore` and `isStrongCore` and show some of their r
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 /-- A `FactSet` is a weak core if every endomorphisms on the fact set is strong and injective. -/
+@[expose]
 def isWeakCore (fs : FactSet sig) : Prop :=
   ∀ (h : GroundTermMapping sig), h.isHomomorphism fs fs -> h.strong fs.terms fs fs ∧ h.injective_for_domain_set fs.terms
 
 /-- A `FactSet` is a strong core if every endomorphisms on the fact set is strong, injective, and surjective. (By definition, every strong core is a weak core.) -/
+@[expose]
 def isStrongCore (fs : FactSet sig) : Prop :=
   ∀ (h : GroundTermMapping sig), h.isHomomorphism fs fs -> h.strong fs.terms fs fs ∧ h.injective_for_domain_set fs.terms ∧ h.surjective_for_domain_and_image_set fs.terms fs.terms
 
 /-- We say that a fact set $C$ is a homomorphic subset of another fact set $F$ if $C$ is a subset of $F$ and there is a homomorphism from $F$ to $C$. -/
+@[expose]
 def homSubset (c fs : FactSet sig) : Prop := c ⊆ fs ∧ (∃ (h : GroundTermMapping sig), h.isHomomorphism fs c)
 
 /-- For a homomorphism on a finite fact set, injectivity implies surjectivity. -/
-theorem hom_surjective_of_finite_of_injective (fs : FactSet sig) (finite : fs.finite) : ∀ (h : GroundTermMapping sig), h.isHomomorphism fs fs -> h.injective_for_domain_set fs.terms -> h.surjective_for_domain_and_image_set fs.terms fs.terms := by
+@[grind ->]
+theorem hom_surjective_of_finite_of_injective (fs : FactSet sig) (finite : fs.finite) :
+    ∀ (h : GroundTermMapping sig), h.isHomomorphism fs fs -> h.injective_for_domain_set fs.terms ->
+    h.surjective_for_domain_and_image_set fs.terms fs.terms := by
   rcases finite with ⟨l, finite⟩
   intro h isHom inj
 
@@ -619,7 +620,7 @@ theorem hom_surjective_of_finite_of_injective (fs : FactSet sig) (finite : fs.fi
     let f' := h.applyFact f
     have f'_mem : f' ∈ fs := by
       apply isHom.right
-      unfold GroundTermMapping.applyFactSet
+      rw [GroundTermMapping.mem_applyFactSet]
       exists f
       constructor
       . rw [finite.right] at f_mem
@@ -641,7 +642,9 @@ theorem hom_surjective_of_finite_of_injective (fs : FactSet sig) (finite : fs.fi
   exact inj
 
 /-- For a homomorphism on a finite fact set, injectivity implies that the homomorphisms is also strong. -/
-theorem hom_strong_of_finite_of_injective (fs : FactSet sig) (finite : fs.finite) : ∀ (h : GroundTermMapping sig), h.isHomomorphism fs fs -> h.injective_for_domain_set fs.terms -> h.strong fs.terms fs fs := by
+@[grind ->]
+theorem hom_strong_of_finite_of_injective (fs : FactSet sig) (finite : fs.finite) :
+    ∀ (h : GroundTermMapping sig), h.isHomomorphism fs fs -> h.injective_for_domain_set fs.terms -> h.strong fs.terms fs fs := by
   intro h isHom inj
 
   intro f ts_mem f_not_mem apply_mem
@@ -674,6 +677,7 @@ theorem hom_strong_of_finite_of_injective (fs : FactSet sig) (finite : fs.finite
   exact apply_mem
 
 /-- For finite fact sets, `isWeakCore` implies `isStrongCore`. That means that `isWeakCore` and `isStrongCore` are equivalent on finite fact sets. -/
+@[grind ->]
 theorem isStrongCore_of_isWeakCore_of_finite (fs : FactSet sig) (weakCore : fs.isWeakCore) (finite : fs.finite) : fs.isStrongCore := by
   rcases finite with ⟨l, finite⟩
   unfold isStrongCore
@@ -685,7 +689,7 @@ theorem isStrongCore_of_isWeakCore_of_finite (fs : FactSet sig) (weakCore : fs.i
   constructor
   . exact injective
   . apply hom_surjective_of_finite_of_injective
-    . unfold Set.finite; exists l
+    . exists l
     . exact isHom
     . exact injective
 
@@ -724,11 +728,13 @@ theorem every_weakCore_isomorphic_to_strongCore_of_hom_both_ways
     . apply Function.surjective_of_surjective_compose h_sc_wc h_wc_sc sc.terms
       exact sc_strong.right.right
     . intro t t_mem_image
+      simp only [Function.image_set, Set.mem_map] at t_mem_image
       rcases t_mem_image with ⟨arg, arg_mem, arg_eq⟩
       rcases arg_mem with ⟨f, f_mem, f_eq⟩
       exists (h_sc_wc.applyFact f)
       constructor
       . apply h_sc_wc_hom.right
+        rw [GroundTermMapping.mem_applyFactSet]
         exists f
       . unfold GroundTermMapping.applyFact
         unfold TermMapping.apply_generalized_atom
@@ -827,6 +833,7 @@ theorem strong_core_of_model_is_model
           . exact mem
           . rw [spec.right, h_fs_sc_hom.left]
       . intro f f_mem
+        rw [GroundTermMapping.mem_applyFactSet] at f_mem
         rcases f_mem with ⟨f', f'_mem, f_eq⟩
         have strong := sc_strong.left
         unfold GroundTermMapping.strong at strong
@@ -834,8 +841,8 @@ theorem strong_core_of_model_is_model
         intro contra
         apply strong f
         . intro t t_mem
-          rw [← f_eq] at t_mem
-          unfold TermMapping.apply_generalized_atom at t_mem
+          rw [f_eq] at t_mem
+          unfold GroundTermMapping.applyFact TermMapping.apply_generalized_atom at t_mem
           rw [List.mem_map] at t_mem
           rcases t_mem with ⟨t', t'_mem, t_eq⟩
           have t'_mem : t' ∈ sc.terms := by exists f'
@@ -845,7 +852,7 @@ theorem strong_core_of_model_is_model
           simp only [t'_mem, ↓reduceDIte]
           exact spec.left
         . exact contra
-        . rw [← f_eq]
+        . rw [f_eq]
           unfold GroundTermMapping.applyFact
           rw [← TermMapping.apply_generalized_atom_compose']
           have : TermMapping.apply_generalized_atom (h_fs_sc ∘ inv) f' = f' := by
@@ -910,8 +917,7 @@ theorem strong_core_of_model_is_model
         unfold Rule.frontier at v_mem
         rw [List.mem_filter] at v_mem
         have v_mem := v_mem.left
-        unfold FunctionFreeConjunction.vars at v_mem
-        rw [List.mem_flatMap] at v_mem
+        rw [FunctionFreeConjunction.mem_vars] at v_mem
         rcases v_mem with ⟨a, a_mem, v_mem⟩
         exists subs.apply_function_free_atom a
         constructor
@@ -924,11 +930,6 @@ theorem strong_core_of_model_is_model
           unfold TermMapping.apply_generalized_atom
           rw [List.mem_map]
           exists VarOrConst.var v
-          constructor
-          . unfold FunctionFreeAtom.variables at v_mem
-            apply VarOrConst.filterVars_occur_in_original_list
-            exact v_mem
-          . rfl
       )]
     . apply Set.subset_trans (b := h_fs_sc.applyFactSet fs)
       . intro f f_mem
