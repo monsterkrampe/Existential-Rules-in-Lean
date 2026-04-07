@@ -1,4 +1,6 @@
-import ExistentialRules.ChaseSequence.Termination.RenameConstantsApart.PreGroundTerm
-import ExistentialRules.ChaseSequence.Termination.RenameConstantsApart.GroundTerm
-import ExistentialRules.ChaseSequence.Termination.RenameConstantsApart.PreTrigger
+module
+
+public import ExistentialRules.ChaseSequence.Termination.RenameConstantsApart.PreGroundTerm
+public import ExistentialRules.ChaseSequence.Termination.RenameConstantsApart.GroundTerm
+public import ExistentialRules.ChaseSequence.Termination.RenameConstantsApart.PreTrigger
 
