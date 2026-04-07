@@ -176,6 +176,7 @@ theorem length_each_mapped_head (trg : PreTrigger sig) : ∀ (n : Nat), trg.mapp
   cases trg.rule.head[n]? <;> simp
 
 /-- For a fixed head index, we can view the trigger merely as a substitution that internally captures the Skolemization of existential variables. In other words, applying this substitution to the specified head disjunct yields exactly the trigger result for the same disjunct. Viewing the trigger as a substitution can be convenient for theorems and proofs. -/
+@[expose]
 def subs_for_mapped_head (trg : PreTrigger sig) (i : Fin trg.mapped_head.length) : GroundSubstitution sig :=
   fun v => trg.apply_to_var_or_const i (.var v)
 
