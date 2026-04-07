@@ -162,6 +162,7 @@ section Suffixes
 Suffixes on `ChaseDerivation`s allow us to state the fairness condition more nicely.
 -/
 
+@[expose]
 def IsSuffix (cd1 cd2 : ChaseDerivation obs rules) : Prop := ChaseDerivationSkeleton.IsSuffix cd1.toChaseDerivationSkeleton cd2.toChaseDerivationSkeleton
 infixl:50 " <:+ " => IsSuffix
 

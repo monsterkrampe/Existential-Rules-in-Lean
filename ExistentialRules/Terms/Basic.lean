@@ -317,7 +317,7 @@ def rec
     ))
 termination_by t.val.depth
 
-/-- A `GroundTerm` that has been constructed from a constants can be converted into this constants again. -/
+/-- A `GroundTerm` that has been constructed from a constant can be converted into this constants again. -/
 def toConst (t : GroundTerm sig) (isConst : ∃ c, t = GroundTerm.const c) : sig.C :=
   match eq : t.val with
   | .leaf c => c
@@ -326,6 +326,12 @@ def toConst (t : GroundTerm sig) (isConst : ∃ c, t = GroundTerm.const c) : sig
     rcases isConst with ⟨c, isConst⟩
     rw [isConst] at eq
     simp [GroundTerm.const] at eq
+
+/-- For a `GroundTerm` that has been constructed as a functional term, we can obtain the function symbol. -/
+def functionSymbol (t : GroundTerm sig) (isFunc : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok) : SkolemFS sig :=
+  match eq : t.val with
+  | .leaf _ => by apply False.elim; rcases isFunc with ⟨func, ts, arity_ok, eq2⟩; rw [eq2] at eq; simp [GroundTerm.func] at eq
+  | .inner func _ => func
 
 /-- The `depth` of a `GroundTerm` is the depth of the underlying `FiniteTree`, i.e. the deepest nesting of function symbols (+1). -/
 def depth (t : GroundTerm sig) : Nat := t.val.depth
@@ -336,9 +342,14 @@ def constants (t : GroundTerm sig) : (List sig.C) := t.val.leaves
 /-- The `functions` (i.e. function symbols `SkolemFS`) occurring in a `GroundTerm` are exactly the inner labels of the underlying `FiniteTree`. -/
 def functions (t : GroundTerm sig) : (List (SkolemFS sig)) := t.val.innerLabels
 
-/-- Applyign `toConst` to a `GroundTerm.const` yields exactly the contained constant. -/
+/-- Applying `toConst` to a `GroundTerm.const` yields exactly the contained constant. -/
 @[simp, grind =]
 theorem toConst_const {c : sig.C} : (GroundTerm.const c).toConst (by exists c) = c := by rfl
+
+/-- Applying `functionSymbol` to a `GroundTerm.fun` yields exactly the contained function symbol. -/
+@[simp, grind =]
+theorem functionSymbol_func {func : SkolemFS sig} {ts : List (GroundTerm sig)} {arity_ok : ts.length = func.arity} :
+  (GroundTerm.func func ts arity_ok).functionSymbol (by exists func, ts, arity_ok) = func := by rfl
 
 /-- Constants have `depth` 1. -/
 @[simp, grind =]

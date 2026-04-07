@@ -86,18 +86,22 @@ Maybe this should even move to the BasicLeanDatastructures repo since there are 
 def image_set (f : α -> β) (A : Set α) : Set β := A.map f
 
 /-- A function is injective on a given domain set if for each two elements of the given domain, the mapping of both elements being the same implies the elements being the same. -/
+@[expose]
 def injective_for_domain_set (f : α -> β) (domain : Set α) : Prop := ∀ a a', a ∈ domain -> a' ∈ domain -> f a = f a' -> a = a'
 
 /-- A function is surjective on a given domain set and image set if for each element of the image, there exists an element in the domain that maps to the desired image element. -/
+@[expose]
 def surjective_for_domain_and_image_set (f : α -> β) (domain : Set α) (image : Set β) : Prop := ∀ b, b ∈ image -> ∃ a, a ∈ domain ∧ f a = b
 
 /-- The image of a function for a given domain list. -/
 def image [DecidableEq β] (f : α -> β) (l : List α) : List β := (l.map f).eraseDupsKeepRight
 
 /-- A function is injective on a given domain list if for each two elements of the given domain, the mapping of both elements being the same implies the elements being the same. -/
+@[expose]
 def injective_for_domain_list (f : α -> β) (domain : List α) : Prop := ∀ a a', a ∈ domain -> a' ∈ domain -> f a = f a' -> a = a'
 
 /-- A function is surjective on a given domain list and image list if for each element of the image, there exists an element in the domain that maps to the desired image element. -/
+@[expose]
 def surjective_for_domain_and_image_list (f : α -> β) (domain : List α) (image : List β) : Prop := ∀ b, b ∈ image -> ∃ a, a ∈ domain ∧ f a = b
 
 /-- If the composition of two mappings is injective, then the first one must be injective. -/
@@ -352,6 +356,7 @@ We can show some nice properties for such repetitions. For example, a repeated e
 variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
 
 /-- Repetition of a `GroundTermMapping` defined in the obvious way. Repeating zero times is defined as the id function. -/
+@[expose]
 def repeat_hom (h : GroundTermMapping sig) : Nat -> GroundTermMapping sig
 | .zero => id
 | .succ j => h ∘ (h.repeat_hom j)

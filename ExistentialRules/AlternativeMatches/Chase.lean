@@ -1,6 +1,8 @@
-import ExistentialRules.AlternativeMatches.Basic
+module
+
+public import ExistentialRules.AlternativeMatches.Basic
 import ExistentialRules.AlternativeMatches.HomomorphismExtension
-import ExistentialRules.Models.Cores
+public import ExistentialRules.Models.Cores
 
 /-!
 # Alternative Matches and the Chase
@@ -11,12 +13,15 @@ One of the main result is `result_isStrongCore_of_noAltMatch`, which states
 that the result of a `ChaseBranch` without alternative matches is always a strong core.
 -/
 
+public section
+
 namespace GroundTermMapping
 
 variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [DecidableEq sig.P]
 variable {obs : ObsoletenessCondition sig} {rules : RuleSet sig}
 
 /-- A `GroundTermMapping` is an alternative for a `ChaseDerivation` and a `FactSet` if it is an alternative match into the fact set for the trigger is used to derive `ChaseDerivation.next`. -/
+@[expose]
 def is_alt_match_for_chase_derivation_and_fs (h : GroundTermMapping sig) (cd : ChaseDerivation obs rules) (fs : FactSet sig) : Prop :=
   ∃ (next : ChaseNode obs rules) (next_mem : next ∈ cd.next),
     let origin := next.origin.get (cd.isSome_origin_next next_mem)
@@ -30,14 +35,17 @@ variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [DecidableEq 
 variable {obs : ObsoletenessCondition sig} {rules : RuleSet sig}
 
 /-- A `ChaseDerivation` has an alternative match into a `FactSet` simply if there is a `GroundTermMapping` that is such an alternative match for `ChaseDerivation.next`. -/
+@[expose]
 def has_alt_match_for_next_and_fs (cd : ChaseDerivation obs rules) (fs : FactSet sig) : Prop :=
   ∃ (h : GroundTermMapping sig), h.is_alt_match_for_chase_derivation_and_fs cd fs
 
 /-- More generally, a `ChaseDerivation` has an alternative match into a `FactSet` if one of its subderivations has an alternative match for `ChaseDerivation.next` (according to the above definition) into the fact set. -/
+@[expose]
 def has_alt_match_for_fs (cd : ChaseDerivation obs rules) (fs : FactSet sig) : Prop :=
   ∃ cd2 : ChaseDerivation obs rules, cd2 <:+ cd ∧ cd2.has_alt_match_for_next_and_fs fs
 
 /-- Finally, a `ChaseDerivation` has an alternative match, if it has an alternative match into its own result. -/
+@[expose]
 def has_alt_match (cd : ChaseDerivation obs rules) : Prop := cd.has_alt_match_for_fs cd.result
 
 end ChaseDerivation
@@ -308,11 +316,13 @@ theorem non_id_endomorphism_of_altMatch {cb : ChaseBranch obs kb} (det : kb.isDe
     constructor
     . intro c; unfold h; split; rfl; exact altMatch.left.left
     rw [cd.facts_next next_mem]
-    rintro f ⟨f', f'_mem, f_eq⟩
+    intro f
+    rw [GroundTermMapping.mem_applyFactSet]
+    intro ⟨f', f'_mem, f_eq⟩
     cases f'_mem with
     | inl f'_mem =>
       have : f = f' := by
-        rw [← f_eq]; apply TermMapping.apply_generalized_atom_eq_self_of_id_on_terms
+        rw [f_eq]; apply TermMapping.apply_generalized_atom_eq_self_of_id_on_terms
         intro t t_mem
         have : t ∈ ts := by rw [eq_ts]; exists f'
         simp [h, this]
@@ -320,9 +330,10 @@ theorem non_id_endomorphism_of_altMatch {cb : ChaseBranch obs kb} (det : kb.isDe
     | inr f'_mem =>
       apply altMatch.left.right
       have : f = h_alt.applyFact f' := by
-        rw [← f_eq]; apply TermMapping.apply_generalized_atom_congr_left
+        rw [f_eq]; apply TermMapping.apply_generalized_atom_congr_left
         intro t t_mem
-        have t_mem : t ∈ (next.origin_result (cd.isSome_origin_next next_mem)).flatMap GeneralizedAtom.terms := by rw [List.mem_flatMap]; exists f'
+        have t_mem : t ∈ (next.origin_result (cd.isSome_origin_next next_mem)).flatMap GeneralizedAtom.terms := by
+          rw [List.mem_toSet] at f'_mem; rw [List.mem_flatMap]; exists f'
         simp only [ChaseNode.origin_result, PreTrigger.mem_terms_mapped_head_iff] at t_mem
         cases t_mem with
         | inl t_mem => rcases t_mem with ⟨_, _, t_mem⟩; rw [← t_mem]; unfold h; split <;> simp [altMatch.left.left]
@@ -399,7 +410,7 @@ theorem altMatch_of_some_not_reaches_self (cb : ChaseBranch obs kb) (fs : FactSe
       rcases t_mem with ⟨f, f_mem, t_mem⟩
       specialize isFunctionFree _ f_mem _ t_mem
       rcases isFunctionFree with ⟨_, contra⟩
-      simp [GroundTerm.func, GroundTerm.const] at contra
+      simp [GroundTerm.func_neq_const] at contra
   | inr mem_tail =>
     rcases mem_tail with ⟨next_some, mem_tail⟩; rw [cb.mem_tail_iff] at mem_tail; rcases mem_tail with ⟨cd2, suffix, next_eq⟩
     exists cd2; simp only [suffix, true_and]

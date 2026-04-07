@@ -1,4 +1,6 @@
-import ExistentialRules.AlternativeMatches.Basic
+module
+
+public import ExistentialRules.AlternativeMatches.Basic
 
 /-!
 # Extending arbitrary Homomorphisms along a Chase Branch
@@ -9,7 +11,8 @@ For some results about alternative matches, we need the ability to extend a homo
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 /-- To eventually create the extended homomorphism, we step-wise construct pairs of suffixes of the chase branch in question and `GroundTermMapping`s such that mapping agrees with the initial one on the initial set of facts and the mapping is a homomorphism from the head of the current suffix into the chase result. -/
-abbrev InductiveHomomorphismExtensionResult {obs : ObsoletenessCondition sig} {rules : RuleSet sig} (cd : ChaseDerivation obs rules) (h : GroundTermMapping sig) :=
+abbrev InductiveHomomorphismExtensionResult
+    {obs : ObsoletenessCondition sig} {rules : RuleSet sig} (cd : ChaseDerivation obs rules) (h : GroundTermMapping sig) :=
   { pair : (ChaseDerivation obs rules) × (GroundTermMapping sig) // pair.fst <:+ cd ∧ (∀ t ∈ cd.head.facts.terms, pair.snd t = h t) ∧ pair.snd.isHomomorphism pair.fst.head.facts cd.result }
 
 namespace ChaseBranch
@@ -115,10 +118,12 @@ noncomputable def extend_hom_to_next_step_of_next_eq_some
       constructor
       . exact h'_is_id_on_const
       . rw [cd.facts_next next_eq]
-        rintro f' ⟨f, f_mem, f'_eq⟩
-        rw [← f'_eq]
+        intro f'
+        rw [GroundTermMapping.mem_applyFactSet]
+        intro ⟨f, f_mem, f'_eq⟩
+        rw [f'_eq]
         cases f_mem with
-        | inl f_mem => apply hom.right; exists f; constructor; exact f_mem; apply TermMapping.apply_generalized_atom_congr_left; intro t t_mem; apply Eq.symm; apply h'_is_h_on_terms_in_node; exists f
+        | inl f_mem => apply hom.right; rw [GroundTermMapping.mem_applyFactSet]; exists f; constructor; exact f_mem; apply TermMapping.apply_generalized_atom_congr_left; intro t t_mem; apply h'_is_h_on_terms_in_node; exists f
         | inr f_mem =>
           apply subs_contained
           have : (subs.apply_function_free_conj trg'.rule.head[disj.val]).toSet = h'.applyFactSet origin.fst.val.mapped_head[disj.val].toSet := by
@@ -215,7 +220,7 @@ theorem hom_extends_prev_in_extend_hom_to_next_step
   exact t_mem
 
 /-- Using `extend_hom_to_next_step` as a generator in `PossiblyInfiniteList.generate` we can create a possiblibly infinite list of homomorphisms that extend each other and all map to the result. We can combine them into a single function to have an endomorphism on the result. The idea is similar to the construction used in `chaseTreeResultIsUniversal`. -/
-theorem hom_for_node_extendable_to_result
+public theorem hom_for_node_extendable_to_result
     {cb : ChaseBranch obs kb} (det : kb.rules.isDeterministic)
     {node : ChaseNode obs kb.rules} (node_mem : node ∈ cb.toChaseDerivation)
     {h : GroundTermMapping sig} (hom : h.isHomomorphism node.facts cb.result) :
@@ -231,7 +236,7 @@ theorem hom_for_node_extendable_to_result
   let pairs := PossiblyInfiniteList.generate start (extend_hom_to_next_step cb det deriv_for_node deriv_suffix h) id
 
   have pairs_get?_succ : ∀ i, pairs.get? i.succ = (pairs.get? i).bind (extend_hom_to_next_step cb det deriv_for_node deriv_suffix h) := by
-    intro i; simp only [pairs, PossiblyInfiniteList.get?_generate, Option.map_id, id_eq]; rfl
+    intro i; simp only [pairs, PossiblyInfiniteList.get?_generate, Option.map_id, id_eq]; rw [InfiniteList.get_succ_iterate]
 
   have derivs_suffix_of_each_other : ∀ (i k : Nat), ∀ pair ∈ pairs.get? i, ∀ pair2 ∈ pairs.get? (i+k), pair2.val.fst <:+ pair.val.fst := by
     intro i k pair pair_mem pair2 pair2_mem
@@ -369,9 +374,11 @@ theorem hom_for_node_extendable_to_result
   have global_h_hom : ∀ node ∈ deriv_for_node, global_h.applyFactSet node.facts ⊆ deriv_for_node.result := by
     intro node node_mem
     rcases each_node_in_some_pair node node_mem with ⟨pair, pair_mem, node_eq⟩
-    rintro f' ⟨f, f_mem, f'_eq⟩
+    intro f'
+    rw [GroundTermMapping.mem_applyFactSet]
+    intro ⟨f, f_mem, f'_eq⟩
     rw [node_eq] at f_mem
-    rw [← f'_eq, ← GroundTermMapping.applyFact.eq_def, global_h_eq_each_hom pair pair_mem f f_mem]
+    rw [f'_eq, global_h_eq_each_hom pair pair_mem f f_mem]
     apply pair.property.right.right.right; apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set; exact f_mem
 
   exists global_h
@@ -380,8 +387,10 @@ theorem hom_for_node_extendable_to_result
   constructor
   . exact global_id_const
   . rw [← ChaseDerivationSkeleton.result_suffix deriv_suffix]
-    rintro f' ⟨f, ⟨node, node_mem, f_mem⟩, f'_eq⟩
-    rw [← f'_eq]
+    intro f'
+    rw [GroundTermMapping.mem_applyFactSet]
+    intro ⟨f, ⟨node, node_mem, f_mem⟩, f'_eq⟩
+    rw [f'_eq]
     apply global_h_hom node node_mem
     apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
     exact f_mem

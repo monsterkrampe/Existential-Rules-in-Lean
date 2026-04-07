@@ -1,4 +1,6 @@
-import ExistentialRules.ChaseSequence.ChaseTree
+module
+
+public import ExistentialRules.ChaseSequence.ChaseTree
 import ExistentialRules.ChaseSequence.Deterministic
 
 /-!
@@ -7,11 +9,14 @@ import ExistentialRules.ChaseSequence.Deterministic
 Put simply, alternative matches are homomorphisms that witness that a trigger can be satisfied in a way where one of its freshly introduced terms would be redundant. The goal of this notion is to show that a chase without any alternative matches yields a result that is a core, which is, intuitively speaking, the smallest possibly model up to isomorphism.
 -/
 
+public section
+
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 namespace GroundTermMapping
 
 /-- A `GroundTermMapping` is an alternative match for a head disjunct of a trigger and a given fact set $F$ if (1) the mapping is a homomorphism from the head disjunct into $F$, (2) the mapping is the id on all frontier terms, and (3) there is a term that is freshly introduced by the trigger that does not occur in the mapped version of all fresh terms. -/
+@[expose]
 def isAlternativeMatch (h_alt : GroundTermMapping sig) (trg : PreTrigger sig) (disj_index : Fin trg.mapped_head.length) (fs : FactSet sig) : Prop :=
   have isLt : disj_index.val < trg.rule.head.length := by rw [← PreTrigger.length_mapped_head]; exact disj_index.isLt
   (h_alt.isHomomorphism trg.mapped_head[disj_index.val].toSet fs) ∧
@@ -52,10 +57,8 @@ theorem alternativeMatch_of_satisfied
   rcases satisfied with ⟨s, s_frontier, s_subs⟩
 
   let h_alt : GroundTermMapping sig := fun t =>
-    if t ∈ trg.fresh_terms_for_head_disjunct disj_index.val (by rw [← PreTrigger.length_mapped_head]; exact disj_index.isLt) then
-      match t.val with
-      | .leaf c => t -- this can actually never happen as the fresh terms are all functional
-      | .inner skolem_fs _ => s skolem_fs.var
+    if t_mem : t ∈ trg.fresh_terms_for_head_disjunct disj_index.val (by rw [← PreTrigger.length_mapped_head]; exact disj_index.isLt) then
+      s (t.functionSymbol (by apply PreTrigger.term_functional_of_mem_fresh_terms; exact t_mem)).var
     else t
 
   have id_on_const : h_alt.isIdOnConstants := by
@@ -98,10 +101,9 @@ theorem alternativeMatch_of_satisfied
           simp only [Rule.existential_vars_for_head_disjunct, List.mem_filter, decide_eq_true_eq]; constructor
           . rw [FunctionFreeConjunction.mem_vars]; exists a
           . exact v_in_frontier
-        rcases trg.term_functional_of_mem_fresh_terms _ this with ⟨func, ts, arity_ok, eq⟩
-        simp only [this, ↓reduceIte]; simp only [eq, GroundTerm.func]
-        simp only [PreTrigger.functional_term_for_var, GroundTerm.func] at eq; rw [Subtype.mk.injEq, FiniteTree.inner.injEq] at eq
-        rw [← eq.left]
+        simp only [this, ↓reduceDIte]
+        simp only [PreTrigger.functional_term_for_var]
+        rw [GroundTerm.functionSymbol_func]
 
   exists h_alt
   constructor
@@ -121,6 +123,7 @@ theorem alternativeMatch_of_satisfied
       rcases contra with ⟨t, t_mem, gt_mem⟩
       apply FactSet.terms_subset_of_subset this
       rw [← gt_mem, GroundTermMapping.terms_applyFactSet]
+      rw [Set.mem_map]
       exists t; simp only [and_true]
       rw [FactSet.mem_terms_toSet, PreTrigger.mem_terms_mapped_head_iff]
       apply Or.inr; apply Or.inr; exact t_mem
