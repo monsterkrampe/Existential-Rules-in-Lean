@@ -161,6 +161,7 @@ abbrev PreGroundTerm (sig : Signature) [DecidableEq sig.C] [DecidableEq sig.V] :
 namespace PreGroundTerm
 
 /-- The arity of a functional term is ok if the defined arity of its function symbol matches its number of children and `arity_ok` also holds for each child. For constants, i.e. the leaf nodes, the arity is trivially ok. -/
+@[expose]
 def arity_ok {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] : FiniteTree (SkolemFS sig) sig.C -> Bool
 | .leaf _ => true
 | .inner func ts =>
@@ -176,6 +177,7 @@ namespace GroundTerm
 variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
 
 /-- A `GroundTerm` can be direclty constructed from a constant. -/
+@[expose]
 def const (c : sig.C) : GroundTerm sig := ⟨FiniteTree.leaf c, by simp [PreGroundTerm.arity_ok]⟩
 
 /-- The .const constructor is injective. -/
@@ -185,6 +187,7 @@ theorem const.inj : Function.Injective (GroundTerm.const (sig := sig)) := by int
 theorem const.injEq {c d : sig.C} : GroundTerm.const c = GroundTerm.const d ↔ c = d := by grind
 
 /-- Also, a `GroundTerm` can be constructed from a `SkolemFS` and a list of `GroundTerm`s as long as the length of the list matches the function symbol's arity. -/
+@[expose]
 def func (func : SkolemFS sig) (ts : List (GroundTerm sig)) (arity_ok : ts.length = func.arity) : GroundTerm sig := ⟨FiniteTree.inner func ts.unattach, by
   unfold PreGroundTerm.arity_ok
   rw [Bool.and_eq_true, beq_iff_eq]
@@ -337,6 +340,7 @@ def functionSymbol (t : GroundTerm sig) (isFunc : ∃ func ts arity_ok, t = Grou
 def depth (t : GroundTerm sig) : Nat := t.val.depth
 
 /-- The `constants` occurring in a `GroundTerm` are exactly the leaves of the underlying `FiniteTree`. -/
+@[expose]
 def constants (t : GroundTerm sig) : (List sig.C) := t.val.leaves
 
 /-- The `functions` (i.e. function symbols `SkolemFS`) occurring in a `GroundTerm` are exactly the inner labels of the underlying `FiniteTree`. -/

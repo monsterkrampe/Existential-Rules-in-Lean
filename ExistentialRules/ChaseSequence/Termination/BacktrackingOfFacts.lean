@@ -1,3 +1,5 @@
+module
+
 import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts.Basic
 import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts.PreGroundTerm
 import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts.GroundTerm

@@ -1,4 +1,6 @@
-import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts.PreGroundTerm
+module
+
+public import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts.PreGroundTerm
 
 /-!
 # Backtracking Facts for a GroundTerm
@@ -7,23 +9,36 @@ We mainly lift the machinery around `PreGroundTerm.backtrackFacts` to `GroundTer
 We spare the doc comments on the individual definitions and theorems.
 -/
 
+public section
+
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 namespace GroundTerm
 
+@[expose]
 def skolem_ruleIds_valid (rl : RuleList sig) (term : GroundTerm sig) : Prop := PreGroundTerm.skolem_ruleIds_valid rl term.val
+
+@[expose]
 def skolem_disjIdx_valid (rl : RuleList sig) (term : GroundTerm sig) (term_ruleIds_valid : term.skolem_ruleIds_valid rl) : Prop :=
   PreGroundTerm.skolem_disjIdx_valid rl term.val term_ruleIds_valid
+
+@[expose]
 def skolem_rule_arity_valid (rl : RuleList sig) (term : GroundTerm sig) (term_ruleIds_valid : term.skolem_ruleIds_valid rl) : Prop :=
   PreGroundTerm.skolem_rule_arity_valid rl term.val term_ruleIds_valid
 
+@[grind <-]
 theorem skolem_ruleIds_valid_const (rl : RuleList sig) (c : sig.C) : (GroundTerm.const c).skolem_ruleIds_valid rl := by
   simp [skolem_ruleIds_valid, PreGroundTerm.skolem_ruleIds_valid, GroundTerm.const]
+
+@[grind <-]
 theorem skolem_disjIdx_valid_const (rl : RuleList sig) (c : sig.C) : (GroundTerm.const c).skolem_disjIdx_valid rl (skolem_ruleIds_valid_const rl c) := by
   simp [skolem_disjIdx_valid, PreGroundTerm.skolem_disjIdx_valid, GroundTerm.const]
+
+@[grind <-]
 theorem skolem_rule_arity_valid_const (rl : RuleList sig) (c : sig.C) : (GroundTerm.const c).skolem_rule_arity_valid rl (skolem_ruleIds_valid_const rl c) := by
   simp [skolem_rule_arity_valid, PreGroundTerm.skolem_rule_arity_valid, GroundTerm.const]
 
+@[expose]
 def backtrackTrigger
     [GetFreshInhabitant sig.C]
     [Inhabited sig.C]
