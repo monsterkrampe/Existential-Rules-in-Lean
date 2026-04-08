@@ -1,4 +1,6 @@
-import ExistentialRules.ChaseSequence.Termination.Basic
+module
+
+public import ExistentialRules.ChaseSequence.Termination.Basic
 
 /-!
 # RPC-like Non-Termination
@@ -9,6 +11,8 @@ but we also aim to generalize this to capture (Disjunctive) Model-Faithful Cycli
 
 SO FAR, WE ONLY HAVE A FEW VERY BASIC DEFINITIONS. THERE IS A LONG WAY TO GO.
 -/
+
+public section
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
@@ -52,15 +56,17 @@ instance : Membership (ChaseNode obs rules) (CyclicityDerivation obs rules) wher
 /-- We restate the `growing` property using vocabulary available for `ChaseDerivationSkeleton`s. -/
 theorem growing' {cd : CyclicityDerivation obs rules} : ∀ node : cd.Node,
     ∃ node2 : cd.Node, node ≺ node2 ∧ ∃ t, ¬ t ∈ node.val.facts.terms ∧ t ∈ node2.val.facts.terms := by
-  rintro ⟨node, ⟨n, node_eq⟩⟩
+  intro ⟨node, node_mem⟩
+  rw [ChaseDerivationSkeleton.mem_iff] at node_mem
+  rcases node_mem with ⟨n, node_eq⟩
   rcases cd.growing n with ⟨m, t, t_not_mem, ⟨node2, node2_mem, t_mem⟩⟩
-  specialize t_not_mem node node_eq
+  specialize t_not_mem node (by simpa using node_eq)
 
-  let cd2 : ChaseDerivationSkeleton obs rules := cd.derivation_for_branch_suffix _ (cd.branch.IsSuffix_drop n) (by show (cd.branch.infinite_list.get n).isSome; rw [node_eq]; simp)
+  let cd2 : ChaseDerivationSkeleton obs rules := cd.derivation_for_branch_suffix _ (cd.branch.IsSuffix_drop n) (by simp [node_eq])
   have cd2_suffix : cd2 <:+ cd.toChaseDerivationSkeleton := cd.branch.IsSuffix_drop n
-  have node_head : node = cd2.head := by simp only [cd2, ChaseDerivationSkeleton.derivation_for_branch_suffix, ChaseDerivationSkeleton.head]; rcases Option.eq_some_iff_get_eq.mp node_eq with ⟨_, node_eq⟩; rw [← node_eq]; rfl
+  have node_head : node = cd2.head := by simp only [cd2, ChaseDerivationSkeleton.derivation_for_branch_suffix, ChaseDerivationSkeleton.head]; rcases Option.eq_some_iff_get_eq.mp node_eq with ⟨_, node_eq⟩; rw [← node_eq]; simp
   have cd2_branch : cd2.branch = cd.branch.drop n := rfl
-  have node2_mem : node2 ∈ (cd2.branch.drop m).head := by rw [cd2_branch]; exact node2_mem
+  have node2_mem : node2 ∈ (cd2.branch.drop m).head := by rw [cd2_branch]; grind
 
   let cd3 : ChaseDerivationSkeleton obs rules := cd2.derivation_for_branch_suffix _ (cd2.branch.IsSuffix_drop m) (by rw [node2_mem]; simp)
   have cd3_suffix : cd3 <:+ cd2 := cd2.branch.IsSuffix_drop m
@@ -81,7 +87,7 @@ theorem growing' {cd : CyclicityDerivation obs rules} : ∀ node : cd.Node,
 
 /-- The result of a `CyclicityDerivation` is infinite due to the `growing` property. -/
 theorem result_infinite {cd : CyclicityDerivation obs rules} : ¬ cd.result.finite := by
-  rintro ⟨l, _, eq⟩
+  intro ⟨l, _, eq⟩
   have sub_res : l.toSet ⊆ cd.result := by intro e e_mem; rw [← eq, ← List.mem_toSet]; exact e_mem
   have res_sub : cd.result ⊆ l.toSet := by intro e e_mem; rw [List.mem_toSet, eq]; exact e_mem
   rcases cd.facts_mem_some_node_of_mem_result l sub_res with ⟨node, node_mem, sub⟩
