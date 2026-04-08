@@ -1,5 +1,7 @@
+module
+
 import BasicLeanDatastructures.List.Basic
-import BasicLeanDatastructures.FiniteTree
+public import BasicLeanDatastructures.FiniteTree
 import BasicLeanDatastructures.Set.Basic
 import BasicLeanDatastructures.Set.Finite
 
@@ -9,6 +11,8 @@ import BasicLeanDatastructures.Set.Finite
 In this file, we define various kinds of terms that form some of the most basic building blocks of
 other structures like atoms and rules.
 -/
+
+public section
 
 /-- First of all, almost all of our definitions consider a fixed but arbitrary `Signature` of predicate symbols `P`, variables `V`, and constants `C`. Also every predicate has a fixed `arity`. Note that `P`, `V`, and `C` can be arbitrary types so there are no requirements in terms of countability or finiteness. However, intuitively you can consider them to be countably infinite sets. This would allow to pick fresh elements for example. In places where we need this property, we express this through the `GetFreshInhabitant` type class. -/
 structure Signature where
@@ -86,6 +90,7 @@ def isVar : VarOrConst sig -> Bool
 | .const _ => false
 
 /-- Given a list of `VarOrConst`, we can filter out all the variables. Note that we do not use `List.filter` here since we need to change the list type on the way. -/
+@[expose]
 def filterVars : List (VarOrConst sig) -> List sig.V
 | .nil => List.nil
 | .cons voc vocs => match voc with
@@ -93,6 +98,7 @@ def filterVars : List (VarOrConst sig) -> List sig.V
   | .const _ => filterVars vocs
 
 /-- Analogous to `filterVars`, we can also filter for constants. -/
+@[expose]
 def filterConsts : List (VarOrConst sig) -> List sig.C
 | .nil => List.nil
 | .cons voc vocs => match voc with
@@ -100,93 +106,39 @@ def filterConsts : List (VarOrConst sig) -> List sig.C
   | .const c => List.cons c (filterConsts vocs)
 
 /-- In the context of a rule and a disjunct (in that rule), we can turn a `VarOrConst` into a `SkolemTerm` using the frontier of the rule. This function is used for skolemizing existential variables in rules. -/
-def skolemize (ruleId : Nat) (disjunctIndex : Nat) (frontier : List sig.V) (voc : VarOrConst sig) : SkolemTerm sig :=
-  match voc with
-    | .var v => ite (v ∈ frontier)
-      (SkolemTerm.var v)
-      (SkolemTerm.func { ruleId, disjunctIndex, var := v, arity := frontier.length } frontier rfl)
-    | .const c => SkolemTerm.const c
+@[expose]
+def skolemize (ruleId : Nat) (disjunctIndex : Nat) (frontier : List sig.V) : VarOrConst sig -> SkolemTerm sig
+| .var v =>
+  if (v ∈ frontier)
+  then .var v
+  else .func { ruleId, disjunctIndex, var := v, arity := frontier.length } frontier rfl
+| .const c => SkolemTerm.const c
 
 /-- Each member of `filterVars` is in the original list (when applyign the `var` constructor again.) -/
+@[grind ->]
 theorem filterVars_occur_in_original_list (l : List (VarOrConst sig)) (v : sig.V) : v ∈ filterVars l -> VarOrConst.var v ∈ l := by
-  induction l with
-  | nil => intros; contradiction
-  | cons head tail ih =>
-    intro h
-    unfold filterVars at h
-    split at h
-    . simp at h
-      simp
-      cases h with
-      | inl h => apply Or.inl; exact h
-      | inr h => apply Or.inr; apply ih; exact h
-    . simp
-      apply ih
-      exact h
+  fun_induction filterVars <;> grind
 
 /-- If a variable is in a list of `VarOrConst`, then it occurs in `filterVars`. -/
+@[grind <-]
 theorem mem_filterVars_of_var (l : List (VarOrConst sig)) (v : sig.V) : VarOrConst.var v ∈ l -> v ∈ filterVars l := by
-  induction l with
-  | nil => intros; contradiction
-  | cons head tail ih =>
-    intro h
-    simp at h
-    unfold filterVars
-    cases h with
-    | inl h => rw [← h]; simp
-    | inr h => split; rw [List.mem_cons]; apply Or.inr; apply ih; exact h; apply ih; exact h
+  fun_induction filterVars <;> grind
 
 /-- Each member of `filterConsts` is in the original list (when applyign the `const` constructor again.) -/
+@[grind ->]
 theorem filterConsts_occur_in_original_list (l : List (VarOrConst sig)) (c : sig.C) : c ∈ filterConsts l -> VarOrConst.const c ∈ l := by
-  induction l with
-  | nil => intros; contradiction
-  | cons head tail ih =>
-    intro h
-    unfold filterConsts at h
-    split at h
-    . simp
-      apply ih
-      exact h
-    . simp at h
-      simp
-      cases h with
-      | inl h => apply Or.inl; exact h
-      | inr h => apply Or.inr; apply ih; exact h
+  fun_induction filterConsts <;> grind
 
 /-- If a constant is in a list of `VarOrConst`, then it occurs in `filterConsts`. -/
+@[grind <-]
 theorem mem_filterConsts_of_const (l : List (VarOrConst sig)) (c : sig.C) : VarOrConst.const c ∈ l -> c ∈ filterConsts l := by
-  induction l with
-  | nil => intros; contradiction
-  | cons head tail ih =>
-    intro h
-    simp at h
-    unfold filterConsts
-    cases h with
-    | inl h => rw [← h]; simp
-    | inr h => split; apply ih; exact h; rw [List.mem_cons]; apply Or.inr; apply ih; exact h
+  fun_induction filterConsts <;> grind
 
 /-- The `skolemize` function is injective. That is, if the produced `SkolemTerm`s are the same, then bey need to result from the same variable. This is important to ensure that introduced Skolem terms are indeed fresh (and unique) in the chase. -/
+@[grind ->]
 theorem skolemize_injective (ruleId : Nat) (i : Nat) (frontier : List sig.V) (s t : VarOrConst sig) :
     s.skolemize ruleId i frontier = t.skolemize ruleId i frontier -> s = t := by
-  cases s with
-  | var vs => cases t with
-    | var vt =>
-      simp [skolemize]
-      split
-      . split
-        . simp
-        . intros; contradiction
-      . split
-        . intros; contradiction
-        . simp
-    | const _ =>
-      simp only [skolemize]
-      split <;> intros <;> contradiction
-  | const cs => cases t with
-    | var vt =>
-      simp only [skolemize]
-      split <;> intros <;> contradiction
-    | const _ => simp [skolemize]
+  fun_cases s.skolemize ruleId i frontier <;> fun_cases t.skolemize ruleId i frontier <;> simp
 
 end VarOrConst
 
@@ -211,6 +163,7 @@ abbrev PreGroundTerm (sig : Signature) [DecidableEq sig.C] [DecidableEq sig.V] :
 namespace PreGroundTerm
 
 /-- The arity of a functional term is ok if the defined arity of its function symbol matches its number of children and `arity_ok` also holds for each child. For constants, i.e. the leaf nodes, the arity is trivially ok. -/
+@[expose]
 def arity_ok {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] : FiniteTree (SkolemFS sig) sig.C -> Bool
 | .leaf _ => true
 | .inner func ts =>
@@ -226,8 +179,17 @@ namespace GroundTerm
 variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
 
 /-- A `GroundTerm` can be direclty constructed from a constant. -/
+@[expose]
 def const (c : sig.C) : GroundTerm sig := ⟨FiniteTree.leaf c, by simp [PreGroundTerm.arity_ok]⟩
+
+/-- The .const constructor is injective. -/
+@[grind inj]
+theorem const.inj : Function.Injective (GroundTerm.const (sig := sig)) := by intro c d; unfold const; simp
+@[simp]
+theorem const.injEq {c d : sig.C} : GroundTerm.const c = GroundTerm.const d ↔ c = d := by grind
+
 /-- Also, a `GroundTerm` can be constructed from a `SkolemFS` and a list of `GroundTerm`s as long as the length of the list matches the function symbol's arity. -/
+@[expose]
 def func (func : SkolemFS sig) (ts : List (GroundTerm sig)) (arity_ok : ts.length = func.arity) : GroundTerm sig := ⟨FiniteTree.inner func ts.unattach, by
   unfold PreGroundTerm.arity_ok
   rw [Bool.and_eq_true, beq_iff_eq]
@@ -242,6 +204,28 @@ def func (func : SkolemFS sig) (ts : List (GroundTerm sig)) (arity_ok : ts.lengt
     exact t.val.property
 ⟩
 
+/-- The .func constructor is injective. -/
+@[grind ->]
+theorem func.inj
+  {func1 func2 : SkolemFS sig} {ts1 ts2 : List (GroundTerm sig)} {arity_ok1 : ts1.length = func1.arity} {arity_ok2 : ts2.length = func2.arity} :
+  GroundTerm.func func1 ts1 arity_ok1 = GroundTerm.func func2 ts2 arity_ok2 -> func1 = func2 ∧ ts1 = ts2 := by unfold func; simp
+@[simp]
+theorem func.injEq
+  {func1 func2 : SkolemFS sig} {ts1 ts2 : List (GroundTerm sig)} {arity_ok1 : ts1.length = func1.arity} {arity_ok2 : ts2.length = func2.arity} :
+  GroundTerm.func func1 ts1 arity_ok1 = GroundTerm.func func2 ts2 arity_ok2 ↔ func1 = func2 ∧ ts1 = ts2 := by grind
+
+/-- GroundTerm.func can never be equal to GroundTerm.const -/
+theorem func_neq_const {func : SkolemFS sig} {ts : List (GroundTerm sig)} {arity_ok : ts.length = func.arity} {c : sig.C} :
+  GroundTerm.func func ts arity_ok ≠ GroundTerm.const c := by simp [GroundTerm.func, const]
+
+/-- A term cannot occur in its own child. -/
+theorem eq_while_contained_is_impossible {func : SkolemFS sig} {ts : List (GroundTerm sig)} {arity_ok : ts.length = func.arity} :
+    GroundTerm.func func ts arity_ok ∉ ts := by
+  intro mem
+  apply FiniteTree.tree_eq_while_contained_is_impossible (GroundTerm.func func ts arity_ok).val ts.unattach func
+  . rfl
+  . rw [List.mem_unattach]; exact ⟨_, mem⟩
+
 /-- We define a cases eliminator for the `GroundTerm` having a case for each constructor. This allows to use the `cases` tactic direcly on `GroundTerm`s. -/
 @[elab_as_elim, cases_eliminator]
 def cases
@@ -254,14 +238,14 @@ def cases
   | .leaf c =>
     have eq : t = GroundTerm.const c := Subtype.ext eq
     eq ▸ const c
-  | .inner f ts => by
-    let ts : List (GroundTerm sig) := ts.attach.map (fun ⟨t', mem⟩ => ⟨t', by
+  | .inner f ts =>
+    let ts : List (GroundTerm sig) := ts.attach.map (fun t' => ⟨t'.val, by
       have prop := t.property
       unfold PreGroundTerm.arity_ok at prop
       simp only [eq, Bool.and_eq_true, beq_iff_eq] at prop
       have prop := prop.right
       rw [List.all_eq_true] at prop
-      apply prop ⟨t', mem⟩
+      apply prop ⟨t', t'.property⟩
       apply List.mem_attach
     ⟩)
     have arity_ok : ts.length = f.arity := by
@@ -274,11 +258,11 @@ def cases
     have eq : t = GroundTerm.func f ts arity_ok := by
       apply Subtype.ext
       unfold GroundTerm.func
-      simp [eq, ts]
+      simp only [eq, ts]
       unfold List.unattach
       rw [List.map_map, List.map_attach_eq_pmap]
       simp
-    exact eq ▸ (func f ts arity_ok)
+    eq ▸ (func f ts arity_ok)
 
 /-- We define an induction eliminator for the `GroundTerm` having a case for each constructor. This allows to use the `induction` tactic direcly on `GroundTerm`s. -/
 @[elab_as_elim, induction_eliminator]
@@ -292,14 +276,14 @@ def rec
   | .leaf c =>
     have eq : t = GroundTerm.const c := Subtype.ext eq_val
     eq ▸ const c
-  | .inner f ts => by
-    let ts : List (GroundTerm sig) := ts.attach.map (fun ⟨t', mem⟩ => ⟨t', by
+  | .inner f ts =>
+    let ts : List (GroundTerm sig) := ts.attach.map (fun t' => ⟨t'.val, by
       have prop := t.property
       unfold PreGroundTerm.arity_ok at prop
       simp only [eq_val, Bool.and_eq_true, beq_iff_eq] at prop
       have prop := prop.right
       rw [List.all_eq_true] at prop
-      apply prop ⟨t', mem⟩
+      apply prop ⟨t', t'.property⟩
       apply List.mem_attach
     ⟩)
     have arity_ok : ts.length = f.arity := by
@@ -312,11 +296,11 @@ def rec
     have eq : t = GroundTerm.func f ts arity_ok := by
       apply Subtype.ext
       unfold GroundTerm.func
-      simp [eq_val, ts]
+      simp only [eq_val, ts]
       unfold List.unattach
       rw [List.map_map, List.map_attach_eq_pmap]
       simp
-    exact eq ▸ (func f ts arity_ok (by
+    eq ▸ (func f ts arity_ok (by
       intro t' mem
       have : t'.val.depth < t.val.depth := by
         conv => right; unfold FiniteTree.depth
@@ -327,7 +311,6 @@ def rec
         apply List.mem_map_of_mem
         rw [List.mem_map] at mem
         rcases mem with ⟨s, s_mem, t_eq⟩
-        simp at t_eq
         rw [← t_eq]
         unfold List.attach at s_mem
         unfold List.attachWith at s_mem
@@ -339,7 +322,7 @@ def rec
     ))
 termination_by t.val.depth
 
-/-- A `GroundTerm` that has been constructed from a constants can be converted into this constants again. -/
+/-- A `GroundTerm` that has been constructed from a constant can be converted into this constants again. -/
 def toConst (t : GroundTerm sig) (isConst : ∃ c, t = GroundTerm.const c) : sig.C :=
   match eq : t.val with
   | .leaf c => c
@@ -349,50 +332,76 @@ def toConst (t : GroundTerm sig) (isConst : ∃ c, t = GroundTerm.const c) : sig
     rw [isConst] at eq
     simp [GroundTerm.const] at eq
 
+/-- For a `GroundTerm` that has been constructed as a functional term, we can obtain the function symbol. -/
+def functionSymbol (t : GroundTerm sig) (isFunc : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok) : SkolemFS sig :=
+  match eq : t.val with
+  | .leaf _ => by apply False.elim; rcases isFunc with ⟨func, ts, arity_ok, eq2⟩; rw [eq2] at eq; simp [GroundTerm.func] at eq
+  | .inner func _ => func
+
 /-- The `depth` of a `GroundTerm` is the depth of the underlying `FiniteTree`, i.e. the deepest nesting of function symbols (+1). -/
+@[expose]
 def depth (t : GroundTerm sig) : Nat := t.val.depth
 
 /-- The `constants` occurring in a `GroundTerm` are exactly the leaves of the underlying `FiniteTree`. -/
+@[expose]
 def constants (t : GroundTerm sig) : (List sig.C) := t.val.leaves
 
 /-- The `functions` (i.e. function symbols `SkolemFS`) occurring in a `GroundTerm` are exactly the inner labels of the underlying `FiniteTree`. -/
+@[expose]
 def functions (t : GroundTerm sig) : (List (SkolemFS sig)) := t.val.innerLabels
 
+/-- Applying `toConst` to a `GroundTerm.const` yields exactly the contained constant. -/
+@[simp, grind =]
+theorem toConst_const {c : sig.C} : (GroundTerm.const c).toConst (by exists c) = c := by rfl
+
+/-- Applying `functionSymbol` to a `GroundTerm.fun` yields exactly the contained function symbol. -/
+@[simp, grind =]
+theorem functionSymbol_func {func : SkolemFS sig} {ts : List (GroundTerm sig)} {arity_ok : ts.length = func.arity} :
+  (GroundTerm.func func ts arity_ok).functionSymbol (by exists func, ts, arity_ok) = func := by rfl
+
 /-- Constants have `depth` 1. -/
-theorem depth_const (c : sig.C) : (GroundTerm.const c).depth = 1 := by
+@[simp, grind =]
+theorem depth_const {c : sig.C} : (GroundTerm.const c).depth = 1 := by
   simp [GroundTerm.const, depth, FiniteTree.depth]
 
 /-- The `depth` of a function term is the maximum depth of its children + 1. -/
-theorem depth_func (f : SkolemFS sig) (ts : List (GroundTerm sig)) (arity_ok : ts.length = f.arity) :
+@[simp, grind =]
+theorem depth_func {f : SkolemFS sig} {ts : List (GroundTerm sig)} {arity_ok : ts.length = f.arity} :
     (GroundTerm.func f ts arity_ok).depth = 1 + (((ts.map (GroundTerm.depth)).max?).getD 1) := by
   simp only [GroundTerm.func, depth, FiniteTree.depth]
   have : ts.map depth = ts.unattach.map FiniteTree.depth := by rw [List.map_unattach]; rfl
   rw [this]
 
+/-- Every term has a depth greater zero since constants already have depth 1. -/
+theorem depth_gt_zero {t : GroundTerm sig} : 0 < t.depth := by cases t <;> grind
+
 /-- The `constants` of a constant are the singleton list with the constant itself. -/
-theorem constants_const (c : sig.C) : (GroundTerm.const c).constants = [c] := by
+@[simp, grind =]
+theorem constants_const {c : sig.C} : (GroundTerm.const c).constants = [c] := by
   simp [GroundTerm.const, constants, FiniteTree.leaves]
 
 /-- The `constants` of a function term are the constants of its children. -/
-theorem constants_func (f : SkolemFS sig) (ts : List (GroundTerm sig)) (arity_ok : ts.length = f.arity) :
+@[simp, grind =]
+theorem constants_func {f : SkolemFS sig} {ts : List (GroundTerm sig)} {arity_ok : ts.length = f.arity} :
     (GroundTerm.func f ts arity_ok).constants = ts.flatMap GroundTerm.constants := by
   simp only [GroundTerm.func, constants, FiniteTree.leaves]
   rw [List.flatMap_unattach]
   rfl
 
 /-- A constant has no `functions`. -/
-theorem functions_const (c : sig.C) : (GroundTerm.const c).functions = [] := by
+@[simp, grind =]
+theorem functions_const {c : sig.C} : (GroundTerm.const c).functions = [] := by
   simp [GroundTerm.const, functions, FiniteTree.innerLabels]
 
 /-- The `functions` of a function term consist of the function symbol of the current term and the function symbols of all its children. -/
-theorem functions_func (f : SkolemFS sig) (ts : List (GroundTerm sig)) (arity_ok : ts.length = f.arity) :
+@[simp, grind =]
+theorem functions_func {f : SkolemFS sig} {ts : List (GroundTerm sig)} {arity_ok : ts.length = f.arity} :
     (GroundTerm.func f ts arity_ok).functions = f :: (ts.flatMap GroundTerm.functions) := by
   simp only [GroundTerm.func, functions, FiniteTree.innerLabels]
   rw [List.cons_eq_cons]
   constructor
   . rfl
-  . rw [List.flatMap_unattach]
-    rfl
+  . rw [List.flatMap_unattach]; rfl
 
 end GroundTerm
 

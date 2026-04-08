@@ -1,4 +1,6 @@
-import ExistentialRules.ChaseSequence.Termination.ConstantMappings.StrictConstantMapping
+module
+
+public import ExistentialRules.ChaseSequence.Termination.ConstantMappings.StrictConstantMapping
 
 /-!
 # Get StrictConstantMapping Arguments that produce a certain Image
@@ -6,6 +8,8 @@ import ExistentialRules.ChaseSequence.Termination.ConstantMappings.StrictConstan
 We define methods for a `StrictConstantMapping` to obtain the function arguments that produce a given constant, `PreGroundTerm`, Fact, etc.
 The possible arguments take into account a list of candidate constants.
 -/
+
+public section
 
 namespace StrictConstantMapping
 
@@ -17,11 +21,10 @@ def arguments_for_constant (g : StrictConstantMapping sig) (possible_constants :
 
 theorem apply_to_arguments_yields_original_constant (g : StrictConstantMapping sig) (possible_constants : List sig.C) (c : sig.C) :
     ∀ arg, arg ∈ g.arguments_for_constant possible_constants c ↔ (arg ∈ possible_constants ∧ g arg = c) := by
-  intro arg
-  unfold arguments_for_constant
-  simp
+  unfold arguments_for_constant; simp
 
 /-- We lift `arguments_for_constant` to `PreGroundTerm` considering all possible combinations of arguments. -/
+@[expose]
 def arguments_for_pre_term (g : StrictConstantMapping sig) (possible_constants : List sig.C) : PreGroundTerm sig -> List (PreGroundTerm sig)
 | .leaf c => (g.arguments_for_constant possible_constants c).map (fun arg => .leaf arg)
 | .inner func ts =>
@@ -37,26 +40,18 @@ where
       )
     )
 
-theorem arguments_for_pre_term.length_arguments_for_pre_term_list {g : StrictConstantMapping sig} {possible_constants : List sig.C} {ts : List (PreGroundTerm sig)} :
+theorem arguments_for_pre_term.length_arguments_for_pre_term_list
+    {g : StrictConstantMapping sig} {possible_constants : List sig.C} {ts : List (PreGroundTerm sig)} :
     ∀ args ∈ arguments_for_pre_term_list g possible_constants ts, args.length = ts.length := by
   induction ts with
   | nil => simp [arguments_for_pre_term_list]
-  | cons hd tl ih =>
-    intro res res_mem
-    unfold arguments_for_pre_term_list at res_mem
-    rw [List.mem_flatMap] at res_mem
-    rcases res_mem with ⟨arg, arg_for_hd, res_mem⟩
-    rw [List.mem_map] at res_mem
-    rcases res_mem with ⟨args, args_for_tl, res_mem⟩
-    rw [← res_mem]
-    rw [List.length_cons]
-    rw [List.length_cons]
-    rw [Nat.add_right_cancel_iff]
-    apply ih
-    exact args_for_tl
+  | cons hd tl ih => unfold arguments_for_pre_term_list; grind
 
-theorem arguments_for_pre_term.mem_arguments_for_pre_term_list {g : StrictConstantMapping sig} {possible_constants : List sig.C} {ts : List (PreGroundTerm sig)} :
-    ∀ {args}, (length_eq : args.length = ts.length) -> (args ∈ arguments_for_pre_term_list g possible_constants ts ↔ (∀ i : Nat, (lt : i < ts.length) -> args[i] ∈ g.arguments_for_pre_term possible_constants ts[i])) := by
+theorem arguments_for_pre_term.mem_arguments_for_pre_term_list
+    {g : StrictConstantMapping sig} {possible_constants : List sig.C} {ts : List (PreGroundTerm sig)} :
+    ∀ {args}, (length_eq : args.length = ts.length) ->
+    (args ∈ arguments_for_pre_term_list g possible_constants ts ↔
+      (∀ i : Nat, (lt : i < ts.length) -> args[i] ∈ g.arguments_for_pre_term possible_constants ts[i])) := by
   induction ts with
   | nil => simp [arguments_for_pre_term_list]
   | cons hd tl ih =>
@@ -64,18 +59,7 @@ theorem arguments_for_pre_term.mem_arguments_for_pre_term_list {g : StrictConsta
     unfold arguments_for_pre_term.arguments_for_pre_term_list
     rw [List.mem_flatMap]
     constructor
-    . rintro ⟨a, a_mem, args_mem⟩
-      rw [List.mem_map] at args_mem
-      rcases args_mem with ⟨args', args'_mem, args_eq⟩
-      intro i i_lt
-      simp only [← args_eq]
-      cases i with
-      | zero => exact a_mem
-      | succ i =>
-        rw [ih] at args'_mem
-        . apply args'_mem
-        . simp only [← args_eq, List.length_cons, Nat.add_right_cancel_iff] at length_eq
-          exact length_eq
+    . grind
     . intro h
       cases args with
       | nil => simp at length_eq
@@ -91,8 +75,10 @@ theorem arguments_for_pre_term.mem_arguments_for_pre_term_list {g : StrictConsta
           . simp only [List.length_cons, Nat.add_right_cancel_iff] at length_eq
             exact length_eq
 
-theorem apply_to_arguments_yields_original_pre_term {g : StrictConstantMapping sig} {possible_constants : List sig.C} {term : FiniteTree (SkolemFS sig) sig.C} :
-    ∀ {arg}, arg ∈ g.arguments_for_pre_term possible_constants term ↔ ((∀ c, c ∈ arg.leaves -> c ∈ possible_constants) ∧ g.toConstantMapping.apply_pre_ground_term arg = term) := by
+theorem apply_to_arguments_yields_original_pre_term
+    {g : StrictConstantMapping sig} {possible_constants : List sig.C} {term : FiniteTree (SkolemFS sig) sig.C} :
+    ∀ {arg}, arg ∈ g.arguments_for_pre_term possible_constants term ↔
+      ((∀ c, c ∈ arg.leaves -> c ∈ possible_constants) ∧ g.toConstantMapping.apply_pre_ground_term arg = term) := by
   induction term with
   | leaf c =>
     intro arg
@@ -102,14 +88,14 @@ theorem apply_to_arguments_yields_original_pre_term {g : StrictConstantMapping s
       simp only [arguments_for_pre_term, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, StrictConstantMapping.toConstantMapping, Function.comp_apply, GroundTerm.const, FiniteTree.leaves, List.mem_singleton]
       rw [List.mem_map]
       constructor
-      . rintro ⟨arg, arg_mem, arg_eq⟩
+      . intro ⟨arg, arg_mem, arg_eq⟩
         rw [FiniteTree.leaf.injEq] at arg_eq
         rw [apply_to_arguments_yields_original_constant] at arg_mem
         rw [← arg_eq]
         constructor
         . intro _ eq; rw [eq]; exact arg_mem.left
         . rw [arg_mem.right]
-      . rintro ⟨mem_possible_constants, d_eq⟩
+      . intro ⟨mem_possible_constants, d_eq⟩
         rw [FiniteTree.leaf.injEq] at d_eq
         exists d
         simp only [and_true]
@@ -122,13 +108,13 @@ theorem apply_to_arguments_yields_original_pre_term {g : StrictConstantMapping s
     unfold arguments_for_pre_term
     rw [List.mem_map]
     constructor
-    . rintro ⟨args, args_mem, arg_eq⟩
+    . intro ⟨args, args_mem, arg_eq⟩
       have args_mem' := args_mem
       rw [arguments_for_pre_term.mem_arguments_for_pre_term_list (arguments_for_pre_term.length_arguments_for_pre_term_list _ args_mem')] at args_mem
       rw [← arg_eq]
       simp only [FiniteTree.leaves, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, FiniteTree.inner.injEq, true_and, List.mem_flatMap]
       constructor
-      . rintro c ⟨arg, arg_mem, c_mem⟩
+      . intro c ⟨arg, arg_mem, c_mem⟩
         rcases List.getElem_of_mem arg_mem with ⟨i, lt, arg_eq⟩
         rw [← arg_eq] at c_mem
         apply ((ih _ _).mp (args_mem i (by rw [← arguments_for_pre_term.length_arguments_for_pre_term_list _ args_mem']; exact lt))).left _ c_mem
@@ -142,7 +128,7 @@ theorem apply_to_arguments_yields_original_pre_term {g : StrictConstantMapping s
           rw [List.getElem?_eq_getElem (by rw [arguments_for_pre_term.length_arguments_for_pre_term_list _ args_mem']; exact i_lt)]
           rw [Option.map_some, Option.some.injEq]
           rw [← ((ih ts[i] (by simp)).mp (args_mem i i_lt)).right]
-    . rintro ⟨mem_possible_constants, apply_eq⟩
+    . intro ⟨mem_possible_constants, apply_eq⟩
       cases arg with
       | leaf d => simp [ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, StrictConstantMapping.toConstantMapping, GroundTerm.const] at apply_eq
       | inner func' args =>
@@ -169,7 +155,8 @@ theorem apply_to_arguments_yields_original_pre_term {g : StrictConstantMapping s
           rw [Option.map_some, Option.some.injEq] at apply_eq_right
           rw [apply_eq_right]
 
-theorem arguments_for_pre_term_arity_ok {g : StrictConstantMapping sig} {possible_constants : List sig.C} {t : FiniteTree (SkolemFS sig) sig.C} (arity_ok : PreGroundTerm.arity_ok t) :
+theorem arguments_for_pre_term_arity_ok
+    {g : StrictConstantMapping sig} {possible_constants : List sig.C} {t : FiniteTree (SkolemFS sig) sig.C} (arity_ok : PreGroundTerm.arity_ok t) :
     ∀ {t'}, t' ∈ (g.arguments_for_pre_term possible_constants t) -> PreGroundTerm.arity_ok t' := by
   induction t with
   | leaf c =>
@@ -193,7 +180,7 @@ theorem arguments_for_pre_term_arity_ok {g : StrictConstantMapping sig} {possibl
     . rw [arguments_for_pre_term.length_arguments_for_pre_term_list _ args_mem]
       exact arity_ok.left
     . rw [List.all_eq_true]
-      rintro ⟨arg', arg'_mem⟩ _
+      intro ⟨arg', arg'_mem⟩ _
       simp only
       have length_eq : args.length = ts.length := arguments_for_pre_term.length_arguments_for_pre_term_list _ args_mem
       rw [arguments_for_pre_term.mem_arguments_for_pre_term_list length_eq] at args_mem
@@ -224,17 +211,18 @@ def arguments_for_term_list (g : StrictConstantMapping sig) (possible_constants 
   )
 
 theorem apply_to_arguments_yields_original_term_list {g : StrictConstantMapping sig} {possible_constants : List sig.C} {ts : List (GroundTerm sig)} :
-    ∀ {args}, args ∈ g.arguments_for_term_list possible_constants ts ↔ ((∀ c, c ∈ (args.flatMap GroundTerm.constants) -> c ∈ possible_constants) ∧ (args.map (fun arg => g.toConstantMapping.apply_ground_term arg) = ts)) := by
+    ∀ {args}, args ∈ g.arguments_for_term_list possible_constants ts ↔
+      ((∀ c, c ∈ (args.flatMap GroundTerm.constants) -> c ∈ possible_constants) ∧ (args.map (fun arg => g.toConstantMapping.apply_ground_term arg) = ts)) := by
   intro args
   unfold arguments_for_term_list
   simp only [List.mem_map, List.mem_attach, true_and]
   constructor
-  . rintro ⟨⟨args', args'_mem⟩, args_eq⟩
+  . intro ⟨⟨args', args'_mem⟩, args_eq⟩
     have length_eq : args'.length = ts.unattach.length := arguments_for_pre_term.length_arguments_for_pre_term_list _ args'_mem
     rw [arguments_for_pre_term.mem_arguments_for_pre_term_list length_eq] at args'_mem
     constructor
     . simp only [List.mem_flatMap]
-      rintro c ⟨arg, arg_mem, c_mem⟩
+      intro c ⟨arg, arg_mem, c_mem⟩
       rcases List.getElem_of_mem arg_mem with ⟨i, lt, arg_eq⟩
       simp only [← arg_eq, ← args_eq, List.getElem_map, List.getElem_attach] at c_mem
       apply (apply_to_arguments_yields_original_pre_term.mp (args'_mem i (by rw [← length_eq]; rw [← args_eq, List.length_map, List.length_attach] at lt; exact lt))).left
@@ -252,7 +240,7 @@ theorem apply_to_arguments_yields_original_term_list {g : StrictConstantMapping 
         rw [Subtype.mk.injEq]
         rw [(apply_to_arguments_yields_original_pre_term.mp (args'_mem i (by rw [List.length_unattach]; exact i_lt))).right]
         simp
-  . rintro ⟨mem_possible_constants, apply_eq⟩
+  . intro ⟨mem_possible_constants, apply_eq⟩
     have length_eq : args.length = ts.length := by rw [← apply_eq, List.length_map]
     exists ⟨args.unattach, by
       rw [arguments_for_pre_term.mem_arguments_for_pre_term_list (by rw [List.length_unattach, List.length_unattach]; exact length_eq)]

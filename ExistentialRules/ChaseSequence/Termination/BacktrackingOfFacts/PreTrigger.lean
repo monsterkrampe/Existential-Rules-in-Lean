@@ -1,4 +1,6 @@
-import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts.GroundTerm
+module
+
+public import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts.GroundTerm
 
 /-!
 # Backtracking Facts for a PreTrigger
@@ -7,23 +9,36 @@ We mainly lift the machinery around `PreGroundTerm.backtrackFacts` to `PreTrigge
 The interesting parts are `PreTrigger.backtrackFacts` and `PreTrigger.backtrackFacts_eq_of_strong_equiv`.
 -/
 
+public section
+
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 namespace PreTrigger
 
-def skolem_ruleIds_valid (rl : RuleList sig) (trg : PreTrigger sig) : Prop := ∀ t ∈ trg.mapped_body.flatMap GeneralizedAtom.terms, t.skolem_ruleIds_valid rl
+@[expose]
+def skolem_ruleIds_valid (rl : RuleList sig) (trg : PreTrigger sig) : Prop :=
+  ∀ t ∈ trg.mapped_body.flatMap GeneralizedAtom.terms, t.skolem_ruleIds_valid rl
+
+@[expose]
 def skolem_disjIdx_valid (rl : RuleList sig) (trg : PreTrigger sig) (trg_ruleIds_valid : trg.skolem_ruleIds_valid rl) : Prop :=
   ∀ t, (h : t ∈ trg.mapped_body.flatMap GeneralizedAtom.terms) -> t.skolem_disjIdx_valid rl (trg_ruleIds_valid t h)
+
+@[expose]
 def skolem_rule_arity_valid (rl : RuleList sig) (trg : PreTrigger sig) (trg_ruleIds_valid : trg.skolem_ruleIds_valid rl) : Prop :=
   ∀ t, (h : t ∈ trg.mapped_body.flatMap GeneralizedAtom.terms) -> t.skolem_rule_arity_valid rl (trg_ruleIds_valid t h)
 
-theorem skolem_ruleIds_valid_of_strong_equiv {rl : RuleList sig} {trg trg2 : PreTrigger sig} (strong_equiv : trg.strong_equiv trg2) (trg_valid : trg.skolem_ruleIds_valid rl) : trg2.skolem_ruleIds_valid rl := by
+theorem skolem_ruleIds_valid_of_strong_equiv {rl : RuleList sig} {trg trg2 : PreTrigger sig}
+    (strong_equiv : trg.strong_equiv trg2) (trg_valid : trg.skolem_ruleIds_valid rl) : trg2.skolem_ruleIds_valid rl := by
   unfold skolem_ruleIds_valid; rw [← PreTrigger.mapped_body_eq_of_strong_equiv strong_equiv]; exact trg_valid
 
-theorem skolem_disjIdx_valid_of_strong_equiv {rl : RuleList sig} {trg trg2 : PreTrigger sig} (strong_equiv : trg.strong_equiv trg2) (h : trg.skolem_ruleIds_valid rl) (trg_valid : trg.skolem_disjIdx_valid rl h) : trg2.skolem_disjIdx_valid rl (PreTrigger.skolem_ruleIds_valid_of_strong_equiv strong_equiv h) := by
+theorem skolem_disjIdx_valid_of_strong_equiv {rl : RuleList sig} {trg trg2 : PreTrigger sig}
+    (strong_equiv : trg.strong_equiv trg2) (h : trg.skolem_ruleIds_valid rl) (trg_valid : trg.skolem_disjIdx_valid rl h) :
+    trg2.skolem_disjIdx_valid rl (PreTrigger.skolem_ruleIds_valid_of_strong_equiv strong_equiv h) := by
   unfold skolem_disjIdx_valid; simp only [← PreTrigger.mapped_body_eq_of_strong_equiv strong_equiv]; exact trg_valid
 
-theorem skolem_rule_arity_valid_of_strong_equiv {rl : RuleList sig} {trg trg2 : PreTrigger sig} (strong_equiv : trg.strong_equiv trg2) (h : trg.skolem_ruleIds_valid rl) (trg_valid : trg.skolem_rule_arity_valid rl h) : trg2.skolem_rule_arity_valid rl (PreTrigger.skolem_ruleIds_valid_of_strong_equiv strong_equiv h) := by
+theorem skolem_rule_arity_valid_of_strong_equiv {rl : RuleList sig} {trg trg2 : PreTrigger sig}
+    (strong_equiv : trg.strong_equiv trg2) (h : trg.skolem_ruleIds_valid rl) (trg_valid : trg.skolem_rule_arity_valid rl h) :
+    trg2.skolem_rule_arity_valid rl (PreTrigger.skolem_ruleIds_valid_of_strong_equiv strong_equiv h) := by
   unfold skolem_rule_arity_valid; simp only [← PreTrigger.mapped_body_eq_of_strong_equiv strong_equiv]; exact trg_valid
 
 theorem skolem_ruleIds_valid_for_functional_term
@@ -270,6 +285,7 @@ theorem skolem_rule_arity_remains_valid_in_head
           . exact rule_mem
           . exact body_valid
 
+@[expose]
 def backtrackTrigger_for_functional_term
     [GetFreshInhabitant sig.C]
     [Inhabited sig.C]
@@ -312,6 +328,7 @@ theorem backtrackTrigger_for_functional_term_equiv
     exact u_mem
 
 /-- The backtracking of a `PreTrigger` consists of its mapped body and the backtrackings of all `GroundTerm`s that occur in its mapped body. -/
+@[expose]
 def backtrackFacts
     [GetFreshInhabitant sig.C]
     [Inhabited sig.C]

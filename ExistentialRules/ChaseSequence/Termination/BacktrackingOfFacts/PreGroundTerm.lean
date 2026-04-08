@@ -1,4 +1,6 @@
-import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts.Basic
+module
+
+public import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts.Basic
 
 /-!
 # Backtracking Facts for a PreGroundTerm
@@ -6,16 +8,20 @@ import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts.Basic
 The main outcome of this file is `PreGroundTerm.backtrackFacts`, which returns facts necessarily involved in the derivation of a given functional term.
 -/
 
+public section
+
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 namespace PreGroundTerm
 
 /-- `SkolemFS.ruleId_valid` lifted to `PreGroundTerm`. -/
+@[expose]
 def skolem_ruleIds_valid (rl : RuleList sig) : PreGroundTerm sig -> Prop
 | .leaf _ => True
 | .inner func ts => func.ruleId_valid rl ∧ ∀ t ∈ ts, PreGroundTerm.skolem_ruleIds_valid rl t
 
 /-- `SkolemFS.disjunctIndex_valid` lifted to `PreGroundTerm`. -/
+@[expose]
 def skolem_disjIdx_valid
     (rl : RuleList sig)
     (term : PreGroundTerm sig)
@@ -27,6 +33,7 @@ def skolem_disjIdx_valid
     func.disjunctIndex_valid rl this.left ∧ ∀ t, (t_mem : t ∈ ts) -> PreGroundTerm.skolem_disjIdx_valid rl t (this.right t t_mem)
 
 /-- `SkolemFS.arity_valid` lifted to `PreGroundTerm`. -/
+@[expose]
 def skolem_rule_arity_valid
     (rl : RuleList sig)
     (term : PreGroundTerm sig)
@@ -38,6 +45,7 @@ def skolem_rule_arity_valid
     func.arity_valid rl this.left ∧ ∀ t, (t_mem : t ∈ ts) -> PreGroundTerm.skolem_rule_arity_valid rl t (this.right t t_mem)
 
 /-- For a functional `PreGroundTerm`, we can find a `PreTrigger` that introduces it (while putting fresh constants for body variables). -/
+@[expose]
 def backtrackTrigger
     [GetFreshInhabitant sig.C]
     [Inhabited sig.C]
@@ -92,6 +100,7 @@ def backtrackTrigger
 mutual
 
   /-- For a `PreGroundTerm`, we can find the facts necessary to introduce this term. These are all facts in the body and head of the `backtrackTrigger` for the term as well as all `backtrackFacts` for the subterms (i.e. the children) or the term. Because we need to know which "fresh" constants have already been used, we also return those. Note that we also take a list of constants that are already forbidden. -/
+  @[expose]
   def backtrackFacts
       [GetFreshInhabitant sig.C]
       [Inhabited sig.C]
@@ -128,6 +137,7 @@ mutual
 
       ((trg.mapped_body ++ trg.mapped_head[disjIdx]) ++ res_ts.fst, fresh_consts_for_pure_body_vars.val ++ res_ts.snd)
 
+  @[expose]
   def backtrackFacts_list
       [GetFreshInhabitant sig.C]
       [Inhabited sig.C]
@@ -318,7 +328,7 @@ mutual
               apply List.getElem_mem
         | inr f_mem =>
           have disjIdx_lt : func.disjunctIndex < trg.mapped_head.length := by rw [PreTrigger.length_mapped_head]; unfold skolem_disjIdx_valid at term_disjIdx_valid; apply term_disjIdx_valid.left
-          have c_mem : c ∈ FactSet.constants trg.mapped_head[func.disjunctIndex].toSet := by exists f
+          have c_mem : c ∈ FactSet.constants trg.mapped_head[func.disjunctIndex].toSet := by exists f; rw [List.mem_toSet]; exact ⟨f_mem, c_mem⟩
           have c_mem := trg.mapped_head_constants_subset ⟨func.disjunctIndex, disjIdx_lt⟩ c c_mem
           rw [List.mem_toSet, List.mem_append] at c_mem
           cases c_mem with

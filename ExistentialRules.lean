@@ -1,3 +1,5 @@
+module
+
 import ExistentialRules.AlternativeMatches.Basic
 import ExistentialRules.AlternativeMatches.Chase
 import ExistentialRules.AlternativeMatches.HomomorphismExtension

@@ -1,4 +1,7 @@
-import ExistentialRules.ChaseSequence.Termination.ConstantMappings.ArgumentsForImages
+module
+
+public import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts
+public import ExistentialRules.ChaseSequence.Termination.ConstantMappings.ArgumentsForImages
 
 /-!
 # StrictConstantMappings preserve Function Term Validity
@@ -7,6 +10,8 @@ Applying `StrictConstantMapping`s does not alter validity of functional terms in
 since they only rename constants inside terms but do not change their structure.
 Recall that term validity is required for backtrackings.
 -/
+
+public section
 
 namespace StrictConstantMapping
 

@@ -1,4 +1,6 @@
-import ExistentialRules.ChaseSequence.ChaseDerivation
+module
+
+public import ExistentialRules.ChaseSequence.ChaseDerivation
 
 /-!
 # Chase Branch
@@ -11,6 +13,8 @@ and intuitively the `ChaseBranch` is a branch in such a tree. However, it can be
 
 Compared to the `ChaseDerivation` some new theorems can be shown or some existing ones strengthened. For example, we know now that functional terms can never occur in a database so every functional term must originate as a fresh term from some trigger that is used in the chase.
 -/
+
+public section
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
@@ -34,6 +38,7 @@ theorem database_first' {cb : ChaseBranch obs kb} : cb.head = {
 } := by simp only [ChaseDerivationSkeleton.head, cb.database_first, Option.get_some]
 
 /-- Opposed to a `ChaseDerivation`, we know that each node in a `ChaseBranch` has a finite set of facts. This is because the database is finite and each trigger only adds finitely many new facts. -/
+@[grind <-]
 theorem facts_finite_of_mem {cb : ChaseBranch obs kb} (node : cb.Node) : node.val.facts.finite := by
   induction node using ChaseDerivation.mem_rec with
   | head => simp only [database_first']; exact kb.db.toFactSet.property.left
@@ -43,16 +48,18 @@ theorem facts_finite_of_mem {cb : ChaseBranch obs kb} (node : cb.Node) : node.va
     apply List.finite_toSet
 
 /-- The head of the `ChaseBranch` does not contain any function terms. -/
-theorem func_term_not_mem_head {cb : ChaseBranch obs kb} {t : GroundTerm sig} (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok) : ¬ t ∈ cb.head.facts.terms := by
+theorem func_term_not_mem_head {cb : ChaseBranch obs kb} {t : GroundTerm sig} (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok) :
+    ¬ t ∈ cb.head.facts.terms := by
   intro t_mem
   simp only [database_first'] at t_mem
   rcases t_mem with ⟨f, f_mem, t_mem⟩
   rcases kb.db.toFactSet.property.right f f_mem t t_mem with ⟨c, t_eq⟩
   rcases t_is_func with ⟨_, _, _, t_eq'⟩
   rw [t_eq'] at t_eq
-  simp [GroundTerm.const, GroundTerm.func] at t_eq
+  simp [GroundTerm.func_neq_const] at t_eq
 
 /-- The result of a `ChaseBranch` not only models the rule set but the whole `KnowledgeBase`. -/
+@[grind <-]
 theorem result_models_kb {cb : ChaseBranch obs kb} : cb.result.modelsKb kb := by
   constructor
   . intro f h

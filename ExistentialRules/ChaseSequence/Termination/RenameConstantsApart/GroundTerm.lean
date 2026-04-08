@@ -1,4 +1,6 @@
-import ExistentialRules.ChaseSequence.Termination.RenameConstantsApart.PreGroundTerm
+module
+
+public import ExistentialRules.ChaseSequence.Termination.RenameConstantsApart.PreGroundTerm
 
 /-!
 # Renaming Constants apart in a GroundTerm
@@ -6,8 +8,11 @@ import ExistentialRules.ChaseSequence.Termination.RenameConstantsApart.PreGround
 We lift the `PreGroundTerm.rename_constants_apart` functionality to `GroundTerm`.
 -/
 
+public section
+
 variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
 
+@[expose]
 def GroundTerm.rename_constants_apart
     [GetFreshInhabitant sig.C]
     (term : GroundTerm sig)
@@ -51,14 +56,18 @@ theorem GroundTerm.rename_constants_apart_preserves_ruleId_validity [GetFreshInh
   exact valid
 
 theorem GroundTerm.rename_constants_apart_preserves_disjIdx_validity [GetFreshInhabitant sig.C] (term : GroundTerm sig) (forbidden_constants : List sig.C) :
-    ∀ rl, (h : GroundTerm.skolem_ruleIds_valid rl term) -> GroundTerm.skolem_disjIdx_valid rl term h -> GroundTerm.skolem_disjIdx_valid rl (GroundTerm.rename_constants_apart term forbidden_constants) (GroundTerm.rename_constants_apart_preserves_ruleId_validity term forbidden_constants rl h) := by
+    ∀ rl, (h : GroundTerm.skolem_ruleIds_valid rl term) -> GroundTerm.skolem_disjIdx_valid rl term h ->
+    GroundTerm.skolem_disjIdx_valid rl (GroundTerm.rename_constants_apart term forbidden_constants)
+      (GroundTerm.rename_constants_apart_preserves_ruleId_validity term forbidden_constants rl h) := by
   intro rl _ valid
   simp only [rename_constants_apart] at *
   apply PreGroundTerm.rename_constants_apart_preserves_disjIdx_validity
   exact valid
 
 theorem GroundTerm.rename_constants_apart_preserves_rule_arity_validity [GetFreshInhabitant sig.C] (term : GroundTerm sig) (forbidden_constants : List sig.C) :
-    ∀ rl, (h : GroundTerm.skolem_ruleIds_valid rl term) -> GroundTerm.skolem_rule_arity_valid rl term h -> GroundTerm.skolem_rule_arity_valid rl (GroundTerm.rename_constants_apart term forbidden_constants) (GroundTerm.rename_constants_apart_preserves_ruleId_validity term forbidden_constants rl h) := by
+    ∀ rl, (h : GroundTerm.skolem_ruleIds_valid rl term) -> GroundTerm.skolem_rule_arity_valid rl term h ->
+    GroundTerm.skolem_rule_arity_valid rl (GroundTerm.rename_constants_apart term forbidden_constants)
+      (GroundTerm.rename_constants_apart_preserves_ruleId_validity term forbidden_constants rl h) := by
   intro rl _ valid
   simp only [rename_constants_apart] at *
   apply PreGroundTerm.rename_constants_apart_preserves_rule_arity_validity

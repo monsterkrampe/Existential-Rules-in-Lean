@@ -1,6 +1,8 @@
+module
+
 import PossiblyInfiniteTrees.PossiblyInfiniteTree.FiniteDegreeTree.KoenigsLemma
 
-import ExistentialRules.ChaseSequence.ChaseTree
+public import ExistentialRules.ChaseSequence.ChaseTree
 
 /-!
 # Chase Termination
@@ -8,23 +10,30 @@ import ExistentialRules.ChaseSequence.ChaseTree
 We introduce basic definitions and theorems around chase termination.
 -/
 
+public section
+
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 section Definitions
 
 /-- A `ChaseDerivationSkeleton` terminates if the underlying `PossiblyInfiniteList` is finite. -/
+@[expose]
 def ChaseDerivationSkeleton.terminates {obs : ObsoletenessCondition sig} {rules : RuleSet sig} (cds : ChaseDerivationSkeleton obs rules) : Prop := cds.branch.finite
 
 /-- A `ChaseDerivation` terminates if the underlying `ChaseDerivationSkeleton` is finite. -/
+@[expose]
 def ChaseDerivation.terminates {obs : ObsoletenessCondition sig} {rules : RuleSet sig} (cd : ChaseDerivation obs rules) : Prop := cd.toChaseDerivationSkeleton.terminates
 
 /-- A `TreeDerivation` terminates if all of its branches terminate. -/
+@[expose]
 def TreeDerivation.terminates {obs : ObsoletenessCondition sig} {rules : RuleSet sig} (td : TreeDerivation obs rules) : Prop := ∀ branch, branch ∈ td.branches -> branch.terminates
 
 /-- A `KnowledgeBase` terminates if all of its `ChaseTree`s terminate. -/
+@[expose]
 def KnowledgeBase.terminates (kb : KnowledgeBase sig) (obs : ObsoletenessCondition sig) : Prop := ∀ (ct : ChaseTree obs kb), ct.terminates
 
 /-- A `RuleSet` terminates if all knowledge bases featuring this rule set terminate. -/
+@[expose]
 def RuleSet.terminates (rs : RuleSet sig) (obs : ObsoletenessCondition sig) : Prop := ∀ (db : Database sig), { rules := rs, db := db : KnowledgeBase sig }.terminates obs
 
 end Definitions
@@ -142,6 +151,7 @@ namespace TreeDerivation
 variable {obs : ObsoletenessCondition sig} {rules : RuleSet sig}
 
 /-- A terminating `TreeDerivation` only has finitely many branches. We show this using König's Lemma. -/
+@[grind ->]
 theorem branches_finite_of_terminates (td : TreeDerivation obs rules) : td.terminates -> td.branches.finite := by
   intro each_b_term
 
@@ -163,6 +173,7 @@ theorem branches_finite_of_terminates (td : TreeDerivation obs rules) : td.termi
   . intro branch_mem; exists ⟨branch.branch, by rw [l_eq]; exact branch_mem⟩
 
 /-- A `TreeDerivation` with finitely many branches only has finitely many fact sets in its result. -/
+@[grind ->]
 theorem result_finite_of_branches_finite (td : TreeDerivation obs rules) : td.branches.finite -> td.result.finite := by
   rintro ⟨l, _, iff⟩
   have : DecidableEq (FactSet sig) := Classical.typeDecidableEq (FactSet sig)
@@ -170,16 +181,12 @@ theorem result_finite_of_branches_finite (td : TreeDerivation obs rules) : td.br
   intro fs
   rw [List.mem_map]
   constructor
-  . rintro ⟨b, mem, eq⟩
-    exists b
-    constructor
-    . rw [← iff]; exact mem
-    . exact Eq.symm eq
-  . rintro ⟨b, mem, eq⟩
-    exists b
-    constructor
-    . rw [iff]; exact mem
-    . exact Eq.symm eq
+  . intro ⟨b, mem, eq⟩
+    unfold result; rw [Set.mem_map]
+    exists b; grind
+  . unfold result; rw [Set.mem_map]
+    intro ⟨b, mem, eq⟩
+    exists b; grind
 
 end TreeDerivation
 
@@ -190,10 +197,12 @@ variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
 /-- A `ChaseTree` terminates if and only if each fact set in its result is finite. -/
 theorem terminates_iff_result_finite (ct : ChaseTree obs kb) : ct.terminates ↔ ∀ fs, fs ∈ ct.result -> fs.finite := by
   constructor
-  . rintro each_b_term res ⟨b, mem, eq⟩
+  . intro each_b_term res
+    unfold TreeDerivation.result; rw [Set.mem_map]
+    intro ⟨b, mem, eq⟩
     let b' := ChaseTree.chaseBranch_for_branch mem
     have : b'.result = b.result := rfl
-    simp only [eq, ← this]
+    simp only [← eq, ← this]
     rw [← ChaseBranch.terminates_iff_result_finite]
     apply each_b_term
     exact mem
@@ -203,6 +212,7 @@ theorem terminates_iff_result_finite (ct : ChaseTree obs kb) : ct.terminates ↔
     rw [← this]
     rw [ChaseBranch.terminates_iff_result_finite]
     apply each_b_term
+    unfold TreeDerivation.result; rw [Set.mem_map]
     exists b
 
 end ChaseTree

@@ -1,4 +1,7 @@
-import ExistentialRules.ChaseSequence.Termination.ConstantMappings.SkolemTermValidityPreserved
+module
+
+public import ExistentialRules.ChaseSequence.Termination.ConstantMappings.SkolemTermValidityPreserved
+public import ExistentialRules.ChaseSequence.Termination.RenameConstantsApart
 
 /-!
 # Interaction of Strict Constant Mappings and Renaming Constant Apart
@@ -9,6 +12,8 @@ For `PreGroundTerm`, `GroundTerm`, `GroundSubstitution`, and `PreTrigger`, we do
 2. we show that applying a `StrictConstantMapping` yields something that has the same skeleton,
 3. we show that for two things with the same skeleton, we can find a `StrictConstantMapping` that maps the renamed apart version of the first thing to the second one while mapping each constant to itself that does not occur in the renamed apart version.
 -/
+
+public section
 
 namespace PreGroundTerm
 
@@ -62,12 +67,14 @@ variable [DecidableEq sig.P]
 
 mutual
 
-  theorem same_skeleton_under_strict_constant_mapping (term : PreGroundTerm sig) (g : StrictConstantMapping sig) : same_skeleton term (g.toConstantMapping.apply_pre_ground_term term) := by
+  theorem same_skeleton_under_strict_constant_mapping (term : PreGroundTerm sig) (g : StrictConstantMapping sig) :
+      same_skeleton term (g.toConstantMapping.apply_pre_ground_term term) := by
     cases term with
     | leaf => simp [same_skeleton, ConstantMapping.apply_pre_ground_term, StrictConstantMapping.toConstantMapping, GroundTerm.const, FiniteTree.mapLeaves]
     | inner func ts => simp only [same_skeleton, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, true_and]; apply same_skeleton_list_under_strict_constant_mapping
 
-  theorem same_skeleton_list_under_strict_constant_mapping (terms : List (PreGroundTerm sig)) (g : StrictConstantMapping sig) : same_skeleton_list terms (terms.map g.toConstantMapping.apply_pre_ground_term) := by
+  theorem same_skeleton_list_under_strict_constant_mapping (terms : List (PreGroundTerm sig)) (g : StrictConstantMapping sig) :
+      same_skeleton_list terms (terms.map g.toConstantMapping.apply_pre_ground_term) := by
     cases terms with
     | nil => simp [same_skeleton_list]
     | cons hd tl => simp only [same_skeleton_list]; constructor; apply same_skeleton_under_strict_constant_mapping; apply same_skeleton_list_under_strict_constant_mapping
@@ -76,7 +83,8 @@ end
 
 mutual
 
-  theorem exists_strict_constant_mapping_to_reverse_renaming [GetFreshInhabitant sig.C] (term term2 : PreGroundTerm sig) (terms_same_skeleton : same_skeleton term term2) (forbidden_constants : List sig.C) :
+  theorem exists_strict_constant_mapping_to_reverse_renaming [GetFreshInhabitant sig.C]
+      (term term2 : PreGroundTerm sig) (terms_same_skeleton : same_skeleton term term2) (forbidden_constants : List sig.C) :
       ∃ (g : StrictConstantMapping sig),
         g.toConstantMapping.apply_pre_ground_term (PreGroundTerm.rename_constants_apart term forbidden_constants) = term2 ∧
         (∀ d, d ∉ (PreGroundTerm.rename_constants_apart term forbidden_constants).leaves -> g d = d) := by
@@ -105,7 +113,8 @@ mutual
           . exact g_eq
         . unfold FiniteTree.leaves; exact g_id
 
-  theorem exists_strict_constant_mapping_to_reverse_renaming_list [GetFreshInhabitant sig.C] (terms terms2 : List (PreGroundTerm sig)) (terms_same_skeleton : same_skeleton_list terms terms2) (forbidden_constants : List sig.C) :
+  theorem exists_strict_constant_mapping_to_reverse_renaming_list [GetFreshInhabitant sig.C]
+      (terms terms2 : List (PreGroundTerm sig)) (terms_same_skeleton : same_skeleton_list terms terms2) (forbidden_constants : List sig.C) :
       ∃ (g : StrictConstantMapping sig),
         (PreGroundTerm.rename_constants_apart.foldl_list terms forbidden_constants).map (fun term => g.toConstantMapping.apply_pre_ground_term term) = terms2 ∧
         (∀ d, d ∉ (PreGroundTerm.rename_constants_apart.foldl_list terms forbidden_constants).flatMap FiniteTree.leaves -> g d = d) := by
@@ -175,9 +184,11 @@ theorem same_skeleton_symm (term term2 : GroundTerm sig) : term.same_skeleton te
 
 variable [DecidableEq sig.P]
 
-theorem same_skeleton_under_strict_constant_mapping (term : GroundTerm sig) (g : StrictConstantMapping sig) : term.same_skeleton (g.toConstantMapping.apply_ground_term term) := by unfold same_skeleton; apply PreGroundTerm.same_skeleton_under_strict_constant_mapping
+theorem same_skeleton_under_strict_constant_mapping (term : GroundTerm sig) (g : StrictConstantMapping sig) :
+  term.same_skeleton (g.toConstantMapping.apply_ground_term term) := by unfold same_skeleton; apply PreGroundTerm.same_skeleton_under_strict_constant_mapping
 
-theorem exists_strict_constant_mapping_to_reverse_renaming [GetFreshInhabitant sig.C] (term term2 : GroundTerm sig) (terms_same_skeleton : same_skeleton term term2) (forbidden_constants : List sig.C) :
+theorem exists_strict_constant_mapping_to_reverse_renaming [GetFreshInhabitant sig.C]
+    (term term2 : GroundTerm sig) (terms_same_skeleton : same_skeleton term term2) (forbidden_constants : List sig.C) :
     ∃ (g : StrictConstantMapping sig),
       g.toConstantMapping.apply_ground_term (term.rename_constants_apart forbidden_constants) = term2 ∧
       (∀ d, d ∉ (term.rename_constants_apart forbidden_constants).constants -> g d = d) := by

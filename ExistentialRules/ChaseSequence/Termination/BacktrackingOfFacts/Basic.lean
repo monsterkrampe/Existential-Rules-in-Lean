@@ -1,5 +1,7 @@
-import BasicLeanDatastructures.GetFreshInhabitant
-import ExistentialRules.ChaseSequence.Termination.Basic
+module
+
+public import BasicLeanDatastructures.GetFreshInhabitant
+public import ExistentialRules.ChaseSequence.Termination.Basic
 
 /-!
 # Backtracking Facts for a Trigger
@@ -7,6 +9,8 @@ import ExistentialRules.ChaseSequence.Termination.Basic
 For DMFA/RMFA-like conditions, we need to be able to backtrack which facts are necessarily present when a trigger is loaded.
 This file starts with very basic auxiliary definitions for this endeavor.
 -/
+
+public section
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
@@ -17,6 +21,7 @@ def fresh_consts_for_pure_body_vars [GetFreshInhabitant sig.C] (r : Rule sig) (f
   GetFreshInhabitant.fresh_n forbidden_constants r.pure_body_vars.length
 
 /-- The number of fresh constants obtained matches the number of variables. -/
+@[simp, grind =]
 theorem length_fresh_consts_for_pure_body_vars [GetFreshInhabitant sig.C] {r : Rule sig} {forbidden_constants : List sig.C} :
     (r.fresh_consts_for_pure_body_vars forbidden_constants).val.length = r.pure_body_vars.length :=
   (r.fresh_consts_for_pure_body_vars forbidden_constants).property.left
@@ -43,14 +48,17 @@ end Rule
 namespace SkolemFS
 
 /-- The rule id of a `SkolemFS` (Skolem Function Symbol) is valid if there is a rule with this id. -/
+@[expose]
 def ruleId_valid (sfs : SkolemFS sig) (rl : RuleList sig) : Prop :=
   ∃ r ∈ rl.rules, r.id = sfs.ruleId
 
 /-- The disjunct index of a `SkolemFS` (Skolem Function Symbol) if the rule corresponding the its rule id indeed has enough head disjuncts. -/
+@[expose]
 def disjunctIndex_valid (sfs : SkolemFS sig) (rl : RuleList sig) (ruleId_valid : sfs.ruleId_valid rl) : Prop :=
   sfs.disjunctIndex < (rl.get_by_id sfs.ruleId ruleId_valid).head.length
 
 /-- The arity of a `SkolemFS` (Skolem Function Symbol) is valid if it matches the frontier length of the rule corresponding to its rule id. -/
+@[expose]
 def arity_valid (sfs : SkolemFS sig) (rl : RuleList sig) (ruleId_valid : sfs.ruleId_valid rl) : Prop :=
   sfs.arity = (rl.get_by_id sfs.ruleId ruleId_valid).frontier.length
 

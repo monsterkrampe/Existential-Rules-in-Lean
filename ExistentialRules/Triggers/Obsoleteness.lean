@@ -1,4 +1,6 @@
-import ExistentialRules.Triggers.Basic
+module
+
+public import ExistentialRules.Triggers.Basic
 
 /-!
 # Obsoleteness (Conditions)
@@ -22,6 +24,8 @@ Then, we require 4 conditions:
 
 `RestrictedObsoleteness` and `SkolemObsoleteness` are the two extremes of what is allowed according to these conditions, `SkolemObsoleteness` being the most liberal and `RestrictedObsoleteness` being, quite expectedly, the most restricted.
 -/
+
+public section
 
 /-- `LaxObsoletenessCondition` is a more liberal version of `ObsoletenessCondition` enforcing only subset monotonicity (i.e. condition 1 above). We use such a more liberal condition for MFA later. For the most part, you can completely ignore that this exists and only consider `ObsoletenessCondition`s instead. -/
 structure LaxObsoletenessCondition (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] where
@@ -48,6 +52,7 @@ We briefly define the `ObsoletenessCondition`s for Skolem and restricted chase t
 -/
 
 /-- Obsoleteness for the Skolem chase is indeed a `ObsoletenessCondition`, i.e. it has all 4 properties. According to this condition, a trigger is obsolete if its exact result, for one of the head disjuncts, already occurs in the fact set. -/
+@[expose]
 def SkolemObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] : ObsoletenessCondition sig := {
   cond := fun (trg : PreTrigger sig) (fs : FactSet sig) => ∃ i : Fin trg.mapped_head.length, (trg.mapped_head[i.val]).toSet ⊆ fs
   monotone := by
@@ -82,6 +87,7 @@ def SkolemObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C]
 }
 
 /-- Obsoleteness for the restricted chase is indeed a `ObsoletenessCondition`, i.e. it has all 4 properties. According to this condition, a trigger is obsolete if it is satisfied. -/
+@[expose]
 def RestrictedObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] : ObsoletenessCondition sig := {
   cond := fun (trg : PreTrigger sig) (fs : FactSet sig) => trg.satisfied fs
   monotone := by
@@ -132,6 +138,7 @@ variable {obs : LaxObsoletenessCondition sig}
 instance : CoeOut (Trigger obs) (PreTrigger sig) where
   coe trigger := { rule := trigger.rule, subs := trigger.subs }
 
+@[expose]
 def Trigger.active (trg : Trigger obs) (F : FactSet sig) : Prop :=
   trg.loaded F ∧ ¬ (obs.cond trg F)
 

@@ -1,6 +1,8 @@
-import BasicLeanDatastructures.GetFreshInhabitant
-import ExistentialRules.ChaseSequence.Termination.Basic
-import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts
+module
+
+public import BasicLeanDatastructures.GetFreshInhabitant
+public import ExistentialRules.ChaseSequence.Termination.Basic
+public import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts
 
 /-!
 # Renaming Constants apart in a PreGroundTerm
@@ -12,9 +14,12 @@ We show that the new constants are indeed fresh `rename_constants_apart_leaves_f
 we also prove that the renaming does not mess with term validity as required for backtrackings.
 -/
 
+public section
+
 variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
 
 /-- We rename constants apart by introducing a fresh constant for each leaf position in the term. -/
+@[expose]
 def PreGroundTerm.rename_constants_apart
     [GetFreshInhabitant sig.C]
     (term : PreGroundTerm sig)

@@ -1,10 +1,14 @@
+module
+
+import BasicLeanDatastructures.List.AllListsOfLength
+
 import ExistentialRules.ChaseSequence.Termination.Basic
 import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts
-import ExistentialRules.ChaseSequence.Termination.ConstantMappings.Basic
-import ExistentialRules.ChaseSequence.Termination.ConstantMappings.InterplayWithBacktracking
-import ExistentialRules.ChaseSequence.Termination.ParallelDeterminizedChase
+public import ExistentialRules.ChaseSequence.Termination.ConstantMappings
+public import ExistentialRules.ChaseSequence.Termination.ParallelDeterminizedChase
 import ExistentialRules.ChaseSequence.Termination.RenameConstantsApart
 import ExistentialRules.Terms.Cyclic
+import ExistentialRules.Terms.ListsOfTerms
 
 /-!
 # Model-Faithful Acyclicity and its Relatives
@@ -62,6 +66,8 @@ This could be anything. To not cause any interference there, we map them to fres
 
 If you actually aim to understand all the details, then good luck! There are a few doc comments on what happens in the individual files so you can dig into those a bit more. You can also have a look at the papers introducing the notions but this is likely still mind-boggling. Feel free to reach out to me at any point. I will try my best to explain and answer your questions!
 -/
+
+public section
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
@@ -161,6 +167,7 @@ theorem DeterministicSkolemObsoleteness.blocks_each_obs (obs : ObsoletenessCondi
   apply f_not_in_prev
 
   intro f' f'_mem
+  rw [GroundTermMapping.mem_applyFactSet] at f'_mem
   rcases f'_mem with ⟨f, f_mem, f'_mem⟩
 
   unfold DeterministicSkolemObsoleteness at cond
@@ -190,19 +197,17 @@ theorem DeterministicSkolemObsoleteness.blocks_each_obs (obs : ObsoletenessCondi
       apply List.getElem_mem
   . rw [f'_mem, ← f_eq]
     simp only [Nat.zero_add]
-    rw [← TermMapping.apply_generalized_atom_compose']
+    rw [GroundTermMapping.applyFact.eq_def, ← TermMapping.apply_generalized_atom_compose']
     conv => left; unfold PreTrigger.apply_to_function_free_atom
     rw [← TermMapping.apply_generalized_atom_compose']
     apply TermMapping.apply_generalized_atom_congr_left
     intro voc voc_mem
     cases voc with
     | var v =>
-      simp only [Function.comp_apply, StrictConstantMapping.apply_var_or_const, PreTrigger.apply_to_var_or_const]
-      rw [← ConstantMapping.apply_ground_term_swap_apply_skolem_term]
-      . rfl
-      . intros
-        simp only [PreTrigger.skolemize_var_or_const, VarOrConst.skolemize]
-        split <;> simp
+      simp only [Function.comp_apply, StrictConstantMapping.apply_var_or_const]
+      cases Decidable.em (v ∈ trg.val.rule.frontier) with
+      | inl v_mem => simp [v_mem]
+      | inr v_mem => simp [v_mem, PreTrigger.functional_term_for_var]
     | const c => simp [StrictConstantMapping.apply_var_or_const, PreTrigger.apply_to_var_or_const_for_const, ConstantMapping.apply_ground_term_constant, StrictConstantMapping.toConstantMapping]
 
 /-- A trigger is blocked for its own backtracking if it is obsolete for its own backtracking. Note that the backtracking always requires us to prove that Skolem function terms are well-formed, which is what the additional conditions are for. -/
@@ -444,7 +449,7 @@ theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
       simp only [cb.database_first'] at f_mem
       exists (parallelDeterminizedChase kb (DeterministicSkolemObsoleteness sig)).head
       simp only [parallelDeterminizedChase, InfiniteList.head_mem]
-      simp [parallelDeterminizedDerivation_head, f_mem]
+      simp [f_mem]
     | step cd suffix ih next next_mem =>
       intro f f_mem
       simp only [cd.facts_next next_mem] at f_mem
@@ -510,7 +515,7 @@ theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
               apply not_mem
               apply contra.right origin.snd
               exact f_mem
-          . exists origin.snd
+          . exists origin.snd; rw [List.mem_toSet] at f_mem; exact f_mem
   . have goal : ∀ elem : (parallelDeterminizedChase kb (DeterministicSkolemObsoleteness sig)).Element, elem.val ⊆ cb.result := by
       intro elem
       induction elem using parallelDeterminizedDerivation_mem_rec with
@@ -555,7 +560,7 @@ theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
 
             specialize this trg.val.mapped_body (by simp)
             rcases this with ⟨n, this⟩
-            exists n
+            exists n; exact ⟨this.left, by intro f; rw [List.mem_toSet]; exact this.right f⟩
           rcases trg_loaded_somewhere with ⟨node, node_mem, trg_loaded⟩
 
           have fair := cb.fairness_prec ⟨{ rule := trg.val.rule, subs:= trg.val.subs }, trg.property⟩
@@ -749,7 +754,7 @@ theorem mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_pred
         rcases every_t_const with ⟨d, d_eq, goal⟩
         rw [← c_eq]
         simp only [d_eq]
-        simp [GroundTerm.const, GroundTerm.toConst, goal]
+        simpa using goal
     . rw [Fact.toFact_after_toFunctionFreeFact_is_id]
   | step cd suffix ih next next_mem =>
     intro f f_predicate f_mem
@@ -857,14 +862,15 @@ theorem mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_pred
                 unfold FunctionFreeConjunction.predicates
                 rw [List.mem_map]
                 exists a
-            . exists trg.val.subs.apply_function_free_atom a
+            . rw [GroundTermMapping.mem_applyFactSet]
+              exists trg.val.subs.apply_function_free_atom a
               constructor
               . apply (cd.active_trigger_origin_next next_mem).left
                 rw [List.mem_toSet]
                 simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list, List.mem_map]
                 exists a
               . rw [← f_eq]
-                rw [← TermMapping.apply_generalized_atom_compose']
+                rw [GroundTermMapping.applyFact.eq_def, ← TermMapping.apply_generalized_atom_compose']
                 apply TermMapping.apply_generalized_atom_congr_left
                 intro voc voc_mem
                 cases voc with
@@ -886,8 +892,9 @@ theorem mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_pred
                   constructor
                   . exact a_mem
                   . apply VarOrConst.mem_filterConsts_of_const; exact voc_mem
-          . intro f f_mem
-            rcases f_mem with ⟨f_pred, f', f'_mem, f_eq⟩
+          . intro f ⟨f_pred, f_mem⟩
+            rw [GroundTermMapping.mem_applyFactSet] at f_mem
+            rcases f_mem with ⟨f', f'_mem, f_eq⟩
             rw [f_eq]
             apply prev_node_subs_parallel_chase
             . rw [f_eq] at f_pred
@@ -958,14 +965,12 @@ theorem filtered_cb_result_subset_mfaSet (rs : RuleSet sig) (finite : rs.rules.f
     ∀ {db : Database sig} {obs : ObsoletenessCondition sig}, (mfa_obs.blocks_obs obs rs special_const) ->
     ∀ (cb : ChaseBranch obs { rules := rs, db := db }), ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact_set (fun f => f.predicate ∈ rs.predicates ∧ f ∈ cb.result)) ⊆ (rs.mfaSet finite special_const mfa_obs) := by
   intro db obs blocks cb f f_mem
-
+  rw [GroundTermMapping.mem_applyFactSet] at f_mem
   rcases f_mem with ⟨f', f'_mem, f_eq⟩
   rcases f'_mem with ⟨f'_pred, f'_mem⟩
   rcases f'_mem with ⟨node, node_mem, f'_mem⟩
   rw [f_eq]
-
-  have := rs.mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_predicates_not_from_rs finite special_const mfa_obs blocks cb ⟨node, node_mem⟩
-  apply this
+  apply rs.mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_predicates_not_from_rs finite special_const mfa_obs blocks cb ⟨node, node_mem⟩
   . exact f'_pred
   . exact f'_mem
 
@@ -978,7 +983,8 @@ theorem terminates_of_mfaSet_finite [Inhabited sig.C] (rs : RuleSet sig) (rs_fin
   unfold KnowledgeBase.terminates
   intro ct
   rw [ChaseTree.terminates_iff_result_finite]
-  rintro result ⟨cb, cb_mem, result_eq⟩
+  unfold TreeDerivation.result; simp only [Set.mem_map]
+  intro result ⟨cb, cb_mem, result_eq⟩
   let cb := ct.chaseBranch_for_branch cb_mem
 
   let res_filtered : FactSet sig := fun f => f.predicate ∈ rs.predicates ∧ f ∈ cb.result
@@ -1080,7 +1086,7 @@ theorem terminates_of_mfaSet_finite [Inhabited sig.C] (rs : RuleSet sig) (rs_fin
     apply each_step_sub_db_and_filtered
     exact f_mem
 
-  rw [result_eq]
+  rw [← result_eq]
   apply Set.finite_of_subset_finite _ res_sub_db_and_filtered
   apply Set.union_finite_of_both_finite
   . exact db.toFactSet.property.left
