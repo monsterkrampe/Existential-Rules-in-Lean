@@ -100,6 +100,7 @@ def backtrackTrigger
 mutual
 
   /-- For a `PreGroundTerm`, we can find the facts necessary to introduce this term. These are all facts in the body and head of the `backtrackTrigger` for the term as well as all `backtrackFacts` for the subterms (i.e. the children) or the term. Because we need to know which "fresh" constants have already been used, we also return those. Note that we also take a list of constants that are already forbidden. -/
+  @[expose]
   def backtrackFacts
       [GetFreshInhabitant sig.C]
       [Inhabited sig.C]
@@ -136,6 +137,7 @@ mutual
 
       ((trg.mapped_body ++ trg.mapped_head[disjIdx]) ++ res_ts.fst, fresh_consts_for_pure_body_vars.val ++ res_ts.snd)
 
+  @[expose]
   def backtrackFacts_list
       [GetFreshInhabitant sig.C]
       [Inhabited sig.C]

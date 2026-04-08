@@ -285,6 +285,7 @@ theorem skolem_rule_arity_remains_valid_in_head
           . exact rule_mem
           . exact body_valid
 
+@[expose]
 def backtrackTrigger_for_functional_term
     [GetFreshInhabitant sig.C]
     [Inhabited sig.C]
@@ -327,6 +328,7 @@ theorem backtrackTrigger_for_functional_term_equiv
     exact u_mem
 
 /-- The backtracking of a `PreTrigger` consists of its mapped body and the backtrackings of all `GroundTerm`s that occur in its mapped body. -/
+@[expose]
 def backtrackFacts
     [GetFreshInhabitant sig.C]
     [Inhabited sig.C]

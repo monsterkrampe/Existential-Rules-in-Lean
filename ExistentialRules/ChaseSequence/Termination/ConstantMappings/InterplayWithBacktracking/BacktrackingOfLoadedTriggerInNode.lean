@@ -1,5 +1,7 @@
-import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts
-import ExistentialRules.ChaseSequence.Termination.ConstantMappings.InterplayWithObsoletenessCondition
+module
+
+public import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts
+public import ExistentialRules.ChaseSequence.Termination.ConstantMappings.InterplayWithObsoletenessCondition
 
 /-!
 # The Backtracking Triggers in the Chase indeed is already part of the Chase
@@ -49,6 +51,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
     exists GroundTerm.const
     constructor
     . intro f' f'_mem
+      rw [GroundTermMapping.mem_applyFactSet] at f'_mem
       rcases f'_mem with ⟨f'', f''_mem, f'_mem⟩
       rw [List.mem_toSet] at f''_mem
       simp only [t_eq, GroundTerm.backtrackFacts, PreGroundTerm.backtrackFacts, GroundTerm.const] at f''_mem
@@ -76,6 +79,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
         exists GroundTerm.const
         constructor
         . intro f' f'_mem
+          rw [GroundTermMapping.mem_applyFactSet] at f'_mem
           rcases f'_mem with ⟨f'', f''_mem, f'_mem⟩
           have : backtracking.fst = [] := by
             unfold backtracking
@@ -152,6 +156,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
             exists fun c => .const c
             constructor
             . intro _ e_mem
+              rw [GroundTermMapping.mem_applyFactSet] at e_mem
               simp only [List.unattach_nil, PreGroundTerm.backtrackFacts_list] at e_mem
               rcases e_mem with ⟨_, f_mem, _⟩
               simp [List.mem_toSet] at f_mem
@@ -190,6 +195,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
             exists g
             constructor
             . intro f f_mem
+              rw [GroundTermMapping.mem_applyFactSet] at f_mem
               rcases f_mem with ⟨f', f'_mem, f_eq⟩
               rw [List.mem_toSet] at f'_mem
               simp only [List.unattach_cons, PreGroundTerm.backtrackFacts_list] at f'_mem
@@ -218,7 +224,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
                     rw [g_tl_h.right]
                     . rw [List.mem_append]; apply Or.inl; exact this
                     . exact this
-                rw [← f_eq, ← ConstantMapping.apply_fact.eq_def, this]
+                rw [f_eq, ← ConstantMapping.apply_fact_eq_groundTermMapping_applyFact, this]
                 rw [cd.facts_next next_mem]
                 apply Or.inl
                 apply g_hd_h.left
@@ -255,7 +261,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
                         apply Or.inr
                         exact d_mem'
 
-                rw [← f_eq, ← ConstantMapping.apply_fact.eq_def, this]
+                rw [f_eq, ← ConstantMapping.apply_fact_eq_groundTermMapping_applyFact, this]
                 apply g_tl_h.left
                 apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
                 rw [List.mem_toSet]
@@ -364,6 +370,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
         exists g
         constructor
         . intro e e_mem
+          rw [GroundTermMapping.mem_applyFactSet] at e_mem
           rcases e_mem with ⟨f, f_mem, e_eq⟩
           rw [List.mem_toSet] at f_mem
           simp only [term_functional, GroundTerm.func, GroundTerm.backtrackFacts, PreGroundTerm.backtrackFacts] at f_mem
@@ -377,7 +384,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
             cases f_mem with
             | inl f_mem =>
               apply Or.inl
-              rw [← e_eq]
+              rw [e_eq]
               apply origin_active.left
               rw [List.mem_toSet]
 
@@ -403,7 +410,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
                   exists a
             | inr f_mem =>
               apply Or.inr
-              rw [List.mem_toSet, ← e_eq]
+              rw [List.mem_toSet, e_eq]
               simp only [ChaseNode.origin_result]
               rw [mapped_head_eq]
               simp only [PreTrigger.mapped_head]
@@ -431,7 +438,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
                     exists a
           | inr f_mem =>
             apply g_mapped_frontier_h.left
-            rw [← e_eq]
+            rw [e_eq]
             have : g.apply_fact f = g_mapped_frontier.apply_fact f := by
               apply ConstantMapping.apply_fact_congr_left
               intro d d_mem
@@ -460,7 +467,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
                     rw [List.mem_append]
                     apply Or.inr
                     exact d_mem'
-            rw [← ConstantMapping.apply_fact.eq_def, this]
+            rw [← ConstantMapping.apply_fact_eq_groundTermMapping_applyFact, this]
             apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
             rw [List.mem_toSet]
             exact f_mem
@@ -493,6 +500,7 @@ theorem backtracking_of_term_list_in_node [GetFreshInhabitant sig.C] [Inhabited 
     constructor
     . simp only [GroundTerm.backtrackFacts_list]
       intro _ e_mem
+      rw [GroundTermMapping.mem_applyFactSet] at e_mem
       rcases e_mem with ⟨_, f_mem, _⟩
       rw [List.mem_toSet] at f_mem
       simp at f_mem
@@ -512,6 +520,7 @@ theorem backtracking_of_term_list_in_node [GetFreshInhabitant sig.C] [Inhabited 
     exists g
     constructor
     . intro f f_mem
+      rw [GroundTermMapping.mem_applyFactSet] at f_mem
       rcases f_mem with ⟨f', f'_mem, f_eq⟩
       rw [List.mem_toSet] at f'_mem
       simp only [GroundTerm.backtrackFacts_list] at f'_mem
@@ -540,7 +549,7 @@ theorem backtracking_of_term_list_in_node [GetFreshInhabitant sig.C] [Inhabited 
             rw [g_tl_h.right]
             . rw [List.mem_append]; apply Or.inl; exact this
             . exact this
-        rw [← f_eq, ← ConstantMapping.apply_fact.eq_def, this]
+        rw [f_eq, ← ConstantMapping.apply_fact_eq_groundTermMapping_applyFact, this]
         apply g_hd_h.left
         apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
         rw [List.mem_toSet]
@@ -570,7 +579,7 @@ theorem backtracking_of_term_list_in_node [GetFreshInhabitant sig.C] [Inhabited 
                 apply Or.inr
                 exact d_mem'
 
-        rw [← f_eq, ← ConstantMapping.apply_fact.eq_def, this]
+        rw [f_eq, ← ConstantMapping.apply_fact_eq_groundTermMapping_applyFact, this]
         apply g_tl_h.left
         apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
         rw [List.mem_toSet]
@@ -581,7 +590,7 @@ theorem backtracking_of_term_list_in_node [GetFreshInhabitant sig.C] [Inhabited 
       . apply g_hd_h.right; exact d_mem
       . apply g_tl_h.right; rw [List.mem_append]; apply Or.inl; exact d_mem
 
-theorem backtracking_of_loaded_trigger_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C]
+public theorem backtracking_of_loaded_trigger_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C]
     {cb : ChaseBranch obs kb} {node : ChaseNode obs kb.rules} (node_mem : node ∈ cb.toChaseDerivation) :
     ∀ (rl : RuleList sig), (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) ->
     ∀ (trg : PreTrigger sig), (trg_loaded : trg.loaded node.facts) ->
@@ -618,6 +627,7 @@ theorem backtracking_of_loaded_trigger_in_node [GetFreshInhabitant sig.C] [Inhab
   exists g
   constructor
   . intro f f_mem
+    rw [GroundTermMapping.mem_applyFactSet] at f_mem
     rcases f_mem with ⟨f', f'_mem, f_eq⟩
     rw [List.mem_toSet] at f'_mem
     unfold PreTrigger.backtrackFacts at f'_mem
@@ -632,13 +642,14 @@ theorem backtracking_of_loaded_trigger_in_node [GetFreshInhabitant sig.C] [Inhab
         apply Or.inl
         rw [List.mem_flatMap]
         exists f'
-      rw [← f_eq, ← ConstantMapping.apply_fact.eq_def, this]
+      rw [f_eq, ← ConstantMapping.apply_fact_eq_groundTermMapping_applyFact, this]
       apply trg_loaded
       rw [List.mem_toSet]
       exact f'_mem
     | inr f'_mem =>
       apply g_h.left
-      exists f'
+      rw [GroundTermMapping.mem_applyFactSet]
+      exists f'; constructor; rw [List.mem_toSet]; exact f'_mem; exact f_eq
   . intro d d_mem
     apply g_h.right
     rw [List.mem_append]

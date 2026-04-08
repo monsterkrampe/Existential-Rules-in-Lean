@@ -1,5 +1,7 @@
-import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts
-import ExistentialRules.ChaseSequence.Termination.ConstantMappings.InterplayWithObsoletenessCondition
+module
+
+public import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts
+public import ExistentialRules.ChaseSequence.Termination.ConstantMappings.InterplayWithObsoletenessCondition
 
 /-!
 # Interaction of Backtrackings and Strict Constant Mappings on PreGroundTerm
@@ -11,6 +13,8 @@ This file mainly shows two results for `PreGroundTerm`.
 
 If you have been looking for the most horrible theorem in this repo, then your search likely concludes here :D
 -/
+
+public section
 
 variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [DecidableEq sig.P]
 
@@ -115,6 +119,7 @@ mutual
       . simp
       constructor
       . intro e e_mem
+        rw [GroundTermMapping.mem_applyFactSet] at e_mem
         rcases e_mem with ⟨f, f_mem, e_eq⟩
         simp [List.mem_toSet, backtracking, backtrackFacts] at f_mem
       . simp only [ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves]
@@ -320,6 +325,7 @@ mutual
           intro contra; apply d_mem; apply Or.inr; exact contra
       constructor
       . intro e e_mem
+        rw [GroundTermMapping.mem_applyFactSet] at e_mem
         rcases e_mem with ⟨f, f_mem, e_eq⟩
         simp only [List.mem_toSet, backtracking, backtrackFacts] at f_mem
         rw [List.mem_append] at f_mem
@@ -345,7 +351,7 @@ mutual
             . exact a_mem
             . rw [← GroundSubstitution.apply_function_free_atom.eq_def]
               rw [GroundSubstitution.apply_function_free_atom_compose]
-              . rw [← e_eq, ← f_eq]
+              . rw [e_eq, ← f_eq]
               . intro d d_mem
                 have d_mem' : d ∈ rl.rules.flatMap Rule.constants := by
                   rw [List.mem_flatMap]
@@ -380,8 +386,8 @@ mutual
             exists a
             constructor
             . exact a_mem
-            . rw [← e_eq, ← f_eq]
-              rw [← GroundSubstitution.apply_function_free_atom.eq_def, ← GroundSubstitution.apply_function_free_atom.eq_def, PreTrigger.apply_subs_for_atom_eq, PreTrigger.apply_subs_for_atom_eq, ← ConstantMapping.apply_fact.eq_def, ConstantMapping.apply_fact_swap_apply_to_function_free_atom]
+            . rw [e_eq, ← f_eq]
+              rw [← GroundSubstitution.apply_function_free_atom.eq_def, ← GroundSubstitution.apply_function_free_atom.eq_def, PreTrigger.apply_subs_for_atom_eq, PreTrigger.apply_subs_for_atom_eq, ← ConstantMapping.apply_fact_eq_groundTermMapping_applyFact, ConstantMapping.apply_fact_swap_apply_to_function_free_atom]
               . apply PreTrigger.apply_to_function_free_atom_eq_of_equiv
                 apply PreTrigger.equiv_of_strong_equiv
                 simp only [trg1, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves] at strong_equiv
@@ -418,10 +424,11 @@ mutual
           rw [List.map_append, new_g_on_forbidden_constants_is_g, new_g_on_fresh_is_fresh2] at theorem_for_ts
           simp only [new_g_on_ts] at theorem_for_ts
           apply theorem_for_ts
+          rw [GroundTermMapping.mem_applyFactSet]
           exists f
           constructor
           . rw [List.mem_toSet]; exact f_mem
-          . rw [← e_eq]
+          . rw [e_eq]
             apply ConstantMapping.apply_fact_congr_left
             intro d d_mem
             cases PreGroundTerm.backtrackFacts_list_constants_in_rules_or_term_or_fresh f f_mem d d_mem with
@@ -534,6 +541,7 @@ mutual
       . simp
       constructor
       . intro e e_mem
+        rw [GroundTermMapping.mem_applyFactSet] at e_mem
         rcases e_mem with ⟨f, f_mem, e_eq⟩
         simp [backtracking, List.mem_toSet, backtrackFacts_list] at f_mem
       . simp only [backtracking, List.map_nil, PreGroundTerm.backtrackFacts_list]
@@ -623,6 +631,7 @@ mutual
           exact contra
       constructor
       . intro e e_mem
+        rw [GroundTermMapping.mem_applyFactSet] at e_mem
         rcases e_mem with ⟨f, f_mem, e_eq⟩
         simp only [backtracking, List.mem_toSet, backtrackFacts_list, List.mem_append] at f_mem
         simp only [List.map_cons, List.mem_toSet, backtrackFacts_list, List.mem_append]
@@ -631,10 +640,11 @@ mutual
           apply Or.inl
           rw [← List.mem_toSet]
           apply g_hd_h.right.left
+          rw [GroundTermMapping.mem_applyFactSet]
           exists f
           constructor
           . rw [List.mem_toSet]; exact f_mem
-          . rw [← e_eq]
+          . rw [e_eq]
             apply ConstantMapping.apply_fact_congr_left
             intro d d_mem
             cases PreGroundTerm.backtrackFacts_constants_in_rules_or_term_or_fresh f f_mem d d_mem with
@@ -679,10 +689,11 @@ mutual
           simp only [new_inner_g_on_tl] at inner_ih
           rw [← List.mem_toSet]
           apply inner_ih
+          rw [GroundTermMapping.mem_applyFactSet]
           exists f
           constructor
           . rw [List.mem_toSet]; exact f_mem
-          . rw [← e_eq]
+          . rw [e_eq]
             apply ConstantMapping.apply_fact_congr_left
             intro d d_mem
             cases PreGroundTerm.backtrackFacts_list_constants_in_rules_or_term_or_fresh f f_mem d d_mem with

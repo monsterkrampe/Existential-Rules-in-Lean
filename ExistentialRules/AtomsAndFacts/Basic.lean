@@ -48,9 +48,11 @@ namespace FunctionFreeAtom
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 /-- Using `VarOrConst.filterVars`, we can obtain all variables from the terms of the `FunctionFreeAtom`. -/
+@[expose]
 def variables (a : FunctionFreeAtom sig) : List sig.V := VarOrConst.filterVars a.terms
 
 /-- Using `VarOrConst.filterConsts`, we can obtain all constants from the terms of the `FunctionFreeAtom`. -/
+@[expose]
 def constants (a : FunctionFreeAtom sig) : List sig.C := VarOrConst.filterConsts a.terms
 
 /-- We can `skolemize` a `FunctionFreeAtom` by skolemizing all its `VarOrConst`s. This yields an `Atom`. -/
@@ -108,9 +110,11 @@ variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq 
 def terms (conj : FunctionFreeConjunction sig) : List (VarOrConst sig) := conj.flatMap GeneralizedAtom.terms
 
 /-- The `vars` of a `FunctionFreeConjunction` are the variables of all its atoms. -/
+@[expose]
 def vars (conj : FunctionFreeConjunction sig) : List sig.V := conj.flatMap FunctionFreeAtom.variables
 
 /-- The `consts` of a `FunctionFreeConjunction` are the constants of all its atoms. -/
+@[expose]
 def consts (conj : FunctionFreeConjunction sig) : List sig.C := conj.flatMap FunctionFreeAtom.constants
 
 /-- The `predicates` of a `FunctionFreeConjunction` are the predicates of all its atoms. -/
@@ -675,6 +679,7 @@ namespace Database
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 /-- Any `Database` can trivially be converted to a finite and function free `FactSet`. -/
+@[expose]
 def toFactSet (db : Database sig) : { fs : FactSet sig // fs.finite ∧ fs.isFunctionFree } := ⟨
   (fun f => ∃ f', f' ∈ db.val ∧ f'.toFact = f),
   (by
@@ -697,6 +702,7 @@ def toFactSet (db : Database sig) : { fs : FactSet sig // fs.finite ∧ fs.isFun
 ⟩
 
 /-- Each `Database` has a finite set of constants. -/
+@[expose]
 def constants (db : Database sig) : { C : Set sig.C // C.finite } := ⟨
   fun c => ∃ (f : FunctionFreeFact sig), f ∈ db.val ∧ c ∈ f.terms,
   by

@@ -16,6 +16,7 @@ variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
 
 namespace GroundSubstitution
 
+@[expose]
 def rename_constants_apart_for_vars [GetFreshInhabitant sig.C]
   (subs : GroundSubstitution sig) (forbidden_constants : List sig.C) : List sig.V -> GroundSubstitution sig
 | .nil => subs
@@ -121,6 +122,7 @@ namespace PreTrigger
 
 variable [DecidableEq sig.P]
 
+@[expose]
 def rename_constants_apart [GetFreshInhabitant sig.C] (trg : PreTrigger sig) (forbidden_constants : List sig.C) : PreTrigger sig :=
   ⟨trg.rule, trg.subs.rename_constants_apart_for_vars forbidden_constants trg.rule.body.vars.eraseDupsKeepRight⟩
 

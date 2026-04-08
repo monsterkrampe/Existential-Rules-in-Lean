@@ -52,6 +52,7 @@ We briefly define the `ObsoletenessCondition`s for Skolem and restricted chase t
 -/
 
 /-- Obsoleteness for the Skolem chase is indeed a `ObsoletenessCondition`, i.e. it has all 4 properties. According to this condition, a trigger is obsolete if its exact result, for one of the head disjuncts, already occurs in the fact set. -/
+@[expose]
 def SkolemObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] : ObsoletenessCondition sig := {
   cond := fun (trg : PreTrigger sig) (fs : FactSet sig) => ∃ i : Fin trg.mapped_head.length, (trg.mapped_head[i.val]).toSet ⊆ fs
   monotone := by
@@ -86,6 +87,7 @@ def SkolemObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C]
 }
 
 /-- Obsoleteness for the restricted chase is indeed a `ObsoletenessCondition`, i.e. it has all 4 properties. According to this condition, a trigger is obsolete if it is satisfied. -/
+@[expose]
 def RestrictedObsoleteness (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] : ObsoletenessCondition sig := {
   cond := fun (trg : PreTrigger sig) (fs : FactSet sig) => trg.satisfied fs
   monotone := by

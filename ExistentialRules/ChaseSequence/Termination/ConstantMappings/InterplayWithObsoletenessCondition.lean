@@ -1,4 +1,6 @@
-import ExistentialRules.ChaseSequence.Termination.ConstantMappings.InterplayWithRenamingConstantsApart
+module
+
+public import ExistentialRules.ChaseSequence.Termination.ConstantMappings.InterplayWithRenamingConstantsApart
 
 /-!
 # Interactions of ConstantMappings with Obsoleteness
@@ -10,8 +12,11 @@ the version of the trigger where a `ConstantMapping` is composed with the origin
 We briefly demonstrate that this property holds for both `SkolemObsoleteness` and `RestrictedObsoleteness`.
 -/
 
+public section
+
 variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [DecidableEq sig.P]
 
+@[expose]
 def ObsoletenessCondition.propagates_under_constant_mapping (obs : ObsoletenessCondition sig) : Prop := ∀ {trg : PreTrigger sig} {fs : FactSet sig} {g : ConstantMapping sig}, (∀ c ∈ trg.rule.head_constants, g c = GroundTerm.const c) -> obs.cond trg fs -> obs.cond { rule := trg.rule, subs := g.apply_ground_term ∘ trg.subs } (g.apply_fact_set fs)
 
 theorem SkolemObsoleteness.propagates_under_constant_mapping : (SkolemObsoleteness sig).propagates_under_constant_mapping := by

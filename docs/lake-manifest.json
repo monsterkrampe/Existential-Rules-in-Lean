@@ -62,7 +62,7 @@
    "type": "git",
    "subDir": null,
    "scope": "",
-   "rev": "f12465ea93b79d6e6161cd83152348e4e5671226",
+   "rev": "b1a812afa48ce755d6b9b513cc5adf5e230c13ee",
    "name": "PossiblyInfiniteTrees",
    "manifestFile": "lake-manifest.json",
    "inputRev": "use-modules",

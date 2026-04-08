@@ -1,10 +1,14 @@
-import ExistentialRules.ChaseSequence.Termination.Basic
+module
+
+public import ExistentialRules.ChaseSequence.Termination.Basic
 
 /-!
 # Parallel Determinized Chase
 
 The backbone of the (D/R)MFA computation is chase-like procedure combines all trigger results (for the different disjuncts) into a single fact set, thereby treating disjunctions as conjunctions. This is what we mean by "determinized". Furthermore, all active triggers are applied at once in a single step. This is what we mean by "parallel". The `parallelDeterminizedChase` will later be passed the `MfaObsoletenessCondition`s to define all the versions MFA/DMFA/RMFA. However, the definitions work with any `LaxObsoletenessCondition`. As for `ChaseBranch` and `ChaseDerivation`, the `parallelDeterminizedChase` is a more strict version of the `parallelDeterminizedDerivation` where the former forces the first fact set to be a `Database` (as part of a `KnowledgeBase`), while the latter accepts any `FactSet`.
 -/
+
+public section
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
@@ -15,6 +19,7 @@ We start with the more general definition, allowing to start from arbitrary `Fac
 -/
 
 /-- One step of the `parallelDeterminizedDerivation` adds the results of all active triggers to the previous fact set. The results for all disjuncts are combined in the procees. Activeness of the triggers is with respect to a given `LaxObsoletenessCondition`. -/
+@[expose]
 def parallelDeterminizedDerivation_step (rs : RuleSet sig) (obs : LaxObsoletenessCondition sig) (fs : FactSet sig) : FactSet sig :=
   fs ∪ fun f =>
     (∃ (trg : RTrigger obs rs),
@@ -26,26 +31,38 @@ def parallelDeterminizedDerivation (rs : RuleSet sig) (obs : LaxObsoletenessCond
   InfiniteList.iterate fs (parallelDeterminizedDerivation_step rs obs)
 
 /-- The `parallelDeterminizedDerivation_result` is the union of all `FactSet`s in the derivation. -/
-def parallelDeterminizedDerivation_result (rs : RuleSet sig) (obs : LaxObsoletenessCondition sig) (start : FactSet sig) : FactSet sig := fun f => ∃ fs ∈ (parallelDeterminizedDerivation rs obs start), f ∈ fs
+@[expose]
+def parallelDeterminizedDerivation_result (rs : RuleSet sig) (obs : LaxObsoletenessCondition sig) (start : FactSet sig) : FactSet sig :=
+  fun f => ∃ fs ∈ (parallelDeterminizedDerivation rs obs start), f ∈ fs
 
 section ParallelDeterminizedDerivation
 
 variable {rs : RuleSet sig} {obs : LaxObsoletenessCondition sig} {start : FactSet sig}
 
 /-- The `parallelDeterminizedDerivation_head` is the starting `FactSet`. -/
-theorem parallelDeterminizedDerivation_head : (parallelDeterminizedDerivation rs obs start).head = start := by rfl
+@[simp, grind =]
+theorem parallelDeterminizedDerivation_head : (parallelDeterminizedDerivation rs obs start).head = start := by
+  unfold parallelDeterminizedDerivation; simp
 
 /-- The head of the tail (i.e. the next element) results from performing one `parallelDeterminizedDerivation_step` on the starting `FactSet`. -/
-theorem parallelDeterminizedDerivation_head_tail : (parallelDeterminizedDerivation rs obs start).tail.head = (parallelDeterminizedDerivation_step rs obs start) := by rfl
+@[simp, grind =]
+theorem parallelDeterminizedDerivation_head_tail :
+    (parallelDeterminizedDerivation rs obs start).tail.head = (parallelDeterminizedDerivation_step rs obs start) := by
+  unfold parallelDeterminizedDerivation
+  rw [InfiniteList.head_eq, InfiniteList.get_tail, InfiniteList.get_succ_iterate, ← InfiniteList.head_eq, InfiniteList.head_iterate]
 
 /-- Performing a `parallelDeterminizedDerivation_step` on a member again yields a member. -/
-theorem parallelDeterminizedDerivation_step_mem_of_mem : ∀ fs ∈ (parallelDeterminizedDerivation rs obs start), (parallelDeterminizedDerivation_step rs obs fs) ∈ (parallelDeterminizedDerivation rs obs start) := by rintro _ ⟨n, mem⟩; exists n.succ; unfold parallelDeterminizedDerivation; rw [InfiniteList.get_succ_iterate, ← mem]; rfl
+@[grind <-]
+theorem parallelDeterminizedDerivation_step_mem_of_mem :
+    ∀ fs ∈ (parallelDeterminizedDerivation rs obs start), (parallelDeterminizedDerivation_step rs obs fs) ∈ (parallelDeterminizedDerivation rs obs start) := by intro _ ⟨n, mem⟩; exists n.succ; unfold parallelDeterminizedDerivation; rw [InfiniteList.get_succ_iterate, ← mem]; rfl
 
 /-- Each suffix of a `parallelDeterminizedDerivation` is equal to the `parallelDeterminizedDerivation` that starts on the first element of the suffix. -/
 theorem parallelDeterminizedDerivation_suffix :
     ∀ l2, l2 <:+ (parallelDeterminizedDerivation rs obs start) ->
     l2 = (parallelDeterminizedDerivation rs obs l2.head) := by
-  rintro l2 ⟨n, suf⟩
+  intro l2
+  rw [InfiniteList.IsSuffix_iff]
+  intro ⟨n, suf⟩
   rw [← suf, InfiniteList.head_drop]
   apply InfiniteList.ext
   simp only [parallelDeterminizedDerivation]
@@ -56,7 +73,8 @@ theorem parallelDeterminizedDerivation_suffix :
 theorem parallelDeterminizedDerivation_mem_rec
     {motive : (parallelDeterminizedDerivation rs obs start).Element -> Prop}
     (head : motive ⟨(parallelDeterminizedDerivation rs obs start).head, (parallelDeterminizedDerivation rs obs start).head_mem⟩)
-    (step : ∀ elem, motive elem -> motive ⟨(parallelDeterminizedDerivation_step rs obs elem.val), parallelDeterminizedDerivation_step_mem_of_mem _ elem.property⟩)
+    (step : ∀ elem, motive elem ->
+      motive ⟨(parallelDeterminizedDerivation_step rs obs elem.val), parallelDeterminizedDerivation_step_mem_of_mem _ elem.property⟩)
     (a : (parallelDeterminizedDerivation rs obs start).Element) :
     motive a := by
   induction a using InfiniteList.mem_rec with
@@ -67,7 +85,9 @@ theorem parallelDeterminizedDerivation_mem_rec
     exact step
 
 /-- The starting fact set is a subset of each derivation member, -/
-theorem parallelDeterminizedDerivation_facts_node_subset_every_mem : ∀ fs ∈ (parallelDeterminizedDerivation rs obs start), (parallelDeterminizedDerivation rs obs start).head ⊆ fs := by
+@[grind <-]
+theorem parallelDeterminizedDerivation_facts_node_subset_every_mem :
+    ∀ fs ∈ (parallelDeterminizedDerivation rs obs start), (parallelDeterminizedDerivation rs obs start).head ⊆ fs := by
   intro fs fs_mem
   let elem : (parallelDeterminizedDerivation rs obs start).Element := ⟨fs, fs_mem⟩
   show (parallelDeterminizedDerivation rs obs start).head ⊆ elem.val
@@ -79,7 +99,8 @@ theorem parallelDeterminizedDerivation_facts_node_subset_every_mem : ∀ fs ∈ 
     exact Set.subset_refl
 
 /-- Each two `FactSet`s in a derivation must subsumes each other in (at least) one of two possible directions. -/
-theorem parallelDeterminizedDerivation_subset_total : ∀ fs1 fs2, (fs1 ∈ (parallelDeterminizedDerivation rs obs start)) -> (fs2 ∈ (parallelDeterminizedDerivation rs obs start)) -> fs1 ⊆ fs2 ∨ fs2 ⊆ fs1 := by
+theorem parallelDeterminizedDerivation_subset_total :
+    ∀ fs1 fs2, (fs1 ∈ (parallelDeterminizedDerivation rs obs start)) -> (fs2 ∈ (parallelDeterminizedDerivation rs obs start)) -> fs1 ⊆ fs2 ∨ fs2 ⊆ fs1 := by
   rintro fs1 fs2 ⟨n1, fs1_mem⟩ ⟨n2, fs2_mem⟩
   cases Nat.le_total n1 n2 with
   | inl le =>
@@ -108,7 +129,7 @@ theorem parallelDeterminizedDerivation_predicates :
   let elem : (parallelDeterminizedDerivation rs obs start).Element := ⟨fs, fs_mem⟩
   show elem.val.predicates ⊆ (rs.predicates ∪ start.predicates)
   induction elem using parallelDeterminizedDerivation_mem_rec with
-  | head => apply Set.subset_union_of_subset_right; exact Set.subset_refl
+  | head => apply Set.subset_union_of_subset_right; simpa using Set.subset_refl
   | step _ ih =>
     rintro p ⟨f, f_mem, p_mem⟩; cases f_mem with
     | inl f_mem => apply ih; exists f
@@ -145,7 +166,7 @@ theorem parallelDeterminizedDerivation_constants :
   let elem : (parallelDeterminizedDerivation rs obs start).Element := ⟨fs, fs_mem⟩
   show elem.val.constants ⊆ (rs.head_constants ∪ start.constants)
   induction elem using parallelDeterminizedDerivation_mem_rec with
-  | head => apply Set.subset_union_of_subset_right; exact Set.subset_refl
+  | head => apply Set.subset_union_of_subset_right; simpa using Set.subset_refl
   | step _ ih =>
     unfold parallelDeterminizedDerivation_step
     rw [FactSet.constants_union]
@@ -153,7 +174,7 @@ theorem parallelDeterminizedDerivation_constants :
     | inl c_mem => apply ih; exact c_mem
     | inr c_mem =>
       rcases c_mem with ⟨f, ⟨trg, trg_act, ⟨i, f_mem⟩⟩, c_mem⟩
-      have c_mem : c ∈ FactSet.constants (trg.val.mapped_head[i.val]).toSet := by unfold FactSet.constants; exists f
+      have c_mem : c ∈ FactSet.constants (trg.val.mapped_head[i.val]).toSet := by rw [FactSet.mem_constants_toSet]; exact List.mem_flatMap_of_mem f_mem c_mem
       apply Set.subset_trans (trg.val.mapped_head_constants_subset i)
       . intro c c_mem
         rw [List.mem_toSet, List.mem_append] at c_mem
@@ -212,6 +233,7 @@ theorem parallelDeterminizedDerivation_functions :
     intro func func_mem
     unfold FactSet.function_symbols at func_mem
     rcases func_mem with ⟨f, f_mem, func_mem⟩
+    simp only [parallelDeterminizedDerivation_head] at f_mem
     apply Or.inr
     exists f
   | step _ ih =>
@@ -326,10 +348,14 @@ Some of the above theorems thereby can be refined. For example, function symbols
 -/
 
 /-- A `parallelDeterminizedChase` is a special `parallelDeterminizedDerivation` starting on a database from a `KnowledgeBase`. -/
-def parallelDeterminizedChase (kb : KnowledgeBase sig) (obs : LaxObsoletenessCondition sig) : InfiniteList (FactSet sig) := parallelDeterminizedDerivation kb.rules obs kb.db.toFactSet.val
+@[expose]
+def parallelDeterminizedChase (kb : KnowledgeBase sig) (obs : LaxObsoletenessCondition sig) : InfiniteList (FactSet sig) :=
+  parallelDeterminizedDerivation kb.rules obs kb.db.toFactSet.val
 
 /-- The `parallelDeterminizedChase_result` is simply the result of the underlying derivation. -/
-def parallelDeterminizedChase_result (kb : KnowledgeBase sig) (obs : LaxObsoletenessCondition sig) : FactSet sig := parallelDeterminizedDerivation_result kb.rules obs kb.db.toFactSet.val
+@[expose]
+def parallelDeterminizedChase_result (kb : KnowledgeBase sig) (obs : LaxObsoletenessCondition sig) : FactSet sig :=
+  parallelDeterminizedDerivation_result kb.rules obs kb.db.toFactSet.val
 
 section ParallelDeterminizedChase
 

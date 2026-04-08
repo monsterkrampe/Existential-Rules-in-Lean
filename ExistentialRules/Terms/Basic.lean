@@ -90,6 +90,7 @@ def isVar : VarOrConst sig -> Bool
 | .const _ => false
 
 /-- Given a list of `VarOrConst`, we can filter out all the variables. Note that we do not use `List.filter` here since we need to change the list type on the way. -/
+@[expose]
 def filterVars : List (VarOrConst sig) -> List sig.V
 | .nil => List.nil
 | .cons voc vocs => match voc with
@@ -97,6 +98,7 @@ def filterVars : List (VarOrConst sig) -> List sig.V
   | .const _ => filterVars vocs
 
 /-- Analogous to `filterVars`, we can also filter for constants. -/
+@[expose]
 def filterConsts : List (VarOrConst sig) -> List sig.C
 | .nil => List.nil
 | .cons voc vocs => match voc with
@@ -337,6 +339,7 @@ def functionSymbol (t : GroundTerm sig) (isFunc : ∃ func ts arity_ok, t = Grou
   | .inner func _ => func
 
 /-- The `depth` of a `GroundTerm` is the depth of the underlying `FiniteTree`, i.e. the deepest nesting of function symbols (+1). -/
+@[expose]
 def depth (t : GroundTerm sig) : Nat := t.val.depth
 
 /-- The `constants` occurring in a `GroundTerm` are exactly the leaves of the underlying `FiniteTree`. -/
@@ -344,6 +347,7 @@ def depth (t : GroundTerm sig) : Nat := t.val.depth
 def constants (t : GroundTerm sig) : (List sig.C) := t.val.leaves
 
 /-- The `functions` (i.e. function symbols `SkolemFS`) occurring in a `GroundTerm` are exactly the inner labels of the underlying `FiniteTree`. -/
+@[expose]
 def functions (t : GroundTerm sig) : (List (SkolemFS sig)) := t.val.innerLabels
 
 /-- Applying `toConst` to a `GroundTerm.const` yields exactly the contained constant. -/

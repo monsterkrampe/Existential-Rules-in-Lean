@@ -1,10 +1,14 @@
-import ExistentialRules.ChaseSequence.Termination.ConstantMappings.InterplayWithBacktracking.BacktrackingUnderConstantMappingSubsetOfComposingWithSubs.GroundTerm
+module
+
+public import ExistentialRules.ChaseSequence.Termination.ConstantMappings.InterplayWithBacktracking.BacktrackingUnderConstantMappingSubsetOfComposingWithSubs.GroundTerm
 
 /-!
 # Interaction of Backtrackings and Strict Constant Mappings on PreTrigger
 
 We merely lift `GroundTerm.backtrackFacts_under_constant_mapping_subset_of_composing_with_subs` to `PreTrigger` here.
 -/
+
+public section
 
 variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [DecidableEq sig.P]
 
@@ -113,6 +117,7 @@ theorem PreTrigger.backtracking_under_constant_mapping_subset_of_composing_with_
   . exact fresh_constant_remapping_h.left
   constructor
   . intro e e_mem
+    rw [GroundTermMapping.mem_applyFactSet] at e_mem
     rcases e_mem with ⟨f, f_mem, e_eq⟩
     simp only [List.mem_toSet, backtracking, backtrackFacts, List.mem_append] at f_mem
     simp only [List.mem_toSet, backtrackFacts, List.mem_append]
@@ -126,7 +131,7 @@ theorem PreTrigger.backtracking_under_constant_mapping_subset_of_composing_with_
       constructor
       . exact a_mem
       . rw [← GroundSubstitution.apply_function_free_atom.eq_def, GroundSubstitution.apply_function_free_atom_compose]
-        . rw [← e_eq, ← f_eq]
+        . rw [e_eq, ← f_eq]
           rw [← ConstantMapping.apply_fact_eq_groundTermMapping_applyFact]
           apply ConstantMapping.apply_fact_congr_left
           intro d d_mem
@@ -163,7 +168,8 @@ theorem PreTrigger.backtracking_under_constant_mapping_subset_of_composing_with_
       rw [forbidden_constants_map_g_eq] at fresh_constant_remapping_h
       rw [← List.mem_toSet]
       apply fresh_constant_remapping_h.right.left
-      exists f
+      rw [GroundTermMapping.mem_applyFactSet]
+      exists f; constructor; rw [List.mem_toSet]; exact f_mem; exact e_eq
   . simp only [backtracking, backtrackFacts]
     rw [fresh_constant_remapping_h.right.right]
     simp only [mapped_body_map_swap, forbidden_constants_map_g_eq]

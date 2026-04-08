@@ -50,6 +50,7 @@ def backtrackTrigger
     (forbidden_constants : List sig.C) : PreTrigger sig :=
   PreGroundTerm.backtrackTrigger rl term.val (by rcases term_is_func with ⟨func, ts, _, eq⟩; exists func, ts.unattach; rw [eq]; rfl) term.property term_ruleIds_valid term_rule_arity_valid forbidden_constants
 
+  @[expose]
 def backtrackFacts
     [GetFreshInhabitant sig.C]
     [Inhabited sig.C]
@@ -61,6 +62,7 @@ def backtrackFacts
     (forbidden_constants : List sig.C) : (List (Fact sig)) × (List sig.C) :=
   PreGroundTerm.backtrackFacts rl term.val term.property term_ruleIds_valid term_disjIdx_valid term_rule_arity_valid forbidden_constants
 
+@[expose]
 def backtrackFacts_list
     [GetFreshInhabitant sig.C]
     [Inhabited sig.C]

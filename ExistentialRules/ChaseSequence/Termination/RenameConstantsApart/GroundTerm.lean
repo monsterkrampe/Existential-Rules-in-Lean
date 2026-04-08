@@ -12,6 +12,7 @@ public section
 
 variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
 
+@[expose]
 def GroundTerm.rename_constants_apart
     [GetFreshInhabitant sig.C]
     (term : GroundTerm sig)
