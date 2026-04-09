@@ -832,8 +832,8 @@ theorem mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_pred
       exists parallelDeterminizedDerivation_step rs mfa_obs fs
       constructor
       . apply parallelDeterminizedDerivation_step_mem_of_mem; exact fs_mem
-      simp only [parallelDeterminizedDerivation_step, instUnionSet, instMembershipSet]
-      rw [Classical.or_iff_not_imp_left]
+      simp only [parallelDeterminizedDerivation_step]
+      rw [Set.mem_union_iff, Classical.or_iff_not_imp_left]
       intro f_not_in_prev
 
       let origin := next.origin.get (cd.isSome_origin_next next_mem)
@@ -939,7 +939,7 @@ theorem mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_pred
             apply List.getElem_mem
         . rw [← f_eq]
           rw [rs.mfaConstantMapping_id_on_atom_from_rule _ adjusted_trg.val.rule adjusted_trg.property]
-          . rw [ConstantMapping.apply_fact_swap_apply_to_function_free_atom]
+          . rw [ConstantMapping.apply_fact_swap_apply_to_function_free_atom]; rfl
             intro d d_mem
             simp only [StrictConstantMapping.toConstantMapping, Function.comp_apply]
             rw [mfaConstantMapping_id_on_rs_constants]

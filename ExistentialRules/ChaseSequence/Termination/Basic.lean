@@ -105,9 +105,9 @@ theorem terminating_has_last_node (cd : ChaseDerivation obs rules) : cd.terminat
     have node_pred_next : node ≼ next_node := by exists d1; simp only [head_eq1, suf1, true_and]; apply d1.next_mem_of_mem; exact next_d1
     have node_eq_next : node = next_node := cd.predecessor_antisymm node_pred_next all_pred
     apply (cd.derivation_for_skeleton d1 suf1).head_not_mem_tail
-    simp only [derivation_for_skeleton, tail, instMembershipChaseNode]
-    rw [d1.mem_tail_iff]
-    . exists d1; constructor; exact d1.branch.IsSuffix_refl; rw [next_d1, head_eq1, node_eq_next]
+    . simp only [derivation_for_skeleton, tail]
+      rw [mem_def, d1.mem_tail_iff]
+      exists d1; constructor; exact d1.branch.IsSuffix_refl; rw [next_d1, head_eq1, node_eq_next]
     . simp [derivation_for_skeleton, next_d1]
 
 end ChaseDerivation

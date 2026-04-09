@@ -58,6 +58,9 @@ Here we introduce some auxiliary definitions and theorems and we lift some of th
 instance : Membership (ChaseNode obs rules) (ChaseDerivation obs rules) where
   mem cd node := node ∈ cd.toChaseDerivationSkeleton
 
+/-- Unfolds the Membership definition. -/
+theorem mem_def {cd : ChaseDerivation obs rules} : ∀ {e}, e ∈ cd ↔ e ∈ cd.toChaseDerivationSkeleton := by rfl
+
 /-- An element is a member of the derivation iff it occurs at some index in the underlying branch. -/
 theorem mem_iff {cd : ChaseDerivation obs rules} : ∀ {e}, e ∈ cd ↔ ∃ n, cd.branch.get? n = some e := ChaseDerivationSkeleton.mem_iff
 

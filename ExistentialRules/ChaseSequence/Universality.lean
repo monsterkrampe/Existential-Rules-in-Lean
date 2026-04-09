@@ -121,7 +121,7 @@ noncomputable def hom_step_of_trg_ex
         exact f_mem
       apply h_obs_at_head_index_for_m_subs.right
       rw [List.mem_toSet]
-      simp only [GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list]
+      rw [GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list]
       rw [List.mem_map]
       exists (trg.val.atom_for_result_fact result_index_for_trg f_mem); constructor
       . apply PreTrigger.atom_for_result_fact_mem_head
