@@ -5,7 +5,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 
 module
 
-public import ExistentialRules.Triggers.Obsoleteness
+public import ExistentialRules.Triggers.Obsolescence
 
 /-!
 # Ruleset Triggers
@@ -18,11 +18,11 @@ We capture this simply in a subtype.
 public section
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
-variable {obs : LaxObsoletenessCondition sig}
+variable {obs : LaxObsolescenceCondition sig}
 
 /-- An `RTrigger` for a `RuleSet` $R$ is a `Trigger` with a rule in $R$. -/
 @[expose]
-def RTrigger (obs : LaxObsoletenessCondition sig) (r : RuleSet sig) := { trg : Trigger obs // trg.rule ∈ r.rules}
+def RTrigger (obs : LaxObsolescenceCondition sig) (r : RuleSet sig) := { trg : Trigger obs // trg.rule ∈ r.rules}
 
 namespace RTrigger
 

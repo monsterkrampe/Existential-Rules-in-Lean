@@ -20,7 +20,7 @@ variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq 
 
 namespace ChaseDerivation
 
-variable {obs : ObsoletenessCondition sig} {rules : RuleSet sig}
+variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 
 theorem term_ruleIds_valid {cd : ChaseDerivation obs rules} {node : ChaseNode obs rules} (node_mem : node ∈ cd) :
     ∀ (rl : RuleList sig), (∀ r, r ∈ rl.rules ↔ r ∈ rules.rules) -> (∀ t ∈ cd.head.facts.terms, t.skolem_ruleIds_valid rl) ->
@@ -172,7 +172,7 @@ end ChaseDerivation
 
 namespace ChaseBranch
 
-variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
+variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
 
 theorem term_ruleIds_valid {cb : ChaseBranch obs kb} {node : ChaseNode obs kb.rules} (node_mem : node ∈ cb.toChaseDerivation) :
     ∀ (rl : RuleList sig), (∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) -> ∀ t ∈ node.facts.terms, t.skolem_ruleIds_valid rl := by

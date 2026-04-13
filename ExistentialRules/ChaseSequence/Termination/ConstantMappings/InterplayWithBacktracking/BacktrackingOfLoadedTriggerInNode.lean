@@ -6,7 +6,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts
-public import ExistentialRules.ChaseSequence.Termination.ConstantMappings.InterplayWithObsoletenessCondition
+public import ExistentialRules.ChaseSequence.Termination.ConstantMappings.InterplayWithObsolescenceCondition
 
 /-!
 # The Backtracking Triggers in the Chase indeed is already part of the Chase
@@ -25,7 +25,7 @@ variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [DecidableEq 
 
 namespace ChaseBranch
 
-variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
+variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
 
 theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C]
     {cb : ChaseBranch obs kb} {node : ChaseNode obs kb.rules} (node_mem : node ∈ cb.toChaseDerivation) :

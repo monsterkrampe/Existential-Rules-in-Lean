@@ -10,7 +10,7 @@ public import ExistentialRules.ChaseSequence.Termination.Basic
 /-!
 # Parallel Determinized Chase
 
-The backbone of the (D/R)MFA computation is chase-like procedure combines all trigger results (for the different disjuncts) into a single fact set, thereby treating disjunctions as conjunctions. This is what we mean by "determinized". Furthermore, all active triggers are applied at once in a single step. This is what we mean by "parallel". The `parallelDeterminizedChase` will later be passed the `MfaObsoletenessCondition`s to define all the versions MFA/DMFA/RMFA. However, the definitions work with any `LaxObsoletenessCondition`. As for `ChaseBranch` and `ChaseDerivation`, the `parallelDeterminizedChase` is a more strict version of the `parallelDeterminizedDerivation` where the former forces the first fact set to be a `Database` (as part of a `KnowledgeBase`), while the latter accepts any `FactSet`.
+The backbone of the (D/R)MFA computation is chase-like procedure combines all trigger results (for the different disjuncts) into a single fact set, thereby treating disjunctions as conjunctions. This is what we mean by "determinized". Furthermore, all active triggers are applied at once in a single step. This is what we mean by "parallel". The `parallelDeterminizedChase` will later be passed the `MfaObsolescenceCondition`s to define all the versions MFA/DMFA/RMFA. However, the definitions work with any `LaxObsolescenceCondition`. As for `ChaseBranch` and `ChaseDerivation`, the `parallelDeterminizedChase` is a more strict version of the `parallelDeterminizedDerivation` where the former forces the first fact set to be a `Database` (as part of a `KnowledgeBase`), while the latter accepts any `FactSet`.
 -/
 
 public section
@@ -23,26 +23,26 @@ variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq 
 We start with the more general definition, allowing to start from arbitrary `FactSet`s.
 -/
 
-/-- One step of the `parallelDeterminizedDerivation` adds the results of all active triggers to the previous fact set. The results for all disjuncts are combined in the procees. Activeness of the triggers is with respect to a given `LaxObsoletenessCondition`. -/
+/-- One step of the `parallelDeterminizedDerivation` adds the results of all active triggers to the previous fact set. The results for all disjuncts are combined in the procees. Activeness of the triggers is with respect to a given `LaxObsolescenceCondition`. -/
 @[expose]
-def parallelDeterminizedDerivation_step (rs : RuleSet sig) (obs : LaxObsoletenessCondition sig) (fs : FactSet sig) : FactSet sig :=
+def parallelDeterminizedDerivation_step (rs : RuleSet sig) (obs : LaxObsolescenceCondition sig) (fs : FactSet sig) : FactSet sig :=
   fs ∪ fun f =>
     (∃ (trg : RTrigger obs rs),
       trg.val.active fs ∧
       ∃ (i : Fin trg.val.mapped_head.length), f ∈ trg.val.mapped_head[i.val])
 
 /-- The `parallelDeterminizedDerivation` simply iterates the `parallelDeterminizedDerivation_step` on an initial `FactSet` using the `InfiniteList.iterate` function. -/
-def parallelDeterminizedDerivation (rs : RuleSet sig) (obs : LaxObsoletenessCondition sig) (fs : FactSet sig) : InfiniteList (FactSet sig) :=
+def parallelDeterminizedDerivation (rs : RuleSet sig) (obs : LaxObsolescenceCondition sig) (fs : FactSet sig) : InfiniteList (FactSet sig) :=
   InfiniteList.iterate fs (parallelDeterminizedDerivation_step rs obs)
 
 /-- The `parallelDeterminizedDerivation_result` is the union of all `FactSet`s in the derivation. -/
 @[expose]
-def parallelDeterminizedDerivation_result (rs : RuleSet sig) (obs : LaxObsoletenessCondition sig) (start : FactSet sig) : FactSet sig :=
+def parallelDeterminizedDerivation_result (rs : RuleSet sig) (obs : LaxObsolescenceCondition sig) (start : FactSet sig) : FactSet sig :=
   fun f => ∃ fs ∈ (parallelDeterminizedDerivation rs obs start), f ∈ fs
 
 section ParallelDeterminizedDerivation
 
-variable {rs : RuleSet sig} {obs : LaxObsoletenessCondition sig} {start : FactSet sig}
+variable {rs : RuleSet sig} {obs : LaxObsolescenceCondition sig} {start : FactSet sig}
 
 /-- The `parallelDeterminizedDerivation_head` is the starting `FactSet`. -/
 @[simp, grind =]
@@ -354,17 +354,17 @@ Some of the above theorems thereby can be refined. For example, function symbols
 
 /-- A `parallelDeterminizedChase` is a special `parallelDeterminizedDerivation` starting on a database from a `KnowledgeBase`. -/
 @[expose]
-def parallelDeterminizedChase (kb : KnowledgeBase sig) (obs : LaxObsoletenessCondition sig) : InfiniteList (FactSet sig) :=
+def parallelDeterminizedChase (kb : KnowledgeBase sig) (obs : LaxObsolescenceCondition sig) : InfiniteList (FactSet sig) :=
   parallelDeterminizedDerivation kb.rules obs kb.db.toFactSet.val
 
 /-- The `parallelDeterminizedChase_result` is simply the result of the underlying derivation. -/
 @[expose]
-def parallelDeterminizedChase_result (kb : KnowledgeBase sig) (obs : LaxObsoletenessCondition sig) : FactSet sig :=
+def parallelDeterminizedChase_result (kb : KnowledgeBase sig) (obs : LaxObsolescenceCondition sig) : FactSet sig :=
   parallelDeterminizedDerivation_result kb.rules obs kb.db.toFactSet.val
 
 section ParallelDeterminizedChase
 
-variable {kb : KnowledgeBase sig} {obs : LaxObsoletenessCondition sig}
+variable {kb : KnowledgeBase sig} {obs : LaxObsolescenceCondition sig}
 
 /-- All constants in the chase come from the rule heads or the database. -/
 theorem parallelDeterminizedChase_constants :

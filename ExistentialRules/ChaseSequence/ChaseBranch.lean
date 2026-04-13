@@ -24,7 +24,7 @@ public section
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 /-- The `ChaseBranch` merely extends the `ChaseDerivation` with the condition that the head is the database from the knowledge base. -/
-structure ChaseBranch (obs : ObsoletenessCondition sig) (kb : KnowledgeBase sig) extends ChaseDerivation obs kb.rules where
+structure ChaseBranch (obs : ObsolescenceCondition sig) (kb : KnowledgeBase sig) extends ChaseDerivation obs kb.rules where
   database_first : branch.head = some {
     facts := kb.db.toFactSet,
     origin := none,
@@ -33,7 +33,7 @@ structure ChaseBranch (obs : ObsoletenessCondition sig) (kb : KnowledgeBase sig)
 
 namespace ChaseBranch
 
-variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
+variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
 
 /-- We restate the `database_first` condition in terms of the `ChaseDerivation` vocabulary. -/
 theorem database_first' {cb : ChaseBranch obs kb} : cb.head = {

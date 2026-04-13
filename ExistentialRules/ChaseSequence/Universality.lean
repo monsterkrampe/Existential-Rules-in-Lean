@@ -30,7 +30,7 @@ Besides that, all the homomorphisms from the individual steps need to be combine
 -/
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
-variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
+variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
 
 /-- The `InductiveHomomorphismResult` is used for the step-wise construction is forms the element that is the input and output of the generator function used in `TreeDerivation.generate_derivation` later. It consists of a node in the chase tree and a `GroundTermMapping` that is a homomorphism from the node to the target model. The generated branch is the chain of all the generated nodes.  -/
 abbrev InductiveHomomorphismResult (ct : ChaseTree obs kb) (m : FactSet sig) :=

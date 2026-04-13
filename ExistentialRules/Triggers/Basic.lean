@@ -13,8 +13,8 @@ public import ExistentialRules.AtomsAndFacts.SubstitutionsAndHomomorphisms
 
 Triggers are one of the most essential definitions for the chase. They are our primary way for modelling specific applications of rules.
 Quite simply, a trigger is just a pair of a rule and a substitution that tells us how variables should be replaced.
-For actual triggers, we will require a way to tell if they should still be applied or not. We refer to this with the notion of "obsoleteness" later.
-However, most of the machinery around triggers can be introduced agnostic of any kind of obsoleteness.
+For actual triggers, we will require a way to tell if they should still be applied or not. We refer to this with the notion of "obsolescence" later.
+However, most of the machinery around triggers can be introduced agnostic of any kind of obsolescence.
 Consequently, we call the "almost trigger" a `PreTrigger`.
 
 A trigger is self contained in the sense that it "knows" what its result will be independant of the chase context.
@@ -512,7 +512,7 @@ theorem term_mapping_preserves_loadedness (trg : PreTrigger sig) (fs : FactSet s
   rw [List.mem_toSet, TermMapping.apply_generalized_atom_list.eq_def, List.mem_map]
   exists a
 
-/-- A trigger head is satisfied for a `FactSet` if there exists a substitution that agrees with the trigger substitution on all frontier variable such that the mapping of the head occurs in the fact set. This corresponds to FOL semantics. It is **important** to note here that a trigger being satisfied in this sense does not necessarily mean that it is obsolete! Obsoleteness might be defined almost arbitrarily and for example in the Skolem chase, a satisfied trigger is often not obsolete. However, for the restricted (aka. standard) chase, obsoleteness is defined via satisfaction. -/
+/-- A trigger head is satisfied for a `FactSet` if there exists a substitution that agrees with the trigger substitution on all frontier variable such that the mapping of the head occurs in the fact set. This corresponds to FOL semantics. It is **important** to note here that a trigger being satisfied in this sense does not necessarily mean that it is obsolete! Obsolescence might be defined almost arbitrarily and for example in the Skolem chase, a satisfied trigger is often not obsolete. However, for the restricted (aka. standard) chase, obsolescence is defined via satisfaction. -/
 @[expose]
 def satisfied_for_disj (trg : PreTrigger sig) (fs : FactSet sig) (disj_index : Fin trg.rule.head.length) : Prop :=
   ∃ (s : GroundSubstitution sig),

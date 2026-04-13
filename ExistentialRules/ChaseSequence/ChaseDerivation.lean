@@ -41,7 +41,7 @@ Expressing the conditions in terms of the machinery available form the `Possibly
 As part of the framework built around the `ChaseDerivation`, we will also restate these conditions in a more accessible way. See e.g. `ChaseDerivation.fairness'`.
 -/
 
-public structure ChaseDerivation (obs : ObsoletenessCondition sig) (rules : RuleSet sig) extends ChaseDerivationSkeleton obs rules where
+public structure ChaseDerivation (obs : ObsolescenceCondition sig) (rules : RuleSet sig) extends ChaseDerivationSkeleton obs rules where
   triggers_active : ∀ n : Nat, ∀ before ∈ (branch.drop n).head,
     ∀ after ∈ (branch.drop n).tail.head, ∃ orig ∈ after.origin, orig.fst.val.active before.facts
   fairness : ∀ trg : (RTrigger obs rules), ∃ i : Nat, (∃ node ∈ (branch.drop i).head, ¬ trg.val.active node.facts)
@@ -49,7 +49,7 @@ public structure ChaseDerivation (obs : ObsoletenessCondition sig) (rules : Rule
 
 namespace ChaseDerivation
 
-variable {obs : ObsoletenessCondition sig} {rules : RuleSet sig}
+variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 
 public section Basics
 
@@ -299,7 +299,7 @@ theorem facts_node_subset_every_mem {cd : ChaseDerivation obs rules} : ∀ node 
 theorem mem_suffix_of_mem {cd1 cd2 : ChaseDerivation obs rules} (suffix : cd1 <:+ cd2) : ∀ node ∈ cd2, node.facts ⊆ cd1.head.facts ∨ node ∈ cd1 :=
   ChaseDerivationSkeleton.mem_suffix_of_mem suffix
 
-/-- The `head` cannot occur in the `tail`. Otherwise, it would be introduced using a trigger but then this trigger is already obsolete since all the facts from `head` already occur in the very beginning. We use `ObsoletenessCondition.contains_trg_result_implies_cond` here. -/
+/-- The `head` cannot occur in the `tail`. Otherwise, it would be introduced using a trigger but then this trigger is already obsolete since all the facts from `head` already occur in the very beginning. We use `ObsolescenceCondition.contains_trg_result_implies_cond` here. -/
 theorem head_not_mem_tail {cd : ChaseDerivation obs rules} : ∀ h, ¬ cd.head ∈ cd.tail h := by
   intro h contra
   rw [mem_tail_iff] at contra
@@ -415,7 +415,7 @@ theorem facts_not_subset_of_strict_predecessor {cd : ChaseDerivation obs rules} 
     rw [Option.isSome_iff_exists] at next_some
     rcases next_some with ⟨next, next_some⟩
     apply (d.active_trigger_origin_next next_some).right
-    apply ObsoletenessCondition.contains_trg_result_implies_cond
+    apply ObsolescenceCondition.contains_trg_result_implies_cond
     have : next.facts ⊆ d.head.facts := by
       have : ⟨next, d.next_mem_of_mem _ next_some⟩ ≼ ⟨n2.val, by apply ChaseDerivation.mem_of_mem_suffix (d2.branch.IsSuffix_trans suf3 d.branch.IsSuffix_tail); rw [← head2]; exact d2.head_mem⟩ := by
         rw [predecessor_iff]

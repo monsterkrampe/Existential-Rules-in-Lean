@@ -41,7 +41,7 @@ Then the successor list must be empty, i.e. the respective tree node does not ha
 -/
 
 @[expose]
-def exists_trigger_list_condition (obs : ObsoletenessCondition sig) (rules : RuleSet sig) (before : ChaseNode obs rules) (after : List (ChaseNode obs rules)) (trg : RTrigger obs rules) : Prop :=
+def exists_trigger_list_condition (obs : ObsolescenceCondition sig) (rules : RuleSet sig) (before : ChaseNode obs rules) (after : List (ChaseNode obs rules)) (trg : RTrigger obs rules) : Prop :=
   trg.val.active before.facts ∧ after = trg.val.mapped_head.zipIdx_with_lt.attach.map (fun ⟨⟨head, i⟩, h⟩ => {
     facts := before.facts ∪ head.toSet
     origin := some ⟨trg, i⟩
@@ -55,11 +55,11 @@ def exists_trigger_list_condition (obs : ObsoletenessCondition sig) (rules : Rul
   })
 
 @[expose]
-def exists_trigger_list (obs : ObsoletenessCondition sig) (rules : RuleSet sig) (before : ChaseNode obs rules) (after : List (ChaseNode obs rules)) : Prop :=
+def exists_trigger_list (obs : ObsolescenceCondition sig) (rules : RuleSet sig) (before : ChaseNode obs rules) (after : List (ChaseNode obs rules)) : Prop :=
   ∃ trg : (RTrigger obs rules), exists_trigger_list_condition obs rules before after trg
 
 @[expose]
-def not_exists_trigger_list (obs : ObsoletenessCondition sig) (rules : RuleSet sig) (before : ChaseNode obs rules) (after : List (ChaseNode obs rules)) : Prop :=
+def not_exists_trigger_list (obs : ObsolescenceCondition sig) (rules : RuleSet sig) (before : ChaseNode obs rules) (after : List (ChaseNode obs rules)) : Prop :=
   ¬(∃ trg : (RTrigger obs rules), trg.val.active before.facts) ∧ after = []
 
 end ChaseStep
@@ -77,7 +77,7 @@ The backbone of the `TreeDerivation` is a `FiniteDegreeTree` of `ChaseNode`s wit
 Conditions 3 and 4 together are "fairness", i.e. each trigger must eventually be non-active. Fairness ensures that the chase result (or in this case each fact set in the chase result) is indeed a model.
 -/
 
-structure TreeDerivation (obs : ObsoletenessCondition sig) (rules : RuleSet sig) where
+structure TreeDerivation (obs : ObsolescenceCondition sig) (rules : RuleSet sig) where
   tree : FiniteDegreeTree (ChaseNode obs rules)
   isSome_root : tree.root.isSome
   triggers_exist : ∀ ns : List Nat, ∀ before ∈ (tree.drop ns).root,
@@ -91,7 +91,7 @@ structure TreeDerivation (obs : ObsoletenessCondition sig) (rules : RuleSet sig)
 
 namespace TreeDerivation
 
-variable {obs : ObsoletenessCondition sig} {rules : RuleSet sig}
+variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 
 section Basics
 
@@ -594,7 +594,7 @@ theorem facts_node_subset_every_mem {td : TreeDerivation obs rules} : ∀ node �
     rw [NodeWithAddress.root_subderivation']
     apply Set.subset_refl
 
-/-- The `root` cannot occur in the `childTrees`. Otherwise, it would be introduced using a trigger but then this trigger is already obsolete since all the facts from `root` already occur in the very beginning. We use `ObsoletenessCondition.contains_trg_result_implies_cond` here. -/
+/-- The `root` cannot occur in the `childTrees`. Otherwise, it would be introduced using a trigger but then this trigger is already obsolete since all the facts from `root` already occur in the very beginning. We use `ObsolescenceCondition.contains_trg_result_implies_cond` here. -/
 theorem root_not_mem_childTrees {td : TreeDerivation obs rules} : ¬ ∃ t ∈ td.childTrees, td.root ∈ t := by
   intro contra
   rw [mem_some_childTree_iff] at contra

@@ -8,13 +8,13 @@ module
 public import ExistentialRules.ChaseSequence.Termination.ConstantMappings.InterplayWithRenamingConstantsApart
 
 /-!
-# Interactions of ConstantMappings with Obsoleteness
+# Interactions of ConstantMappings with Obsolescence
 
-For MFA-like conditions, we want to make an additional assumption on `ObsoletenessCondition` that we did not demand before.
+For MFA-like conditions, we want to make an additional assumption on `ObsolescenceCondition` that we did not demand before.
 Namely, we want that the condition `propagates_under_constant_mapping`, meaning that of a trigger is obsolete for a fact set, then
 the version of the trigger where a `ConstantMapping` is composed with the original substitution is also obsolete for the version of the fact set where the `ConstantMapping` was applied. At least this shall be the case if the `ConstantMapping` does not touch the head constants of the rule in the trigger.
 
-We briefly demonstrate that this property holds for both `SkolemObsoleteness` and `RestrictedObsoleteness`.
+We briefly demonstrate that this property holds for both `SkolemObsolescence` and `RestrictedObsolescence`.
 -/
 
 public section
@@ -22,12 +22,12 @@ public section
 variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [DecidableEq sig.P]
 
 @[expose]
-def ObsoletenessCondition.propagates_under_constant_mapping (obs : ObsoletenessCondition sig) : Prop := ∀ {trg : PreTrigger sig} {fs : FactSet sig} {g : ConstantMapping sig}, (∀ c ∈ trg.rule.head_constants, g c = GroundTerm.const c) -> obs.cond trg fs -> obs.cond { rule := trg.rule, subs := g.apply_ground_term ∘ trg.subs } (g.apply_fact_set fs)
+def ObsolescenceCondition.propagates_under_constant_mapping (obs : ObsolescenceCondition sig) : Prop := ∀ {trg : PreTrigger sig} {fs : FactSet sig} {g : ConstantMapping sig}, (∀ c ∈ trg.rule.head_constants, g c = GroundTerm.const c) -> obs.cond trg fs -> obs.cond { rule := trg.rule, subs := g.apply_ground_term ∘ trg.subs } (g.apply_fact_set fs)
 
-theorem SkolemObsoleteness.propagates_under_constant_mapping : (SkolemObsoleteness sig).propagates_under_constant_mapping := by
+theorem SkolemObsolescence.propagates_under_constant_mapping : (SkolemObsolescence sig).propagates_under_constant_mapping := by
   intro trg fs g g_id cond
-  simp only [SkolemObsoleteness] at cond
-  simp only [SkolemObsoleteness]
+  simp only [SkolemObsolescence] at cond
+  simp only [SkolemObsolescence]
   let trg' : PreTrigger sig := { rule := trg.rule, subs := g.apply_ground_term ∘ trg.subs }
   rcases cond with ⟨i, cond⟩
   let i' : Fin trg'.mapped_head.length := ⟨i.val, by have isLt := i.isLt; simp only [PreTrigger.length_mapped_head] at *; exact isLt⟩
@@ -55,10 +55,10 @@ theorem SkolemObsoleteness.propagates_under_constant_mapping : (SkolemObsoletene
       rw [List.mem_flatMap]
       exists a
 
-theorem RestrictedObsoleteness.propagates_under_constant_mapping : (RestrictedObsoleteness sig).propagates_under_constant_mapping := by
+theorem RestrictedObsolescence.propagates_under_constant_mapping : (RestrictedObsolescence sig).propagates_under_constant_mapping := by
   intro trg fs g g_id cond
-  simp only [RestrictedObsoleteness, PreTrigger.satisfied, PreTrigger.satisfied_for_disj] at cond
-  simp only [RestrictedObsoleteness, PreTrigger.satisfied, PreTrigger.satisfied_for_disj]
+  simp only [RestrictedObsolescence, PreTrigger.satisfied, PreTrigger.satisfied_for_disj] at cond
+  simp only [RestrictedObsolescence, PreTrigger.satisfied, PreTrigger.satisfied_for_disj]
   let trg' : PreTrigger sig := { rule := trg.rule, subs := g.apply_ground_term ∘ trg.subs }
   rcases cond with ⟨i, cond⟩
   exists i

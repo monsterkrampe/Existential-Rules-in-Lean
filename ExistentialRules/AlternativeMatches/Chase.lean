@@ -23,7 +23,7 @@ public section
 namespace GroundTermMapping
 
 variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [DecidableEq sig.P]
-variable {obs : ObsoletenessCondition sig} {rules : RuleSet sig}
+variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 
 /-- A `GroundTermMapping` is an alternative for a `ChaseDerivation` and a `FactSet` if it is an alternative match into the fact set for the trigger is used to derive `ChaseDerivation.next`. -/
 @[expose]
@@ -37,7 +37,7 @@ end GroundTermMapping
 namespace ChaseDerivation
 
 variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [DecidableEq sig.P]
-variable {obs : ObsoletenessCondition sig} {rules : RuleSet sig}
+variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 
 /-- A `ChaseDerivation` has an alternative match into a `FactSet` simply if there is a `GroundTermMapping` that is such an alternative match for `ChaseDerivation.next`. -/
 @[expose]
@@ -58,7 +58,7 @@ end ChaseDerivation
 namespace ChaseBranch
 
 variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [DecidableEq sig.P]
-variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
+variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
 
 /-- If a `ChaseBranch` has no alternative match (into its own result), then the result is a weak core. -/
 theorem result_isWeakCore_of_noAltMatch {cb : ChaseBranch obs kb} (det : kb.isDeterministic) :

@@ -32,9 +32,9 @@ To define how one chase step follows from the previous, we introduce an auxiliar
 -/
 
 @[expose]
-def exists_trigger_opt_fs (obs : ObsoletenessCondition sig) (rules : RuleSet sig) (before : ChaseNode obs rules) (after : Option (ChaseNode obs rules)) : Prop :=
+def exists_trigger_opt_fs (obs : ObsolescenceCondition sig) (rules : RuleSet sig) (before : ChaseNode obs rules) (after : Option (ChaseNode obs rules)) : Prop :=
   ∀ node ∈ after,
-  ∃ trg : (RTrigger (obs : LaxObsoletenessCondition sig) rules),
+  ∃ trg : (RTrigger (obs : LaxObsolescenceCondition sig) rules),
   ∃ i,
   node = {
     facts := before.facts ∪ (trg.val.mapped_head[i.val]'(i.isLt)).toSet,
@@ -53,7 +53,7 @@ The backbone of the `ChaseDerivationSkeleton` is a `PossiblyInfiniteList` of `Ch
 2. At each step in the derivation, either there exists a trigger that yields the next node or there is no next node.
 -/
 
-structure ChaseDerivationSkeleton (obs : ObsoletenessCondition sig) (rules : RuleSet sig) where
+structure ChaseDerivationSkeleton (obs : ObsolescenceCondition sig) (rules : RuleSet sig) where
   branch : PossiblyInfiniteList (ChaseNode obs rules)
   isSome_head : branch.head.isSome
   triggers_exist : ∀ n : Nat, ∀ before ∈ (branch.drop n).head,
@@ -62,7 +62,7 @@ structure ChaseDerivationSkeleton (obs : ObsoletenessCondition sig) (rules : Rul
 
 namespace ChaseDerivationSkeleton
 
-variable {obs : ObsoletenessCondition sig} {rules : RuleSet sig}
+variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 
 section Basics
 

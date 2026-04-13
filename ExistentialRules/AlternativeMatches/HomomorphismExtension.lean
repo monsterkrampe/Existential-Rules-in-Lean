@@ -17,12 +17,12 @@ variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq 
 
 /-- To eventually create the extended homomorphism, we step-wise construct pairs of suffixes of the chase branch in question and `GroundTermMapping`s such that mapping agrees with the initial one on the initial set of facts and the mapping is a homomorphism from the head of the current suffix into the chase result. -/
 abbrev InductiveHomomorphismExtensionResult
-    {obs : ObsoletenessCondition sig} {rules : RuleSet sig} (cd : ChaseDerivation obs rules) (h : GroundTermMapping sig) :=
+    {obs : ObsolescenceCondition sig} {rules : RuleSet sig} (cd : ChaseDerivation obs rules) (h : GroundTermMapping sig) :=
   { pair : (ChaseDerivation obs rules) × (GroundTermMapping sig) // pair.fst <:+ cd ∧ (∀ t ∈ cd.head.facts.terms, pair.snd t = h t) ∧ pair.snd.isHomomorphism pair.fst.head.facts cd.result }
 
 namespace ChaseBranch
 
-variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
+variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
 
 /-- This function creates a new `InductiveHomomorphismExtensionResult` from an (unfolded) previous one given the fact that `ChaseDerivation.next` exists. -/
 noncomputable def extend_hom_to_next_step_of_next_eq_some

@@ -24,7 +24,7 @@ public section
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 /-- The `ChaseTree` merely extends the `TreeDerivation` with the condition that the root is the database from the knowledge base. -/
-structure ChaseTree (obs : ObsoletenessCondition sig) (kb : KnowledgeBase sig) extends TreeDerivation obs kb.rules where
+structure ChaseTree (obs : ObsolescenceCondition sig) (kb : KnowledgeBase sig) extends TreeDerivation obs kb.rules where
   database_first : tree.root = some {
     facts := kb.db.toFactSet
     origin := none
@@ -33,7 +33,7 @@ structure ChaseTree (obs : ObsoletenessCondition sig) (kb : KnowledgeBase sig) e
 
 namespace ChaseTree
 
-variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
+variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
 
 instance : Membership (ChaseNode obs kb.rules) (ChaseTree obs kb) where
   mem td node := node ∈ td.tree

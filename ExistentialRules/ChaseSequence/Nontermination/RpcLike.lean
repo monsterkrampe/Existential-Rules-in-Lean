@@ -24,11 +24,11 @@ variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq 
 section BasicDefinitions
 
 /-- A `KnowledgeBase` never-terminates if none of its `ChaseTree`s terminates. -/
-def KnowledgeBase.neverTerminates (kb : KnowledgeBase sig) (obs : ObsoletenessCondition sig) : Prop :=
+def KnowledgeBase.neverTerminates (kb : KnowledgeBase sig) (obs : ObsolescenceCondition sig) : Prop :=
   ∀ (ct : ChaseTree obs kb), ¬ ct.terminates
 
 /-- Maybe this seems counterintuitive but a `RuleSet` never-terminates if for at least one `Database` the corresponding `KnowledgeBase.neverTerminates`. Asking this question for all Databases would be trivial, at least for the restricted chase, since for every rule set there is a database that satisfies all the rules directly and therefore only has terminating restricted chase trees. -/
-def RuleSet.neverTerminates (rs : RuleSet sig) (obs : ObsoletenessCondition sig) : Prop :=
+def RuleSet.neverTerminates (rs : RuleSet sig) (obs : ObsolescenceCondition sig) : Prop :=
   ∃ (db : Database sig), { rules := rs, db := db : KnowledgeBase sig }.neverTerminates obs
 
 end BasicDefinitions
@@ -36,8 +36,8 @@ end BasicDefinitions
 
 /-- A trigger is unblockable if its result necessarily occurs in every derivation where the trigger is loaded. In the introducing paper this is called g-unblockable. -/
 def Trigger.unblockable
-    {obs : ObsoletenessCondition sig}
-    (trg : Trigger obs.toLaxObsoletenessCondition)
+    {obs : ObsolescenceCondition sig}
+    (trg : Trigger obs.toLaxObsolescenceCondition)
     (disjIdx : Fin trg.mapped_head.length)
     (rules : RuleSet sig) : Prop :=
   ∀ td : TreeDerivation obs rules, ∀ node : td.NodeWithAddress, trg.loaded node.node.facts ->
@@ -45,7 +45,7 @@ def Trigger.unblockable
   trg.mapped_head[disjIdx.val].toSet ⊆ node2.node.facts
 
 /-- A `CyclicityDerivation` is an infinite list of `ChaseNode`s. We demand only that triggers are loaded, new terms keep being added (growing) and that triggers are unblockable. This is much different from a `ChaseDerivation` but intuitively, we can view a `CyclicityDerivation` as a very special non-continuous subderivation of a suitable `ChaseDerivation`. -/
-structure CyclicityDerivation (obs : ObsoletenessCondition sig) (rules : RuleSet sig) extends ChaseDerivationSkeleton obs rules where
+structure CyclicityDerivation (obs : ObsolescenceCondition sig) (rules : RuleSet sig) extends ChaseDerivationSkeleton obs rules where
   triggers_loaded : ∀ n : Nat, ∀ before ∈ (branch.drop n).head,
     ∀ after ∈ (branch.drop n).tail.head, ∃ orig ∈ after.origin, orig.fst.val.loaded before.facts
   growing : ∀ n, ∃ m, ∃ t, (∀ node ∈ (branch.drop n).head, ¬ t ∈ node.facts.terms) ∧ (∃ node ∈ (branch.drop (n+m)).head, t ∈ node.facts.terms)
@@ -53,7 +53,7 @@ structure CyclicityDerivation (obs : ObsoletenessCondition sig) (rules : RuleSet
 
 namespace CyclicityDerivation
 
-variable {obs : ObsoletenessCondition sig} {rules : RuleSet sig}
+variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 
 instance : Membership (ChaseNode obs rules) (CyclicityDerivation obs rules) where
   mem cd node := node ∈ cd.toChaseDerivationSkeleton
@@ -123,7 +123,7 @@ end CyclicityDerivation
 
 
 /-- This is the CyclicitySequence from the RPC paper. For us, it is a `CyclicityDerivation` that starts on a database.  -/
-structure CyclicityBranch (obs : ObsoletenessCondition sig) (kb : KnowledgeBase sig) extends CyclicityDerivation obs kb.rules where
+structure CyclicityBranch (obs : ObsolescenceCondition sig) (kb : KnowledgeBase sig) extends CyclicityDerivation obs kb.rules where
   database_first : branch.head = some {
     facts := kb.db.toFactSet,
     origin := none,
@@ -133,14 +133,14 @@ structure CyclicityBranch (obs : ObsoletenessCondition sig) (kb : KnowledgeBase 
 /-
 namespace CyclicityBranch
 
-variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
+variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
 
 theorem corresponding_tree_branch_exists {cb : CyclicityBranch obs kb} (ct : ChaseTree obs kb) :
     ∃ branch : ChaseBranch obs kb, branch.toChaseDerivation ∈ ct.branches ∧ branch.result = cb.result := by
   rcases cb.toCyclicityDerivation.corresponding_tree_branch_exists ct.toTreeDerivation with ⟨cd, cd_mem, res_eq⟩
   exists ct.chaseBranch_for_branch cd_mem
 
-theorem neverTerminates_of_cyclicityBranch {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
+theorem neverTerminates_of_cyclicityBranch {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
     (cb : CyclicityBranch obs kb) : kb.rules.neverTerminates obs := by
   exists kb.db
   intro ct terminates

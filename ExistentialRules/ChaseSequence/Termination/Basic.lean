@@ -23,23 +23,23 @@ section Definitions
 
 /-- A `ChaseDerivationSkeleton` terminates if the underlying `PossiblyInfiniteList` is finite. -/
 @[expose]
-def ChaseDerivationSkeleton.terminates {obs : ObsoletenessCondition sig} {rules : RuleSet sig} (cds : ChaseDerivationSkeleton obs rules) : Prop := cds.branch.finite
+def ChaseDerivationSkeleton.terminates {obs : ObsolescenceCondition sig} {rules : RuleSet sig} (cds : ChaseDerivationSkeleton obs rules) : Prop := cds.branch.finite
 
 /-- A `ChaseDerivation` terminates if the underlying `ChaseDerivationSkeleton` is finite. -/
 @[expose]
-def ChaseDerivation.terminates {obs : ObsoletenessCondition sig} {rules : RuleSet sig} (cd : ChaseDerivation obs rules) : Prop := cd.toChaseDerivationSkeleton.terminates
+def ChaseDerivation.terminates {obs : ObsolescenceCondition sig} {rules : RuleSet sig} (cd : ChaseDerivation obs rules) : Prop := cd.toChaseDerivationSkeleton.terminates
 
 /-- A `TreeDerivation` terminates if all of its branches terminate. -/
 @[expose]
-def TreeDerivation.terminates {obs : ObsoletenessCondition sig} {rules : RuleSet sig} (td : TreeDerivation obs rules) : Prop := ∀ branch, branch ∈ td.branches -> branch.terminates
+def TreeDerivation.terminates {obs : ObsolescenceCondition sig} {rules : RuleSet sig} (td : TreeDerivation obs rules) : Prop := ∀ branch, branch ∈ td.branches -> branch.terminates
 
 /-- A `KnowledgeBase` terminates if all of its `ChaseTree`s terminate. -/
 @[expose]
-def KnowledgeBase.terminates (kb : KnowledgeBase sig) (obs : ObsoletenessCondition sig) : Prop := ∀ (ct : ChaseTree obs kb), ct.terminates
+def KnowledgeBase.terminates (kb : KnowledgeBase sig) (obs : ObsolescenceCondition sig) : Prop := ∀ (ct : ChaseTree obs kb), ct.terminates
 
 /-- A `RuleSet` terminates if all knowledge bases featuring this rule set terminate. -/
 @[expose]
-def RuleSet.terminates (rs : RuleSet sig) (obs : ObsoletenessCondition sig) : Prop := ∀ (db : Database sig), { rules := rs, db := db : KnowledgeBase sig }.terminates obs
+def RuleSet.terminates (rs : RuleSet sig) (obs : ObsolescenceCondition sig) : Prop := ∀ (db : Database sig), { rules := rs, db := db : KnowledgeBase sig }.terminates obs
 
 end Definitions
 
@@ -47,7 +47,7 @@ section GeneralResults
 
 namespace ChaseDerivationSkeleton
 
-variable {obs : ObsoletenessCondition sig} {rules : RuleSet sig}
+variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 
 /-- If a `ChaseDerivationSkeleton` terminates, then there is a maximal node according to the `≼` relation. -/
 theorem has_last_node_of_terminates (cds : ChaseDerivationSkeleton obs rules) :
@@ -88,7 +88,7 @@ end ChaseDerivationSkeleton
 
 namespace ChaseDerivation
 
-variable {obs : ObsoletenessCondition sig} {rules : RuleSet sig}
+variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 
 /-- A `ChaseDerivation` terminates if and only if there is a maximal node according to the `≼` relation. -/
 theorem terminating_has_last_node (cd : ChaseDerivation obs rules) : cd.terminates ↔ ∃ (node : cd.Node), ∀ (node2 : cd.Node), node2 ≼ node := by
@@ -119,7 +119,7 @@ end ChaseDerivation
 
 namespace ChaseBranch
 
-variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
+variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
 
 /-- A `ChaseBranch` terminates if and only if its result is `Set.finite`. -/
 theorem terminates_iff_result_finite (cb : ChaseBranch obs kb) : cb.terminates ↔ cb.result.finite := by
@@ -153,7 +153,7 @@ end ChaseBranch
 
 namespace TreeDerivation
 
-variable {obs : ObsoletenessCondition sig} {rules : RuleSet sig}
+variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 
 /-- A terminating `TreeDerivation` only has finitely many branches. We show this using König's Lemma. -/
 @[grind ->]
@@ -197,7 +197,7 @@ end TreeDerivation
 
 namespace ChaseTree
 
-variable {obs : ObsoletenessCondition sig} {kb : KnowledgeBase sig}
+variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
 
 /-- A `ChaseTree` terminates if and only if each fact set in its result is finite. -/
 theorem terminates_iff_result_finite (ct : ChaseTree obs kb) : ct.terminates ↔ ∀ fs, fs ∈ ct.result -> fs.finite := by
