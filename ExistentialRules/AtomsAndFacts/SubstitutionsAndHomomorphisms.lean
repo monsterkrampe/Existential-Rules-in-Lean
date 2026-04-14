@@ -168,7 +168,7 @@ section GroundSubstitution
 ## GroundSubstitution
 
 `GroundSubstitution` is used mainly on rules to map the variables to some actual ground terms.
-This is a key ingredient of `PrTrigger`s that model "rule applications" in the chase.
+This is a key ingredient of `PreTrigger`s that model "rule applications" in the chase.
 -/
 
 /-- A `GroundSubstitution` is merely a `TermMapping` from variables to `GroundTerm`s. -/

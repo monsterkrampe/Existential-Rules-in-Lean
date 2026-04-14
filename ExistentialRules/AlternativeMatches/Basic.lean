@@ -11,6 +11,7 @@ import ExistentialRules.ChaseSequence.Deterministic
 /-!
 # Alternative Matches
 
+Alternative matches have been introduced in [RestrictedChaseCores].
 Put simply, alternative matches are homomorphisms that witness that a trigger can be satisfied in a way where one of its freshly introduced terms would be redundant. The goal of this notion is to show that a chase without any alternative matches yields a result that is a core, which is, intuitively speaking, the smallest possibly model up to isomorphism.
 -/
 

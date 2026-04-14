@@ -25,10 +25,6 @@ Before we can go into the actual definitions, we need a lot of machinery, mainly
 
 namespace List
 
-/-!
-### Auxiliary Theorems on Lists
--/
-
 /-- If a list is duplicate free and the sublist of another list, then the second list is at least as long as the first. -/
 theorem length_le_of_nodup_of_all_mem [DecidableEq α] (as bs : List α) (nodup : as.Nodup) (all_mem : ∀ e, e ∈ as -> e ∈ bs) : as.length ≤ bs.length := by
   induction as generalizing bs with
@@ -82,7 +78,7 @@ namespace Function
 We define what it means for a function to be injective or surjective restricted to a given domain and image, given as either a list or set.
 Intuitively, results involving the list versions most likely have an implicit requirement for domain and image being finite whereas results stated for the set version do not have this requirement.
 
-We found our more suitable than using `Function.Injective` and `Function.Sufjective` because this would require us to consider appropriate subtypes and also since there barely seem to be theorems in the standard library (outside Mathlib).
+We found our more suitable than using `Function.Injective` and `Function.Surjective` because this would require us to consider appropriate subtypes and also since there barely seem to be theorems in the standard library (outside Mathlib).
 We might rework those definitions in the future though. I think a couple of (small) things can be cleaned up here but this is not the highest priprity.
 Maybe this should even move to the BasicLeanDatastructures repo since there are really just general results over functions.
 -/
@@ -323,12 +319,12 @@ without requiring any additional properties for the underlying `GroundTermMappin
 
 variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [DecidableEq sig.P]
 
-/-- A `GroundTermMapping` is strong for `FactSet`s A and B if each element not in A, its mapping is not in B. However, we only demand this for elements that only feature terms from a given domain because we do not want to care about the mapping of terms outside the domain. -/
+/-- A `GroundTermMapping` is strong for `FactSet`s $A$ and $B$ if each element not in $A$, its mapping is not in $B$. However, we only demand this for elements that only feature terms from a given domain because we do not want to care about the mapping of terms outside the domain. -/
 @[expose]
 def strong (h : GroundTermMapping sig) (domain : Set (GroundTerm sig)) (A B : FactSet sig) : Prop :=
   ∀ (e : Fact sig), (∀ t, t ∈ e.terms -> t ∈ domain) -> ¬ e ∈ A -> ¬ (h.applyFact e) ∈ B
 
-/-- If the composition of two mappings is strong from A to C and the second mapping is a homomorphism from B to C, then the first mapping is strong from A to B. -/
+/-- If the composition of two mappings is strong from $A$ to $C$ and the second mapping is a homomorphism from $B$ to $C$, then the first mapping is strong from $A$ to $B$. -/
 @[grind ->]
 theorem strong_of_compose_strong (g h : GroundTermMapping sig) (domain : Set (GroundTerm sig)) (A B C : FactSet sig) :
     h.isHomomorphism B C -> GroundTermMapping.strong (h ∘ g) domain A C -> g.strong domain A B := by
@@ -526,7 +522,7 @@ theorem exists_repetition_that_is_inverse_of_surj
   . apply repeats_globally; exact t_mem
   . apply Nat.ne_zero_of_lt; apply Nat.lt_of_succ_le; exact le
 
-/-- Repeating a mapping retains the `isIdOnConstants` property. -/
+/-- Repeating a mapping retains the `GroundTermMapping.isIdOnConstants` property. -/
 theorem repeat_hom_id_on_const (h : GroundTermMapping sig) (idOnConst : h.isIdOnConstants) : ∀ i, (h.repeat_hom i).isIdOnConstants := by
   intro i
   induction i with
@@ -535,7 +531,7 @@ theorem repeat_hom_id_on_const (h : GroundTermMapping sig) (idOnConst : h.isIdOn
 
 variable [DecidableEq sig.P]
 
-/-- Repeating a mapping retains the `isHomomorphism` property at least for endomorphisms. -/
+/-- Repeating a mapping retains the `GroundTermMapping.isHomomorphism` property at least for endomorphisms. -/
 theorem repeat_hom_isHomomorphism (h : GroundTermMapping sig) (fs : FactSet sig) (hom : h.isHomomorphism fs fs) :
     ∀ i, (h.repeat_hom i).isHomomorphism fs fs := by
   intro i

@@ -16,7 +16,7 @@ public import ExistentialRules.ChaseSequence.ChaseDerivationSkeleton
 Now we go from a `ChaseDerivationSkeleton` to a `ChaseDerivation`.
 
 The chase starts on an initial fact set and then applies triggers until all triggers are obsolete, which might only be the case after infinitely many steps.
-This whole process needs to be "fair", i.e. a trigger that is `active` needs to be not active after finitely many steps. This can happen by applying the trigger itself or another trigger that will make the former obsolete.
+This whole process needs to be "fair", i.e. a trigger that is `Trigger.active` needs to be not active after finitely many steps. This can happen by applying the trigger itself or another trigger that will make the former obsolete.
 
 We should note that chase derivations usually start on a `Database`, i.e. a finite fact set where all terms are constants.
 This is what we demand for a `ChaseBranch` later but for now it is more convenient for us to relax this condition since it is not relevant for
@@ -24,7 +24,7 @@ most basic definitions and results.
 What we gain by relaxing the condition is that we can drop an abitrary number of `ChaseNode`s from the beginning of a derivation and still be left with a derivation. This gives the `ChaseDerivation` a more coinductive behavior that conveniently alignes with the `PossiblyInfiniteList` that is used to provide the basic structure of the derivation skeleton.
 
 The goal of the chase is to eventually build a most general (i.e. universal) model of a given `KnowledgeBase` by iteratively satisfying all triggers and thereby all rules.
-For the more generic `ChaseDerivation`, we cannot quite expect this as a result but we can already show that the `ChaseDerivation.result` models all of the rules in `ChaseDerivation.result_models_rules`.
+For the more generic `ChaseDerivation`, we cannot quite expect this as a result but we can already show that the `ChaseDerivationSkeleton.result` models all of the rules in `ChaseDerivation.result_models_rules`.
 -/
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
@@ -126,7 +126,7 @@ section Next
 Compared to the `ChaseDerivationSkeleton` we can show some additional results for `next`.
 -/
 
-/-- The trigger used to derive `next` is active for `head`. -/
+/-- The trigger used to derive `ChaseDerivationSkeleton.next` is active for `ChaseDerivationSkeleton.head`. -/
 @[grind ->]
 theorem active_trigger_origin_next {cd : ChaseDerivation obs rules} {next : ChaseNode obs rules} (eq : cd.next = some next) :
     (next.origin.get (cd.isSome_origin_next eq)).fst.val.active cd.head.facts := by
@@ -136,7 +136,7 @@ theorem active_trigger_origin_next {cd : ChaseDerivation obs rules} {next : Chas
   simp only [orig_mem, Option.get_some]
   exact trg_act
 
-/-- The `next` node is not none if and only if some trigger is active on `head`. -/
+/-- The `ChaseDerivationSkeleton.next` node is not none if and only if some trigger is active on `ChaseDerivationSkeleton.head`. -/
 theorem isSome_next_iff_trg_ex {cd : ChaseDerivation obs rules} : cd.next.isSome ↔ ∃ (trg : RTrigger obs rules), trg.val.active cd.head.facts := by
   constructor
   . rw [Option.isSome_iff_exists]
@@ -215,16 +215,16 @@ section Tail
 def tail (cd : ChaseDerivation obs rules) (next_some : cd.next.isSome) : ChaseDerivation obs rules :=
   cd.derivation_for_skeleton (ChaseDerivationSkeleton.tail cd.toChaseDerivationSkeleton next_some) (cd.branch.IsSuffix_tail)
 
-/-- The `head` of the `tail` is `next`. -/
+/-- The `ChaseDerivationSkeleton.head` of the `tail` is `ChaseDerivationSkeleton.next`. -/
 theorem head_tail {cd : ChaseDerivation obs rules} {next_some : cd.next.isSome} : some (cd.tail next_some).head = cd.next :=
   ChaseDerivationSkeleton.head_tail
 
-/-- The `head` of the `tail` is `next`. -/
+/-- The `ChaseDerivationSkeleton.head` of the `tail` is `ChaseDerivationSkeleton.next`. -/
 @[simp, grind =]
 theorem head_tail' {cd : ChaseDerivation obs rules} {next_some : cd.next.isSome} : (cd.tail next_some).head = cd.next.get next_some :=
   ChaseDerivationSkeleton.head_tail'
 
-/-- `next` is a member of the `tail`. -/
+/-- `ChaseDerivationSkeleton.next` is a member of the `tail`. -/
 @[grind ->]
 theorem next_mem_tail {cd : ChaseDerivation obs rules} {next_some : cd.next.isSome} : ∀ next ∈ cd.next, next ∈ cd.tail next_some :=
   ChaseDerivationSkeleton.next_mem_tail
@@ -269,7 +269,7 @@ theorem mem_rec
     let cd2 := cd.derivation_for_skeleton cds2 suffix
     exact step cd2 suffix ih _ next_mem
 
-/-- A node is a member of the `tail` if and only if there is a subderivation where the node is in the `next` position. -/
+/-- A node is a member of the `tail` if and only if there is a subderivation where the node is in the `ChaseDerivationSkeleton.next` position. -/
 theorem mem_tail_iff {cd : ChaseDerivation obs rules} {next_some : cd.next.isSome} {node : ChaseNode obs rules} :
     node ∈ cd.tail next_some ↔ ∃ cd2, cd2 <:+ cd ∧ cd2.next = some node := by
   have : node ∈ cd.tail next_some ↔ node ∈ cd.toChaseDerivationSkeleton.tail next_some := by rfl
@@ -392,7 +392,7 @@ theorem strict_predecessor_trans {cd : ChaseDerivation obs rules} {n1 n2 n3 : No
   . exact predecessor_trans prec1.left prec2.left
   . grind
 
-/-- The `head` is a strict predecessor of `next`. -/
+/-- The `ChaseDerivationSkeleton.head` is a strict predecessor of `ChaseDerivationSkeleton.next`. -/
 theorem head_strict_prec_next {cd : ChaseDerivation obs rules} : ∀ {next}, (mem : next ∈ cd.next) -> ⟨cd.head, cd.head_mem⟩ ≺ ⟨next, cd.next_mem_of_mem _ mem⟩ := by
   intro next next_mem
   constructor
@@ -437,7 +437,7 @@ public section ChaseResult
 /-!
 ## Chase Result
 
-Compared to the `ChaseDerivationSkeleton`, the result is now a model for all rules.
+Opposed to the `ChaseDerivationSkeleton`, the result is now a model for all rules.
 -/
 
 /-- The result is a model of all rules. This is true because otherwise, there would be an active trigger on the result. But then, this trigger needs to be active for some node and the hence it needs to become inactive at some point due to fairness. Hence it cannot be active on the result. Contradiction! -/
@@ -643,7 +643,7 @@ section MinimalNodeWithProp
 ## Minimal Nodes with given Properties
 
 If a property hold for a given node in the chase, then there must be a "first" node for which this property holds. That means that this node is minimal with respect to the `≺` relation.
-The result itself is `prop_for_node_has_minimal_such_node` and is shown via `Nat.prop_for_nat_has_minimal_such_nat`.
+The result itself is `prop_for_node_has_minimal_such_node` and is shown via `prop_for_nat_has_minimal_such_nat`.
 This forces us to take into account specific node indices and therefore requires auxiliary theorems, mainly `get?_branch_injective`, which is shown using `node_has_unique_position`.
 -/
 

@@ -21,7 +21,7 @@ variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq 
 
 namespace Rule
 
-/-- For a rule, we need to be able to obtain a fresh constant for each variable that only occurs in the body. This is doen using the `GetFreshInhabitant` typeclass. -/
+/-- For a rule, we need to be able to obtain a fresh constant for each variable that only occurs in the body. This is done using the `GetFreshInhabitant` typeclass. -/
 def fresh_consts_for_pure_body_vars [GetFreshInhabitant sig.C] (r : Rule sig) (forbidden_constants : List sig.C) :=
   GetFreshInhabitant.fresh_n forbidden_constants r.pure_body_vars.length
 

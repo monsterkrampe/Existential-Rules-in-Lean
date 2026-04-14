@@ -17,7 +17,7 @@ Here, `ChaseTree` and `ChaseBranch` consequently coincide. At least intuitively.
 
 Arguably the most interesting result of this file is `deterministicChaseBranchResultUniversallyModelsKb`.
 It states that in the deterministic setting, the result of a `ChaseBranch` is itself a universal model.
-That is, a model that can be homomorphically embedded into every other model.
+That is, a model that can be homomorphically embedded into every other model [ChaseRevisited].
 On disjunctive rules this is more complicated as can be seen in `chaseTreeResultIsUniversal`.
 -/
 
@@ -385,7 +385,7 @@ theorem firstBranch_intoTree_eq_self (cd : ChaseDerivation obs rules) (det : rul
   apply firstBranch_from_start_with_intoTree_eq_cd det
   rw [TreeDerivation.NodeWithAddress.subderivation_root]
 
-/-- The `firstResult` of `intoTree` is the original `ChaseDerivation.result`. -/
+/-- The `firstResult` of `intoTree` is the original `ChaseDerivationSkeleton.result`. -/
 theorem firstResult_intoTree_eq_result (cd : ChaseDerivation obs rules) (deterministic : rules.isDeterministic) :
     (cd.intoTree deterministic).firstResult = cd.result := by
   unfold TreeDerivation.firstResult; rw [cd.firstBranch_intoTree_eq_self deterministic]
@@ -408,7 +408,7 @@ def intoTree (cb : ChaseBranch obs kb) (deterministic : kb.isDeterministic) : Ch
     database_first := by unfold td ChaseDerivation.intoTree; rw [FiniteDegreeTree.root_from_branch]; exact cb.database_first
   }
 
-/-- In the deterministic setting, a `ChaseBranch.result` is a universal model. -/
+/-- In the deterministic setting, a `ChaseDerivationSkeleton.result` for a `ChaseBranch` is a universal model. -/
 theorem deterministicChaseBranchResultUniversallyModelsKb (cb : ChaseBranch obs kb) :
     kb.isDeterministic -> cb.result.universallyModelsKb kb := by
   intro det

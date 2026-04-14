@@ -20,7 +20,7 @@ import ExistentialRules.Terms.ListsOfTerms
 
 There is plenty of research around sufficient conditions for chase termination.
 These are usually conditions on `RuleSet`s. If they are fulfilled, we know that the `RuleSet.terminates`. If they are not fulfilled, we gain nothing.
-Here, we consider variants of Model-Faithful Acyclicity (MFA), Disjunctive MFA (DMFA) and Restricted MFA (RMFA) essentially all at once.
+Here, we consider variants of Model-Faithful Acyclicity (MFA) [MFA], Disjunctive MFA (DMFA) [DMFA] and Restricted MFA (RMFA) [RMFA] essentially all at once.
 We should note though that technically DMFA and RMFA assume a so-called Datalog-first chase, which always prefers triggers with Datalog rules before all others. So far, we are not modelling this possibility in our chase definitions.
 Consequently, we also implement slightly different versions of DMFA and RMFA that simply drop the part that optimizes for Datalog-first sequences.
 The modified versions are of course still correct (as we prove) but lifting the restriction of Datalog-first chase comes at the cost of potentially marking fewer rule sets as terminating. Indeed there are rule sets that would terminate for all Datalog-first chases but not for all more liberal application strategies.
@@ -141,7 +141,7 @@ Here we define what it means for a `MfaObsolescenceCondition` to block a `Obsole
 Essentially, we say that if the mfa obsolescence is fulfilled and the trigger is loaded, then also the real obsolescence condition is fulfilled.
 Before that, we filter trggers where already every head result occurs in in the mfa set of facts anyway.
 This is safe to do since applying these again would not make a difference.
-The necessesity for doing this comes from `DeterministicSkolemObsolescence.blocks_obs`. `BlockingObsolescence.blocks_obs` works without.
+The necessesity for doing this comes from `DeterministicSkolemObsolescence.blocks_each_obs`. `BlockingObsolescence.blocks_corresponding_obs` works without.
 -/
 def MfaObsolescenceCondition.blocks_obs (mfa_obs : MfaObsolescenceCondition sig) (obs : ObsolescenceCondition sig) (rs : RuleSet sig) (special_const : sig.C) : Prop :=
   ∀ {db : Database sig} (cb : ChaseBranch obs ⟨db, rs⟩) (node : cb.Node) (trg : RTrigger obs rs) (fs : FactSet sig),
@@ -1097,7 +1097,7 @@ theorem terminates_of_mfaSet_finite [Inhabited sig.C] (rs : RuleSet sig) (rs_fin
   . exact db.toFactSet.property.left
   . exact res_filtered_finite
 
-/-- A rule set `isMfa` if its `mfsSet` does not contain a cyclic term. -/
+/-- A rule set `isMfa` if its `mfaSet` does not contain a cyclic term. -/
 def isMfa [Inhabited sig.C] (rs : RuleSet sig) (finite : rs.rules.finite) (mfa_obs : MfaObsolescenceCondition sig) : Prop :=
   ∀ t, t ∈ (rs.mfaSet finite default mfa_obs).terms -> ¬ PreGroundTerm.cyclic t.val
 

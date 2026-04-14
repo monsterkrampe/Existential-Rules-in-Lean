@@ -152,6 +152,7 @@ $$∀ \vec{x}, \vec{y}. B(x, y) \to \bigvee_{i = 1}^{k} \exists \vec{z}_i. H_i(y
 where $B,H_1,\dots,H_k$ are conjunctions of function free atoms, $y$ is exactly the union of all $y_i$
 and $x$, $y$, and all $z_i$ are disjoint lists of variables. $y$ is called *frontier*. $B$ is called body and the $H_i$ are called heads.
 We call a rule *determinstic* if $k = 1$ so if the head is merely a conjunction.
+For an overview on such rules (without disjunction) consider for example [ExistentialRules].
 
 To represent this formal definition in Lean, we use a structure with a `FunctionFreeConjunction` for the body and a list of `FunctionFreeConjunction`s for the disjunction in the head. For bookkeeping each rule also gets an id. That's it!
 The frontier variables can simply be defined as the variables occurring both in body and head and the existential variables can be indentified as the variables that occur only in the head, without the need for explicit quantification.
@@ -296,7 +297,7 @@ def head_constants (rs : RuleSet sig) : Set sig.C := fun c => ∃ r, r ∈ rs.ru
 @[expose]
 def skolem_functions (rs : RuleSet sig) : Set (SkolemFS sig) := fun f => ∃ r, r ∈ rs.rules ∧ f ∈ r.skolem_functions
 
-/-- If the `RuleSet` is finite, so are the `predicates`. -/
+/-- If the `RuleSet` is finite, so are the `RuleSet.predicates`. -/
 @[grind ->]
 theorem predicates_finite_of_finite (rs : RuleSet sig) : rs.rules.finite -> rs.predicates.finite := by
   intro finite
@@ -310,7 +311,7 @@ theorem predicates_finite_of_finite (rs : RuleSet sig) : rs.rules.finite -> rs.p
     simp only [List.mem_flatMap]
     constructor <;> (intro ⟨r, h⟩; exists r; grind)
 
-/-- If the `RuleSet` is finite, so are the `constants`. -/
+/-- If the `RuleSet` is finite, so are the `RuleSet.constants`. -/
 @[grind ->]
 theorem constants_finite_of_finite (rs : RuleSet sig) : rs.rules.finite -> rs.constants.finite := by
   intro finite
@@ -324,7 +325,7 @@ theorem constants_finite_of_finite (rs : RuleSet sig) : rs.rules.finite -> rs.co
     simp only [List.mem_flatMap]
     constructor <;> (intro ⟨r, h⟩; exists r; grind)
 
-/-- If the `RuleSet` is finite, so are the `head_constants`. -/
+/-- If the `RuleSet` is finite, so are the `RuleSet.head_constants`. -/
 @[grind ->]
 theorem head_constants_finite_of_finite (rs : RuleSet sig) : rs.rules.finite -> rs.head_constants.finite := by
   intro finite
@@ -338,7 +339,7 @@ theorem head_constants_finite_of_finite (rs : RuleSet sig) : rs.rules.finite -> 
     simp only [List.mem_flatMap]
     constructor <;> (intro ⟨r, h⟩; exists r; grind)
 
-/-- If the `RuleSet` is finite, so are the `skolem_functions`. -/
+/-- If the `RuleSet` is finite, so are the `RuleSet.skolem_functions`. -/
 @[grind ->]
 theorem skolem_functions_finite_of_finite (rs : RuleSet sig) : rs.rules.finite -> rs.skolem_functions.finite := by
   intro finite
@@ -352,7 +353,7 @@ theorem skolem_functions_finite_of_finite (rs : RuleSet sig) : rs.rules.finite -
     simp only [List.mem_flatMap]
     constructor <;> (intro ⟨r, h⟩; exists r; grind)
 
-/-- The `head_constants` of a `RuleSet` are a subset of the `constants`. -/
+/-- The `RuleSet.head_constants` are a subset of the `RuleSet.constants`. -/
 @[grind <-]
 theorem head_constants_subset_constants (rs : RuleSet sig) : rs.head_constants ⊆ rs.constants := by
   intro c c_mem
@@ -413,11 +414,11 @@ namespace Fact
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
-/-- The `constants` of a `Fact` are the constants of all terms. -/
+/-- The `Fact.constants` are the constants of all terms. -/
 @[expose]
 def constants (f : Fact sig) : List sig.C := f.terms.flatMap GroundTerm.constants
 
-/-- The `function_symbols` of a `Fact` are the function symbols of all terms. -/
+/-- The `Fact.function_symbols` are the function symbols of all terms. -/
 @[expose]
 def function_symbols (f : Fact sig) : List (SkolemFS sig) := f.terms.flatMap GroundTerm.functions
 
@@ -425,7 +426,7 @@ def function_symbols (f : Fact sig) : List (SkolemFS sig) := f.terms.flatMap Gro
 @[expose]
 def isFunctionFree (f : Fact sig) : Prop := ∀ t, t ∈ f.terms -> ∃ c, t = GroundTerm.const c
 
-/-- If a `Fact` `isFunctionFree`, then we can convert it to a `FunctionFreeFact`. -/
+/-- If a `Fact.isFunctionFree`, then we can convert it to a `FunctionFreeFact`. -/
 @[expose]
 def toFunctionFreeFact (f : Fact sig) (isFunctionFree : f.isFunctionFree) : FunctionFreeFact sig := {
   predicate := f.predicate

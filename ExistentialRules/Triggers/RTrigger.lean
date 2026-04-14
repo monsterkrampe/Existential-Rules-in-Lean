@@ -30,7 +30,7 @@ namespace RTrigger
 @[expose]
 def equiv (trg1 trg2 : RTrigger obs rs) : Prop := trg1.val.equiv trg2.val
 
-/-- If a ground term is fresh in two `RTriggers` for two head indices, then actually these two `RTriggers` (and indices) need to be equivalent (the same)! Why is this the case? Fresh terms are always Skolem function terms. Therefore they contain a rule id. Since we know that rules are uniquely identified by their id in a `RuleSet`, we can infer that the rules of the triggers are the same. The head indices are also part of the functional term so a similar argument can be made to show that these need to be equal. To see why the triggers also need to agree on their frontier mapping, we only need to remind ourselves that the Skolem term contains all the mapped frontier terms as arguments. -/
+/-- If a ground term is fresh in two `RTrigger`s for two head indices, then actually these two `RTrigger`s (and indices) need to be equivalent (the same)! Why is this the case? Fresh terms are always Skolem function terms. Therefore they contain a rule id. Since we know that rules are uniquely identified by their id in a `RuleSet`, we can infer that the rules of the triggers are the same. The head indices are also part of the functional term so a similar argument can be made to show that these need to be equal. To see why the triggers also need to agree on their frontier mapping, we only need to remind ourselves that the Skolem term contains all the mapped frontier terms as arguments. -/
 theorem equiv_of_term_mem_fresh_terms_for_head_disjunct
     {rs : RuleSet sig}
     {trg1 trg2 : RTrigger obs rs}

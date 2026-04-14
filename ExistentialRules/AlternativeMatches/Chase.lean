@@ -16,6 +16,7 @@ In this file, we relate alternative matches to `ChaseDerivation` and `ChaseBranc
 All of this considers the deterministic setting, i.e. only rule sets where each rule has exactly one head disjunct.
 One of the main result is `result_isStrongCore_of_noAltMatch`, which states
 that the result of a `ChaseBranch` without alternative matches is always a strong core.
+This is a slight extension of [RestrictedChaseCores] where only `result_isWeakCore_of_noAltMatch` is shown.
 -/
 
 public section
@@ -25,7 +26,7 @@ namespace GroundTermMapping
 variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [DecidableEq sig.P]
 variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 
-/-- A `GroundTermMapping` is an alternative for a `ChaseDerivation` and a `FactSet` if it is an alternative match into the fact set for the trigger is used to derive `ChaseDerivation.next`. -/
+/-- A `GroundTermMapping` is an alternative for a `ChaseDerivation` and a `FactSet` if it is an alternative match into the fact set for the trigger is used to derive `ChaseDerivationSkeleton.next`. -/
 @[expose]
 def is_alt_match_for_chase_derivation_and_fs (h : GroundTermMapping sig) (cd : ChaseDerivation obs rules) (fs : FactSet sig) : Prop :=
   ∃ (next : ChaseNode obs rules) (next_mem : next ∈ cd.next),
@@ -39,12 +40,12 @@ namespace ChaseDerivation
 variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [DecidableEq sig.P]
 variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 
-/-- A `ChaseDerivation` has an alternative match into a `FactSet` simply if there is a `GroundTermMapping` that is such an alternative match for `ChaseDerivation.next`. -/
+/-- A `ChaseDerivation` has an alternative match into a `FactSet` simply if there is a `GroundTermMapping` that is such an alternative match for `ChaseDerivationSkeleton.next`. -/
 @[expose]
 def has_alt_match_for_next_and_fs (cd : ChaseDerivation obs rules) (fs : FactSet sig) : Prop :=
   ∃ (h : GroundTermMapping sig), h.is_alt_match_for_chase_derivation_and_fs cd fs
 
-/-- More generally, a `ChaseDerivation` has an alternative match into a `FactSet` if one of its subderivations has an alternative match for `ChaseDerivation.next` (according to the above definition) into the fact set. -/
+/-- More generally, a `ChaseDerivation` has an alternative match into a `FactSet` if one of its subderivations has an alternative match for `ChaseDerivationSkeleton.next` (according to the above definition) into the fact set. -/
 @[expose]
 def has_alt_match_for_fs (cd : ChaseDerivation obs rules) (fs : FactSet sig) : Prop :=
   ∃ cd2 : ChaseDerivation obs rules, cd2 <:+ cd ∧ cd2.has_alt_match_for_next_and_fs fs
@@ -607,7 +608,7 @@ theorem result_isStrongCore_of_noAltMatch (cb : ChaseBranch obs kb) (det : kb.is
     . exact endo
 
 /-!
-The following is a quite technical result, which is designed to act as a lemma for further theorems that we did not formalize yet. To give a teaser, there are related to interleaving the restricted and core chase, basically using the restricted chase as long as alternative matches can be avoided and only in the end falling back to computing the rest with the core chase.
+The following is a quite technical result, which is designed to act as a lemma for further theorems that we did not formalize yet. To give a teaser, these are related to interleaving the restricted and core chase, basically using the restricted chase as long as alternative matches can be avoided and only in the end falling back to computing the rest with the core chase.
 
 Take a `ChaseBranch` and a `FactSet` $F$ that is a superset of the chase result. Furthermore assume that the chase branch has no alternative match in $F$.
 For every homomorphic subset of $F$, we know that it must still be a superset of the chase result.
@@ -617,7 +618,7 @@ Part of the proof again uses `altMatch_of_some_not_reaches_self`.
 
 Personal note: When I was thinking about this theorem on paper, I ended up confusing myself again and again doubting if this even holds.
 Finally, I had enough of it and invested (a lot of) time to formalize this in Lean and get some peace of mind.
-Of course it still remains to show the theorems where this would actually be used.
+Of course, it still remains to show the theorems where this would actually be used.
 -/
 
 theorem core_superset_of_chase_result

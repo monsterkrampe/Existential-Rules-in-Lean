@@ -12,7 +12,7 @@ public import ExistentialRules.ChaseSequence.ChaseNode
 /-!
 # Chase Derivation Skeleton
 
-It is time to define the chase.
+It is time to define the [chase](https://en.wikipedia.org/wiki/Chase_(algorithm)) [Chase].
 We are going to introduce slightly different representations and the `ChaseDerivationSkeleton` is arguably the most basic but also most versatile one.
 
 We only demand a `PossiblyInfiniteList` of `ChaseNode`s that is non-empty such that the next `ChaseNode` always results from a trigger application. However, we do not care so far if the trigger is active or even loaded.

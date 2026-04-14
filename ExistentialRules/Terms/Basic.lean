@@ -36,7 +36,7 @@ These nulls would act as placeholders that are introduced during the chase to fi
 However, implementing this freshness is not really nice to model since it would require is to keep global state around to know
 which nulls have already been used. Instead, we act as if the existentially quantified variables where Skolemized. By that, freshly
 introduced terms simply become Skolem terms and we can show that these are indeed fresh by design. Some works on existential rules take this view,
-first and foremost of course the ones considering the Skolem chase.
+first and foremost of course the ones considering the Skolem chase [SkolemChase].
 -/
 
 /--  As a building block for Skolem terms, we introduce `SkolemFS` as a Skolem Function Symbol here. This structure captures the rule, disjunct, and (existential) variable for that the Skolem function was introduced. The arity corresponds to the size of the frontier of the rule, i.e. the universal variables that occur in both body and head. -/
@@ -89,7 +89,7 @@ namespace VarOrConst
 
 variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
 
-/-- A `VarOrConst` is a variable if it was built using the `var` constructor. -/
+/-- A `VarOrConst` is a variable if it was built using the `VarOrConst.var` constructor. -/
 def isVar : VarOrConst sig -> Bool
 | .var _ => true
 | .const _ => false
@@ -119,7 +119,7 @@ def skolemize (ruleId : Nat) (disjunctIndex : Nat) (frontier : List sig.V) : Var
   else .func { ruleId, disjunctIndex, var := v, arity := frontier.length } frontier rfl
 | .const c => SkolemTerm.const c
 
-/-- Each member of `filterVars` is in the original list (when applyign the `var` constructor again.) -/
+/-- Each member of `filterVars` is in the original list (when applying the `VarOrConst.var` constructor again.) -/
 @[grind ->]
 theorem filterVars_occur_in_original_list (l : List (VarOrConst sig)) (v : sig.V) : v ∈ filterVars l -> VarOrConst.var v ∈ l := by
   fun_induction filterVars <;> grind
@@ -129,7 +129,7 @@ theorem filterVars_occur_in_original_list (l : List (VarOrConst sig)) (v : sig.V
 theorem mem_filterVars_of_var (l : List (VarOrConst sig)) (v : sig.V) : VarOrConst.var v ∈ l -> v ∈ filterVars l := by
   fun_induction filterVars <;> grind
 
-/-- Each member of `filterConsts` is in the original list (when applyign the `const` constructor again.) -/
+/-- Each member of `filterConsts` is in the original list (when applying the `VarOrConst.const` constructor again.) -/
 @[grind ->]
 theorem filterConsts_occur_in_original_list (l : List (VarOrConst sig)) (c : sig.C) : c ∈ filterConsts l -> VarOrConst.const c ∈ l := by
   fun_induction filterConsts <;> grind
@@ -159,7 +159,7 @@ Aiming to define `GroundTerm`, we need to define a more basic structure first, w
 `PreGroundTerm`s need to be able to model Skolem terms, i.e. function terms. We can represent those conveniently using inductively defined `FiniteTree`s.
 
 With `PreGroundTerm`s in place, we merely define `GroundTerm`s to be the `PreGroundTerm`s where `arity_ok` holds.
-We then define appropriate constructors and recursion principles on the `GroundTerm` to make it behave almost like an inductive type with a `const` and `func` constructor.
+We then define appropriate constructors and recursion principles on the `GroundTerm` to make it behave almost like an inductive type with a `GroundTerm.const` and `GroundTerm.func` constructor.
 -/
 
 /-- The `PreGroundTerm` is simply a `FiniteTree (SkolemFS sig) sig.C`. That is a tree that features Skolem function symbols in its inner nodes and constants in its leaf nodes. -/
@@ -187,7 +187,7 @@ variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
 @[expose]
 def const (c : sig.C) : GroundTerm sig := ⟨FiniteTree.leaf c, by simp [PreGroundTerm.arity_ok]⟩
 
-/-- The .const constructor is injective. -/
+/-- The `GroundTerm.const` constructor is injective. -/
 @[grind inj]
 theorem const.inj : Function.Injective (GroundTerm.const (sig := sig)) := by intro c d; unfold const; simp
 @[simp]
@@ -209,7 +209,7 @@ def func (func : SkolemFS sig) (ts : List (GroundTerm sig)) (arity_ok : ts.lengt
     exact t.val.property
 ⟩
 
-/-- The .func constructor is injective. -/
+/-- The `GroundTerm.func` constructor is injective. -/
 @[grind ->]
 theorem func.inj
   {func1 func2 : SkolemFS sig} {ts1 ts2 : List (GroundTerm sig)} {arity_ok1 : ts1.length = func1.arity} {arity_ok2 : ts2.length = func2.arity} :
@@ -219,7 +219,7 @@ theorem func.injEq
   {func1 func2 : SkolemFS sig} {ts1 ts2 : List (GroundTerm sig)} {arity_ok1 : ts1.length = func1.arity} {arity_ok2 : ts2.length = func2.arity} :
   GroundTerm.func func1 ts1 arity_ok1 = GroundTerm.func func2 ts2 arity_ok2 ↔ func1 = func2 ∧ ts1 = ts2 := by grind
 
-/-- GroundTerm.func can never be equal to GroundTerm.const -/
+/-- `GroundTerm.func` can never be equal to `GroundTerm.const`. -/
 theorem func_neq_const {func : SkolemFS sig} {ts : List (GroundTerm sig)} {arity_ok : ts.length = func.arity} {c : sig.C} :
   GroundTerm.func func ts arity_ok ≠ GroundTerm.const c := by simp [GroundTerm.func, const]
 
@@ -359,7 +359,7 @@ def functions (t : GroundTerm sig) : (List (SkolemFS sig)) := t.val.innerLabels
 @[simp, grind =]
 theorem toConst_const {c : sig.C} : (GroundTerm.const c).toConst (by exists c) = c := by rfl
 
-/-- Applying `functionSymbol` to a `GroundTerm.fun` yields exactly the contained function symbol. -/
+/-- Applying `functionSymbol` to a `GroundTerm.func` yields exactly the contained function symbol. -/
 @[simp, grind =]
 theorem functionSymbol_func {func : SkolemFS sig} {ts : List (GroundTerm sig)} {arity_ok : ts.length = func.arity} :
   (GroundTerm.func func ts arity_ok).functionSymbol (by exists func, ts, arity_ok) = func := by rfl

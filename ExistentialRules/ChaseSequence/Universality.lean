@@ -10,7 +10,8 @@ public import ExistentialRules.ChaseSequence.ChaseTree
 /-!
 # Chase Tree Result is Universal Model Set
 
-This whole file is dedicated to showing that the result of a `ChaseTree` is a universal model set.
+This whole file is dedicated to showing that the result of a `ChaseTree`
+is a universal model set [UniversalModelSet].
 More precisely, we want to show the universality part as we have already shown in `ChaseTree.result_models_kb` that each
 element of the result is a model.
 So what exactly remains to be shown?
@@ -25,14 +26,14 @@ One step of the construction is done by the `hom_step` function below, which cal
 The base of the construction is simply an empty branch and the id mapping.
 In each step of the construction, we consider an `InductiveHomomorphismResult`, which we define to be a pair of a node in the chase tree and a `GroundTermMapping` such that the mapping is a homomorphism from the node into the model $M$.
 
-In the proof of `chaseTreeResultIsUniversal`, we leverage the `TreeDerivation.generate_derivation` function with `hom_step` as the generator function.
+In the proof of `chaseTreeResultIsUniversal`, we leverage the `TreeDerivation.generate_subderivation` function with `hom_step` as the generator function.
 Besides that, all the homomorphisms from the individual steps need to be combined into a single function. The definition is not too hard and all relevant properties are also not too hard to show once we can establish that the homomorphisms for each step always extend the previous one.
 -/
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
 
-/-- The `InductiveHomomorphismResult` is used for the step-wise construction is forms the element that is the input and output of the generator function used in `TreeDerivation.generate_derivation` later. It consists of a node in the chase tree and a `GroundTermMapping` that is a homomorphism from the node to the target model. The generated branch is the chain of all the generated nodes.  -/
+/-- The `InductiveHomomorphismResult` is used for the step-wise construction is forms the element that is the input and output of the generator function used in `TreeDerivation.generate_subderivation` later. It consists of a node in the chase tree and a `GroundTermMapping` that is a homomorphism from the node to the target model. The generated branch is the chain of all the generated nodes.  -/
 abbrev InductiveHomomorphismResult (ct : ChaseTree obs kb) (m : FactSet sig) :=
   { pair : ct.NodeWithAddress × (GroundTermMapping sig) // pair.snd.isHomomorphism pair.fst.node.facts m }
 
@@ -267,7 +268,7 @@ theorem hom_extends_prev_in_hom_step
   simp only [hom_step]
   grind [hom_extends_prev_in_hom_step_of_trg_ex]
 
-/-- As outlined at the very top of this file, we now use `TreeDerivation.generate_derivation` with the `hom_step` generator to obtain the branch in the tree that yields the result `FactSet` for which the combined `GroundTermMapping`s form a homomorphism into the target model. -/
+/-- As outlined at the very top of this file, we now use `TreeDerivation.generate_subderivation` with the `hom_step` generator to obtain the branch in the tree that yields the result `FactSet` for which the combined `GroundTermMapping`s form a homomorphism into the target model. -/
 public theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet sig), m.modelsKb kb -> ∃ (fs : FactSet sig) (h : GroundTermMapping sig), fs ∈ ct.result ∧ h.isHomomorphism fs m := by
   intro m m_is_model
 

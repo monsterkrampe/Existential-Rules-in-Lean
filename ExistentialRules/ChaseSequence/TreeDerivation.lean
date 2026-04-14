@@ -32,7 +32,7 @@ section ChaseStep
 
 To define how one chase step follows from the previous, we introduce two auxiliary definitions that capture two cases that can occur for a given `ChaseNode` in a `TreeDerivation`. This is similar to the definitions for `ChaseDerivation` only that now the result is a list of `ChaseNode`s.
 
-1. Case (`exists_trigger_list`): There still exists an `active` trigger,
+1. Case (`exists_trigger_list`): There still exists an `Trigger.active` trigger,
 in which case one chase node for each disjunct of the trigger is introduced and contains
 the facts from the previous step together with the respective head result of the trigger.
 
@@ -101,7 +101,7 @@ section Basics
 Here we introduce some auxiliary definitions and theorems and we lift some of the machinery of the underlying `FiniteDegreeTree` to `TreeDerivation`.
 -/
 
-/-- We can convert a `TreeDerivation` directly to a `FiniteDegreeTreeWithRoot`. -/
+/-- We can convert a `TreeDerivation` directly to a `FiniteDegreeTree.FiniteDegreeTreeWithRoot`. -/
 @[expose]
 def toFiniteDegreeTreeWithRoot (td : TreeDerivation obs rules) : FiniteDegreeTree.FiniteDegreeTreeWithRoot (ChaseNode obs rules) :=
   ⟨td.tree, by rw [← Option.isSome_iff_ne_none]; exact td.isSome_root⟩
@@ -573,7 +573,7 @@ section FactMonotonicity
 /-!
 ## Subset Monotonicity of Facts in ChaseNodes
 
-Since `ChaseNodes` always extend the previous facts, the fact sets can only be growing along the branches of the `TreeDerivation`.
+Since `ChaseNode`s always extend the previous facts, the fact sets can only be growing along the branches of the `TreeDerivation`.
 This has a couple of convenient implications. For example, the root of a `TreeDerivation` can never occur in its `childTrees`.
 -/
 
@@ -1140,7 +1140,7 @@ def generate_subderivation (td : TreeDerivation obs rules)
     ChaseDerivation obs rules :=
   (mapper start).subderivation.derivation_for_branch (td.generate_branch start generator mapper) (td.generate_branch_mem_tree_branches next_is_child maximal)
 
-/-- The result of `generate_derivation` occurs in `TreeDerivation.branches` if it starts on the root of the tree. -/
+/-- The result of `generate_subderivation` occurs in `TreeDerivation.branches` if it starts on the root of the tree. -/
 theorem generate_subderivation_mem_branches {td : TreeDerivation obs rules}
     {start : β} {generator : β -> Option β} {mapper : β -> td.NodeWithAddress}
     {next_is_child : ∀ b, ∀ b' ∈ generator b, mapper b' ∈ (NodeWithAddress.childNodes (mapper b).subderivation).map (mapper b).cast_for_new_root_node}

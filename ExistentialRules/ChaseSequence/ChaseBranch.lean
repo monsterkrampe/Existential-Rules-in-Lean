@@ -14,7 +14,7 @@ A `ChaseBranch` is a special kind of `ChaseDerivation` which is defined for a `K
 and enforces the head of the `ChaseDerivation` to be the database from the `KnowledgeBase`.
 This is arguably the most common way for defining chase sequences/derivations in the literature.
 We call this branch here, since we consider rules with disjunctions that would actually create a chase tree (see `TreeDerivation` and `ChaseTree`)
-and intuitively the `ChaseBranch` is a branch in such a tree. However, it can be defined outside the tree, which is what we do here (and mostly did for the `ChaseDerivation already).
+and intuitively the `ChaseBranch` is a branch in such a tree. However, it can be defined outside the tree, which is what we do here (and mostly did for the `ChaseDerivation` already).
 
 Compared to the `ChaseDerivation` some new theorems can be shown or some existing ones strengthened. For example, we know now that functional terms can never occur in a database so every functional term must originate as a fresh term from some trigger that is used in the chase.
 -/

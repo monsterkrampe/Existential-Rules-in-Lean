@@ -198,7 +198,7 @@ theorem arguments_for_pre_term_arity_ok
         apply List.mem_attach
       . rw [← arg'_eq]; apply args_mem
 
-/-- We list `arguments_for_pre_term` to lists of `GroundTerm`s. -/
+/-- We lift `arguments_for_pre_term` to lists of `GroundTerm`s. -/
 def arguments_for_term_list (g : StrictConstantMapping sig) (possible_constants : List sig.C) (ts : List (GroundTerm sig)) : List (List (GroundTerm sig)) :=
   (arguments_for_pre_term.arguments_for_pre_term_list g possible_constants ts.unattach).attach.map (fun ⟨args, args_mem⟩ =>
     args.attach.map (fun ⟨arg, arg_mem⟩ =>
