@@ -383,14 +383,15 @@ def root (td : TreeDerivation obs rules) : NodeWithAddress td where
   address := []
   eq := by simp [TreeDerivation.root, FiniteDegreeTree.root_eq]
 
-/-- The `NodeWithAddress` version of `TreeDerivation.childNodes`. -/
+/-- The child nodes of a given `NodeWithAddress`. -/
 @[expose]
-def childNodes (td : TreeDerivation obs rules) : List (NodeWithAddress td) := td.childNodes.zipIdx_with_lt.attach.map (fun ⟨⟨c, idx⟩, prop⟩ => {
+def childNodes {td : TreeDerivation obs rules} (node : NodeWithAddress td) : List (NodeWithAddress td) := node.subderivation.childNodes.zipIdx_with_lt.attach.map (fun ⟨⟨c, idx⟩, prop⟩ => {
   node := c
-  address := [idx.val]
+  address := node.address ++ [idx.val]
   eq := by
     unfold TreeDerivation.childNodes at prop
     rw [List.mem_zipIdx_with_lt_iff_mem_zipIdx, List.mem_zipIdx_iff_getElem?, FiniteDegreeTree.get?_childNodes] at prop
+    unfold subderivation derivation_for_suffix at prop
     grind
 })
 
@@ -434,40 +435,44 @@ theorem childNodes_subderivation {td : TreeDerivation obs rules} {node : NodeWit
 
 /-- `NodeWithAddress.childNodes` has the same length as `TreeDerivation.childNodes`. -/
 @[simp, grind =]
-theorem length_childNodes {td : TreeDerivation obs rules} : (childNodes td).length = td.childNodes.length := by simp [childNodes]
+theorem length_childNodes {td : TreeDerivation obs rules} {node : NodeWithAddress td} : node.childNodes.length = node.subderivation.childNodes.length := by
+  simp [childNodes]
 
 /-- `NodeWithAddress.childNodes` and `TreeDerivation.childNodes` are (almost) equal. -/
-theorem childNodes_eq_childNodes {td : TreeDerivation obs rules} : td.childNodes = (childNodes td).map NodeWithAddress.node := by
+theorem childNodes_eq_childNodes {td : TreeDerivation obs rules} {node : NodeWithAddress td} :
+    node.subderivation.childNodes = node.childNodes.map NodeWithAddress.node := by
   apply List.ext_getElem
   . rw [List.length_map, length_childNodes]
   . intro i lt _; simp [childNodes, lt]
 
 /-- Membership for `NodeWithAddress.childNodes` and `TreeDerivation.childNodes` is (almost) the same. -/
 @[grind ->]
-theorem mem_childNodes_of_mem_childNodes {td : TreeDerivation obs rules} : ∀ {n}, n ∈ (childNodes td) -> n.node ∈ td.childNodes := by
+theorem mem_childNodes_of_mem_childNodes {td : TreeDerivation obs rules} {node : NodeWithAddress td} :
+    ∀ {n}, n ∈ node.childNodes -> n.node ∈ node.subderivation.childNodes := by
   intro n n_mem; rw [childNodes_eq_childNodes]; apply List.mem_map_of_mem; exact n_mem
 
 /-- Getting specific elements from child nodes can be translated between `NodeWithAddress.childNodes` and `TreeDerivation.childNodes`. -/
 @[simp, grind =]
-theorem node_getElem_childNodes {td : TreeDerivation obs rules} :
-    ∀ i (lt : i < (childNodes td).length), (childNodes td)[i].node = td.childNodes[i]'(by rw [← length_childNodes]; exact lt) := by
+theorem node_getElem_childNodes {td : TreeDerivation obs rules} {node : NodeWithAddress td} :
+    ∀ i (lt : i < node.childNodes.length), node.childNodes[i].node = node.subderivation.childNodes[i]'(by rw [← length_childNodes]; exact lt) := by
   simp only [childNodes_eq_childNodes]; simp
 
 /-- Getting specific element addresses from child nodes can be translated between `NodeWithAddress.childNodes` and `TreeDerivation.childNodes`. -/
 @[simp, grind =]
-theorem address_getElem_childNodes {td : TreeDerivation obs rules} : ∀ i (lt : i < (childNodes td).length), (childNodes td)[i].address = [i] := by
+theorem address_getElem_childNodes {td : TreeDerivation obs rules} {node : NodeWithAddress td} :
+    ∀ i (lt : i < node.childNodes.length), node.childNodes[i].address = node.address ++ [i] := by
   intro i lt; simp only [childNodes]; grind
 
 /-- The subderivation for a child node is a child tree. -/
 @[grind ->]
-theorem subderivation_mem_childTrees_of_mem_childNodes {td : TreeDerivation obs rules} {node : NodeWithAddress td} :
-    node ∈ (childNodes td) -> node.subderivation ∈ td.childTrees := by
-  intro node_mem
-  simp only [childNodes, List.mem_map, List.mem_attach, true_and] at node_mem
-  rcases node_mem with ⟨⟨node_with_idx, node_mem⟩, node_eq⟩
-  rw [List.mem_zipIdx_with_lt_iff_mem_zipIdx] at node_mem
-  have node_mem := List.mem_zipIdx' node_mem
-  have : node.subderivation = td.childTrees[node_with_idx.snd.val]'(by have lt := node_with_idx.snd.isLt; simp only [childNodes_eq, List.length_map] at lt; exact lt) := by simp only [childTrees, subderivation]; grind
+theorem subderivation_mem_childTrees_of_mem_childNodes {td : TreeDerivation obs rules} {node node2 : NodeWithAddress td} :
+    node2 ∈ node.childNodes -> node2.subderivation ∈ node.subderivation.childTrees := by
+  intro node2_mem
+  simp only [childNodes, List.mem_map, List.mem_attach, true_and] at node2_mem
+  rcases node2_mem with ⟨⟨node2_with_idx, node2_mem⟩, node2_eq⟩
+  rw [List.mem_zipIdx_with_lt_iff_mem_zipIdx] at node2_mem
+  have node2_mem := List.mem_zipIdx' node2_mem
+  have : node2.subderivation = node.subderivation.childTrees[node2_with_idx.snd.val]'(by have lt := node2_with_idx.snd.isLt; simp only [childNodes_eq, List.length_map] at lt; exact lt) := by simp only [childTrees, subderivation, derivation_for_suffix]; grind
   rw [this]
   apply List.getElem_mem
 
@@ -482,7 +487,7 @@ theorem mem_rec_address
     {td : TreeDerivation obs rules}
     {motive : NodeWithAddress td -> Prop}
     (root : motive (NodeWithAddress.root td))
-    (step : ∀ (new_root : NodeWithAddress td), motive new_root -> ∀ c, (mem : c ∈ (NodeWithAddress.childNodes new_root.subderivation)) -> motive (NodeWithAddress.cast_for_new_root_node new_root c))
+    (step : ∀ (new_root : NodeWithAddress td), motive new_root -> ∀ c ∈ new_root.childNodes, motive c)
     (node : NodeWithAddress td) :
     motive node := by
   let motive' (rev_addr : List Nat) := ∀ n, (mem : n ∈ td.tree.get? rev_addr.reverse) -> motive {
@@ -512,7 +517,7 @@ theorem mem_rec_address
           simp only [NodeWithAddress.childNodes, List.mem_map]
           exists ⟨⟨n, ⟨hd, by simp only [NodeWithAddress.subderivation, derivation_for_suffix, childNodes, new_root]; grind⟩⟩, by simp only [NodeWithAddress.subderivation, derivation_for_suffix, childNodes, new_root]; grind⟩
           constructor; simp; rfl)
-        simp only [NodeWithAddress.cast_for_new_root_node, new_root] at step
+        simp only [new_root] at step
         simp only [List.reverse_cons]
         exact step
   specialize this node.node (by simp only [rev_addr_node, List.reverse_reverse]; exact node.eq)
@@ -588,7 +593,6 @@ theorem facts_node_subset_every_mem {td : TreeDerivation obs rules} : ∀ node �
   | root => apply Set.subset_refl
   | step new_root ih c c_mem =>
     apply Set.subset_trans ih
-    simp only [NodeWithAddress.cast_for_new_root_node]
     rw [facts_childNodes (NodeWithAddress.mem_childNodes_of_mem_childNodes c_mem)]
     apply Set.subset_union_of_subset_left
     rw [NodeWithAddress.root_subderivation']
@@ -657,10 +661,15 @@ theorem predecessor_antisymm {td : TreeDerivation obs rules} {n1 n2 : NodeWithAd
 @[grind ->]
 theorem predecessor_trans {td : TreeDerivation obs rules} {n1 n2 n3 : NodeWithAddress td} : n1 ≼ n2 -> n2 ≼ n3 -> n1 ≼ n3 := List.IsPrefix.trans
 
-/-- The `root` is a predecessor of each `childNodes`. -/
+/-- Each node is the predecessor of its `childNodes`. -/
 @[grind ->]
-theorem root_prec_childNodes {td : TreeDerivation obs rules} : ∀ n ∈ NodeWithAddress.childNodes td, NodeWithAddress.root td ≼ n := by
-  intros; exact List.nil_prefix
+theorem node_prec_childNodes {td : TreeDerivation obs rules} {node : NodeWithAddress td} : ∀ n ∈ node.childNodes, node ≼ n := by
+  intro n
+  rw [List.mem_iff_getElem]
+  intro ⟨i, _, n_mem⟩
+  unfold predecessor
+  rw [← n_mem, NodeWithAddress.address_getElem_childNodes]
+  exact List.prefix_append _ _
 
 /-- The facts of our predecessor are a subset of our facts. -/
 @[grind ->]
@@ -940,7 +949,6 @@ theorem constants_node_subset_constants_fs_union_constants_rules {td : TreeDeriv
     apply Set.subset_union_of_subset_left
     apply Set.subset_refl
   | step new_root ih c c_mem =>
-    simp only [NodeWithAddress.cast_for_new_root_node]
     rw [facts_childNodes (NodeWithAddress.mem_childNodes_of_mem_childNodes c_mem), NodeWithAddress.root_subderivation']
     intro d d_mem
     rw [FactSet.constants_union] at d_mem
@@ -1000,22 +1008,16 @@ theorem functional_term_originates_from_some_trigger
   induction node using mem_rec_address with
   | root => apply Or.inl; exact t_mem
   | step new_root ih c c_mem =>
-    simp only [NodeWithAddress.cast_for_new_root_node] at t_mem
     rw [facts_childNodes (NodeWithAddress.mem_childNodes_of_mem_childNodes c_mem), NodeWithAddress.root_subderivation', FactSet.terms_union] at t_mem
 
-    have aux : t ∈ new_root.node.facts.terms -> t ∈ td.root.facts.terms ∨ ∃ (node2 : td.NodeWithAddress), node2 ≼ (NodeWithAddress.cast_for_new_root_node new_root c) ∧ ∃ orig ∈ node2.node.origin, t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val (by rw [← PreTrigger.length_mapped_head]; exact orig.snd.isLt) := by
+    have aux : t ∈ new_root.node.facts.terms -> t ∈ td.root.facts.terms ∨ ∃ (node2 : td.NodeWithAddress), node2 ≼ c ∧ ∃ orig ∈ node2.node.origin, t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val (by rw [← PreTrigger.length_mapped_head]; exact orig.snd.isLt) := by
       intro t_mem
       cases ih t_mem with
       | inl ih => apply Or.inl; exact ih
       | inr ih =>
         rcases ih with ⟨node2, prec, t_mem⟩
         apply Or.inr; exists node2; constructor;
-        . apply predecessor_trans prec
-          have : new_root = new_root.cast_for_new_root_node (NodeWithAddress.root new_root.subderivation) := by
-            apply NodeWithAddress.eq_of_address_eq
-            rw [NodeWithAddress.root_subderivation]
-            simp [NodeWithAddress.cast_for_new_root_node]
-          grind
+        . apply predecessor_trans prec; grind
         . exact t_mem
 
     cases t_mem with
@@ -1028,10 +1030,10 @@ theorem functional_term_originates_from_some_trigger
       | inr t_mem =>
       cases t_mem with
       | inr t_mem =>
-        apply Or.inr; exists new_root.cast_for_new_root_node c; constructor
+        apply Or.inr; exists c; constructor
         . exact predecessor_refl
         . exists c.node.origin.get (isSome_origin_of_mem_childNodes _ (NodeWithAddress.mem_childNodes_of_mem_childNodes c_mem))
-          simp only [NodeWithAddress.cast_for_new_root_node, Option.get_mem, true_and]
+          simp only [Option.get_mem, true_and]
           exact t_mem
       | inl t_mem =>
         apply aux
@@ -1111,19 +1113,15 @@ def generate_branch (td : TreeDerivation obs rules)
 /-- We lift `FiniteDegreeTree.generate_branch_mem_branches` to `TreeDerivation`. -/
 theorem generate_branch_mem_tree_branches {td : TreeDerivation obs rules}
     {start : β} {generator : β -> Option β} {mapper : β -> td.NodeWithAddress}
-    (next_is_child : ∀ b, ∀ b' ∈ generator b, mapper b' ∈ (NodeWithAddress.childNodes (mapper b).subderivation).map (mapper b).cast_for_new_root_node)
+    (next_is_child : ∀ b, ∀ b' ∈ generator b, mapper b' ∈ (mapper b).childNodes)
     (maximal : ∀ b, generator b = none -> (mapper b).subderivation.childTrees = []) :
     td.generate_branch start generator mapper ∈ (mapper start).subderivation.tree.branches := by
   apply FiniteDegreeTree.generate_branch_mem_branches (start := some start) (generator := generator) (mapper := (fun b => (mapper b).subderivation.toFiniteDegreeTreeWithRoot))
   . intro b b' mem
     specialize next_is_child _ _ mem
-    rw [List.mem_map] at next_is_child; rcases next_is_child with ⟨node, node_mem, b'_eq⟩
-    have : (mapper b').subderivation = node.subderivation := by
-      rw [← b'_eq]
-      simp [NodeWithAddress.cast_for_new_root_node, NodeWithAddress.subderivation, derivation_for_suffix]
     conv => left; simp only [toFiniteDegreeTreeWithRoot]
-    rw [this, ← mem_childTrees_iff]
-    exact NodeWithAddress.subderivation_mem_childTrees_of_mem_childNodes node_mem
+    rw [← mem_childTrees_iff]
+    exact NodeWithAddress.subderivation_mem_childTrees_of_mem_childNodes next_is_child
   . intro b eq_none
     specialize maximal _ eq_none
     simp only [childTrees, List.map_eq_nil_iff, List.attach_eq_nil_iff] at maximal
@@ -1135,7 +1133,7 @@ theorem generate_branch_mem_tree_branches {td : TreeDerivation obs rules}
 @[expose]
 def generate_subderivation (td : TreeDerivation obs rules)
     (start : β) (generator : β -> Option β) (mapper : β -> td.NodeWithAddress)
-    (next_is_child : ∀ b, ∀ b' ∈ generator b, mapper b' ∈ (NodeWithAddress.childNodes (mapper b).subderivation).map (mapper b).cast_for_new_root_node)
+    (next_is_child : ∀ b, ∀ b' ∈ generator b, mapper b' ∈ (mapper b).childNodes)
     (maximal : ∀ b, generator b = none -> (mapper b).subderivation.childTrees = []) :
     ChaseDerivation obs rules :=
   (mapper start).subderivation.derivation_for_branch (td.generate_branch start generator mapper) (td.generate_branch_mem_tree_branches next_is_child maximal)
@@ -1143,7 +1141,7 @@ def generate_subderivation (td : TreeDerivation obs rules)
 /-- The result of `generate_subderivation` occurs in `TreeDerivation.branches` if it starts on the root of the tree. -/
 theorem generate_subderivation_mem_branches {td : TreeDerivation obs rules}
     {start : β} {generator : β -> Option β} {mapper : β -> td.NodeWithAddress}
-    {next_is_child : ∀ b, ∀ b' ∈ generator b, mapper b' ∈ (NodeWithAddress.childNodes (mapper b).subderivation).map (mapper b).cast_for_new_root_node}
+    {next_is_child : ∀ b, ∀ b' ∈ generator b, mapper b' ∈ (mapper b).childNodes}
     {maximal : ∀ b, generator b = none -> (mapper b).subderivation.childTrees = []}
     (start_eq : mapper start = NodeWithAddress.root td) :
     td.generate_subderivation start generator mapper next_is_child maximal ∈ td.branches := by
@@ -1155,7 +1153,7 @@ theorem generate_subderivation_mem_branches {td : TreeDerivation obs rules}
 @[simp, grind =]
 theorem head_generate_subderivation {td : TreeDerivation obs rules}
     {start : β} {generator : β -> Option β} {mapper : β -> td.NodeWithAddress}
-    {next_is_child : ∀ b, ∀ b' ∈ generator b, mapper b' ∈ (NodeWithAddress.childNodes (mapper b).subderivation).map (mapper b).cast_for_new_root_node}
+    {next_is_child : ∀ b, ∀ b' ∈ generator b, mapper b' ∈ (mapper b).childNodes}
     {maximal : ∀ b, generator b = none -> (mapper b).subderivation.childTrees = []} :
     (td.generate_subderivation start generator mapper next_is_child maximal).head = (mapper start).node := by
   simp only [generate_subderivation, generate_branch, derivation_for_branch, ChaseDerivationSkeleton.head]
@@ -1166,7 +1164,7 @@ theorem head_generate_subderivation {td : TreeDerivation obs rules}
 @[simp, grind =]
 theorem next_generate_subderivation {td : TreeDerivation obs rules}
     {start : β} {generator : β -> Option β} {mapper : β -> td.NodeWithAddress}
-    {next_is_child : ∀ b, ∀ b' ∈ generator b, mapper b' ∈ (NodeWithAddress.childNodes (mapper b).subderivation).map (mapper b).cast_for_new_root_node}
+    {next_is_child : ∀ b, ∀ b' ∈ generator b, mapper b' ∈ (mapper b).childNodes}
     {maximal : ∀ b, generator b = none -> (mapper b).subderivation.childTrees = []} :
     (td.generate_subderivation start generator mapper next_is_child maximal).next = ((generator start).map mapper).map NodeWithAddress.node := by
   simp only [generate_subderivation, generate_branch, ChaseDerivationSkeleton.next, derivation_for_branch, FiniteDegreeTree.tail_generate_branch, FiniteDegreeTree.head_generate_branch]
@@ -1176,7 +1174,7 @@ theorem next_generate_subderivation {td : TreeDerivation obs rules}
 /-- The tail for the derivation produced by `generate_subderivation` is exactly the generated derivation when applying the generator once initially. -/
 theorem tail_generate_subderivation {td : TreeDerivation obs rules}
     {start : β} {generator : β -> Option β} {mapper : β -> td.NodeWithAddress}
-    {next_is_child : ∀ b, ∀ b' ∈ generator b, mapper b' ∈ (NodeWithAddress.childNodes (mapper b).subderivation).map (mapper b).cast_for_new_root_node}
+    {next_is_child : ∀ b, ∀ b' ∈ generator b, mapper b' ∈ (mapper b).childNodes}
     {maximal : ∀ b, generator b = none -> (mapper b).subderivation.childTrees = []}
     (next : β) (next_mem : next ∈ (generator start)) :
     (td.generate_subderivation start generator mapper next_is_child maximal).tail (by rw [next_generate_subderivation, next_mem]; simp) =

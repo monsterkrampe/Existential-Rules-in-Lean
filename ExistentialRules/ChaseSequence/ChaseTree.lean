@@ -72,7 +72,6 @@ theorem facts_finite_of_mem {ct : ChaseTree obs kb} {node : ChaseNode obs kb.rul
   induction node' using TreeDerivation.mem_rec_address with
   | root => simp only [TreeDerivation.NodeWithAddress.root, database_first']; exact kb.db.toFactSet.property.left
   | step new_root ih c c_mem =>
-    simp only [TreeDerivation.NodeWithAddress.cast_for_new_root_node]
     rw [TreeDerivation.facts_childNodes (TreeDerivation.NodeWithAddress.mem_childNodes_of_mem_childNodes c_mem)]
     rw [TreeDerivation.NodeWithAddress.root_subderivation']
     apply Set.union_finite_of_both_finite ih
