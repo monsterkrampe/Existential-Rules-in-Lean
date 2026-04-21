@@ -54,6 +54,54 @@ theorem strong_of_compose_strong (g h : GroundTermMapping sig) (domain : Set (Gr
     . exact e_mem_b
     . simp
 
+/-- A `GroundTermMapping` is an isomorphism from `FactSet` A to B if
+it is a homomorphism from A to B, it is strong, injective, and surjective. -/
+@[expose]
+def isIsomorphism (h : GroundTermMapping sig) (A B : FactSet sig) : Prop :=
+  h.isHomomorphism A B ∧ h.strong A.terms A B ∧ h.injectiveSet A.terms ∧ h.surjectiveSet A.terms B.terms
+
+-- TODO: we also need a stricter notion of isomorphism that demands that non-constants are not mapped to constants. This should then ensure that the inverse is also a homomorphism. However, if all constants in the image are already present in the domain, then this definition should be equivalent to the one we currently have. Maybe we can keep both and proof this relation.
+
+-- CAUTION: This does not hold for the current isomorphism definition.
+-- We can get an inverse but it may need to map constants to nulls, which does not make it a homomorphism.
+-- Not sure if we should have a slightly different definition or if we should just drop the result.
+theorem exists_inverse_of_isomorphism {h : GroundTermMapping sig} {A B : FactSet sig} :
+    h.isIsomorphism A B -> ∃ h' : GroundTermMapping sig, h'.isIsomorphism B A ∧ ∀ t ∈ A.terms, h' (h t) = t := by
+  intro ⟨hom, strong, inj, surj⟩
+  let h' : GroundTermMapping sig := fun t =>
+    let t_in_terms := t ∈ B.terms
+    have t_in_terms_dec := Classical.propDecidable t_in_terms
+    if mem : t_in_terms
+    then Classical.choose (surj t mem)
+    else t -- It does not matter what we return here.
+  have is_inverse : ∀ t ∈ A.terms, h' (h t) = t := by
+    intro t t_mem
+    have h_t_mem : h t ∈ B.terms := by
+      apply FactSet.terms_subset_of_subset
+      . exact hom.right
+      . rw [GroundTermMapping.terms_applyFactSet]; apply Set.mem_map_of_mem; exact t_mem
+    simp only [h', h_t_mem, ↓reduceDIte]
+    have spec := Classical.choose_spec (surj _ h_t_mem)
+    apply inj
+    . exact spec.left
+    . exact t_mem
+    . exact spec.right
+  exists h'
+  constructor
+  . constructor
+    . constructor
+      . intro c
+        simp only [h']
+        split
+        case isTrue mem =>
+          have spec := Classical.choose_spec (surj _ mem)
+          -- I DO NOT THINK THAT HOLDS ACTUALLY...
+          sorry
+        . rfl
+      . sorry
+    . sorry
+  . exact is_inverse
+
 end GroundTermMapping
 
 namespace GroundTermMapping
@@ -336,7 +384,7 @@ theorem every_weakCore_isomorphic_to_strongCore_of_hom_both_ways
     (sc : FactSet sig) (sc_strong : sc.isStrongCore)
     (wc : FactSet sig) (wc_weak : wc.isWeakCore)
     (h_sc_wc h_wc_sc : GroundTermMapping sig) (h_sc_wc_hom : h_sc_wc.isHomomorphism sc wc) (h_wc_sc_hom : h_wc_sc.isHomomorphism wc sc) :
-    ∃ (iso : GroundTermMapping sig), iso.isHomomorphism wc sc ∧ iso.strong wc.terms wc sc ∧ iso.injectiveSet wc.terms ∧ iso.surjectiveSet wc.terms sc.terms := by
+    ∃ (iso : GroundTermMapping sig), iso.isIsomorphism wc sc := by
 
   specialize wc_weak (h_sc_wc ∘ h_wc_sc) (by
     apply GroundTermMapping.isHomomorphism_compose
@@ -382,7 +430,7 @@ theorem strongCore_unique_up_to_isomorphism_with_respect_to_weak_cores
     (fs : FactSet sig)
     (sc : FactSet sig) (sub_sc : sc.homSubset fs) (sc_strong : sc.isStrongCore)
     (wc : FactSet sig) (sub_wc : wc.homSubset fs) (wc_weak : wc.isWeakCore) :
-    ∃ (iso : GroundTermMapping sig), iso.isHomomorphism wc sc ∧ iso.strong wc.terms wc sc ∧ iso.injectiveSet wc.terms ∧ iso.surjectiveSet wc.terms sc.terms := by
+    ∃ (iso : GroundTermMapping sig), iso.isIsomorphism wc sc := by
 
   rcases sub_sc with ⟨sub_sc, h_fs_sc, h_fs_sc_hom⟩
   rcases sub_wc with ⟨sub_wc, h_fs_wc, h_fs_wc_hom⟩
@@ -410,7 +458,7 @@ theorem every_universal_weakCore_isomorphic_to_universal_strongCore
     {kb : KnowledgeBase sig}
     (sc : FactSet sig) (sc_universal : sc.universallyModelsKb kb) (sc_strong : sc.isStrongCore)
     (wc : FactSet sig) (wc_universal : wc.universallyModelsKb kb) (wc_weak : wc.isWeakCore) :
-    ∃ (iso : GroundTermMapping sig), iso.isHomomorphism wc sc ∧ iso.strong wc.terms wc sc ∧ iso.injectiveSet wc.terms ∧ iso.surjectiveSet wc.terms sc.terms := by
+    ∃ (iso : GroundTermMapping sig), iso.isIsomorphism wc sc := by
 
   rcases sc_universal.right wc wc_universal.left with ⟨h_sc_wc, h_sc_wc_hom⟩
   rcases wc_universal.right sc sc_universal.left with ⟨h_wc_sc, h_wc_sc_hom⟩
@@ -590,6 +638,25 @@ theorem strong_core_of_universal_model_is_universal_model
       . apply TermMapping.apply_generalized_atom_set_subset_of_subset
         exact sc_sub.left
       . exact h_hom.right
+
+-- CAUTION:
+-- Not sure if this even holds. Consider F = {A(n1), A(n2)} and G = {A(c), A(d)}. There is an isomorphism from F to G but G is a weak core while F is not.
+-- (n1,n2 are nulls and c,d are constants.
+theorem weak_core_of_isomorphic_to_weak_core {fs wc : FactSet sig} (wc_core : wc.isWeakCore) :
+    (∃ iso : GroundTermMapping sig, iso.isIsomorphism fs wc) -> fs.isWeakCore := by
+  intro ⟨g, iso⟩ h endo
+  sorry
+
+theorem strong_core_of_isomorphic_to_strong_core {fs sc : FactSet sig} (sc_core : sc.isStrongCore) :
+    (∃ iso : GroundTermMapping sig, iso.isIsomorphism fs sc) -> fs.isStrongCore := by
+  intro ⟨g, iso⟩ h endo
+  have sc_weak : sc.isWeakCore := by intro h endo; exact ⟨(sc_core h endo).left, (sc_core h endo).right.left⟩
+  have weak := weak_core_of_isomorphic_to_weak_core sc_weak ⟨g, iso⟩ h endo
+  constructor
+  . exact weak.left
+  constructor
+  . exact weak.right
+  . sorry
 
 end FactSet
 
