@@ -1,5 +1,8 @@
-import ExistentialRules.ChaseSequence.Termination.Basic
+module
 
+public import ExistentialRules.ChaseSequence.Termination.Basic
+
+public section
 
 section AtomPositions
 /-
@@ -1050,7 +1053,7 @@ section TriggersAndChaseDerivation
           pi.rule.val.head.fst.predicate = (labelling_of_apply pi).fst.predicate := by
             unfold labelling_of_apply;
             simp only[ruleApply_eq];
-            unfold PreTrigger.apply_to_function_free_atom PreTrigger.apply_to_var_or_const TermMapping.apply_generalized_atom;
+            unfold PreTrigger.apply_to_function_free_atom TermMapping.apply_generalized_atom;
             simp;
 
     /--The predicates of the  second atom of the  rule head and the second fact produced by `labelling_of_apply` are the same-/
@@ -1058,7 +1061,7 @@ section TriggersAndChaseDerivation
           pi.rule.val.head.snd.predicate = (labelling_of_apply pi).snd.predicate := by
             unfold labelling_of_apply;
             simp only[ruleApply_eq];
-            unfold PreTrigger.apply_to_function_free_atom PreTrigger.apply_to_var_or_const TermMapping.apply_generalized_atom;
+            unfold PreTrigger.apply_to_function_free_atom TermMapping.apply_generalized_atom;
             simp;
 
     /--The number of terms in the first atom of the trigger's rule head and in the first fact produced by `labelling_of_apply` are the same-/
@@ -1091,7 +1094,8 @@ section TriggersAndChaseDerivation
         = (labelling_of_apply pi).fst.terms[idxH]'(by rw[trg_apply_labelling_fst_terms_len] at idxH_valid; exact idxH_valid) := by
       intro t_eq
       unfold labelling_of_apply
-      simp
+      simp only
+      unfold labellingFunction
       rw[rule_terms_eq_implies_ruleApply_terms_eq_fstHead (idxB:= idxB) (idxH := idxH) idxH_valid idxB_valid]
       rw[eq_comm]
       exact t_eq
@@ -1103,7 +1107,8 @@ section TriggersAndChaseDerivation
         = (labelling_of_apply pi).snd.terms[idxH]'(by rw[trg_apply_labelling_snd_terms_len] at idxH_valid; exact idxH_valid) := by
       intro t_eq
       unfold labelling_of_apply
-      simp
+      simp only
+      unfold labellingFunction
       rw[rule_terms_eq_implies_ruleApply_terms_eq_sndHead (idxB:= idxB) (idxH := idxH) idxH_valid idxB_valid]
       rw[eq_comm]
       exact t_eq
@@ -1118,6 +1123,7 @@ section TriggersAndChaseDerivation
       pi.appears_in_forest g ∧ ¬ (pi.apply.fst ∈ g.f ∧ pi.apply.snd ∈ g.f)
 
     /--A forest-address is just an address that occurs in a specific forest-/
+    @[expose]
     def forest_Address {fs: FactSet sig} (g : Forest fs rs) := {addr : Address fs rs // addr ∈ g.f }
 
     /--every forest address where the forest is subforest of the oblivious chase is labelled to Option.some ... by the `labellingFunction`-/
@@ -1130,6 +1136,7 @@ section TriggersAndChaseDerivation
         exact g_sub
 
     /--A forest_trigger of a forest is a trigger that appears in that specific forest-/
+    @[expose]
     def forest_Trigger {fs: FactSet sig} (g : Forest fs rs) := {trg : LinearRuleTrigger fs rs // trg.appears_in_forest g}
 
     /--Two addresses b1, b2 are Blocking team for a trigger iff ...(See definition 11 in the paper). Note that this definition slighliy differs from the definition in the paper in the sense that we don't requite h to be the identity on ⟨u⟩ but only on the frontier-positional terms in ⟨u⟩-/

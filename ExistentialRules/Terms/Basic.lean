@@ -90,6 +90,7 @@ namespace VarOrConst
 variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
 
 /-- A `VarOrConst` is a variable if it was built using the `VarOrConst.var` constructor. -/
+@[expose]
 def isVar : VarOrConst sig -> Bool
 | .var _ => true
 | .const _ => false
