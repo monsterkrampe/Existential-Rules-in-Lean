@@ -1,5 +1,55 @@
 import ExistentialRules.ChaseSequence.Termination.Basic
 
+
+section AtomPositions
+/-
+The following definitions around Atom Positions aren't used in the rest of this file yet
+but could hopefully make some definitions and proofs for linear chase termination a bit easier.
+-/
+
+/--An `AtomPos` consists of a `GeneralizedAtom` and a Number i that refers to the term at Position i in that Atom-/
+structure AtomPos (sig : Signature) (T : Type u) [DecidableEq sig.P] where
+  a: GeneralizedAtom sig T
+  i: Fin a.terms.length
+
+namespace AtomPos
+
+  variable {sig : Signature} {T: Type u} [DecidableEq sig.P]
+
+  /--Returns the term at the position referred by `AtomPos`-/
+  def term (pos: AtomPos sig T) : T := pos.a.terms[pos.i]
+
+  /--i is a valid index for a `GeneralizedAtom` a if it refers to an actual term of the atom a-/
+  def idx_valid (a: GeneralizedAtom sig T)(i: Nat) : Bool :=
+    if i < a.terms.length then true else false
+
+  /--We apply a `TermMapping` to an `AtomPos` by applying the Mapping to the Atom and keeping the same positional Number-/
+  def mapping (h: TermMapping T S)(pos: AtomPos sig T) :  AtomPos sig S where
+    a:= TermMapping.apply_generalized_atom h pos.a
+    i:= Fin.cast (by rw[TermMapping.length_terms_apply_generalized_atom]) pos.i
+
+  /--It doesn't matter if we first get the term from a `AtomPos` and then apply a `TermMapping` or if we first apply the mapping on the `AtomPos` and the retrieve the Term-/
+  theorem term_map_eq (pos: AtomPos sig T) (h: TermMapping T S): h pos.term = term (mapping h pos) := by
+    unfold term mapping TermMapping.apply_generalized_atom
+    simp
+
+  /--We get the same result if we first apply a `TermMapping` to an atom and then build an `AtomPos` from the result or vice versa-/
+  theorem termMapping_AtomPos_eq (h: TermMapping T S) (a : GeneralizedAtom sig T) (i : Fin a.terms.length) :
+      {a:= TermMapping.apply_generalized_atom h a, i:= Fin.cast (by rw[TermMapping.length_terms_apply_generalized_atom]) i} = mapping h {a:=a, i:= i} := by
+    unfold mapping TermMapping.apply_generalized_atom
+    simp
+
+end AtomPos
+
+end AtomPositions
+
+
+instance {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [Inhabited sig.C] : Inhabited (PreGroundTerm sig) where
+  default := .leaf default
+
+instance {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [Inhabited sig.C] : Inhabited (GroundTerm sig) where
+  default := ⟨default, by unfold PreGroundTerm.arity_ok; rfl⟩
+
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] [Inhabited sig.C]
 --some of those variables are not needed for all definitions. Therefore it might be advisable to think about including them more fine-grained in the specific sections. However this would need some careful code restructuring
 --most of the later definitions and theorem include  `FactSet sig` and  `RuleSet sig` as parameters. Maybe one could think about declaring them as section variables too.
@@ -37,13 +87,6 @@ section Rules
       (conj[0], conj[1])
 
   end LinearRule
-    /-- If two atoms have the same predicate, then they thave an equal number of terms-/
-    theorem Atom_pred_eq_implies_eq_term_length {a b : GeneralizedAtom sig (T)}:
-      a.predicate = b.predicate -> a.terms.length = b.terms.length := by
-        intro pred_eq
-        rw[GeneralizedAtom.arity_ok]
-        rw[pred_eq]
-        rw[GeneralizedAtom.arity_ok]
 
     theorem LinearRule.body_eq {rule : LinearRule sig}: rule.rule.body = [rule.body] := by
       unfold LinearRule.body
