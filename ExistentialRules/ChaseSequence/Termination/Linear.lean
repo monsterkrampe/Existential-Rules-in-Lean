@@ -1,11 +1,28 @@
+/-
+Copyright 2026 Laila Walter, Lukas Gerlach
+Released under Apache 2.0 license as described in the file LICENSE.
+-/
+
 module
 
 public import ExistentialRules.ChaseSequence.Termination.Basic
 
+/-!
+
+# Chase Termination for Linear (Multi-Head) Rules
+
+This file contains an attempt of formalizing reductions from one of our recent papers where we show that
+chase termination is decidable for linear existential rules [LinearMultiHeadTermination].
+
+**The file contains code contributed by Laila in a student project covering preliminary definitions from the paper up until the mixed derivation. The contents are in an early stage of development. The code will be extended in the future and likely be reworked in the process.**
+
+-/
+
 public section
 
 section AtomPositions
-/-
+
+/-!
 The following definitions around Atom Positions aren't used in the rest of this file yet
 but could hopefully make some definitions and proofs for linear chase termination a bit easier.
 -/
@@ -53,9 +70,6 @@ instance {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [Inhabited si
 instance {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [Inhabited sig.C] : Inhabited (GroundTerm sig) where
   default := ⟨default, by unfold PreGroundTerm.arity_ok; rfl⟩
 
-variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] [Inhabited sig.C]
---some of those variables are not needed for all definitions. Therefore it might be advisable to think about including them more fine-grained in the specific sections. However this would need some careful code restructuring
---most of the later definitions and theorem include  `FactSet sig` and  `RuleSet sig` as parameters. Maybe one could think about declaring them as section variables too.
 
 section Rules
   /-!
@@ -65,6 +79,8 @@ section Rules
   Here we additionally restrict the rule heads to be a conjunction of exactly two head atoms
   (usually linear rule heads admit conjunctions of an arbitrary numberof atoms).
   -/
+
+  variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
   /-- A Rule is linear if it's body consists of exactli one atom-/
   def Rule.isLinear (rule : Rule sig) : Prop := rule.body.length = 1 -- maybe this should be ≤ 1 but equality makes things more elegant for now
@@ -298,6 +314,8 @@ end Rules
 
 section SubstitutionsAndTriggers
 
+  variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
+
   /--This function modifies the Substitution s such that v ↦ c and otherwise s is the same as before-/
   def extend_Substitutution  (s: GroundSubstitution sig) (v: sig.V) (c: GroundTerm sig) : GroundSubstitution sig := fun x => if x = v then c else s x
 
@@ -500,6 +518,8 @@ section SubstitutionsAndTriggers
               apply ih
               . exact map_unzip_eq.right
               . exact subs_agrees_on_vars
+
+  variable [DecidableEq sig.P] [Inhabited sig.C]
 
   /--A ground substitution is a homomorphism from an atom to a fact. This function returns such a GroundSubstitution if there exists one. (Otherwise returns Option.none) -/
   def GroundSubstitution.from_atom_and_fact (atom : FunctionFreeAtom sig) (fact : Fact sig) : Option (GroundSubstitution sig) :=
@@ -865,6 +885,8 @@ end SubstitutionsAndTriggers
 
 section Addresses
 
+  variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
+
   /--an AddressSymbol consists of a Linear Rule and a Number 0 or 1 that references the first(0) or second(1) head of that rule-/
   structure AddressSymbol (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] where
     rule : LinearRule sig
@@ -923,6 +945,8 @@ section Addresses
 end Addresses
 
 section ObvliviousChaseRepresentation
+
+  variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] [Inhabited sig.C]
 
   /--The Labelling Function maps an address to a fact if possible.
   The fact is created by successively applying the rules of the address symbols.
@@ -984,6 +1008,8 @@ end ObvliviousChaseRepresentation
 
 
 section TriggersAndChaseDerivation
+
+  variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] [Inhabited sig.C]
 
   /--A trigger consists of a Linear rule from the rule set and an address such that there exists an homomorphism from the rulebody to the labelling of the address-/
   structure LinearRuleTrigger (fs: FactSet sig) (rs: LinearRuleSet sig) where
@@ -1339,11 +1365,11 @@ section TriggersAndChaseDerivation
           let h: GroundTermMapping sig := fun t =>
             if tInFst: t ∈ (labelling_of_apply pi.val).fst.terms
             then cond.b1_label.terms[(labelling_of_apply pi.val).fst.terms.idxOf t]'(by
-              rw[Atom_pred_eq_implies_eq_term_length cond.first.left];
+              rw[GeneralizedAtom.length_terms_eq_of_predicate_eq cond.first.left];
               rw[List.idxOf_lt_length_iff]; exact tInFst)
             else if tInSnd: t ∈ (labelling_of_apply pi.val).snd.terms
               then cond.b2_label.terms[(labelling_of_apply pi.val).snd.terms.idxOf t]'(by
-                rw[Atom_pred_eq_implies_eq_term_length cond.first.right];
+                rw[GeneralizedAtom.length_terms_eq_of_predicate_eq cond.first.right];
                 rw[List.idxOf_lt_length_iff]; exact tInSnd)
               else t
           exists h
@@ -1411,7 +1437,7 @@ section TriggersAndChaseDerivation
               . simp[i_len]
                 have i_lt : i < ((labellingFunction b1.val).get (by apply forest_addr_label_some; exact g_sub)).terms.length := by
                   rw[← cond.b1_label_eq]
-                  rw[Atom_pred_eq_implies_eq_term_length fst.left]
+                  rw[GeneralizedAtom.length_terms_eq_of_predicate_eq fst.left]
                   exact i_len
                 simp only [List.getElem_mem, ↓reduceDIte, h, List.getElem?_eq_some_iff]
                 exists i_lt
@@ -1419,7 +1445,7 @@ section TriggersAndChaseDerivation
                 simp only[cond.b1_label_eq]
               . simp only [i_len, not_false_eq_true, getElem?_neg, getElem?_eq_none_iff, Nat.not_lt]
                 rw[← cond.b1_label_eq]
-                rw[Atom_pred_eq_implies_eq_term_length fst.left]
+                rw[GeneralizedAtom.length_terms_eq_of_predicate_eq fst.left]
                 rw[← Nat.not_lt]
                 exact i_len
             . constructor
@@ -1434,7 +1460,7 @@ section TriggersAndChaseDerivation
                 . simp only [i_len, getElem?_pos]
                   have i_lt : i < ((labellingFunction b2.val).get (by apply forest_addr_label_some; exact g_sub)).terms.length := by
                     rw[← cond.b2_label_eq]
-                    rw[Atom_pred_eq_implies_eq_term_length fst.right]
+                    rw[GeneralizedAtom.length_terms_eq_of_predicate_eq fst.right]
                     exact i_len
                   simp only [List.getElem_mem, ↓reduceDIte, h, List.getElem?_eq_some_iff]
                   exists i_lt
@@ -1456,7 +1482,7 @@ section TriggersAndChaseDerivation
                     simp[cond.b2_label_eq]
                 . simp only [i_len, not_false_eq_true, getElem?_neg, getElem?_eq_none_iff]
                   rw[← cond.b2_label_eq]
-                  rw[Atom_pred_eq_implies_eq_term_length fst.right]
+                  rw[GeneralizedAtom.length_terms_eq_of_predicate_eq fst.right]
                   exact i_len
 
               -- shows h.isIdOnConstants
@@ -1776,7 +1802,7 @@ section TriggersAndChaseDerivation
       . simp only [Bool.not_eq_true, Option.isSome_eq_false_iff, Option.isNone_iff_eq_none] at f_some
         simp only [f_some, Option.elim_none] at h
 
-    /--/--for every n, the trigger in the trigger sequence at position n (if there is some) appears in the forest of the forest-sequence at position n-/-/
+    /--for every n, the trigger in the trigger sequence at position n (if there is some) appears in the forest of the forest-sequence at position n-/
     theorem trg_n_forest_trigger {fs: FactSet sig} {deriv: LChaseDerivation fs rs}:
         ∀ n, ∀ trg, (trg_n: trg ∈ deriv.trigger_seq.get? n)
         -> trg.appears_in_forest ((deriv.forest_seq.get? n).get (by apply trg_seq_n_some_then_forest_seq_n_some; simp only[Option.isSome_iff_exists]; exists trg)) := by
@@ -1822,7 +1848,7 @@ section TriggersAndChaseDerivation
         specialize h (n+k)
         simp at h
         simp at f2_elem
-        simp only[Nat.add_comm, ← Nat.add_assoc, Nat.add_one] at diff
+        simp only[Nat.add_comm, Nat.add_one] at diff
         rw[diff] at f2_elem
         simp only[Nat.add_succ] at f2_elem
         have some_g : ∃ g, deriv.forest_seq.get? (n+k) = some g := by
@@ -1939,5 +1965,5 @@ section TriggersAndChaseDerivation
 
     end LChaseDerivation
 
-
 end TriggersAndChaseDerivation
+

@@ -33,12 +33,10 @@ structure GeneralizedAtom (sig : Signature) (T : Type u) [DecidableEq sig.P] whe
 deriving DecidableEq
 
 /-- If two atoms have the same predicate, then they thave an equal number of terms-/
-theorem Atom_pred_eq_implies_eq_term_length {sig: Signature} [DecidableEq sig.P] {a b : GeneralizedAtom sig (T)} :
+theorem GeneralizedAtom.length_terms_eq_of_predicate_eq
+    {sig: Signature} {T : Type u} [DecidableEq sig.P] {a b : GeneralizedAtom sig T} :
     a.predicate = b.predicate -> a.terms.length = b.terms.length := by
-        intro pred_eq
-        rw[GeneralizedAtom.arity_ok]
-        rw[pred_eq]
-        rw[GeneralizedAtom.arity_ok]
+  intro pred_eq;rw [GeneralizedAtom.arity_ok, pred_eq, GeneralizedAtom.arity_ok]
 
 /-!
 ## Atom
