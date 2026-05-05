@@ -32,6 +32,12 @@ structure GeneralizedAtom (sig : Signature) (T : Type u) [DecidableEq sig.P] whe
   arity_ok : terms.length = sig.arity predicate
 deriving DecidableEq
 
+/-- If two atoms have the same predicate, then they thave an equal number of terms-/
+theorem GeneralizedAtom.length_terms_eq_of_predicate_eq
+    {sig: Signature} {T : Type u} [DecidableEq sig.P] {a b : GeneralizedAtom sig T} :
+    a.predicate = b.predicate -> a.terms.length = b.terms.length := by
+  intro pred_eq;rw [GeneralizedAtom.arity_ok, pred_eq, GeneralizedAtom.arity_ok]
+
 /-!
 ## Atom
 -/
@@ -786,4 +792,3 @@ def isDeterministic (kb : KnowledgeBase sig) : Prop := kb.rules.isDeterministic
 end KnowledgeBase
 
 end KnowledgeBase
-
