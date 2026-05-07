@@ -1301,9 +1301,10 @@ theorem generate_subderivation_mem_branches {td : TreeDerivation obs rules}
     {maximal : ∀ b, generator b = none -> (mapper b).subderivation.childTrees = []}
     (start_eq : mapper start = NodeWithAddress.root td) :
     td.generate_subderivation start generator mapper next_is_child maximal ∈ td.branches := by
-  have : td = (mapper start).subderivation := by rw [start_eq, NodeWithAddress.subderivation_root]
-  conv => left; rw [this]
-  exact td.generate_branch_mem_tree_branches next_is_child maximal
+  suffices td = (mapper start).subderivation by
+    conv => left; rw [this]
+    exact td.generate_branch_mem_tree_branches next_is_child maximal
+  rw [start_eq, NodeWithAddress.subderivation_root]
 
 /-- The head for the derivation produced by `generate_subderivation` is exactly the mapped start value. -/
 @[simp, grind =]
@@ -1338,6 +1339,32 @@ theorem tail_generate_subderivation {td : TreeDerivation obs rules}
   rw [ChaseDerivation.mk.injEq, ChaseDerivationSkeleton.mk.injEq]
   simp only [generate_subderivation, generate_branch, ChaseDerivation.tail, ChaseDerivationSkeleton.tail, derivation_for_branch, ChaseDerivation.derivation_for_skeleton, ChaseDerivationSkeleton.derivation_for_branch_suffix]
   rw [FiniteDegreeTree.tail_generate_branch, Option.bind_some, next_mem]
+
+/-- A node occurs in `generate_subderivation` iff there is an appropriate number of repetitions for the generator function. -/
+theorem mem_generate_subderivation {td : TreeDerivation obs rules}
+    {start : β} {generator : β -> Option β} {mapper : β -> td.NodeWithAddress}
+    {next_is_child : ∀ b, ∀ b' ∈ generator b, mapper b' ∈ (mapper b).childNodes}
+    {maximal : ∀ b, generator b = none -> (mapper b).subderivation.childTrees = []}
+    {node : ChaseNode obs rules} :
+    node ∈ (td.generate_subderivation start generator mapper next_is_child maximal) ↔
+    ∃ n, node ∈ (((·.bind generator).repeat_fun n (some start)).map mapper).map NodeWithAddress.node := by
+  rw [ChaseDerivation.mem_iff]
+  simp only [generate_subderivation, generate_branch, derivation_for_branch]
+  constructor
+  . intro ⟨n, h⟩; exists n
+    rw [FiniteDegreeTree.get?_generate_branch, Option.map_map, Option.map_eq_some_iff] at h
+    rw [Option.mem_def, Option.map_map, Option.map_eq_some_iff]
+    rcases h with ⟨b, h, b_eq⟩
+    exists b; constructor; exact h
+    suffices node = (mapper b).subderivation.root by rw [this, NodeWithAddress.root_subderivation']; simp
+    rw [← b_eq]; rfl
+  . intro ⟨n, h⟩; exists n
+    rw [FiniteDegreeTree.get?_generate_branch, Option.map_map, Option.map_eq_some_iff]
+    rw [Option.mem_def, Option.map_map, Option.map_eq_some_iff] at h
+    rcases h with ⟨b, h, b_eq⟩
+    exists b; constructor; exact h
+    suffices node = (mapper b).subderivation.root by rw [this]; rfl
+    rw [← b_eq, NodeWithAddress.root_subderivation']; simp
 
 end Generate
 
