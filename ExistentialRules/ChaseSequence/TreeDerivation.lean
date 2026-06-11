@@ -9,6 +9,8 @@ public import PossiblyInfiniteTrees.PossiblyInfiniteTree.FiniteDegreeTree.Basic
 
 public import ExistentialRules.ChaseSequence.ChaseDerivation
 
+set_option pp.proofs true
+
 /-!
 # Tree Derivation
 
@@ -472,7 +474,10 @@ theorem subderivation_mem_childTrees_of_mem_childNodes {td : TreeDerivation obs 
   rcases node2_mem with ⟨⟨node2_with_idx, node2_mem⟩, node2_eq⟩
   rw [List.mem_zipIdx_with_lt_iff_mem_zipIdx] at node2_mem
   have node2_mem := List.mem_zipIdx' node2_mem
-  have : node2.subderivation = node.subderivation.childTrees[node2_with_idx.snd.val]'(by have lt := node2_with_idx.snd.isLt; simp only [childNodes_eq, List.length_map] at lt; exact lt) := by simp only [childTrees, subderivation, derivation_for_suffix]; grind
+  have : node2.subderivation = node.subderivation.childTrees[node2_with_idx.snd.val]'(by have lt := node2_with_idx.snd.isLt; simp only [childNodes_eq, List.length_map] at lt; exact lt) := by
+    simp only [childTrees, subderivation, derivation_for_suffix]
+    suffices node2.address = node.address ++ [node2_with_idx.snd.val] by simp [this]
+    grind
   rw [this]
   apply List.getElem_mem
 
@@ -515,7 +520,8 @@ theorem mem_rec_address
         let new_root : td.NodeWithAddress := { node := m, address := tl.reverse, eq := eq }
         specialize step new_root (ih m eq) _ (by
           simp only [NodeWithAddress.childNodes, List.mem_map]
-          exists ⟨⟨n, ⟨hd, by simp only [NodeWithAddress.subderivation, derivation_for_suffix, childNodes, new_root]; grind⟩⟩, by simp only [NodeWithAddress.subderivation, derivation_for_suffix, childNodes, new_root]; grind⟩
+          exists ⟨⟨n, ⟨hd, by simp only [NodeWithAddress.subderivation, derivation_for_suffix, childNodes, new_root]; grind⟩⟩, by
+            rw [List.mem_zipIdx_with_lt_iff_mem_zipIdx]; simp only [NodeWithAddress.subderivation, derivation_for_suffix, childNodes]; grind⟩
           constructor; simp; rfl)
         simp only [new_root] at step
         simp only [List.reverse_cons]
@@ -729,7 +735,7 @@ def derivation_for_branch (td : TreeDerivation obs rules) (branch : PossiblyInfi
         rw [List.getElem?_eq_getElem (by simpa using n_lt_head_length)]
         simp [n_lt_head_length]
       | inr n_lt_head_length =>
-        have : (td.tree.drop (ns.take n)).childNodes[ns.get n]? = none := by rw [trg_ex.right]; grind
+        have : (td.tree.drop (ns.take n)).childNodes[ns.get n]? = none := by rw [trg_ex.right]; simp; grind
         have : node ∈ td.tree.leaves := by
           rw [FiniteDegreeTree.mem_leaves]
           exists (ns.take n)
@@ -781,7 +787,7 @@ def derivation_for_branch (td : TreeDerivation obs rules) (branch : PossiblyInfi
         rw [List.getElem_map, List.getElem_attach, ChaseNode.mk.injEq] at after_mem
         exact ⟨_, ⟨Eq.symm after_mem.right, trg_ex.left⟩⟩
       | inr n_lt_head_length =>
-        have : (td.tree.drop (ns.take n)).childNodes[ns.get n]? = none := by rw [trg_ex.right]; grind
+        have : (td.tree.drop (ns.take n)).childNodes[ns.get n]? = none := by rw [trg_ex.right]; simp; grind
         have : node ∈ td.tree.leaves := by
           rw [FiniteDegreeTree.mem_leaves]
           exists (ns.take n)

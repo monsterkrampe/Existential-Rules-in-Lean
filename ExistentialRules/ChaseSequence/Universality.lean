@@ -119,9 +119,9 @@ noncomputable def hom_step_of_trg_ex
       have f_mem : f ∈ trg.val.mapped_head[result_index_for_trg.val] := by
         simp only [List.mem_toSet, TreeDerivation.NodeWithAddress.node_getElem_childNodes, trg_result_used_for_next_chase_step] at f_mem
         simp only [List.getElem_map, List.getElem_attach] at f_mem
-        have : ((Classical.choose trg_ex).val.mapped_head.zipIdx_with_lt[head_index_for_m_subs.val]'(by simpa using result_index_for_trg.isLt)).fst.toSet = ((Classical.choose trg_ex).val.mapped_head[head_index_for_m_subs.val]'(result_index_for_trg.isLt)).toSet := by grind
+        have : ((Classical.choose trg_ex).val.mapped_head.zipIdx_with_lt[head_index_for_m_subs.val]'(by simpa using result_index_for_trg.isLt)).fst.toSet = ((Classical.choose trg_ex).val.mapped_head[head_index_for_m_subs.val]'(result_index_for_trg.isLt)).toSet := by rw [List.zipIdx_with_lt_getElem_fst_eq_getElem]
         simp only [this] at f_mem
-        have : ((Classical.choose trg_ex).val.mapped_head.zipIdx_with_lt[head_index_for_m_subs.val]'(by simpa using result_index_for_trg.isLt)).snd = ⟨head_index_for_m_subs.val, result_index_for_trg.isLt⟩ := by grind
+        have : ((Classical.choose trg_ex).val.mapped_head.zipIdx_with_lt[head_index_for_m_subs.val]'(by simpa using result_index_for_trg.isLt)).snd = ⟨head_index_for_m_subs.val, result_index_for_trg.isLt⟩ := by rw [List.zipIdx_with_lt_getElem_snd_eq_index]
         simp only [this] at f_mem
         simp only [ChaseNode.origin_result, Option.get_some] at f_mem
         exact f_mem

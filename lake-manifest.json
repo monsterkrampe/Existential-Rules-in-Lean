@@ -1,11 +1,11 @@
-{"version": "1.1.0",
+{"version": "1.2.0",
  "packagesDir": ".lake/packages",
  "packages":
  [{"url": "https://github.com/monsterkrampe/Possibly-Infinite-Trees.git",
    "type": "git",
    "subDir": null,
    "scope": "",
-   "rev": "100c79f89a7bf18200f9bd0f809b76258d39f8d9",
+   "rev": "44efbb4426fb1b988068de4cf7cad8c5c008d8c7",
    "name": "PossiblyInfiniteTrees",
    "manifestFile": "lake-manifest.json",
    "inputRev": "main",
@@ -15,11 +15,12 @@
    "type": "git",
    "subDir": null,
    "scope": "",
-   "rev": "5b3fade5003d74988527ffe235b7e103bc328b2d",
+   "rev": "c50d1f9749bd89a858b08c2c9756cfe5417352df",
    "name": "BasicLeanDatastructures",
    "manifestFile": "lake-manifest.json",
    "inputRev": "main",
    "inherited": false,
    "configFile": "lakefile.toml"}],
  "name": "ExistentialRules",
- "lakeDir": ".lake"}
+ "lakeDir": ".lake",
+ "fixedToolchain": false}
