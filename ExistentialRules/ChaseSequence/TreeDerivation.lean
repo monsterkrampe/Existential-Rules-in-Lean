@@ -9,8 +9,6 @@ public import PossiblyInfiniteTrees.PossiblyInfiniteTree.FiniteDegreeTree.Basic
 
 public import ExistentialRules.ChaseSequence.ChaseDerivation
 
-set_option pp.proofs true
-
 /-!
 # Tree Derivation
 
