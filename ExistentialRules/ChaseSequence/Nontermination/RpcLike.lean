@@ -6,6 +6,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import ExistentialRules.ChaseSequence.Termination.Basic
+import ExistentialRules.ChaseSequence.Nontermination.CondenseGenerator
 import ExistentialRules.ChaseSequence.Nontermination.SparseSubderivationGenerator
 
 /-!
@@ -210,50 +211,103 @@ theorem corresponding_tree_branch_exists {cd : CyclicityDerivation obs rules} (t
       . apply Set.subset_trans b.property
         exact td.facts_node_subset_of_prec new_snd_spec.left
       . exact new_snd_spec.right⟩
-  let deriv := td.generate_subderivation_from_sparse_of_total_generator start generator mapper (by
-    intro b
-    let next := b.val.fst.next
-    let origin := next.origin.get b.val.fst.isSome_origin_next
-    have unblk := b.val.fst.unblockable next b.val.fst.next_mem origin (by simp [origin]) td b.val.snd (by
-      have loaded : origin.fst.val.loaded b.val.fst.head.facts := b.val.fst.loaded_trigger_origin_next
-      apply Set.subset_trans loaded
-      exact b.property)
-    have prec := TreeDerivation.eq_or_strict_of_predecessor (Classical.choose_spec unblk).left
-    cases prec with
-    | inr prec => exact prec
-    | inl eq =>
-      -- TODO: We cannot show the goal here. This case can really occur!
-      -- We need to adjust the generator to make this work; this is not quite trivial it seems.
-      -- The snd value can indeed occur in multiple steps only we know at at some point we are able to find a new one because we are growing
-      -- reflecting this in the generator is going to be painful
-      -- MAYBE we can define another generator on top that condenses the first one by skipping values where snd does not change?
-      -- For this we need to show that there exists an index where the snd value is going to be different. Can we do this and is this enough?
-      sorry)
+  have different_value_exists : ∀ b, ∃ n, mapper (generator.repeat_fun n b) ≠ mapper b := by sorry
+  let condensed_generator := Function.condense_generator generator mapper different_value_exists
+  let deriv := td.generate_subderivation_from_sparse_of_total_generator start condensed_generator mapper (by
+    suffices ∀ b n, mapper b ≼ mapper (generator.repeat_fun n b) by
+      intro b; constructor
+      . rcases Function.condense_generator_eq_repeat_generator generator mapper different_value_exists b with ⟨n, eq⟩
+        unfold condensed_generator; rw [eq]; exact this b n
+      . apply Ne.symm; apply Function.condense_generator_next_ne
+
+    intro b n
+    induction n with
+    | zero => rw [Function.repeat_zero]; grind
+    | succ n ih =>
+      rw [Function.repeat_succ]
+      apply TreeDerivation.predecessor_trans ih
+      let next := (generator.repeat_fun n b).val.fst.next
+      let origin := next.origin.get (generator.repeat_fun n b).val.fst.isSome_origin_next
+      have unblk := (generator.repeat_fun n b).val.fst.unblockable next (generator.repeat_fun n b).val.fst.next_mem origin (by simp [origin]) td (generator.repeat_fun n b).val.snd (by
+        have loaded : origin.fst.val.loaded (generator.repeat_fun n b).val.fst.head.facts := (generator.repeat_fun n b).val.fst.loaded_trigger_origin_next
+        apply Set.subset_trans loaded
+        exact (generator.repeat_fun n b).property)
+      exact (Classical.choose_spec unblk).left)
 
   exists deriv; constructor
   . apply td.generate_subderivation_from_sparse_of_total_generator_mem_branches
     simp [mapper, start]
-  . suffices ∀ i, cd.branch.drop i = ((InfiniteList.iterate start generator).get i).val.fst.branch by
+  . suffices ∀ node : cd.Node, ∃ (node2 : cd.Node), node ≼ node2 ∧ node2.val ∈ (InfiniteList.iterate start condensed_generator).map (fun e => e.val.fst.head) by
       intro f ⟨node, node_mem, f_mem⟩
-      rcases ChaseDerivationSkeleton.mem_iff.mp node_mem with ⟨i, node_mem⟩
-      exists ((InfiniteList.iterate start generator).get i).val.snd.node; constructor
+      rcases this ⟨node, node_mem⟩ with ⟨node2, prec, node2_mem⟩
+      rw [InfiniteList.mem_map] at node2_mem
+      rcases node2_mem with ⟨b, b_mem, node2_mem⟩
+      exists b.val.snd.node; constructor
       . rw [← deriv.mem_def]
         apply td.mem_generate_subderivation_from_sparse_of_total_generator_of_mem_original_generator
-        exists i
-      . rw [← PossiblyInfiniteList.head_drop, this] at node_mem
-        apply ((InfiniteList.iterate start generator).get i).property
-        unfold ChaseDerivationSkeleton.head
-        simpa [node_mem] using f_mem
-    intro i
+        exact b_mem
+      . apply b.property
+        rw [node2_mem]
+        apply ChaseDerivationSkeleton.facts_node_subset_of_prec prec
+        exact f_mem
+    suffices ∀ i, ∃ j, (condensed_generator.repeat_fun j start).val.fst.branch <:+ cd.branch.drop i by
+      intro ⟨node, node_mem⟩
+      rcases ChaseDerivationSkeleton.mem_iff.mp node_mem with ⟨i, node_mem⟩
+      rcases this i with ⟨j, suffix⟩
+      exists ⟨(condensed_generator.repeat_fun j start).val.fst.head, by apply ChaseDerivationSkeleton.mem_of_mem_suffix (PossiblyInfiniteList.IsSuffix_trans suffix (PossiblyInfiniteList.IsSuffix_drop _)); exact ChaseDerivationSkeleton.head_mem⟩
+      constructor
+      . exists cd.derivation_for_branch_suffix (cd.branch.drop i) (PossiblyInfiniteList.IsSuffix_drop _) (by grind)
+        constructor; exact PossiblyInfiniteList.IsSuffix_drop _
+        constructor; simp only [ChaseDerivationSkeleton.derivation_for_branch_suffix, ChaseDerivationSkeleton.head]; grind
+        simp only [ChaseDerivationSkeleton.derivation_for_branch_suffix]
+        apply PossiblyInfiniteList.mem_of_mem_suffix suffix
+        exact ChaseDerivationSkeleton.head_mem
+      . rw [InfiniteList.mem_map]
+        exists condensed_generator.repeat_fun j start; constructor
+        . rw [InfiniteList.mem_iff]
+          exists j
+          rw [InfiniteList.get_iterate]
+        . rfl
+    suffices ∀ i, ∃ j, (condensed_generator.repeat_fun j start).val.fst.toChaseDerivationSkeleton <:+ (generator.repeat_fun i start).val.fst.toChaseDerivationSkeleton by
+      suffices branch_eq : ∀ i, cd.branch.drop i = ((InfiniteList.iterate start generator).get i).val.fst.branch by
+        intro i; rw [branch_eq i]; simp only [InfiniteList.get_iterate]; exact this i
+      intro i
+      induction i with
+      | zero => rw [← InfiniteList.head_eq, InfiniteList.head_iterate]; simp [start]
+      | succ i ih =>
+        rw [InfiniteList.get_iterate] at ih
+        rw [InfiniteList.get_succ_iterate]
+        conv => right; right; right; right; right; fun; unfold generator
+        simp only [tail, ChaseDerivationSkeleton.tail, derivation_for_skeleton, ChaseDerivationSkeleton.derivation_for_branch_suffix]
+        rw [← ih]
+        simp
+    suffices ∀ b i, (generator.repeat_fun i b).val.fst.toChaseDerivationSkeleton <:+ b.val.fst.toChaseDerivationSkeleton by
+      suffices condensed_exceeds_generator : ∀ b i, ∃ j k, (condensed_generator.repeat_fun j b) = (generator.repeat_fun (i+k) b) by
+        intro i; rcases condensed_exceeds_generator start i with ⟨j, k, eq⟩
+        exists j; rw [eq, Function.repeat_add, Function.repeat_swap]
+        apply this
+      intro b i
+      induction i with
+      | zero => exists 0, 0
+      | succ i ih =>
+        rcases ih with ⟨j, k, ih⟩
+        rcases Function.condense_generator_eq_repeat_generator generator mapper different_value_exists (condensed_generator.repeat_fun j b) with ⟨k', eq⟩
+        exists j.succ, k + k' - 1
+        rw [Nat.add_assoc, Nat.add_comm 1 _, Nat.sub_one_add_one (by
+          suffices k' ≠ 0 by grind
+          intro contra
+          rw [contra, Function.repeat_zero] at eq
+          apply Function.condense_generator_next_ne (generator := generator) (mapper := mapper)
+          rw [eq]
+        )]
+        rw [Function.repeat_succ]
+        unfold condensed_generator
+        rw [eq, ih]
+        conv => right; rw [← Nat.add_assoc, Function.repeat_add, Function.repeat_swap]
+    intro b i
     induction i with
-    | zero => rw [← InfiniteList.head_eq, InfiniteList.head_iterate]; simp [start]
-    | succ i ih =>
-      rw [InfiniteList.get_iterate] at ih
-      rw [InfiniteList.get_succ_iterate]
-      conv => right; right; right; right; right; fun; unfold generator
-      simp only [tail, ChaseDerivationSkeleton.tail, derivation_for_skeleton, ChaseDerivationSkeleton.derivation_for_branch_suffix]
-      rw [← ih]
-      simp
+    | zero =>  simp only [Function.repeat_zero]; exact PossiblyInfiniteList.IsSuffix_refl
+    | succ i ih => rw [Function.repeat_succ]; exact PossiblyInfiniteList.IsSuffix_trans PossiblyInfiniteList.IsSuffix_tail ih
 
 end CyclicityDerivation
 

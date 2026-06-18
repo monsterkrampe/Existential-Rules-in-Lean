@@ -452,6 +452,30 @@ theorem eq_or_strict_of_predecessor {cd : ChaseDerivationSkeleton obs rules} {n1
   | inl eq => apply Or.inl; exact eq
   | inr ne => apply Or.inr; exact ⟨prec, ne⟩
 
+/-- If a node is a strict successor of the head, then it is at least a successor of the next element. -/
+theorem next_prec_of_head_strict_prec {cd : ChaseDerivationSkeleton obs rules} {node : Node cd} :
+    ⟨cd.head, cd.head_mem⟩ ≺ node -> ∀ {next}, (mem : next ∈ cd.next) -> ⟨next, cd.next_mem_of_mem _ mem⟩ ≼ node := by
+  intro ⟨prec, ne⟩ next next_mem
+  rcases prec with ⟨cd2, suffix, head_eq, node_mem⟩
+  exists cd.tail (by rw [next_mem]; simp);
+  constructor
+  . exact cd.branch.IsSuffix_tail
+  constructor
+  . rw [Option.mem_def] at next_mem
+    simp [head_tail', next_mem]
+  cases suffix_iff_eq_or_suffix_tail.mp suffix with
+  | inl eq =>
+    rw [eq, mem_iff_eq_head_or_mem_tail] at node_mem
+    cases node_mem with
+    | inl eq => exfalso; apply ne; rw [Subtype.mk.injEq, eq]
+    | inr mem_tail =>
+      rcases mem_tail with ⟨_, mem_tail⟩
+      exact mem_tail
+  | inr suffix =>
+    rcases suffix with ⟨_, suffix⟩
+    apply mem_of_mem_suffix suffix
+    exact node_mem
+
 end StrictPredecessor
 
 end Predecessors
