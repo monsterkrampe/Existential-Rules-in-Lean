@@ -389,12 +389,12 @@ public theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : Fac
     intro t t_mem
     simp only [global_h]
     split
-    case a.isFalse not_mem =>
+    case isFalse not_mem =>
       apply False.elim
       apply not_mem
       exists step; simp only [step_mem, true_and]
       exists f
-    case a.isTrue t_mem_true =>
+    case isTrue t_mem_true =>
       rcases step_mem with ⟨j, step_mem⟩
       let step2 := Classical.choose t_mem_true
       rcases Classical.choose_spec t_mem_true with ⟨⟨i, step2_mem⟩, t_mem⟩

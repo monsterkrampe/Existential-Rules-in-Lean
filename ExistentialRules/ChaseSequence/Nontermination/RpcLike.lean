@@ -69,7 +69,7 @@ theorem growing' {cd : CyclicityDerivation obs rules} : ∀ node : cd.Node,
 
   let cd2 : ChaseDerivationSkeleton obs rules := cd.derivation_for_branch_suffix _ (cd.branch.IsSuffix_drop n) (by simp [node_eq])
   have cd2_suffix : cd2 <:+ cd.toChaseDerivationSkeleton := cd.branch.IsSuffix_drop n
-  have node_head : node = cd2.head := by simp only [cd2, ChaseDerivationSkeleton.derivation_for_branch_suffix, ChaseDerivationSkeleton.head]; rcases Option.eq_some_iff_get_eq.mp node_eq with ⟨_, node_eq⟩; rw [← node_eq]; simp
+  have node_head : node = cd2.head := by simp only [cd2, ChaseDerivationSkeleton.derivation_for_branch_suffix, ChaseDerivationSkeleton.head]; rcases Option.eq_some_iff_get_eq.mp node_eq with ⟨_, node_eq⟩; simp [← node_eq]
   have cd2_branch : cd2.branch = cd.branch.drop n := rfl
   have node2_mem : node2 ∈ (cd2.branch.drop m).head := by rw [cd2_branch]; grind
 

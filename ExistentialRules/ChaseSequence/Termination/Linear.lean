@@ -632,58 +632,58 @@ section SubstitutionsAndTriggers
   theorem ruleApply_eq {rule : LinearRule sig} {fact : Fact sig} :
       let trg_opt := (PreTrigger.from_rule_and_fact rule fact)
       ruleApply rule fact = trg_opt.map (fun trg => (trg.apply_to_function_free_atom 0 rule.head.fst, trg.apply_to_function_free_atom 0 rule.head.snd)) := by
-      intro tr;
-      rw[ruleApply];
-      have htr : PreTrigger.from_rule_and_fact rule fact = tr := rfl;
-      rcases tr ;
-      -- case none
-      simp;
-      rw[htr];
-      --case some
-      simp;
-      simp [PreTrigger.mapped_head];
-      simp[LinearRule.head];
-      expose_names;
-      exists val;
-      exists htr;
-      simp[And.left (PreTrigger.from_rule_and_fact_some_implies val htr)];
+    intro tr;
+    rw[ruleApply];
+    have htr : PreTrigger.from_rule_and_fact rule fact = tr := rfl;
+    rcases tr ;
+    -- case none
+    simp;
+    rw[htr];
+    --case some
+    simp;
+    simp [PreTrigger.mapped_head];
+    simp[LinearRule.head];
+    expose_names;
+    exists val;
+    exists htr;
+    simp[And.left (PreTrigger.from_rule_and_fact_some_implies val htr)];
 
   /--If `ruleApply` returns some value for a rule and a fact, then `PreTrigger.from_rule_and_fact` also returns some value for the same rule and fact-/
   theorem ruleApply.some_implies_PreTrigger_some {rule: LinearRule sig} {fact: Fact sig}:
-    (ruleApply rule fact).isSome -> (PreTrigger.from_rule_and_fact rule fact).isSome := by
+      (ruleApply rule fact).isSome -> (PreTrigger.from_rule_and_fact rule fact).isSome := by
     rw[ruleApply_eq]
     simp
 
   /--If `ruleApply` returns some for a rule and a fact, then this means, that rulebody and fact have the same number of terms in their resp. atom-/
   theorem ruleApply.body_length_eq_fact_length {rule: LinearRule sig} {fact: Fact sig} :
-  (ruleApply_some : (ruleApply rule fact).isSome) -> rule.body.terms.length = fact.terms.length := by
-  intro ruleApply_some
-  have trg_some : (PreTrigger.from_rule_and_fact rule fact).isSome := by apply ruleApply.some_implies_PreTrigger_some; exact ruleApply_some
-  rw[Option.isSome_iff_exists] at trg_some
-  rcases trg_some with ⟨trg, trg_some⟩
-  rcases PreTrigger.from_rule_and_fact_some_implies trg trg_some with ⟨rule_eq, some_subs⟩
-  rw[GroundSubstitution.atom_terms_len_eq_fact_terms_len trg.subs]
-  simp[some_subs]
+      (ruleApply_some : (ruleApply rule fact).isSome) -> rule.body.terms.length = fact.terms.length := by
+    intro ruleApply_some
+    have trg_some : (PreTrigger.from_rule_and_fact rule fact).isSome := by apply ruleApply.some_implies_PreTrigger_some; exact ruleApply_some
+    rw[Option.isSome_iff_exists] at trg_some
+    rcases trg_some with ⟨trg, trg_some⟩
+    rcases PreTrigger.from_rule_and_fact_some_implies trg trg_some with ⟨rule_eq, some_subs⟩
+    rw[GroundSubstitution.atom_terms_len_eq_fact_terms_len trg.subs]
+    simp[some_subs]
 
   /--The resulting first Atom from `ruleApply` (if it doesn'r return none) hase the same number of terms as the first head atom of the rule -/
   theorem ruleApply_fst_term_lenght_eq_rule_head_length {rule:LinearRule sig} {fact: Fact sig} {ruleApply_some: (ruleApply rule fact).isSome}:
-    ((ruleApply rule fact).get ruleApply_some).fst.terms.length = rule.head.fst.terms.length := by
-      have trg_some : (PreTrigger.from_rule_and_fact rule fact).isSome := by apply ruleApply.some_implies_PreTrigger_some; exact ruleApply_some
-      rw[Option.isSome_iff_exists] at trg_some
-      rcases trg_some with ⟨trg, trg_some⟩
-      simp only [ruleApply_eq, trg_some, Option.map_some, Option.get_some]
-      simp only [PreTrigger.apply_to_function_free_atom]
-      simp only [TermMapping.apply_generalized_atom, List.length_map]
+      ((ruleApply rule fact).get ruleApply_some).fst.terms.length = rule.head.fst.terms.length := by
+    have trg_some : (PreTrigger.from_rule_and_fact rule fact).isSome := by apply ruleApply.some_implies_PreTrigger_some; exact ruleApply_some
+    rw[Option.isSome_iff_exists] at trg_some
+    rcases trg_some with ⟨trg, trg_some⟩
+    simp only [ruleApply_eq, trg_some, Option.map_some, Option.get_some]
+    simp only [PreTrigger.apply_to_function_free_atom]
+    simp only [TermMapping.apply_generalized_atom, List.length_map]
 
   /--The resulting second Atom from `ruleApply` (if it doesn'r return none) hase the same number of terms as the second head atom of the rule -/
   theorem ruleApply_snd_term_lenght_eq_rule_head_length {rule:LinearRule sig} {fact: Fact sig} {ruleApply_some: (ruleApply rule fact).isSome}:
-    ((ruleApply rule fact).get ruleApply_some).snd.terms.length = rule.head.snd.terms.length := by
-      have trg_some : (PreTrigger.from_rule_and_fact rule fact).isSome := by apply ruleApply.some_implies_PreTrigger_some; exact ruleApply_some
-      rw[Option.isSome_iff_exists] at trg_some
-      rcases trg_some with ⟨trg, trg_some⟩
-      simp only [ruleApply_eq, trg_some, Option.map_some, Option.get_some]
-      simp only [PreTrigger.apply_to_function_free_atom]
-      simp only [TermMapping.apply_generalized_atom, List.length_map]
+      ((ruleApply rule fact).get ruleApply_some).snd.terms.length = rule.head.snd.terms.length := by
+    have trg_some : (PreTrigger.from_rule_and_fact rule fact).isSome := by apply ruleApply.some_implies_PreTrigger_some; exact ruleApply_some
+    rw[Option.isSome_iff_exists] at trg_some
+    rcases trg_some with ⟨trg, trg_some⟩
+    simp only [ruleApply_eq, trg_some, Option.map_some, Option.get_some]
+    simp only [PreTrigger.apply_to_function_free_atom]
+    simp only [TermMapping.apply_generalized_atom, List.length_map]
 
   /--If i is a frontier-Position in the first head of the rule, then there exists some position j in fact such that `ruleApply rule fact` will map the term at the frontier-Position to the term at position j in the fact.-/
   theorem ruleApply_frontierPos_fstHead {rule : LinearRule sig} {fact : Fact sig} {i : Nat} (i_valid: i < rule.head.fst.terms.length) (h_frontier : is_frontier_position_fst rule i i_valid):

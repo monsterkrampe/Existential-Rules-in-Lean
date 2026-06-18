@@ -54,12 +54,15 @@ theorem parallelDeterminizedDerivation_head : (parallelDeterminizedDerivation rs
 theorem parallelDeterminizedDerivation_head_tail :
     (parallelDeterminizedDerivation rs obs start).tail.head = (parallelDeterminizedDerivation_step rs obs start) := by
   unfold parallelDeterminizedDerivation
-  rw [InfiniteList.head_eq, InfiniteList.get_tail, InfiniteList.get_succ_iterate, ← InfiniteList.head_eq, InfiniteList.head_iterate]
+  rw [InfiniteList.head_eq, InfiniteList.get_tail, InfiniteList.get_succ_iterate, Function.repeat_zero]
 
 /-- Performing a `parallelDeterminizedDerivation_step` on a member again yields a member. -/
 @[grind <-]
 theorem parallelDeterminizedDerivation_step_mem_of_mem :
-    ∀ fs ∈ (parallelDeterminizedDerivation rs obs start), (parallelDeterminizedDerivation_step rs obs fs) ∈ (parallelDeterminizedDerivation rs obs start) := by intro _ ⟨n, mem⟩; exists n.succ; unfold parallelDeterminizedDerivation; rw [InfiniteList.get_succ_iterate, ← mem]; rfl
+    ∀ fs ∈ (parallelDeterminizedDerivation rs obs start), (parallelDeterminizedDerivation_step rs obs fs) ∈ (parallelDeterminizedDerivation rs obs start) := by
+  intro _ ⟨n, mem⟩; exists n.succ
+  unfold parallelDeterminizedDerivation; rw [InfiniteList.get_succ_iterate, ← mem]
+  unfold parallelDeterminizedDerivation; rw [InfiniteList.get_iterate]
 
 /-- Each suffix of a `parallelDeterminizedDerivation` is equal to the `parallelDeterminizedDerivation` that starts on the first element of the suffix. -/
 theorem parallelDeterminizedDerivation_suffix :
@@ -144,7 +147,7 @@ theorem parallelDeterminizedDerivation_predicates :
       rcases f_mem with ⟨i, f_mem⟩
       rw [List.getElem_map, List.mem_map] at f_mem
       rcases f_mem with ⟨a, a_mem, f_mem⟩
-      rw [List.get_eq_getElem, List.getElem_zipIdx] at a_mem
+      rw [List.getElem_zipIdx] at a_mem
       apply Or.inl
       exists trg.val.rule
       constructor

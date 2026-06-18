@@ -241,7 +241,7 @@ public theorem hom_for_node_extendable_to_result
   let pairs := PossiblyInfiniteList.generate start (extend_hom_to_next_step cb det deriv_for_node deriv_suffix h) id
 
   have pairs_get?_succ : ∀ i, pairs.get? i.succ = (pairs.get? i).bind (extend_hom_to_next_step cb det deriv_for_node deriv_suffix h) := by
-    intro i; simp only [pairs, PossiblyInfiniteList.get?_generate, Option.map_id, id_eq]; rw [InfiniteList.get_succ_iterate]
+    intro i; simp only [pairs, PossiblyInfiniteList.get?_succ_generate, PossiblyInfiniteList.get?_generate, Option.map_id, id_eq]
 
   have derivs_suffix_of_each_other : ∀ (i k : Nat), ∀ pair ∈ pairs.get? i, ∀ pair2 ∈ pairs.get? (i+k), pair2.val.fst <:+ pair.val.fst := by
     intro i k pair pair_mem pair2 pair2_mem
@@ -342,14 +342,14 @@ public theorem hom_for_node_extendable_to_result
     intro t t_mem
     simp only [global_h]
     split
-    case a.isFalse not_mem =>
+    case isFalse not_mem =>
       apply False.elim
       apply not_mem
       exists f; simp only [t_mem, and_true]
       apply deriv_for_node.facts_node_subset_result pair.val.fst.head
       . apply ChaseDerivation.mem_of_mem_suffix pair.property.left; exact ChaseDerivationSkeleton.head_mem
       . exact f_mem
-    case a.isTrue t_mem_true =>
+    case isTrue t_mem_true =>
       have spec := Classical.choose_spec (each_result_terms_occurs_in_some_pair _ t_mem_true)
       rcases spec.left with ⟨i, spec_l⟩
       rcases pair_mem with ⟨j, pair_mem⟩

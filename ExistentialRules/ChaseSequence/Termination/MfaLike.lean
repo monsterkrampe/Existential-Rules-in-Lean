@@ -190,8 +190,8 @@ theorem DeterministicSkolemObsolescence.blocks_each_obs (obs : ObsolescenceCondi
   unfold PreTrigger.mapped_head at f_mem
   rw [List.mem_toSet, List.getElem_map, List.mem_map] at f_mem
   rcases f_mem with ⟨a, a_mem, f_eq⟩
-  rw [List.get_eq_getElem, List.getElem_zipIdx] at a_mem
-  rw [List.get_eq_getElem, List.getElem_zipIdx] at f_eq
+  rw [List.getElem_zipIdx] at a_mem
+  rw [List.getElem_zipIdx] at f_eq
   exists (rs.mfaConstantMapping special_const).apply_function_free_atom a
   constructor
   . rw [rs.mfaConstantMapping_id_on_atom_from_rule _ trg.val.rule trg.property]
@@ -324,8 +324,8 @@ theorem BlockingObsolescence.blocks_corresponding_obs [GetFreshInhabitant sig.C]
       intro d d_mem
       simp only [StrictConstantMapping.toConstantMapping, Function.comp_apply, PreTrigger.backtrackFacts]
       split
-      case a.isFalse heq => rfl
-      case a.isTrue heq =>
+      case isFalse heq => rfl
+      case isTrue heq =>
         apply False.elim
         apply GroundTerm.backtrackFacts_list_fresh_constants_not_forbidden d heq
         rw [List.mem_append]
