@@ -364,6 +364,53 @@ theorem mem_suffix_of_mem {cd1 cd2 : ChaseDerivationSkeleton obs rules} (suffix 
 
 end FactMonotonicity
 
+section GeneratedFacts
+
+/-!
+## Only Finitely many Generated Facts
+
+The generated facts of node in a `ChaseDerivationSkeleton` are all facts that are not part of the initial fact set.
+For each node, the set of generated facts is finite since each trigger only introduces finitely many new facts.
+-/
+
+/-- The generated facts of a chase node are the facts that orruc in the node but not in the initial chase node. -/
+@[expose]
+def generatedFacts (cd : ChaseDerivationSkeleton obs rules) (node : ChaseNode obs rules) : FactSet sig := fun f => f ∈ node.facts ∧ f ∉ cd.head.facts
+
+/-- Each node's facts are formed by the initial facts and its `generatedFacts`. -/
+theorem facts_node_eq_union_initial_and_generated {cd : ChaseDerivationSkeleton obs rules} {node : ChaseNode obs rules} (mem : node ∈ cd) :
+    node.facts = cd.head.facts ∪ cd.generatedFacts node := by
+  unfold generatedFacts
+  apply Set.ext; intro f; constructor
+  . intro f_mem; cases Classical.em (f ∈ cd.head.facts) with
+    | inl f_mem' => exact Set.mem_union_of_mem_left f_mem'
+    | inr f_mem' => apply Set.mem_union_of_mem_right; exact ⟨f_mem, f_mem'⟩
+  . intro f_mem; rw [Set.mem_union_iff] at f_mem; cases f_mem with
+    | inl f_mem => exact cd.facts_node_subset_every_mem _ mem _ f_mem
+    | inr f_mem => exact f_mem.left
+
+/-- The `generatedFacts` are always finite. -/
+theorem generatedFacts_finite_of_mem {cd : ChaseDerivationSkeleton obs rules} {node : ChaseNode obs rules} (mem : node ∈ cd) :
+    (cd.generatedFacts node).finite := by
+  let node' : cd.Node := ⟨node, mem⟩
+  show (cd.generatedFacts node'.val).finite
+  induction node' using mem_rec with
+  | head => exists []; simp only [List.nodup_nil, true_and]; intro _; rw [List.mem_nil_iff]; simp [generatedFacts, Membership.mem]
+  | step cd2 suffix ih next next_mem =>
+    suffices cd.generatedFacts next ⊆ cd.generatedFacts cd2.head ∪ (next.origin_result (cd2.isSome_origin_next next_mem)).toSet by
+      apply Set.finite_of_subset_finite _ this
+      apply Set.union_finite_of_both_finite ih
+      apply List.finite_toSet
+    unfold generatedFacts
+    rw [cd2.facts_next next_mem]
+    intro f ⟨f_mem, f_nmem⟩
+    rw [Set.mem_union_iff] at f_mem
+    cases f_mem with
+    | inl f_mem => apply Set.mem_union_of_mem_left; exact ⟨f_mem, f_nmem⟩
+    | inr f_mem => exact Set.mem_union_of_mem_right f_mem
+
+end GeneratedFacts
+
 section Predecessors
 
 /-!
@@ -451,6 +498,30 @@ theorem eq_or_strict_of_predecessor {cd : ChaseDerivationSkeleton obs rules} {n1
   cases Classical.em (n1 = n2) with
   | inl eq => apply Or.inl; exact eq
   | inr ne => apply Or.inr; exact ⟨prec, ne⟩
+
+/-- If a node is a strict successor of the head, then it is at least a successor of the next element. -/
+theorem next_prec_of_head_strict_prec {cd : ChaseDerivationSkeleton obs rules} {node : Node cd} :
+    ⟨cd.head, cd.head_mem⟩ ≺ node -> ∀ {next}, (mem : next ∈ cd.next) -> ⟨next, cd.next_mem_of_mem _ mem⟩ ≼ node := by
+  intro ⟨prec, ne⟩ next next_mem
+  rcases prec with ⟨cd2, suffix, head_eq, node_mem⟩
+  exists cd.tail (by rw [next_mem]; simp);
+  constructor
+  . exact cd.branch.IsSuffix_tail
+  constructor
+  . rw [Option.mem_def] at next_mem
+    simp [head_tail', next_mem]
+  cases suffix_iff_eq_or_suffix_tail.mp suffix with
+  | inl eq =>
+    rw [eq, mem_iff_eq_head_or_mem_tail] at node_mem
+    cases node_mem with
+    | inl eq => exfalso; apply ne; rw [Subtype.mk.injEq, eq]
+    | inr mem_tail =>
+      rcases mem_tail with ⟨_, mem_tail⟩
+      exact mem_tail
+  | inr suffix =>
+    rcases suffix with ⟨_, suffix⟩
+    apply mem_of_mem_suffix suffix
+    exact node_mem
 
 end StrictPredecessor
 

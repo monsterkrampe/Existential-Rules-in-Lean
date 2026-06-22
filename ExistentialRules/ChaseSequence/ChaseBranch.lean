@@ -45,12 +45,10 @@ theorem database_first' {cb : ChaseBranch obs kb} : cb.head = {
 /-- Opposed to a `ChaseDerivation`, we know that each node in a `ChaseBranch` has a finite set of facts. This is because the database is finite and each trigger only adds finitely many new facts. -/
 @[grind <-]
 theorem facts_finite_of_mem {cb : ChaseBranch obs kb} (node : cb.Node) : node.val.facts.finite := by
-  induction node using ChaseDerivation.mem_rec with
-  | head => simp only [database_first']; exact kb.db.toFactSet.property.left
-  | step cd2 suffix ih next next_mem =>
-    rw [cd2.facts_next next_mem]
-    apply Set.union_finite_of_both_finite ih
-    apply List.finite_toSet
+  rw [cb.facts_node_eq_union_initial_and_generated node.property]
+  apply Set.union_finite_of_both_finite
+  . rw [database_first']; exact kb.db.toFactSet.property.left
+  . exact cb.generatedFacts_finite_of_mem node.property
 
 /-- The head of the `ChaseBranch` does not contain any function terms. -/
 theorem func_term_not_mem_head {cb : ChaseBranch obs kb} {t : GroundTerm sig} (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok) :

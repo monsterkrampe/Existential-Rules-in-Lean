@@ -411,6 +411,14 @@ theorem eq_of_address_eq {td : TreeDerivation obs rules} {n1 n2 : td.NodeWithAdd
   rw [eq1, Option.some_inj] at eq2
   exact eq2
 
+/-- `NodeWithAddress` has `DecidableEq` based on its address. -/
+def decEq {td : TreeDerivation obs rules} (n1 n2 : NodeWithAddress td) : Decidable (n1 = n2) :=
+  if eq : n1.address = n2.address
+  then .isTrue (eq_of_address_eq eq)
+  else .isFalse (by intro contra; apply eq; rw [contra])
+
+instance {td : TreeDerivation obs rules} : DecidableEq (NodeWithAddress td) := decEq
+
 /-- `subderivation` is indeed a subtree. -/
 @[grind <-]
 theorem IsSuffix_subderivation {td : TreeDerivation obs rules} {node : NodeWithAddress td} : node.subderivation <:+ td := td.tree.IsSuffix_drop node.address
@@ -624,6 +632,55 @@ theorem eq_of_suffix_of_root_mem {td1 td2 : TreeDerivation obs rules} (suffix : 
 
 end FactMonotonicity
 
+section GeneratedFacts
+
+/-!
+## Only Finitely many Generated Facts
+
+The generated facts of node in a `TreeDerivation` are all facts that are not part of the initial fact set.
+For each node, the set of generated facts is finite since each trigger only introduces finitely many new facts.
+-/
+
+/-- The generated facts of a chase node are the facts that orruc in the node but not in the initial chase node. -/
+@[expose]
+def generatedFacts (td : TreeDerivation obs rules) (node : ChaseNode obs rules) : FactSet sig := fun f => f ∈ node.facts ∧ f ∉ td.root.facts
+
+/-- Each node's facts are formed by the initial facts and its `generatedFacts`. -/
+theorem facts_node_eq_union_initial_and_generated {td : TreeDerivation obs rules} {node : ChaseNode obs rules} (mem : node ∈ td) :
+    node.facts = td.root.facts ∪ td.generatedFacts node := by
+  unfold generatedFacts
+  apply Set.ext; intro f; constructor
+  . intro f_mem; cases Classical.em (f ∈ td.root.facts) with
+    | inl f_mem' => exact Set.mem_union_of_mem_left f_mem'
+    | inr f_mem' => apply Set.mem_union_of_mem_right; exact ⟨f_mem, f_mem'⟩
+  . intro f_mem; rw [Set.mem_union_iff] at f_mem; cases f_mem with
+    | inl f_mem => exact td.facts_node_subset_every_mem _ mem _ f_mem
+    | inr f_mem => exact f_mem.left
+
+/-- The `generatedFacts` are always finite. -/
+theorem generatedFacts_finite_of_mem {td : TreeDerivation obs rules} {node : ChaseNode obs rules} (mem : node ∈ td) :
+    (td.generatedFacts node).finite := by
+  rw [mem_iff] at mem
+  rcases mem with ⟨addr, mem⟩
+  let node' : td.NodeWithAddress := {node := node, address := addr, eq := mem}
+  show (td.generatedFacts node'.node).finite
+  induction node' using mem_rec_address with
+  | root => exists []; simp only [List.nodup_nil, true_and]; intro _; rw [List.mem_nil_iff]; simp only [NodeWithAddress.root]; simp [generatedFacts, Membership.mem]
+  | step new_root ih c c_mem =>
+    suffices td.generatedFacts c.node ⊆ td.generatedFacts new_root.node ∪ (c.node.origin_result (isSome_origin_of_mem_childNodes _ (NodeWithAddress.mem_childNodes_of_mem_childNodes c_mem))).toSet by
+      apply Set.finite_of_subset_finite _ this
+      apply Set.union_finite_of_both_finite ih
+      apply List.finite_toSet
+    unfold generatedFacts
+    rw [facts_childNodes (NodeWithAddress.mem_childNodes_of_mem_childNodes c_mem), NodeWithAddress.root_subderivation']
+    intro f ⟨f_mem, f_nmem⟩
+    rw [Set.mem_union_iff] at f_mem
+    cases f_mem with
+    | inl f_mem => apply Set.mem_union_of_mem_left; exact ⟨f_mem, f_nmem⟩
+    | inr f_mem => exact Set.mem_union_of_mem_right f_mem
+
+end GeneratedFacts
+
 section Predecessors
 
 /-!
@@ -638,12 +695,14 @@ Also, even with the address approach, the relation is not total here (which is e
 -/
 
 /-- Node $n$ is a predecessor of node $m$ if the address of $n$ is a prefix of the address of $m$. Predecessor can therefore also be understood as ancestor in the tree. -/
+@[expose]
 def predecessor {td : TreeDerivation obs rules} (n1 n2 : NodeWithAddress td) : Prop := n1.address <+: n2.address
 infixl:50 " ≼ " => predecessor
 
 /-- The predecessor relation is stable across suffixes. That is, predecessor in our suffix are also predecessor for us. We only need to cast the nodes. -/
 @[grind <-]
-theorem predecessor_of_suffix {td : TreeDerivation obs rules} {new_root : NodeWithAddress td} {n1 n2 : NodeWithAddress new_root.subderivation} : n1 ≼ n2 -> (new_root.cast_for_new_root_node n1) ≼ (new_root.cast_for_new_root_node n2) := by
+theorem predecessor_of_suffix {td : TreeDerivation obs rules} {new_root : NodeWithAddress td} {n1 n2 : NodeWithAddress new_root.subderivation} :
+    n1 ≼ n2 -> (new_root.cast_for_new_root_node n1) ≼ (new_root.cast_for_new_root_node n2) := by
   rintro ⟨addr, eq⟩
   exists addr
   simp only [NodeWithAddress.cast_for_new_root_node]
@@ -687,6 +746,148 @@ theorem facts_node_subset_of_prec {td : TreeDerivation obs rules} {node1 node2 :
   exists diff
   rw [← node2.eq, ← addr_eq]
   simp [NodeWithAddress.subderivation, derivation_for_suffix]
+
+
+section StrictPredecessor
+
+/-!
+We also define a strict version of the predecessor relation (`≺`) in the obvious way.
+-/
+
+/-- A node is a strict predecessor of another if it is a predecessor but not equal. -/
+@[expose]
+def strict_predecessor {td : TreeDerivation obs rules} (n1 n2 : NodeWithAddress td) : Prop := n1 ≼ n2 ∧ n1 ≠ n2
+infixl:50 " ≺ " => strict_predecessor
+
+/-- As for the predecessor relation, we can show that the relation is stable across suffixes given that we cast the nodes. -/
+@[grind <-]
+theorem strict_predecessor_of_suffix {td : TreeDerivation obs rules} {new_root : NodeWithAddress td} {n1 n2 : NodeWithAddress new_root.subderivation} :
+    n1 ≺ n2 -> (new_root.cast_for_new_root_node n1) ≺ (new_root.cast_for_new_root_node n2) := by
+  intro prec
+  constructor
+  . exact predecessor_of_suffix prec.left
+  . simp only [NodeWithAddress.cast_for_new_root_node]; intro contra; rw [NodeWithAddress.mk.injEq] at contra; apply prec.right; apply NodeWithAddress.eq_of_address_eq; rw [List.append_right_inj] at contra; exact contra.right
+
+/-- The strict predecessor relation is irreflexive. -/
+@[grind <-]
+theorem strict_predecessor_irreflexive {td : TreeDerivation obs rules} {n : NodeWithAddress td} : ¬ n ≺ n := by intro contra; apply contra.right; rfl
+
+/-- A predecessor is either equal or a strict predecessor. -/
+theorem eq_or_strict_of_predecessor {td : TreeDerivation obs rules} {n1 n2 : NodeWithAddress td} : n1 ≼ n2 -> n1 = n2 ∨ n1 ≺ n2 := by
+  intro prec
+  cases Classical.em (n1 = n2) with
+  | inl eq => apply Or.inl; exact eq
+  | inr ne => apply Or.inr; exact ⟨prec, ne⟩
+
+/-- The strict predecessor relation is asymmetric. -/
+@[grind ->]
+theorem strict_predecessor_asymmetric {td : TreeDerivation obs rules} {n1 n2 : NodeWithAddress td} : n1 ≺ n2 -> ¬ n2 ≺ n1 := by
+  intro prec contra; apply prec.right; apply predecessor_antisymm prec.left contra.left
+
+/-- The strict predecessor relation is transitive. -/
+@[grind ->]
+theorem strict_predecessor_trans {td : TreeDerivation obs rules} {n1 n2 n3 : NodeWithAddress td} : n1 ≺ n2 -> n2 ≺ n3 -> n1 ≺ n3 := by
+  intro prec1 prec2
+  constructor
+  . exact predecessor_trans prec1.left prec2.left
+  . grind
+
+/-- If a node is a strict predecessor, the length of its address is strictly smaller. -/
+@[grind <-]
+theorem length_address_lt_of_strict_predecessor {td : TreeDerivation obs rules} {n1 n2 : NodeWithAddress td} :
+    n1 ≺ n2 -> n1.address.length < n2.address.length := by
+  intro succ
+  apply Nat.lt_of_le_of_ne; exact List.IsPrefix.length_le succ.left
+  intro contra; apply succ.right; apply NodeWithAddress.eq_of_address_eq; exact List.IsPrefix.eq_of_length succ.left contra
+
+/-- Each node is a strict predecessor of its `childNodes`. -/
+@[grind ->]
+theorem node_strict_prec_childNodes {td : TreeDerivation obs rules} {node : NodeWithAddress td} : ∀ n ∈ node.childNodes, node ≺ n := by
+  intro n n_mem
+  constructor
+  . exact td.node_prec_childNodes n n_mem
+  . intro contra
+    rw [← contra] at n_mem
+    apply node.subderivation.root_not_mem_childTrees
+    exists node.subderivation; constructor
+    . exact node.subderivation_mem_childTrees_of_mem_childNodes n_mem
+    . exact node.subderivation.root_mem
+
+/-- If n2 is a strict successor of n1, we can find the child of n1 that is on the path to n2. -/
+@[expose]
+def next_on_path_to_succ {td : TreeDerivation obs rules} {n1 n2 : NodeWithAddress td} (succ : n1 ≺ n2) : NodeWithAddress td :=
+  let childIndex := (n2.address.drop n1.address.length).head (by
+    intro contra; rw [List.drop_eq_nil_iff] at contra
+    apply succ.right
+    apply NodeWithAddress.eq_of_address_eq
+    exact List.IsPrefix.eq_of_length_le succ.left contra)
+
+  have n2_addr : n2.address = n1.address ++ (childIndex :: (n2.address.drop n1.address.length).tail) := by
+    apply Eq.symm
+    rw [List.cons_head_tail, ← List.prefix_iff_eq_append]
+    exact succ.left
+
+  n1.childNodes[childIndex]'(by
+      rw [NodeWithAddress.length_childNodes, NodeWithAddress.childNodes_subderivation]
+      have address_eq := n2.eq
+      rw [n2_addr, ← FiniteDegreeTree.get?_drop] at address_eq
+      suffices (td.tree.drop n1.address).childNodes[childIndex]? = (td.tree.drop n1.address).get? [childIndex] by
+        rw [← FiniteDegreeTree.root_drop, FiniteDegreeTree.drop_drop] at this
+        cases next_eq : (td.tree.drop (n1.address ++ [childIndex])).root with
+        | none =>
+          rw [← FiniteDegreeTree.empty_iff_root_none] at next_eq
+          suffices (td.tree.drop (n1.address ++ [childIndex])).get? (n2.address.drop n1.address.length).tail = none by
+            rw [FiniteDegreeTree.get?_drop, List.append_assoc, List.singleton_append] at this
+            rw [FiniteDegreeTree.get?_drop] at address_eq
+            rw [this] at address_eq; simp at address_eq
+          rw [next_eq]
+          simp
+        | some next =>
+          rw [next_eq] at this
+          rw [List.getElem?_eq_some_iff] at this; rcases this with ⟨goal, _⟩
+          exact goal
+      rw [FiniteDegreeTree.get?_childNodes]
+      simp)
+
+/-- The node that is next on the path from n1 to n2 has an address with the length of n1's address plus one. -/
+@[simp, grind =]
+theorem length_address_next_on_path_to_succ {td : TreeDerivation obs rules} {n1 n2 : NodeWithAddress td} (succ : n1 ≺ n2) :
+  (next_on_path_to_succ succ).address.length = n1.address.length + 1 := by simp [next_on_path_to_succ]
+
+/-- The node that is next on the path from n1 to n2 is a child of n1. -/
+@[grind ->]
+theorem next_on_path_to_succ_mem_childNodes {td : TreeDerivation obs rules} {n1 n2 : NodeWithAddress td} (succ : n1 ≺ n2) :
+  next_on_path_to_succ succ ∈ n1.childNodes := by simp [next_on_path_to_succ]
+
+/-- The node that is next on the path from n1 to n2 is a predecessor of n2 (not necessarily a strict one). -/
+@[grind ->]
+theorem next_on_path_to_succ_is_prec {td : TreeDerivation obs rules} {n1 n2 : NodeWithAddress td} (succ : n1 ≺ n2) :
+    next_on_path_to_succ succ ≼ n2 := by
+  suffices n2.address = (next_on_path_to_succ succ).address ++ (n2.address.drop n1.address.length).tail by
+    unfold predecessor; rw [this]; simp
+  apply Eq.symm
+  simp only [next_on_path_to_succ, NodeWithAddress.address_getElem_childNodes]
+  rw [List.append_assoc, List.singleton_append]
+  rw [List.cons_head_tail, ← List.prefix_iff_eq_append]
+  exact succ.left
+
+/-- The facts of a strict successor cannot be a subset of our facts. This is because strict successor nodes can only be introduced by active triggers. But if a trigger only produces facts that already exist, then it cannot be active. -/
+@[grind ->]
+theorem facts_not_subset_of_strict_predecessor {td : TreeDerivation obs rules} {n1 n2 : NodeWithAddress td} : n1 ≺ n2 -> ¬ n2.node.facts ⊆ n1.node.facts := by
+  intro prec contra
+  suffices ∃ c ∈ n1.childNodes, c ≼ n2 by
+    rcases this with ⟨c, c_mem, c_prec⟩
+    apply (n1.subderivation.active_trigger_origin_of_mem_childNodes (n1.mem_childNodes_of_mem_childNodes c_mem)).right
+    apply ObsolescenceCondition.contains_trg_result_implies_cond
+    apply Set.subset_trans (c.node.facts_contain_origin_result _ (by simp))
+    apply Set.subset_trans (td.facts_node_subset_of_prec c_prec)
+    rw [NodeWithAddress.root_subderivation']
+    exact contra
+  exists next_on_path_to_succ prec; constructor
+  . exact next_on_path_to_succ_mem_childNodes prec
+  . exact next_on_path_to_succ_is_prec prec
+
+end StrictPredecessor
 
 end Predecessors
 
@@ -1149,9 +1350,10 @@ theorem generate_subderivation_mem_branches {td : TreeDerivation obs rules}
     {maximal : ∀ b, generator b = none -> (mapper b).subderivation.childTrees = []}
     (start_eq : mapper start = NodeWithAddress.root td) :
     td.generate_subderivation start generator mapper next_is_child maximal ∈ td.branches := by
-  have : td = (mapper start).subderivation := by rw [start_eq, NodeWithAddress.subderivation_root]
-  conv => left; rw [this]
-  exact td.generate_branch_mem_tree_branches next_is_child maximal
+  suffices td = (mapper start).subderivation by
+    conv => left; rw [this]
+    exact td.generate_branch_mem_tree_branches next_is_child maximal
+  rw [start_eq, NodeWithAddress.subderivation_root]
 
 /-- The head for the derivation produced by `generate_subderivation` is exactly the mapped start value. -/
 @[simp, grind =]
@@ -1186,6 +1388,32 @@ theorem tail_generate_subderivation {td : TreeDerivation obs rules}
   rw [ChaseDerivation.mk.injEq, ChaseDerivationSkeleton.mk.injEq]
   simp only [generate_subderivation, generate_branch, ChaseDerivation.tail, ChaseDerivationSkeleton.tail, derivation_for_branch, ChaseDerivation.derivation_for_skeleton, ChaseDerivationSkeleton.derivation_for_branch_suffix]
   rw [FiniteDegreeTree.tail_generate_branch, Option.bind_some, next_mem]
+
+/-- A node occurs in `generate_subderivation` iff there is an appropriate number of repetitions for the generator function. -/
+theorem mem_generate_subderivation {td : TreeDerivation obs rules}
+    {start : β} {generator : β -> Option β} {mapper : β -> td.NodeWithAddress}
+    {next_is_child : ∀ b, ∀ b' ∈ generator b, mapper b' ∈ (mapper b).childNodes}
+    {maximal : ∀ b, generator b = none -> (mapper b).subderivation.childTrees = []}
+    {node : ChaseNode obs rules} :
+    node ∈ (td.generate_subderivation start generator mapper next_is_child maximal) ↔
+    ∃ n, node ∈ (((·.bind generator).repeat_fun n (some start)).map mapper).map NodeWithAddress.node := by
+  rw [ChaseDerivation.mem_iff]
+  simp only [generate_subderivation, generate_branch, derivation_for_branch]
+  constructor
+  . intro ⟨n, h⟩; exists n
+    rw [FiniteDegreeTree.get?_generate_branch, Option.map_map, Option.map_eq_some_iff] at h
+    rw [Option.mem_def, Option.map_map, Option.map_eq_some_iff]
+    rcases h with ⟨b, h, b_eq⟩
+    exists b; constructor; exact h
+    suffices node = (mapper b).subderivation.root by rw [this, NodeWithAddress.root_subderivation']; simp
+    rw [← b_eq]; rfl
+  . intro ⟨n, h⟩; exists n
+    rw [FiniteDegreeTree.get?_generate_branch, Option.map_map, Option.map_eq_some_iff]
+    rw [Option.mem_def, Option.map_map, Option.map_eq_some_iff] at h
+    rcases h with ⟨b, h, b_eq⟩
+    exists b; constructor; exact h
+    suffices node = (mapper b).subderivation.root by rw [this]; rfl
+    rw [← b_eq, NodeWithAddress.root_subderivation']; simp
 
 end Generate
 

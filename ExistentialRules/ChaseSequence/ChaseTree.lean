@@ -65,17 +65,10 @@ theorem database_first' {ct : ChaseTree obs kb} : ct.root = {
 
 /-- Opposed to a `TreeDerivation`, we know that each node in a `ChaseBranch` has a finite set of facts. This is because the database is finite and each trigger only adds finitely many new facts. -/
 theorem facts_finite_of_mem {ct : ChaseTree obs kb} {node : ChaseNode obs kb.rules} (node_mem : node ∈ ct) : node.facts.finite := by
-  rw [mem_iff] at node_mem
-  rcases node_mem with ⟨addr, node_mem⟩
-  let node' : ct.NodeWithAddress := {node := node, address := addr, eq := node_mem}
-  show node'.node.facts.finite
-  induction node' using TreeDerivation.mem_rec_address with
-  | root => simp only [TreeDerivation.NodeWithAddress.root, database_first']; exact kb.db.toFactSet.property.left
-  | step new_root ih c c_mem =>
-    rw [TreeDerivation.facts_childNodes (TreeDerivation.NodeWithAddress.mem_childNodes_of_mem_childNodes c_mem)]
-    rw [TreeDerivation.NodeWithAddress.root_subderivation']
-    apply Set.union_finite_of_both_finite ih
-    apply List.finite_toSet
+  rw [ct.facts_node_eq_union_initial_and_generated node_mem]
+  apply Set.union_finite_of_both_finite
+  . rw [database_first']; exact kb.db.toFactSet.property.left
+  . exact ct.generatedFacts_finite_of_mem node_mem
 
 /-- The root of the `ChaseTree` does not contain any function terms. -/
 theorem func_term_not_mem_root {ct : ChaseTree obs kb} {t : GroundTerm sig} (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok) :
