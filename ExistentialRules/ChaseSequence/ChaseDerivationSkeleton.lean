@@ -364,6 +364,53 @@ theorem mem_suffix_of_mem {cd1 cd2 : ChaseDerivationSkeleton obs rules} (suffix 
 
 end FactMonotonicity
 
+section GeneratedFacts
+
+/-!
+## Only Finitely many Generated Facts
+
+The generated facts of node in a `ChaseDerivationSkeleton` are all facts that are not part of the initial fact set.
+For each node, the set of generated facts is finite since each trigger only introduces finitely many new facts.
+-/
+
+/-- The generated facts of a chase node are the facts that orruc in the node but not in the initial chase node. -/
+@[expose]
+def generatedFacts (cd : ChaseDerivationSkeleton obs rules) (node : ChaseNode obs rules) : FactSet sig := fun f => f ∈ node.facts ∧ f ∉ cd.head.facts
+
+/-- Each node's facts are formed by the initial facts and its `generatedFacts`. -/
+theorem facts_node_eq_union_initial_and_generated {cd : ChaseDerivationSkeleton obs rules} {node : ChaseNode obs rules} (mem : node ∈ cd) :
+    node.facts = cd.head.facts ∪ cd.generatedFacts node := by
+  unfold generatedFacts
+  apply Set.ext; intro f; constructor
+  . intro f_mem; cases Classical.em (f ∈ cd.head.facts) with
+    | inl f_mem' => exact Set.mem_union_of_mem_left f_mem'
+    | inr f_mem' => apply Set.mem_union_of_mem_right; exact ⟨f_mem, f_mem'⟩
+  . intro f_mem; rw [Set.mem_union_iff] at f_mem; cases f_mem with
+    | inl f_mem => exact cd.facts_node_subset_every_mem _ mem _ f_mem
+    | inr f_mem => exact f_mem.left
+
+/-- The `generatedFacts` are always finite. -/
+theorem generatedFacts_finite_of_mem {cd : ChaseDerivationSkeleton obs rules} {node : ChaseNode obs rules} (mem : node ∈ cd) :
+    (cd.generatedFacts node).finite := by
+  let node' : cd.Node := ⟨node, mem⟩
+  show (cd.generatedFacts node'.val).finite
+  induction node' using mem_rec with
+  | head => exists []; simp only [List.nodup_nil, true_and]; intro _; rw [List.mem_nil_iff]; simp [generatedFacts, Membership.mem]
+  | step cd2 suffix ih next next_mem =>
+    suffices cd.generatedFacts next ⊆ cd.generatedFacts cd2.head ∪ (next.origin_result (cd2.isSome_origin_next next_mem)).toSet by
+      apply Set.finite_of_subset_finite _ this
+      apply Set.union_finite_of_both_finite ih
+      apply List.finite_toSet
+    unfold generatedFacts
+    rw [cd2.facts_next next_mem]
+    intro f ⟨f_mem, f_nmem⟩
+    rw [Set.mem_union_iff] at f_mem
+    cases f_mem with
+    | inl f_mem => apply Set.mem_union_of_mem_left; exact ⟨f_mem, f_nmem⟩
+    | inr f_mem => exact Set.mem_union_of_mem_right f_mem
+
+end GeneratedFacts
+
 section Predecessors
 
 /-!

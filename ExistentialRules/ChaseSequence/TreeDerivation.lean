@@ -632,6 +632,55 @@ theorem eq_of_suffix_of_root_mem {td1 td2 : TreeDerivation obs rules} (suffix : 
 
 end FactMonotonicity
 
+section GeneratedFacts
+
+/-!
+## Only Finitely many Generated Facts
+
+The generated facts of node in a `TreeDerivation` are all facts that are not part of the initial fact set.
+For each node, the set of generated facts is finite since each trigger only introduces finitely many new facts.
+-/
+
+/-- The generated facts of a chase node are the facts that orruc in the node but not in the initial chase node. -/
+@[expose]
+def generatedFacts (td : TreeDerivation obs rules) (node : ChaseNode obs rules) : FactSet sig := fun f => f ∈ node.facts ∧ f ∉ td.root.facts
+
+/-- Each node's facts are formed by the initial facts and its `generatedFacts`. -/
+theorem facts_node_eq_union_initial_and_generated {td : TreeDerivation obs rules} {node : ChaseNode obs rules} (mem : node ∈ td) :
+    node.facts = td.root.facts ∪ td.generatedFacts node := by
+  unfold generatedFacts
+  apply Set.ext; intro f; constructor
+  . intro f_mem; cases Classical.em (f ∈ td.root.facts) with
+    | inl f_mem' => exact Set.mem_union_of_mem_left f_mem'
+    | inr f_mem' => apply Set.mem_union_of_mem_right; exact ⟨f_mem, f_mem'⟩
+  . intro f_mem; rw [Set.mem_union_iff] at f_mem; cases f_mem with
+    | inl f_mem => exact td.facts_node_subset_every_mem _ mem _ f_mem
+    | inr f_mem => exact f_mem.left
+
+/-- The `generatedFacts` are always finite. -/
+theorem generatedFacts_finite_of_mem {td : TreeDerivation obs rules} {node : ChaseNode obs rules} (mem : node ∈ td) :
+    (td.generatedFacts node).finite := by
+  rw [mem_iff] at mem
+  rcases mem with ⟨addr, mem⟩
+  let node' : td.NodeWithAddress := {node := node, address := addr, eq := mem}
+  show (td.generatedFacts node'.node).finite
+  induction node' using mem_rec_address with
+  | root => exists []; simp only [List.nodup_nil, true_and]; intro _; rw [List.mem_nil_iff]; simp only [NodeWithAddress.root]; simp [generatedFacts, Membership.mem]
+  | step new_root ih c c_mem =>
+    suffices td.generatedFacts c.node ⊆ td.generatedFacts new_root.node ∪ (c.node.origin_result (isSome_origin_of_mem_childNodes _ (NodeWithAddress.mem_childNodes_of_mem_childNodes c_mem))).toSet by
+      apply Set.finite_of_subset_finite _ this
+      apply Set.union_finite_of_both_finite ih
+      apply List.finite_toSet
+    unfold generatedFacts
+    rw [facts_childNodes (NodeWithAddress.mem_childNodes_of_mem_childNodes c_mem), NodeWithAddress.root_subderivation']
+    intro f ⟨f_mem, f_nmem⟩
+    rw [Set.mem_union_iff] at f_mem
+    cases f_mem with
+    | inl f_mem => apply Set.mem_union_of_mem_left; exact ⟨f_mem, f_nmem⟩
+    | inr f_mem => exact Set.mem_union_of_mem_right f_mem
+
+end GeneratedFacts
+
 section Predecessors
 
 /-!
