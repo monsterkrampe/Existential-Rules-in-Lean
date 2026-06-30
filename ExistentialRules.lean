@@ -18,16 +18,7 @@ import ExistentialRules.ChaseSequence.Deterministic
 import ExistentialRules.ChaseSequence.Nontermination.CondenseGenerator
 import ExistentialRules.ChaseSequence.Nontermination.RpcLike
 import ExistentialRules.ChaseSequence.Nontermination.SparseSubderivationGenerator
-import ExistentialRules.ChaseSequence.CoreChase.AuxiliarySeq
-import ExistentialRules.ChaseSequence.CoreChase.Basic
-import ExistentialRules.ChaseSequence.CoreChase.CoreChaseBranch
-import ExistentialRules.ChaseSequence.CoreChase.CoreChaseNode
-import ExistentialRules.ChaseSequence.CoreChase.Homomorphisms
-import ExistentialRules.ChaseSequence.CoreChase.PseudoCoreChaseBranch
-import ExistentialRules.ChaseSequence.CoreChase.Termination
-import ExistentialRules.ChaseSequence.CoreChase.Triggers
-import ExistentialRules.ChaseSequence.CoreChase.Universality
-import ExistentialRules.ChaseSequence.CoreChase.Util
+import ExistentialRules.ChaseSequence.CoreChase
 import ExistentialRules.ChaseSequence.Termination.Basic
 import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts
 import ExistentialRules.ChaseSequence.Termination.ConstantMappings

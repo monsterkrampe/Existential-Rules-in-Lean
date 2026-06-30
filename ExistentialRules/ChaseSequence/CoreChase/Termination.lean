@@ -11,7 +11,6 @@ import ExistentialRules.ChaseSequence.Universality
 
 import ExistentialRules.ChaseSequence.Deterministic
 
-import ExistentialRules.ChaseSequence.CoreChase.Util
 import ExistentialRules.ChaseSequence.CoreChase.Basic
 import ExistentialRules.ChaseSequence.CoreChase.CoreChaseNode
 import ExistentialRules.ChaseSequence.CoreChase.CoreChaseBranch
@@ -261,7 +260,7 @@ namespace CoreChaseBranch
   theorem neq_terminates'_if_all_some (cb : CoreChaseBranch kb) : (∀ (n : Nat), (cb.branch.infinite_list n).isSome) → ¬ cb.terminates' := by
     intro all_some ⟨n, ⟨n_some, n_succ_none⟩⟩
     specialize all_some (n + 1)
-    rw [Option.isSomeIffNeqNone] at all_some
+    rw [Option.isSome_iff_ne_none] at all_some
     contradiction
 
   @[grind .]
@@ -269,14 +268,14 @@ namespace CoreChaseBranch
     constructor
     intro all_some ⟨n, n_none⟩
     specialize all_some n
-    rw [Option.isSomeIffNeqNone] at all_some
+    rw [Option.isSome_iff_ne_none] at all_some
     contradiction
     unfold terminates
     intro n_ter
     simp only [not_exists, ne_eq] at n_ter
     intro n
     specialize n_ter n
-    rw [Option.isSomeIffNeqNone]
+    rw [Option.isSome_iff_ne_none]
     exact n_ter
 
   -- this one or the one below this is superfluous

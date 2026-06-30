@@ -12,8 +12,6 @@ import ExistentialRules.ChaseSequence.Universality
 
 import ExistentialRules.ChaseSequence.Deterministic
 
-import ExistentialRules.ChaseSequence.CoreChase.Util
-
 import BasicLeanDatastructures.List.EraseDupsKeepRight
 
 
@@ -308,7 +306,7 @@ namespace FactSet
         rw [← eq2]
         unfold terms_list
 
-        rw [← List.mem_map_iff_mem_map_eraseDupsKeepRight]
+        rw [List.mem_map]; simp only [List.mem_eraseDupsKeepRight]; rw [← List.mem_map]
         rw [List.map_flatMap, List.flatMap_map]
 
         constructor
@@ -365,9 +363,9 @@ namespace FactSet
               . apply empty_set_is_weak_core
               . grind
             . have x : _ := ih (by
-                have := List.length_lt_of_proper_subset l sub (List.nodup_eraseDupsKeepRight sub') (by grind) (by grind)
-                exact Nat.lt_of_lt_of_eq this d
-
+                apply Nat.lt_of_le_of_ne
+                . rw [← d]; apply List.length_le_of_nodup_of_subset _ _ sub'.nodup_eraseDupsKeepRight; grind
+                . intro contra; apply h3; apply Set.ext; simp only [List.mem_toSet, ← sub'.mem_eraseDupsKeepRight]; apply List.equiv_of_nodup_of_length_eq_of_subset <;> grind
               ) sub rfl
               rcases x with ⟨fs, fs_wc, fs_hom_ss_tl⟩
               exists fs
@@ -435,7 +433,7 @@ namespace ChaseBranch
     rw [← this, eq]
 
   @[grind .]
-  theorem geq_none_if_none (scb : RegularChaseBranch obs kb) (n : Nat) (is_some : (scb.branch.get? n).isNone) : ∀ m, m ≥ n → (scb.branch.get? m).isNone := by grind
+  theorem geq_none_if_none (scb : RegularChaseBranch obs kb) (n : Nat) (is_some : (scb.branch.get? n).isNone) : ∀ m, m ≥ n → (scb.branch.get? m).isNone := by simp only [Option.isNone_iff_eq_none] at *; grind
 
   @[simp, grind .]
   theorem first_facts_eq (scb : RegularChaseBranch obs kb) (cn : RegularChaseNode obs kb.rules) (cn_eq : cn ∈ scb.branch.get? 0) : cn.facts = kb.db.toFactSet.val := by
@@ -478,6 +476,7 @@ namespace ChaseBranch
   @[grind .]
   theorem leq_some_if_some (cb : RegularChaseBranch obs kb) (n : Nat) (is_some : (cb.branch.get? n).isSome) : ∀ m, m ≤ n → (cb.branch.get? m).isSome := by
     intro m leq
+    simp only [Option.isSome_iff_ne_none] at *
     grind
 
   @[grind .]
@@ -499,7 +498,7 @@ namespace ChaseBranch
 
   @[grind .]
   theorem origin_isSome (cb : RegularChaseBranch obs kb) (n : Nat) {node : RegularChaseNode obs kb.rules} (eq : cb.branch.get? (n + 1) = node) : node.origin.isSome := by
-    have ex_before := ex_prev_node_at_each_leq cb n (by grind) n (Nat.le_refl n)
+    have ex_before := ex_prev_node_at_each_leq cb n (by rw [Option.isSome_iff_ne_none]; grind) n (Nat.le_refl n)
     rcases ex_before with ⟨before, before_eq⟩
     have trg_ex := cb.triggers_exist n before before_eq node eq
     rcases trg_ex with ⟨isSome, _⟩
@@ -557,23 +556,21 @@ namespace ChaseBranch
   def getTriggerList (scb : RegularChaseBranch obs kb) (n : Nat) (idx_l : List Nat) (idx_l_eq : (idx_l = List.range' 1 n)) (term : (scb.branch.infinite_list n).isSome) : (List (RTrigger obs.toLaxObsolescenceCondition kb.rules)) :=
   idx_l.pmap (fun m hm => (((scb.branch.infinite_list m).get (by
       have m_in : m ∈ idx_l := hm
-      have := List.range'_allElementsInRange n idx_l idx_l_eq m m_in
-      rcases this with ⟨geq, leq⟩
+      rw [idx_l_eq, List.mem_range'_1] at m_in
       subst idx_l
 
-      have := leq_some_if_some scb n term m leq
+      have := leq_some_if_some scb n term m (by grind)
       exact Eq.symm (Bool.le_antisymm (fun a => this) (congrFun rfl))
     )).origin.get (by
       have m_in : m ∈ idx_l := hm
-      have := List.range'_allElementsInRange n idx_l idx_l_eq m m_in
-      rcases this with ⟨geq, leq⟩
+      rw [idx_l_eq, List.mem_range'_1] at m_in
       subst idx_l
-      have := leq_some_if_some scb n term m leq
+      have := leq_some_if_some scb n term m (by grind)
       have := @origin_isSome _ _ _ _ _ _ scb (m - 1)
       have ex_cm : ∃ cm, cm ∈ scb.branch.get? m :=
-        ex_prev_node_at_each_leq scb n term m leq
+        ex_prev_node_at_each_leq scb n term m (by grind)
       rcases ex_cm with ⟨cm, cm_eq⟩
-      have eq : m - 1 + 1 = m := Nat.sub_add_cancel geq
+      have eq : m - 1 + 1 = m := Nat.sub_add_cancel m_in.left
       rw [eq] at this
       specialize this cm_eq
       have : scb.branch.infinite_list m = some cm := Option.mem_def.mp cm_eq
@@ -588,22 +585,20 @@ namespace ChaseBranch
    (List ((trg : RTrigger obs.toLaxObsolescenceCondition kb.rules) × Fin trg.val.mapped_head.length)) :=
       idx_l.pmap (fun m hm => (((scb.branch.infinite_list m).get (by
           have m_in : m ∈ idx_l := hm
-          have := List.range'_allElementsInRange n idx_l idx_l_eq m m_in
-          rcases this with ⟨geq, leq⟩
+          rw [idx_l_eq, List.mem_range'_1] at m_in
           subst idx_l
-          have := leq_some_if_some scb n term m leq
+          have := leq_some_if_some scb n term m (by grind)
           exact Eq.symm (Bool.le_antisymm (fun a => this) (congrFun rfl))
         )).origin.get (by
           have m_in : m ∈ idx_l := hm
-          have := List.range'_allElementsInRange n idx_l idx_l_eq m m_in
-          rcases this with ⟨geq, leq⟩
+          rw [idx_l_eq, List.mem_range'_1] at m_in
           subst idx_l
-          have := leq_some_if_some scb n term m leq
+          have := leq_some_if_some scb n term m (by grind)
           have := @origin_isSome _ _ _ _ _ _ scb (m - 1)
           have ex_cm : ∃ cm, cm ∈ scb.branch.get? m :=
-            ex_prev_node_at_each_leq scb n term m leq
+            ex_prev_node_at_each_leq scb n term m (by grind)
           rcases ex_cm with ⟨cm, cm_eq⟩
-          have eq : m - 1 + 1 = m := Nat.sub_add_cancel geq
+          have eq : m - 1 + 1 = m := Nat.sub_add_cancel m_in.left
           rw [eq] at this
           specialize this cm_eq
           have : scb.branch.infinite_list m = some cm := Option.mem_def.mp cm_eq

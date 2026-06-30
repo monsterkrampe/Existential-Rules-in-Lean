@@ -12,7 +12,6 @@ import ExistentialRules.ChaseSequence.Universality
 
 import ExistentialRules.ChaseSequence.Deterministic
 
-import ExistentialRules.ChaseSequence.CoreChase.Util
 import ExistentialRules.ChaseSequence.CoreChase.Basic
 
 
@@ -194,6 +193,7 @@ namespace CoreChaseBranch
   @[grind .]
   theorem leq_some_if_some (cb : CoreChaseBranch kb) (n : Nat) (is_some : (cb.branch.get? n).isSome) : ∀ m, m ≤ n → (cb.branch.get? m).isSome := by
     intro m leq
+    simp only [Option.isSome_iff_ne_none] at *
     grind
 
   @[grind .]
@@ -205,6 +205,7 @@ namespace CoreChaseBranch
   @[grind .]
   theorem geq_none_if_none (cb : CoreChaseBranch kb) (n : Nat) (is_some : (cb.branch.get? n).isNone) : ∀ m, m ≥ n → (cb.branch.get? m).isNone := by
     intro m geq
+    simp only [Option.isNone_iff_eq_none] at *
     grind
 
   def prevNode (cb : CoreChaseBranch kb) (n : Nat) (is_some : (cb.branch.get? (n+1)).isSome) : CoreChaseNode kb.rules := by
@@ -217,7 +218,7 @@ namespace CoreChaseBranch
 
   @[grind .]
   theorem origin_isSome (cb : CoreChaseBranch kb) (n : Nat) {node : CoreChaseNode kb.rules} (eq : node ∈ cb.branch.get? (n + 1)) : node.origin.isSome := by
-    have ex_before := ex_prev_node_at_each_leq cb n (by grind) n (Nat.le_refl n)
+    have ex_before := ex_prev_node_at_each_leq cb n (by rw [Option.isSome_iff_ne_none]; grind) n (Nat.le_refl n)
     rcases ex_before with ⟨before, before_eq⟩
     have trg_ex := cb.triggers_exist n before before_eq node eq
     rcases trg_ex with ⟨trg, i, c, c_wc, c_sub, eq⟩
@@ -302,12 +303,11 @@ namespace CoreChaseBranch
 
   @[grind .]
   theorem next_fs_eq' (cb : CoreChaseBranch kb) (n : Nat) (a b : CoreChaseNode kb.rules) (eq_a : a ∈ cb.branch.get? n) (eq_b : b ∈ cb.branch.get? (n + 1)) :
-    b.fs = (b.origin_result (origin_isSome cb n eq_b)).toSet ∪ a.core := by
+    b.fs = a.core ∪ (b.origin_result (origin_isSome cb n eq_b)).toSet := by
       have trg_ex := cb.triggers_exist n a eq_a b eq_b
       rcases trg_ex with ⟨trg, i, c, c_wc, c_sub, eq⟩
       subst b
-      exact Set.unionSym a.core trg.val.mapped_head[↑i].toSet
-
+      rfl
 
   @[grind .]
   theorem prev_node_eq_db_if_origin_none (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (n : Nat) (cn_eq : cn ∈ cb.branch.get? n) (cn_origin_none : cn.origin.isNone) :
@@ -319,6 +319,7 @@ namespace CoreChaseBranch
       have gt : n > 0 := Nat.zero_lt_of_ne_zero c
       have eq : n - 1 + 1 = n := Nat.sub_add_cancel gt
       have := @origin_isSome _ _ _ _ _ cb (n - 1) cn (by rw [eq]; exact cn_eq)
+      simp only [Option.isSome_iff_ne_none, Option.isNone_iff_eq_none] at *
       grind
 
   @[grind .]

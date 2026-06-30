@@ -99,8 +99,7 @@ namespace CoreChaseBranch
             rw [← List.mem_toSet, tl_eq]
             rw [h1]
             have terms_sub := FactSet.terms_subset_of_subset cn.core_sse.left
-            have ex_cnl : ∃ (cnl : List (Fact sig)), ∀ e, (e ∈ cnl ↔ e ∈ cn.core) := Set.exListOfSetIfFin cn.core cn.core_finite
-            rcases ex_cnl with ⟨cn_core_l, cn_core_l_eq⟩
+            rcases cn.core_finite with ⟨cn_core_l, _, cn_core_l_eq⟩
             have eq : cn_core_l.toSet = cn.core := Set.ext cn_core_l.toSet cn.core cn_core_l_eq
             have t1 := @FactSet.mem_terms_toSet _ _ _ _ cn_core_l (trg.subs v)
             rw [eq] at t1

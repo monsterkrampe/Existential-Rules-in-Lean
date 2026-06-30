@@ -56,15 +56,18 @@ structure PseudoCoreChaseBranch (kb : KnowledgeBase sig) where
               have : ∀ l, l ≤ last_index → (branch.get? l).isSome := by
                 intro l geq
                 have := (terminates_at (last_index + 1) (Nat.lt_add_one last_index)).left
+                simp only [Option.isSome_iff_ne_none] at *
                 grind
               specialize this k geq
               exact Option.isSome_iff_exists.mp this
 
-            have is_some : (branch.get? m).isSome := by grind
+            have is_some : (branch.get? m).isSome := by rw [Option.isSome_iff_ne_none]; grind
             specialize this m (by
               apply Classical.byContradiction
               intro contra
-              grind
+              apply Option.isSome_iff_ne_none.mp is_some
+              rw [← Option.isNone_iff_eq_none]
+              exact (terminates_at _ (Nat.lt_of_not_le contra)).right
             )
             rcases this with ⟨cm, cm_eq⟩
             specialize ih cm cm_eq
@@ -132,14 +135,15 @@ namespace PseudoCoreChaseBranch
                   exact scb.leq_some_if_some last_index this l geq
                 specialize this k geq
                 exact Option.isSome_iff_exists.mp this
-              have is_some : (scb.branch.get? m).isSome := by grind
+              have ne_none : (scb.branch.get? m) ≠ none := by grind
               specialize this m (by
                 apply Classical.byContradiction
                 intro contra
                 have contra : m > last_index := Nat.lt_of_not_le contra
                 have := term_at_n.right
-                have all_succ_none : ∀ m, m ≥ (last_index + 1) → (scb.branch.get? m).isNone := by
+                have all_succ_none : ∀ m, m ≥ (last_index + 1) → (scb.branch.get? m) = none := by
                   intro m geq
+                  rw [← Option.isNone_iff_eq_none]
                   have nh := scb.branch.no_holes' (last_index + 1) (Option.isNone_iff_eq_none.mp this)
                   have geq : m = last_index + 1 ∨ m > last_index + 1 := by grind
                   cases geq with
@@ -242,6 +246,7 @@ namespace PseudoCoreChaseBranch
       rw [this] at scb_term
       rcases scb_term with ⟨n_ter, eq⟩
       exists n_ter
+      simp only [Option.isSome_iff_ne_none, Option.isNone_iff_eq_none]
       grind
 
 
@@ -264,14 +269,15 @@ namespace PseudoCoreChaseBranch
                 exact scb.leq_some_if_some scb_term_n this l geq
               specialize this k geq
               exact Option.isSome_iff_exists.mp this
-            have is_some : (scb.branch.get? m).isSome := by grind
+            have ne_none : (scb.branch.get? m) ≠ none := by grind
             specialize this m (by
               apply Classical.byContradiction
               intro contra
               have contra : m > scb_term_n := Nat.lt_of_not_le contra
               have := scb_term_h.right
-              have all_succ_none : ∀ m, m ≥ (scb_term_n + 1) → (scb.branch.get? m).isNone := by
+              have all_succ_none : ∀ m, m ≥ (scb_term_n + 1) → (scb.branch.get? m) = none := by
                 intro m geq
+                rw [← Option.isNone_iff_eq_none]
                 have nh := scb.branch.no_holes' (scb_term_n + 1) (Option.isNone_iff_eq_none.mp this)
                 have geq : m = scb_term_n + 1 ∨ m > scb_term_n + 1 := by grind
                 cases geq with

@@ -11,6 +11,7 @@ import ExistentialRules.ChaseSequence.Universality
 
 import ExistentialRules.ChaseSequence.Deterministic
 
+import ExistentialRules.ChaseSequence.CoreChase.FoldlSaveHist
 import ExistentialRules.ChaseSequence.CoreChase.Homomorphisms
 import ExistentialRules.ChaseSequence.CoreChase.PseudoCoreChaseBranch
 import ExistentialRules.ChaseSequence.CoreChase.Triggers
@@ -401,18 +402,9 @@ namespace CoreChaseBranch
           rw [eq]
           exact Set.mem_of_subset_of_mem (fun e a => a) cn_in2
 
-        -- well ordering principle
-        have hmin := wop Ix Ix_non_empty
-        rcases hmin with ⟨n_min, h1, h2⟩
-        have t1 : f ∈ ((scb.branch.infinite_list n_min).get (scb_all_some n_min)).facts := h1
-        have t2 : ∀ n, f ∈ ((scb.branch.infinite_list n).get (scb_all_some n)).facts → n_min ≤ n := h2
-
-        have nin_before : ∀ (n : Nat), n < n_min → ¬ f ∈ ((scb.branch.infinite_list (n)).get (scb_all_some (n))).facts := by
-          intro n lt contra
-          have := h2 n contra
-          grind
-
-        exists n_min
+        rcases Ix_non_empty with ⟨n, mem⟩
+        rcases prop_for_nat_has_minimal_such_nat Ix n mem with ⟨n_min, h1, h2⟩
+        exists n_min; constructor; exact h1; intro m lt; exact h2 ⟨m, lt⟩
 
     have ex_hom_U_An : ∃ (n : Nat) (gtm : GroundTermMapping sig), gtm.isHomomorphism M ((scb.branch.get? n).get (scb_all_some n)).facts := by
       sorry

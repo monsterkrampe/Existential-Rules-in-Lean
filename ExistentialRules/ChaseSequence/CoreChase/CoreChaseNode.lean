@@ -10,7 +10,6 @@ import ExistentialRules.ChaseSequence.Termination.Basic
 import ExistentialRules.ChaseSequence.Universality
 
 import ExistentialRules.ChaseSequence.Deterministic
-import ExistentialRules.ChaseSequence.CoreChase.Util
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 variable {kb : KnowledgeBase sig}

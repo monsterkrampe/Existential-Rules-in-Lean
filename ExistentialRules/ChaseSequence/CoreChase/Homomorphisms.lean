@@ -1,4 +1,3 @@
-import ExistentialRules.ChaseSequence.CoreChase.Util
 import ExistentialRules.ChaseSequence.CoreChase.Basic
 import ExistentialRules.ChaseSequence.CoreChase.CoreChaseNode
 import ExistentialRules.ChaseSequence.CoreChase.CoreChaseBranch
