@@ -19,40 +19,8 @@ variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq 
 variable {kb : KnowledgeBase sig}
 
 
-@[grind .]
-theorem kb_det_head_len_eq (kb_det : kb.isDeterministic): ∀ (r : Rule sig), r ∈ kb.rules.rules → r.head.length = 1 := by
-  unfold KnowledgeBase.isDeterministic RuleSet.isDeterministic Rule.isDeterministic at kb_det
-  intro r r_in
-  specialize kb_det r r_in
-  grind
-
-namespace Fact
-
-  def Fact.homMem (f : Fact sig) (fs : FactSet sig) :=
-    ∃ (gtm : GroundTermMapping sig), gtm.isHomomorphism (fun x => x = f) fs ∧ (gtm.applyFact f) ∈ fs
-
-  theorem applyFact_id_eq (f g : Fact sig) : GroundTermMapping.applyFact id f = g → f = g := by
-    intro h
-    unfold GroundTermMapping.applyFact TermMapping.apply_generalized_atom at h
-    simp only [List.map_id_fun, id_eq] at h
-    rw [GeneralizedAtom.mk.injEq]
-    exact ⟨congrArg GeneralizedAtom.predicate h, congrArg GeneralizedAtom.terms h⟩
-
-  @[grind .]
-  theorem fact_GeneralizedAtom_eq (f : Fact sig) (ga : GeneralizedAtom sig (GroundTerm sig)) : f = ga ↔ f.predicate = ga.predicate ∧ f.terms = ga.terms := by
-      constructor
-      · intro eq
-        rw [eq]
-        exact ⟨rfl, rfl⟩
-      · intro ⟨eq_p, eq_t⟩
-        rw [GeneralizedAtom.mk.injEq]
-        exact ⟨eq_p, eq_t⟩
-
-end Fact
-
 namespace GroundTermMapping
 
-  @[simp, grind .]
   theorem hom_applyFact_isFunctionFree_eq_id (fs1 fs2 : FactSet sig) (f : Fact sig) (f_is_ff : f.isFunctionFree) (gtm : GroundTermMapping sig) (gtm_hom : gtm.isHomomorphism fs1 fs2) : gtm.applyFact f = f := by
       rw [GeneralizedAtom.mk.injEq]
       constructor
@@ -64,24 +32,6 @@ namespace GroundTermMapping
         rw [c_eq]
         exact @gtm_hom.left c
 
-  @[simp, grind .]
-  theorem hom_applyFactSet_isFunctionFree_eq_id (fs1 fs2 : FactSet sig) (fs1_is_ff : fs1.isFunctionFree) (gtm : GroundTermMapping sig) (gtm_hom : gtm.isHomomorphism fs1 fs2) : gtm.applyFactSet fs1 = fs1 := by
-    unfold GroundTermMapping.applyFactSet
-    apply Set.ext
-    intro f
-    constructor
-    · intro ⟨ff, ff_in, ff_eq⟩
-      have := hom_applyFact_isFunctionFree_eq_id fs1 fs2 ff (fs1_is_ff ff ff_in) gtm gtm_hom
-      grind
-    · intro h
-      exists f
-      constructor
-      · exact h
-      · rw [← GroundTermMapping.applyFact.eq_def]
-        rw [hom_applyFact_isFunctionFree_eq_id fs1 fs2 f (fs1_is_ff f h) gtm gtm_hom]
-
-
-  @[grind .]
   theorem hom_on_db_id (f : Fact sig) (gtm : GroundTermMapping sig) (gtm_hom : gtm.isHomomorphism kb.db.toFactSet.val kb.db.toFactSet.val) (f_in_db : f ∈ kb.db.toFactSet.val) :
     gtm.applyFact f = f := by
       unfold GroundTermMapping.applyFact
@@ -117,34 +67,15 @@ namespace GroundTermMapping
       rw [c_eq]
       exact @gtm_hom.left c
 
-
   @[grind .]
-  theorem mem_applyFactSet_if_mem_applyFactSet_sub (h : GroundTermMapping sig) (fs1 fs2 : FactSet sig) (f : Fact sig) (f_af_in_f1 : f ∈ h.applyFactSet fs1) (sub : fs1 ⊆ fs2) :  f ∈ h.applyFactSet fs2 := by
-    unfold GroundTermMapping.applyFactSet
-    rcases f_af_in_f1 with ⟨f', f'_in, f'_af_eq⟩
-    exists f'
-    exact ⟨sub f' f'_in, f'_af_eq⟩
-
-
-  theorem is_hom_if_eq (gtm1 gtm2 : GroundTermMapping sig) (A B : FactSet sig) : gtm1 = gtm2 → (gtm1.isHomomorphism A B ↔ gtm2.isHomomorphism A B) := fun a => Eq.to_iff (congrFun (congrFun (congrArg GroundTermMapping.isHomomorphism a) A) B)
-
-  theorem gtm_rep_swap (gtm : GroundTermMapping sig) (rep : Nat) (A B : FactSet sig) : GroundTermMapping.isHomomorphism (gtm.repeat_fun (rep + 1)) A B ↔ GroundTermMapping.isHomomorphism (gtm.repeat_fun rep ∘ gtm) A B := by
-    have := is_hom_if_eq (gtm.repeat_fun rep ∘ gtm) (gtm.repeat_fun (rep + 1)) A B
-    rw [this]
-    have := gtm.repeat_add (i := rep) (j := 1)
-    funext t
-    specialize this t
-    exact id (Eq.symm this)
-
- @[grind .]
   theorem sub_preserves_hom (A B C : FactSet sig) (sub : C ⊆ A) (h : GroundTermMapping sig) (h_hom : h.isHomomorphism  A B) : h.isHomomorphism C B := by
     rcases h_hom with ⟨idc, af⟩
     constructor
     · exact idc
     · intro f f_in_afc
-      have f_in_afb := mem_applyFactSet_if_mem_applyFactSet_sub h C A
-      specialize f_in_afb f f_in_afc sub
-      exact af f f_in_afb
+      apply af
+      apply h.apply_generalized_atom_set_subset_of_subset _ _ sub
+      exact f_in_afc
 
   theorem id_is_hom {fs : FactSet sig} : GroundTermMapping.isHomomorphism id fs fs := by
     constructor
@@ -154,33 +85,10 @@ namespace GroundTermMapping
       . grind
       . simp
 
-  theorem applyFactSet_finite_if_finite (h : GroundTermMapping sig) (fs : FactSet sig) (fs_fin : fs.finite) (h_inj : h.injectiveSet fs.terms) : (h.applyFactSet fs).finite := by
-    rcases fs_fin with ⟨l, nd, eq⟩
-    exists (TermMapping.apply_generalized_atom_list h l)
-    constructor
-    sorry
-    grind
-
 end GroundTermMapping
 
 
 namespace FactSet
-
-  @[simp, grind =]
-  theorem applyFactSet_id_eq (fs : FactSet sig) : GroundTermMapping.applyFactSet id fs = fs := by
-    unfold GroundTermMapping.applyFactSet TermMapping.apply_generalized_atom_set
-    apply Set.ext
-    intro f
-    constructor
-    · intro f_in_map
-      rcases f_in_map with ⟨ga, ga_in, ga_eq⟩
-      unfold TermMapping.apply_generalized_atom at ga_eq
-      rw [GeneralizedAtom.mk.injEq] at ga_eq
-      simp only [List.map_id_fun, id_eq] at ga_eq
-      grind
-    · intro f_in
-      exists f
-      exact ⟨f_in, Eq.symm (Fact.applyFact_id_eq f (TermMapping.apply_generalized_atom id f) rfl)⟩
 
   @[grind .]
   theorem ex_hom_sub (A B : FactSet sig) (sub : A ⊆ B) : ∃ (h : GroundTermMapping sig), h.isHomomorphism A B := by
@@ -189,7 +97,11 @@ namespace FactSet
     · intro gt
       simp only [id_eq]
     · intro f f_in
-      grind
+      rw [GroundTermMapping.mem_applyFactSet] at f_in; rcases f_in with ⟨e, e_mem, f_eq⟩
+      simp only [GroundTermMapping.applyFact, TermMapping.apply_generalized_atom, List.map_id] at f_eq
+      apply sub
+      rw [f_eq]
+      exact e_mem
 
   theorem empty_set_is_weak_core : (∅ : FactSet sig).isWeakCore := by
     intro gtm ghom
@@ -207,15 +119,6 @@ namespace FactSet
     . exists id
       exact GroundTermMapping.id_is_hom
 
-  theorem applyFactSet_monotone (f : GroundTermMapping sig) (A B : FactSet sig) (subset : A ⊆ B):
-    f.applyFactSet B ⊆ A → f.applyFactSet B ⊆ B := by
-      intro h
-      intro e e_in_af_B
-      specialize h e e_in_af_B
-      specialize subset e h
-      exact subset
-
-  @[grind =>]
   theorem isWeakCore_of_neq_sublist (l : List (Fact sig)):
     ¬ (∃ (sub : List (Fact sig)), sub ⊆ l ∧ sub.toSet ≠ l.toSet ∧ FactSet.homSubset sub.toSet l.toSet) -> (isWeakCore l.toSet) := by
       intro h
@@ -395,7 +298,6 @@ namespace FactSet
             exists id
             exact GroundTermMapping.id_is_hom
 
-  @[grind .]
   theorem exists_weak_core_for_finite_set (fs : FactSet sig) (fs_fin : fs.finite):
     ∃ (wc : FactSet sig), wc.isWeakCore ∧ wc.homSubset fs := by
       rcases fs_fin with ⟨l, nd, eq⟩
@@ -411,35 +313,10 @@ namespace FactSet
 
 end FactSet
 
-namespace RegularChaseNode
-
-def isWeakCore {obs : ObsolescenceCondition sig} (node : RegularChaseNode obs rules) :
-  Prop := FactSet.isWeakCore node.facts
-
-def isStrongCore {obs : ObsolescenceCondition sig} (node : RegularChaseNode obs rules) :
-Prop := FactSet.isStrongCore node.facts
-
-end RegularChaseNode
-
-
 namespace ChaseBranch
-
-  @[simp, grind .]
-  theorem first_fs_eq (cb : RegularChaseBranch obs kb) (cn : RegularChaseNode obs kb.rules) (cn_eq : cn ∈ cb.branch.get? 0) : cn.facts = kb.db.toFactSet.val := by
-    have dbf := cb.database_first
-    have eq : ((cb.branch.head).get (cb.isSome_head)).facts = kb.db.toFactSet := by rw [← RegularChaseNode.outgoingFacts_eq, (dbf _ (Option.get_mem _)).right.left]
-    rw [Option.mem_def] at cn_eq
-    have : cb.branch.head.get (cb.isSome_head) = cn := Option.get_of_eq_some cb.isSome_head cn_eq
-    rw [← this, eq]
 
   @[grind .]
   theorem geq_none_if_none (scb : RegularChaseBranch obs kb) (n : Nat) (is_some : (scb.branch.get? n).isNone) : ∀ m, m ≥ n → (scb.branch.get? m).isNone := by simp only [Option.isNone_iff_eq_none] at *; grind
-
-  @[simp, grind .]
-  theorem first_facts_eq (scb : RegularChaseBranch obs kb) (cn : RegularChaseNode obs kb.rules) (cn_eq : cn ∈ scb.branch.get? 0) : cn.facts = kb.db.toFactSet.val := by
-    have dbf := scb.database_first
-    rw [PossiblyInfiniteList.head_eq] at dbf
-    rw [← cn.outgoingFacts_eq, (dbf _ cn_eq).right.left]
 
   @[grind .]
   theorem terminating_has_last_index (scb : RegularChaseBranch obs kb) : scb.terminates ↔ ∃ n, (scb.branch.infinite_list n) ≠ none ∧ ∀ m, m > n -> scb.branch.infinite_list m = none := by
@@ -485,101 +362,12 @@ namespace ChaseBranch
     have := leq_some_if_some cb n is_some m leq
     exact Option.isSome_iff_exists.mp this
 
-  @[grind .]
-  theorem ex_prev_cn_if_origin_some (cb : RegularChaseBranch obs kb) (cn : RegularChaseNode obs kb.rules) (n : Nat) (cn_eq : cn ∈ cb.branch.get? n) (origin_some : cn.origin.isSome) :
-  ∃ prev_cn, prev_cn ∈ cb.branch.get? (n-1) := by
-    induction n generalizing cn with
-      | zero =>
-        exact Exists.intro cn cn_eq
-      | succ n ih =>
-        have := ex_prev_node_at_each_leq cb (n+1) (by exact Option.isSome_of_mem cn_eq) n (Nat.le_add_right n 1)
-        rcases this with ⟨prev_cn, prev_cn_eq⟩
-        exists prev_cn
-
-  @[grind .]
   theorem origin_isSome (cb : RegularChaseBranch obs kb) (n : Nat) {node : RegularChaseNode obs kb.rules} (eq : cb.branch.get? (n + 1) = node) : node.origin.isSome := by
     have ex_before := ex_prev_node_at_each_leq cb n (by rw [Option.isSome_iff_ne_none]; grind) n (Nat.le_refl n)
     rcases ex_before with ⟨before, before_eq⟩
     have trg_ex := cb.triggers_exist n before before_eq node eq
     rcases trg_ex with ⟨isSome, _⟩
     exact isSome
-
-  @[grind →]
-  theorem facts_finite (cb : RegularChaseBranch obs kb) (n : Nat) : ∀ cn, cn ∈ cb.branch.get? n → cn.facts.finite := by
-    intro cn cn_eq
-    induction n generalizing cn with
-      | zero =>
-        have dbf := cb.database_first
-        have : cn.facts = kb.db.toFactSet.val := first_facts_eq cb cn cn_eq
-        grind
-      | succ n ih =>
-        have := ex_prev_node_at_each_leq cb (n+1) (Option.isSome_of_mem cn_eq) n (Nat.le_add_right n 1)
-        rcases this with ⟨cm, cm_eq⟩
-        specialize ih cm cm_eq
-        have := cb.triggers_exist n cm cm_eq cn cn_eq
-        rcases this with ⟨isSome, eq⟩
-        rw [cn.ingoingFacts_eq, cm.outgoingFacts_eq] at eq
-        grind
-
-  @[grind .]
-  theorem f_in_next_if_isFunctionFree (scb : RegularChaseBranch obs kb) (n : Nat) (x : RegularChaseNode obs kb.rules) (x_eq : x ∈ scb.branch.get? n) :
-    ∀ cn, cn ∈ scb.branch.get? (n+1) → ∀ f, f ∈ x.facts ∧ f.isFunctionFree → f ∈ cn.facts := by
-      intro cn cn_eq f ⟨f_in, f_ff⟩
-      have := scb.triggers_exist n x x_eq cn cn_eq
-      rcases this with ⟨isSome, eq⟩
-      rw [cn.ingoingFacts_eq, x.outgoingFacts_eq] at eq
-      grind
-
-  @[grind .]
-  theorem db_sub_result (scb : RegularChaseBranch obs kb) (n : Nat) (init_scn succ_scn : RegularChaseNode obs kb.rules) (init_scn_eq : init_scn ∈ scb.branch.get? 0) (succ_scn_eq : succ_scn ∈ scb.branch.get? n):
-    init_scn.facts ⊆ succ_scn.facts := by
-      have db_funfree := kb.db.toFactSet.property.right
-      intro f f_in
-      induction n generalizing succ_scn with
-        | zero =>
-          simp_all
-        | succ n ih =>
-          have := scb.ex_prev_node_at_each_leq (n + 1) (Option.isSome_of_mem succ_scn_eq) n (Nat.le_add_right n 1)
-          rcases this with ⟨cm, cm_eq⟩
-          specialize ih cm cm_eq
-          have := f_in_next_if_isFunctionFree scb n cm cm_eq
-          apply this
-          exact Option.mem_def.mpr succ_scn_eq
-          constructor
-          have dbf := scb.database_first
-          · exact Set.mem_of_subset_of_mem (fun e a => a) ih
-          · have eq : init_scn.facts = kb.db.toFactSet.val := first_facts_eq scb init_scn init_scn_eq
-            rw [eq] at f_in
-            exact (db_funfree f ∘ fun a => f_in) sig
-
-
-  def getTriggerList (scb : RegularChaseBranch obs kb) (n : Nat) (idx_l : List Nat) (idx_l_eq : (idx_l = List.range' 1 n)) (term : (scb.branch.infinite_list n).isSome) : (List (RTrigger obs.toLaxObsolescenceCondition kb.rules)) :=
-  idx_l.pmap (fun m hm => (((scb.branch.infinite_list m).get (by
-      have m_in : m ∈ idx_l := hm
-      rw [idx_l_eq, List.mem_range'_1] at m_in
-      subst idx_l
-
-      have := leq_some_if_some scb n term m (by grind)
-      exact Eq.symm (Bool.le_antisymm (fun a => this) (congrFun rfl))
-    )).origin.get (by
-      have m_in : m ∈ idx_l := hm
-      rw [idx_l_eq, List.mem_range'_1] at m_in
-      subst idx_l
-      have := leq_some_if_some scb n term m (by grind)
-      have := @origin_isSome _ _ _ _ _ _ scb (m - 1)
-      have ex_cm : ∃ cm, cm ∈ scb.branch.get? m :=
-        ex_prev_node_at_each_leq scb n term m (by grind)
-      rcases ex_cm with ⟨cm, cm_eq⟩
-      have eq : m - 1 + 1 = m := Nat.sub_add_cancel m_in.left
-      rw [eq] at this
-      specialize this cm_eq
-      have : scb.branch.infinite_list m = some cm := Option.mem_def.mp cm_eq
-      grind
-
-    )).fst) (by
-      intro m m_in
-      exact m_in
-    )
 
   def getOriginList (scb : RegularChaseBranch obs kb) (n : Nat) (idx_l : List Nat) (idx_l_eq : (idx_l = List.range' 1 n)) (term : (scb.branch.infinite_list n).isSome) :
    (List ((trg : RTrigger obs.toLaxObsolescenceCondition kb.rules) × Fin trg.val.mapped_head.length)) :=
@@ -608,36 +396,5 @@ namespace ChaseBranch
           exact m_in
         )
 
-  @[grind .]
-  theorem facts_sub_all_succ_facts (scb : RegularChaseBranch obs kb) (i m: Nat)
-    (scn scn_succ: RegularChaseNode obs kb.rules) (scn_eq : scn ∈ scb.branch.get? i) (scn_succ_eq : scn_succ ∈ scb.branch.get? (i + m)) :
-      scn.facts ⊆ scn_succ.facts := by
-        induction m generalizing scn_succ with
-        | zero =>
-          have eq : scn = scn_succ := by
-            simp only [Nat.add_zero, Option.mem_def] at scn_succ_eq
-            grind
-          rw [eq]
-          exact Set.subset_refl
-        | succ m ih =>
-          have ex_cm : ∃ (cm : RegularChaseNode obs kb.rules), cm ∈ scb.branch.get? (i + m) :=
-            ex_prev_node_at_each_leq scb (i + m + 1) (Option.isSome_of_mem scn_succ_eq) (i + m) (Nat.le_add_right (i + m) 1)
-          rcases ex_cm with ⟨cm, cm_eq⟩
-          intro f f_in
-          specialize ih cm cm_eq f f_in
-          have := scb.triggers_exist (i + m) cm cm_eq scn_succ scn_succ_eq
-          rcases this with ⟨isSome, eq⟩
-          rw [scn_succ.ingoingFacts_eq, cm.outgoingFacts_eq] at eq
-          grind
-
-  @[grind .]
-  theorem facts_sub_result (cb : RegularChaseBranch obs kb) : ∀ (n : Nat) (cn : RegularChaseNode obs kb.rules), (cn ∈ cb.branch.get? n → cn.facts ⊆ cb.result) := by
-    intro n cn cn_eq f f_in
-    exists cn
-    constructor
-    rw [@ChaseDerivationSkeleton.mem_iff]
-    exists n
-    exact f_in
-
-
 end ChaseBranch
+

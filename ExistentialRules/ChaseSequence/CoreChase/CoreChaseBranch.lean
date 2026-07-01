@@ -171,12 +171,6 @@ namespace CoreChaseBranch
     exact Option.mem_def.mp dbf
 
   @[simp, grind .]
-  theorem first_fs_eq (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (cn_eq : cn ∈ cb.branch.get? 0) : cn.fs = kb.db.toFactSet.val := by
-    have dbf := cb.database_first
-    rw [dbf, Option.mem_def, Option.some_inj] at cn_eq
-    rw [← cn_eq]
-
-  @[simp, grind .]
   theorem fist_core_eq (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (cn_eq : cn ∈ cb.branch.get? 0) : cn.core = kb.db.toFactSet.val := by
     have dbf := cb.database_first
     rw [dbf, Option.mem_def, Option.some_inj] at cn_eq

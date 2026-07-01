@@ -127,7 +127,8 @@ namespace CoreChaseBranch
     intro f f_in
     specialize h_af f
     apply h_af
-    exact h.mem_applyFactSet_if_mem_applyFactSet_sub cn.core cn.fs f f_in (cn.core_sse.left)
+    apply h.apply_generalized_atom_set_subset_of_subset _ _ (cn.core_sse.left)
+    exact f_in
 
   @[grind .]
   theorem gtm_fs_core_is_endo (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (n : Nat) (cn_eq : cb.branch.infinite_list n = some cn) (gtm : GroundTermMapping sig) (gtm_hom : gtm.isHomomorphism cn.fs cn.core):

@@ -132,7 +132,8 @@ namespace CoreChaseBranch
             have g1_this_hom : GroundTermMapping.isHomomorphism ((gtm.repeat_fun rep) ∘ gtm) cn.fs cn.core := by
               have y := GroundTermMapping.isHomomorphism_compose gtm (gtm.repeat_fun rep) cn.fs cn.core cn.core g1 this
               exact y
-            exact (GroundTermMapping.gtm_rep_swap gtm rep cn.fs cn.core).mpr g1_this_hom
+            rw [Function.repeat_add', Function.repeat_once]
+            exact g1_this_hom
 
           apply rep_hom_hom'.right
 

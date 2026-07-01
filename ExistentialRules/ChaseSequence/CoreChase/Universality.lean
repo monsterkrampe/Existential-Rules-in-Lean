@@ -146,7 +146,7 @@ namespace CoreChaseBranch
                 cases Classical.propDecidable (t ∈ (trg_on_prev_node.val.fresh_terms_for_head_disjunct ↑fin_disj fin_disj.isLt)) with
                   | isTrue tr =>
                     simp_all
-                    have t_mem' : t ∈ prev_node.core.terms := by sorry
+                    have t_mem' : t ∈ prev_node.core.terms := by exists f
                     have t_nem := term_mem_cn_not_mem_trg_fresh_terms cb prev_node next_node prev_depth prev_node_eq next_node_eq t t_mem'
                     -- should yield a contradiction of tr and t_nem
                     sorry
@@ -192,8 +192,12 @@ namespace CoreChaseBranch
         · intro f f_in
           apply m_mod.left
           rw [Option.mem_some] at cn_eq
-          simp only [FactSet.applyFactSet_id_eq, ← cn_eq] at f_in
-          exact f_in
+          rw [GroundTermMapping.mem_applyFactSet] at f_in
+          rcases f_in with ⟨e, e_mem, f_eq⟩
+          rw [← cn_eq] at e_mem
+          simp only [GroundTermMapping.applyFact, TermMapping.apply_generalized_atom, List.map_id] at f_eq
+          rw [f_eq]
+          exact e_mem
       ⟩
 
       | .succ j =>
