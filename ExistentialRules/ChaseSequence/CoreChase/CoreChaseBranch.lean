@@ -64,11 +64,7 @@ structure CoreChaseBranch (kb : KnowledgeBase sig) where
     fs := kb.db.toFactSet
     core := kb.db.toFactSet
     is_core := db_isWeakCore kb.db
-    core_sse := by
-      constructor
-      · exact Set.subset_refl
-      · exists id
-        exact GroundTermMapping.id_is_hom
+    core_sse := ⟨Set.subset_refl, ⟨_, GroundTermMapping.id_is_hom⟩⟩
     origin := none,
     fs_contains_origin_result := by simp
   }
@@ -86,56 +82,7 @@ structure CoreChaseBranch (kb : KnowledgeBase sig) where
 
 namespace CoreChaseBranch
 
-  instance : Membership (CoreChaseNode kb.rules) (CoreChaseBranch kb) where
-  mem cb node := node ∈ cb.branch
-
-  instance : Membership (CoreChaseNode kb.rules) (CoreChaseBranch kb) where
-  mem cb node := node ∈ cb
-
-
-  def inCoreChaseBranch (fs : FactSet sig) (cb : CoreChaseBranch kb) : Prop :=
-    ∃ n : Nat, ∃ x,
-      cb.branch.infinite_list n = some x ∧ (fs = x.fs ∨ fs = x.core)
-
-  def inCoreChaseBranch.fsOnly (fs : FactSet sig) (cb : CoreChaseBranch kb) : Prop :=
-  ∃ n x,
-    cb.branch.infinite_list n = some x ∧
-    fs = x.fs
-
-  def inCoreChaseBranch.coreOnly (fs : FactSet sig) (cb : CoreChaseBranch kb) : Prop :=
-  ∃ n x,
-    cb.branch.infinite_list n = some x ∧
-    fs = x.core
-
-  instance : Membership (FactSet sig) (CoreChaseBranch kb) :=
-    ⟨fun fs cb => inCoreChaseBranch cb fs⟩
-
-  infix:50 " ∈_fs " => inCoreChaseBranch.fsOnly
-  infix:50 " ∈_c " => inCoreChaseBranch.coreOnly
-
-  def get? (cb : CoreChaseBranch kb) (n : Nat) : Option (FactSet sig) :=
-    match cb.branch.infinite_list n with
-    | none => none
-    | some x => some x.fs
-
-
-  def inCoreChaseBranchNode
-    (kb : KnowledgeBase sig)
-    (x : Option (CoreChaseNode kb.rules))
-    (cb : CoreChaseBranch kb) : Prop :=
-    match x with
-    | none => False
-    | some node =>
-        ∃ n, cb.branch.infinite_list n = some node
-
-  instance (kb : KnowledgeBase sig) : Membership (Option (CoreChaseNode kb.rules)) (CoreChaseBranch kb) :=
-    ⟨fun cb opt_cn => inCoreChaseBranchNode kb opt_cn cb⟩
-
-
-  --theorem mem_iff {cd : CoreChaseBranch kb} : ∀ {e : Option (CoreChaseNode kb.rules)}, e ∈ cd ↔ ∃ n, cd.branch.get? n = some e := by rfl
-
   def head (cb : CoreChaseBranch kb) : CoreChaseNode kb.rules := cb.branch.head.get (Option.isSome_of_mem cb.database_first)
-
 
   @[simp, grind =]
   theorem head_eq {cb: CoreChaseBranch kb} : cb.head = cb.branch.get? 0 := by
@@ -143,12 +90,6 @@ namespace CoreChaseBranch
     unfold CoreChaseBranch.head
     simp_all
     exact Option.mem_def.mp dbf
-
-  @[simp, grind .]
-  theorem fist_core_eq (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (cn_eq : cn ∈ cb.branch.get? 0) : cn.core = kb.db.toFactSet.val := by
-    have dbf := cb.database_first
-    rw [dbf, Option.mem_def, Option.some_inj] at cn_eq
-    rw [← cn_eq]
 
   @[grind .]
   theorem mem_eq (cb : CoreChaseBranch kb) (cn1 cn2 : CoreChaseNode kb.rules) (n : Nat) (cn1_eq : cn1 ∈ cb.branch.get? n) (cn2_eq : cn2 ∈ cb.branch.get? n) : cn1 = cn2 := by
@@ -297,36 +238,6 @@ namespace CoreChaseBranch
       intro n cn_eq
       have dbf := cb.database_first
       grind
-
-  @[grind .]
-  theorem ex_facts (cb : CoreChaseBranch kb) : ∃ (fs : FactSet sig), fs ∈ cb := by
-    exists ((cb.branch.get? 0).get (cb_fist_isSome cb)).fs
-    have dbf := cb.database_first
-    simp [dbf, Membership.mem, inCoreChaseBranch]
-    exists 0, ((cb.branch.get? 0).get (cb_fist_isSome cb))
-    constructor
-    simp only [Option.some_get]
-    rfl; · left; · simp_all
-
-  theorem ex_facts_fs (cb : CoreChaseBranch kb) : ∃ (fs : FactSet sig), fs ∈_fs cb := by
-    exists ((cb.branch.get? 0).get (cb_fist_isSome cb)).fs
-    have dbf := cb.database_first
-    simp [dbf, inCoreChaseBranch.fsOnly]
-    exists 0, ((cb.branch.get? 0).get (cb_fist_isSome cb))
-    constructor
-    simp only [Option.some_get]
-    rfl
-    simp_all
-
-  theorem ex_facts_core (cb : CoreChaseBranch kb) : ∃ (fs : FactSet sig), fs ∈_c cb := by
-    exists ((cb.branch.get? 0).get (cb_fist_isSome cb)).core
-    have dbf := cb.database_first
-    simp [dbf, inCoreChaseBranch.coreOnly]
-    exists 0, ((cb.branch.get? 0).get (cb_fist_isSome cb))
-    constructor
-    simp only [Option.some_get]
-    rfl
-    simp_all
 
   @[grind .]
   theorem db_applyFact_eq_id (cb : CoreChaseBranch kb) (init : CoreChaseNode kb.rules) (init_eq : init ∈  cb.branch.get? 0) (gtm : GroundTermMapping sig) (gtm_hom : gtm.isHomomorphism init.fs fs2) :

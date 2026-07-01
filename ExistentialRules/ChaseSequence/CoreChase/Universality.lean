@@ -53,9 +53,7 @@ namespace CoreChaseBranch
           . exact prev_gtm_hom.left
           . have trg_origin_act := (cb.origin_trg_active_prev_core prev_depth next_node next_node_eq ⟨trg_on_prev_node, disj_on_prev_node⟩ next_node_origin_some).left
             simp [prev_core_eq] at trg_origin_act
-            have := cb.trg_loaded_in_fs_if_loaded_in_core prev_depth prev_node prev_node_eq trg_on_prev_node.val trg_origin_act
-            exact this
-
+            exact Set.subset_trans trg_origin_act prev_node.core_sse.left
 
         have new_trg_satisfied : new_trg.satisfied_for_disj m ⟨fin_disj.val, fin_disj.isLt⟩ := by
           have modelsRule : m.modelsRule new_trg.rule := m_mod.right new_trg.rule trg_on_prev_node.property

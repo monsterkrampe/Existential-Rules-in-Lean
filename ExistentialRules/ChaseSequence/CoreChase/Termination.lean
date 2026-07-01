@@ -31,12 +31,10 @@ namespace CoreChaseBranch
   def terminates' (cb : CoreChaseBranch kb) : Prop :=
     ∃ n, terminatesAtStep cb n
 
-  @[grind .]
   theorem terminates_if_terminates' (cb : CoreChaseBranch kb) : cb.terminates' → cb.terminates := by
     intro ⟨n, a, b⟩
     exists (n + 1)
 
-  @[grind .]
   theorem terminates'_if_terminates_non_empty (cb : CoreChaseBranch kb) (non_empty : ∃ m, (cb.branch.infinite_list m).isSome) : cb.terminates → cb.terminates' := by
     intro ⟨n, a⟩
     rcases non_empty with ⟨m, c⟩
@@ -94,7 +92,6 @@ namespace CoreChaseBranch
 
   def lastElementIndex (cb : CoreChaseBranch kb) (ter' : cb.terminates') : Nat := lastElementIndexRec cb ter' 0
 
-  @[grind .]
   theorem lastElementIndex_eq_terminatesAtStep_index_leq (cb : CoreChaseBranch kb) (n : Nat) (term_at_n : cb.terminatesAtStep n) : ∀ m, m ≤ n → lastElementIndexRec cb (by exists n) m = n := by
     intro m m_leq
     have ter : cb.terminates := terminates_if_terminates' cb (Exists.intro n term_at_n)
@@ -131,8 +128,9 @@ namespace CoreChaseBranch
 
   @[grind .]
   theorem terminatesAtStep_lastElementIndex (cb : CoreChaseBranch kb) (ter' : cb.terminates') : cb.terminatesAtStep (lastElementIndex cb ter') := by
-    rcases ter' with ⟨n, is_some, is_none⟩
-    grind
+    rcases ter' with ⟨n, ter'⟩
+    rw [cb.lastElementIndex_eq_terminatesAtStep_eq n ter']
+    exact ter'
 
   @[grind .]
   theorem some_at_lastElementIndex (cb : CoreChaseBranch kb) (ter' : cb.terminates') : cb.branch.infinite_list (cb.lastElementIndex ter') ≠ none := by
@@ -242,10 +240,10 @@ namespace CoreChaseBranch
     exact cn.is_core
 
   @[grind .]
-    theorem gt_of_terminatesAtStep_index_none (cb : CoreChaseBranch kb) (n : Nat) (term_at_n : cb.terminatesAtStep n) : ∀ m, m > n → cb.branch.infinite_list m = none := by
-      intro m gt
-      rcases term_at_n with ⟨is_some, is_none⟩
-      grind
+  theorem gt_of_terminatesAtStep_index_none (cb : CoreChaseBranch kb) (n : Nat) (term_at_n : cb.terminatesAtStep n) : ∀ m, m > n → cb.branch.infinite_list m = none := by
+    intro m gt
+    rcases term_at_n with ⟨is_some, is_none⟩
+    grind
 
   @[grind .]
   theorem ex_lastNode_at_lastElementIndex_if_terminates' (cb : CoreChaseBranch kb) (ter' : cb.terminates') : ∃ last_cn, cb.branch.infinite_list (cb.lastElementIndex ter') = some last_cn := by
@@ -319,7 +317,7 @@ namespace CoreChaseBranch
             | inl eq =>
               have : cn = cn_res := by grind
               rw [this]
-              exact ex_hom_fs_core cb n cn_res cn_res_eq
+              exact cn_res.core_sse.right
             | inr gt =>
               have contra := lastElementIndex_eq_terminatesAtStep_index_leq cb n term_at_n m
               unfold lastElementIndex at ter'_eq

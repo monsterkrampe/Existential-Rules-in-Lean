@@ -20,33 +20,11 @@ variable {kb : KnowledgeBase sig}
 
 namespace CoreChaseBranch
 
-
-  @[grind .]
-  theorem ex_hom_fs_core (cb : CoreChaseBranch kb) (n : Nat) (x : CoreChaseNode kb.rules) (x_eq : x ∈ cb.branch.get? n) :
-    ∃ (h : GroundTermMapping sig), h.isHomomorphism x.fs x.core := by
-      exact x.core_sse.right
-
-  @[grind .]
   theorem ex_hom_prev_core_next_fs (cb : CoreChaseBranch kb) (n : Nat) (x y : CoreChaseNode kb.rules)
     (x_eq : x ∈ cb.branch.get? n) (y_eq : y ∈ cb.branch.get? (n + 1)) : ∃ (h : GroundTermMapping sig), h.isHomomorphism x.core y.fs := by
       have sub : x.core ⊆ y.fs := before_core_sub_after_fs cb n x y x_eq y_eq
-      have := x.core.ex_hom_sub y.fs sub
-      exact this
+      exact x.core.ex_hom_sub y.fs sub
 
-  @[grind .]
-  theorem ex_hom_applyFactSet_fs_core (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (n : Nat) (cn_eq : cn ∈ cb.branch.get? n) :
-    ∃ (gtm : GroundTermMapping sig), gtm.applyFactSet cn.fs ⊆ cn.core := by
-      rcases (ex_hom_fs_core cb n cn cn_eq) with ⟨gtm, gtm_hom⟩
-      exists gtm
-      intro f f_in
-      unfold GroundTermMapping.applyFactSet at f_in
-      rcases f_in with ⟨a, ahl, ahr⟩
-      rw [← ahr]
-      apply gtm_hom.right
-      apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
-      exact ahl
-
-  @[grind .]
   theorem ex_hom_core_succ_core_if_some (cb : CoreChaseBranch kb) (n : Nat) (x y : CoreChaseNode kb.rules)
     (x_eq : cb.branch.infinite_list n = some x) (y_eq : cb.branch.infinite_list (n + 1) = some y) :
       ∃ (h : GroundTermMapping sig), h.isHomomorphism x.core y.core := by
@@ -57,7 +35,6 @@ namespace CoreChaseBranch
       exists (gtm_yfs_ycore ∘ gtm_xcore_yfs)
       exact GroundTermMapping.isHomomorphism_compose gtm_xcore_yfs gtm_yfs_ycore x.core y.fs y.core gtm_xcore_yfs_hom gtm_yfs_ycore_hom
 
-  @[grind .]
   theorem ex_hom_fs_succ_fs_if_some (cb : CoreChaseBranch kb) (n : Nat) (x y : CoreChaseNode kb.rules)
     (x_eq : cb.branch.infinite_list n = some x) (y_eq : cb.branch.infinite_list (n + 1) = some y) :
       ∃ (h : GroundTermMapping sig), h.isHomomorphism x.fs y.fs := by
@@ -69,7 +46,6 @@ namespace CoreChaseBranch
         exact GroundTermMapping.isHomomorphism_compose gtm_xfs_xcore gtm_xcore_yfs x.fs x.core y.fs gtm_xfs_xcore_hom gtm_xcore_yfs_hom
 
   -- t16 (A_0 → A_1 → A_2 → ...)
-  @[grind .]
   theorem ex_hom_core_geq_core (cb : CoreChaseBranch kb) (n : Nat) (x : CoreChaseNode kb.rules) (x_eq : x ∈ cb.branch.get? n) :
       ∀ m, ∀ y, y ∈ cb.branch.get? (n + m) → ∃ (h : GroundTermMapping sig), h.isHomomorphism x.core y.core := by
       intro m
@@ -96,7 +72,6 @@ namespace CoreChaseBranch
         exists (gtm_z_y ∘ gtm_x_z)
         exact GroundTermMapping.isHomomorphism_compose gtm_x_z gtm_z_y x.core z.core y.core gtm_x_z_hom gtm_z_y_hom
 
-  @[grind .]
   -- exHomStepToAllFollowing
   theorem ex_hom_fs_geq_fs (cb : CoreChaseBranch kb) (n : Nat) (x : CoreChaseNode kb.rules) (x_eq : x ∈ cb.branch.get? n) :
         ∀ m, ∀ y, y ∈ cb.branch.get? (n + m) → ∃ (h : GroundTermMapping sig), h.isHomomorphism x.fs y.fs := by
@@ -119,7 +94,6 @@ namespace CoreChaseBranch
         exists (gtm_z_y ∘ gtm_x_z)
         exact GroundTermMapping.isHomomorphism_compose gtm_x_z gtm_z_y x.fs z.fs y.fs gtm_x_z_hom gtm_z_y_hom
 
-  @[grind .]
   theorem gtm_core_set_if_gtm_fs_set (fs : FactSet sig) (cn : CoreChaseNode kb.rules) (h : GroundTermMapping sig) (h_hom : h.isHomomorphism cn.fs fs) : h.isHomomorphism cn.core fs := by
     rcases h_hom with ⟨h_c, h_af⟩
     constructor
@@ -130,19 +104,11 @@ namespace CoreChaseBranch
     apply h.apply_generalized_atom_set_subset_of_subset _ _ (cn.core_sse.left)
     exact f_in
 
-  @[grind .]
   theorem gtm_fs_core_is_endo (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (n : Nat) (cn_eq : cb.branch.infinite_list n = some cn) (gtm : GroundTermMapping sig) (gtm_hom : gtm.isHomomorphism cn.fs cn.core):
      (gtm.surjectiveSet cn.core.terms cn.core.terms) := by
         have sc := FactSet.isStrongCore_of_isWeakCore_of_finite cn.core cn.is_core (cb.core_finite _ _ cn_eq)
         specialize sc gtm (gtm_core_set_if_gtm_fs_set cn.core cn gtm gtm_hom)
         rcases sc with ⟨s1, s2, s3⟩
         exact s3
-
-  @[grind .]
-  theorem core_extends_hom (A B C: FactSet sig) (C_homsub : C.homSubset B) (h : GroundTermMapping sig) (h_hom : h.isHomomorphism A B) : ∃ (h' : GroundTermMapping sig), h'.isHomomorphism A C := by
-    rcases C_homsub with ⟨sub, h', h'_hom⟩
-    exists (h' ∘ h)
-    exact GroundTermMapping.isHomomorphism_compose h h' A B C h_hom h'_hom
-
 
 end CoreChaseBranch
