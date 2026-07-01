@@ -11,7 +11,6 @@ import ExistentialRules.ChaseSequence.Universality
 
 import ExistentialRules.ChaseSequence.Deterministic
 
-import ExistentialRules.ChaseSequence.CoreChase.FoldlSaveHist
 import ExistentialRules.ChaseSequence.CoreChase.Homomorphisms
 import ExistentialRules.ChaseSequence.CoreChase.Triggers
 import ExistentialRules.ChaseSequence.CoreChase.Termination

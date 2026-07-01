@@ -2,7 +2,6 @@ import ExistentialRules.ChaseSequence.CoreChase.AuxiliarySeq
 import ExistentialRules.ChaseSequence.CoreChase.Basic
 import ExistentialRules.ChaseSequence.CoreChase.CoreChaseBranch
 import ExistentialRules.ChaseSequence.CoreChase.CoreChaseNode
-import ExistentialRules.ChaseSequence.CoreChase.FoldlSaveHist
 import ExistentialRules.ChaseSequence.CoreChase.Homomorphisms
 import ExistentialRules.ChaseSequence.CoreChase.Termination
 import ExistentialRules.ChaseSequence.CoreChase.Triggers
