@@ -133,10 +133,10 @@ namespace CoreChaseBranch
   @[grind .]
   theorem gtm_fs_core_is_endo (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (n : Nat) (cn_eq : cb.branch.infinite_list n = some cn) (gtm : GroundTermMapping sig) (gtm_hom : gtm.isHomomorphism cn.fs cn.core):
      (gtm.surjectiveSet cn.core.terms cn.core.terms) := by
-      have sc := FactSet.isStrongCore_of_isWeakCore_of_finite cn.core cn.is_core cn.core_finite
-      specialize sc gtm (gtm_core_set_if_gtm_fs_set cn.core cn gtm gtm_hom)
-      rcases sc with ⟨s1, s2, s3⟩
-      exact s3
+        have sc := FactSet.isStrongCore_of_isWeakCore_of_finite cn.core cn.is_core (cb.core_finite _ _ cn_eq)
+        specialize sc gtm (gtm_core_set_if_gtm_fs_set cn.core cn gtm gtm_hom)
+        rcases sc with ⟨s1, s2, s3⟩
+        exact s3
 
   @[grind .]
   theorem core_extends_hom (A B C: FactSet sig) (C_homsub : C.homSubset B) (h : GroundTermMapping sig) (h_hom : h.isHomomorphism A B) : ∃ (h' : GroundTermMapping sig), h'.isHomomorphism A C := by

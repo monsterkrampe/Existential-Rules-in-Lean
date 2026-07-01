@@ -32,42 +32,6 @@ namespace GroundTermMapping
         rw [c_eq]
         exact @gtm_hom.left c
 
-  theorem hom_on_db_id (f : Fact sig) (gtm : GroundTermMapping sig) (gtm_hom : gtm.isHomomorphism kb.db.toFactSet.val kb.db.toFactSet.val) (f_in_db : f ∈ kb.db.toFactSet.val) :
-    gtm.applyFact f = f := by
-      unfold GroundTermMapping.applyFact
-      rw [GeneralizedAtom.mk.injEq]
-      constructor
-      · rfl
-      · apply List.map_id_of_id_on_all_mem
-        intro gt gt_in
-        unfold GroundTermMapping.isHomomorphism at gtm_hom
-        have db_funfree := kb.db.toFactSet.property.right
-        unfold FactSet.isFunctionFree at db_funfree
-        specialize db_funfree f f_in_db
-        unfold Fact.isFunctionFree at db_funfree
-        specialize db_funfree gt gt_in
-        rcases db_funfree with ⟨c, c_eq⟩
-        rcases f_in_db with ⟨ff, ff_in, ff_eq⟩
-        unfold FunctionFreeFact.toFact at ff_eq
-        rw [GeneralizedAtom.mk.injEq] at ff_eq
-        rcases ff_eq with ⟨ff_pred_eq, ff_map_eq⟩
-        rcases gtm_hom with ⟨gtm_c, gtm_sub⟩
-        rw [c_eq]
-        exact @gtm_c c
-
-  @[grind .]
-  theorem hom_on_db_term_id (t : GroundTerm sig) (gtm : GroundTermMapping sig) (gtm_hom : gtm.isHomomorphism kb.db.toFactSet.val kb.db.toFactSet.val) (t_in_db_terms : t ∈ kb.db.toFactSet.val.terms) :
-    gtm t = t := by
-      have db_funfree := kb.db.toFactSet.property.right
-      have ex_fact : ∃ f, f ∈ kb.db.toFactSet.val ∧ t ∈ f.terms := t_in_db_terms
-      rcases ex_fact with ⟨f, f_in, f_in_ter⟩
-      unfold FactSet.isFunctionFree at db_funfree
-      specialize db_funfree f f_in t f_in_ter
-      rcases db_funfree with ⟨c, c_eq⟩
-      rw [c_eq]
-      exact @gtm_hom.left c
-
-  @[grind .]
   theorem sub_preserves_hom (A B C : FactSet sig) (sub : C ⊆ A) (h : GroundTermMapping sig) (h_hom : h.isHomomorphism  A B) : h.isHomomorphism C B := by
     rcases h_hom with ⟨idc, af⟩
     constructor
@@ -90,7 +54,6 @@ end GroundTermMapping
 
 namespace FactSet
 
-  @[grind .]
   theorem ex_hom_sub (A B : FactSet sig) (sub : A ⊆ B) : ∃ (h : GroundTermMapping sig), h.isHomomorphism A B := by
     exists id
     constructor
@@ -310,91 +273,5 @@ namespace FactSet
         rw [eq'] at wc_sub
         exact wc_sub
 
-
 end FactSet
-
-namespace ChaseBranch
-
-  @[grind .]
-  theorem geq_none_if_none (scb : RegularChaseBranch obs kb) (n : Nat) (is_some : (scb.branch.get? n).isNone) : ∀ m, m ≥ n → (scb.branch.get? m).isNone := by simp only [Option.isNone_iff_eq_none] at *; grind
-
-  @[grind .]
-  theorem terminating_has_last_index (scb : RegularChaseBranch obs kb) : scb.terminates ↔ ∃ n, (scb.branch.infinite_list n) ≠ none ∧ ∀ m, m > n -> scb.branch.infinite_list m = none := by
-    unfold ChaseDerivation.terminates
-    constructor
-    . intro h
-      rcases h with ⟨n, h⟩
-      induction n with
-      | zero =>
-        have := scb.database_first
-        exists 0
-        constructor
-        rw [Option.ne_none_iff_isSome]
-        exact scb.isSome_head
-        intro m gt
-        have := geq_none_if_none scb 0 (Option.isNone_iff_eq_none.mpr h) m (Nat.zero_le m)
-        exact Option.isNone_iff_eq_none.mp this
-      | succ n ih =>
-        cases eq : scb.branch.infinite_list n with
-        | none => apply ih; exact eq
-        | some _ =>
-          exists n
-          rw [eq]
-          simp only [ne_eq, reduceCtorEq, not_false_eq_true, gt_iff_lt, true_and]
-          intro m n_lt_m
-          have := geq_none_if_none scb (n+1) (Option.isNone_iff_eq_none.mpr h) m (Nat.succ_le_of_lt n_lt_m)
-          exact Option.isNone_iff_eq_none.mp this
-    . intro h
-      rcases h with ⟨n, _, h⟩
-      exists n+1
-      apply h
-      simp only [gt_iff_lt, Nat.lt_add_one]
-
-  @[grind .]
-  theorem leq_some_if_some (cb : RegularChaseBranch obs kb) (n : Nat) (is_some : (cb.branch.get? n).isSome) : ∀ m, m ≤ n → (cb.branch.get? m).isSome := by
-    intro m leq
-    simp only [Option.isSome_iff_ne_none] at *
-    grind
-
-  @[grind .]
-  theorem ex_prev_node_at_each_leq (cb : RegularChaseBranch obs kb) (n : Nat) (is_some : (cb.branch.get? n).isSome) : ∀ m, m ≤ n → ∃ cn, cn ∈ (cb.branch.get? m) := by
-    intro m leq
-    have := leq_some_if_some cb n is_some m leq
-    exact Option.isSome_iff_exists.mp this
-
-  theorem origin_isSome (cb : RegularChaseBranch obs kb) (n : Nat) {node : RegularChaseNode obs kb.rules} (eq : cb.branch.get? (n + 1) = node) : node.origin.isSome := by
-    have ex_before := ex_prev_node_at_each_leq cb n (by rw [Option.isSome_iff_ne_none]; grind) n (Nat.le_refl n)
-    rcases ex_before with ⟨before, before_eq⟩
-    have trg_ex := cb.triggers_exist n before before_eq node eq
-    rcases trg_ex with ⟨isSome, _⟩
-    exact isSome
-
-  def getOriginList (scb : RegularChaseBranch obs kb) (n : Nat) (idx_l : List Nat) (idx_l_eq : (idx_l = List.range' 1 n)) (term : (scb.branch.infinite_list n).isSome) :
-   (List ((trg : RTrigger obs.toLaxObsolescenceCondition kb.rules) × Fin trg.val.mapped_head.length)) :=
-      idx_l.pmap (fun m hm => (((scb.branch.infinite_list m).get (by
-          have m_in : m ∈ idx_l := hm
-          rw [idx_l_eq, List.mem_range'_1] at m_in
-          subst idx_l
-          have := leq_some_if_some scb n term m (by grind)
-          exact Eq.symm (Bool.le_antisymm (fun a => this) (congrFun rfl))
-        )).origin.get (by
-          have m_in : m ∈ idx_l := hm
-          rw [idx_l_eq, List.mem_range'_1] at m_in
-          subst idx_l
-          have := leq_some_if_some scb n term m (by grind)
-          have := @origin_isSome _ _ _ _ _ _ scb (m - 1)
-          have ex_cm : ∃ cm, cm ∈ scb.branch.get? m :=
-            ex_prev_node_at_each_leq scb n term m (by grind)
-          rcases ex_cm with ⟨cm, cm_eq⟩
-          have eq : m - 1 + 1 = m := Nat.sub_add_cancel m_in.left
-          rw [eq] at this
-          specialize this cm_eq
-          have : scb.branch.infinite_list m = some cm := Option.mem_def.mp cm_eq
-          grind
-        ))) (by
-          intro m m_in
-          exact m_in
-        )
-
-end ChaseBranch
 

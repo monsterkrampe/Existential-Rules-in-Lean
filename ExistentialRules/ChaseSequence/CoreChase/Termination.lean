@@ -239,8 +239,7 @@ namespace CoreChaseBranch
     rcases this with ⟨cn, cn_last⟩
     unfold lastNode at cn_last
     rw [← cn_last]
-    rcases cn with ⟨_,_,_,is_core,_,_,_⟩
-    exact is_core
+    exact cn.is_core
 
   @[grind .]
     theorem gt_of_terminatesAtStep_index_none (cb : CoreChaseBranch kb) (n : Nat) (term_at_n : cb.terminatesAtStep n) : ∀ m, m > n → cb.branch.infinite_list m = none := by
@@ -284,10 +283,10 @@ namespace CoreChaseBranch
     have : ∃ cn, cn = cb.lastNode ter' := by exact ex_lastNode_if_terminates' cb ter'
     rcases this with ⟨cn, cn_eq⟩
     rcases ter' with ⟨n, term_at_n⟩
-    exact CoreChaseNode.core_finite ((cb.branch.infinite_list (cb.lastElementIndex (Exists.intro n term_at_n))).get (by
+    exact cb.core_finite (cb.lastElementIndex (Exists.intro n term_at_n)) ((cb.branch.get? (cb.lastElementIndex (Exists.intro n term_at_n))).get (by
       have := lastElementIndex cb (Exists.intro n term_at_n)
       exact Option.isSome_iff_ne_none.mpr (some_at_lastElementIndex cb (Exists.intro n term_at_n))
-      ))
+      )) (by simp)
 
   @[grind .]
   theorem result_isSome (cb : CoreChaseBranch kb) (ter' : cb.terminates') : cb.branch.infinite_list (cb.lastElementIndex ter') = some (cb.lastNode ter') := by

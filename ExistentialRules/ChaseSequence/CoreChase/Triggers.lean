@@ -62,7 +62,7 @@ namespace CoreChaseBranch
         rcases trg_sat with ⟨i, gs, h1, h2⟩
         rcases (ex_hom_fs_core cb n cn cn_eq) with ⟨gtm, gtm_hom⟩
         have ex_eq_list : ∃ (tl : List (GroundTerm sig)), tl.toSet = cn.core.terms := by
-          have := FactSet.terms_finite_of_finite cn.core cn.core_finite
+          have := FactSet.terms_finite_of_finite cn.core (cb.core_finite _ _ cn_eq)
           rcases this with ⟨tl, h1, h2⟩
           exists tl
           exact Set.ext tl.toSet cn.core.terms h2
@@ -99,7 +99,7 @@ namespace CoreChaseBranch
             rw [← List.mem_toSet, tl_eq]
             rw [h1]
             have terms_sub := FactSet.terms_subset_of_subset cn.core_sse.left
-            rcases cn.core_finite with ⟨cn_core_l, _, cn_core_l_eq⟩
+            rcases (cb.core_finite _ _ cn_eq) with ⟨cn_core_l, _, cn_core_l_eq⟩
             have eq : cn_core_l.toSet = cn.core := Set.ext cn_core_l.toSet cn.core cn_core_l_eq
             have t1 := @FactSet.mem_terms_toSet _ _ _ _ cn_core_l (trg.subs v)
             rw [eq] at t1
