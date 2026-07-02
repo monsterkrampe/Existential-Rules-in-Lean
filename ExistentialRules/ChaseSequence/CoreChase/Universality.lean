@@ -220,7 +220,7 @@ namespace CoreChaseBranch
                 let next_node := Classical.choose ex_next_node
                 let next_node_eq := Classical.choose_spec ex_next_node
                 have := inductiveHomomorphismCoreWithPrevNodeAndTrgIfNextSome
-                  cb m m_mod kb_det j cn prev_node_eq prev_gtm (GroundTermMapping.sub_preserves_hom cn.fs m cn.fs (Set.subset_refl) prev_gtm (prev_gtm_hom cn prev_node_eq)) next_node next_node_eq
+                  cb m m_mod kb_det j cn prev_node_eq prev_gtm (prev_gtm_hom cn prev_node_eq) next_node next_node_eq
                 let next_gtm := Classical.choose this
                 have next_gtm_hom := Classical.choose_spec this
                 ⟨next_gtm, by

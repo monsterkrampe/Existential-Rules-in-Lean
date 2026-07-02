@@ -87,7 +87,7 @@ namespace CoreChaseBranch
 
     have node_finite := scb.facts_finite_of_mem ⟨node, node_mem⟩
 
-    rcases node.facts.exists_weak_core_for_finite_set node_finite with ⟨node_core, node_core_isCore⟩
+    rcases node.facts.exists_weak_core_for_set_of_finite node_finite with ⟨node_core, node_core_isCore⟩
 
     -- the rest of the prove shall take scb up until node and then compute the core once
     -- we need to prove that a regular core chase branch with the same result exists (this could be a general theorem, i.e. computing the core after any finite number of steps does not make a difference for the result)

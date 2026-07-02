@@ -22,25 +22,6 @@ variable {kb : KnowledgeBase sig}
 
 abbrev obs := RestrictedObsolescence sig
 
-theorem db_isWeakCore (db : Database sig) : db.toFactSet.val.isWeakCore := by
-  let fs := db.val
-  intro gtm gtm_hom
-  suffices ∀ t ∈ db.toFactSet.val.terms, gtm t = t by
-    constructor
-    . intro f ts_in_db f_nmem contra
-      apply f_nmem
-      simp only [GroundTermMapping.applyFact] at contra
-      rw [TermMapping.apply_generalized_atom_eq_self_of_id_on_terms] at contra
-      . exact contra
-      . intro t t_mem; apply this; apply ts_in_db; exact t_mem
-    . intro _ _ s_mem t_mem
-      rw [this _ s_mem, this _ t_mem]
-      simp
-  intro t ⟨f, f_mem, t_mem⟩
-  rcases  db.toFactSet.property.right _ f_mem t t_mem with ⟨c, t_eq⟩
-  rw [t_eq]
-  exact gtm_hom.left
-
 def existsTriggerOptFsCore (rules : RuleSet sig) (before : CoreChaseNode rules) (after : Option (CoreChaseNode rules)) : Prop :=
   ∀ node ∈ after,
   ∃ trg : (RTrigger (obs.toLaxObsolescenceCondition) rules),
@@ -63,8 +44,8 @@ structure CoreChaseBranch (kb : KnowledgeBase sig) where
   database_first : branch.get? 0 = some {
     fs := kb.db.toFactSet
     core := kb.db.toFactSet
-    is_core := db_isWeakCore kb.db
-    core_sse := ⟨Set.subset_refl, ⟨_, GroundTermMapping.id_is_hom⟩⟩
+    is_core := kb.db.isWeakCore
+    core_sse := ⟨Set.subset_refl, ⟨_, GroundTermMapping.isHomomorphism_id_of_subset Set.subset_refl⟩⟩
     origin := none,
     fs_contains_origin_result := by simp
   }
@@ -263,7 +244,7 @@ namespace CoreChaseBranch
   theorem f_in_core_if_in_fs_if_f_isFunctionFree (cb : CoreChaseBranch kb) (n : Nat) (x_eq : x ∈ cb.branch.get? n) (f : Fact sig) (f_in : f ∈ x.fs) (f_is_ff : f.isFunctionFree) : f ∈ x.core := by
       have ex_gtm := x.core_sse.right
       rcases ex_gtm with ⟨gtm, gtm_hom⟩
-      have eq : gtm.applyFact f = f := gtm.hom_applyFact_isFunctionFree_eq_id x.fs x.core f f_is_ff gtm_hom
+      have eq : gtm.applyFact f = f := by apply GroundTermMapping.applyFact_eq_self_of_isIdOnConstants_of_isFunctionFree; exact gtm_hom.left; exact f_is_ff
       have x_core := x.is_core
       rcases gtm_hom with ⟨gtm_c, gtm_st⟩
       specialize gtm_st f

@@ -23,7 +23,8 @@ namespace CoreChaseBranch
   theorem ex_hom_prev_core_next_fs (cb : CoreChaseBranch kb) (n : Nat) (x y : CoreChaseNode kb.rules)
     (x_eq : x ∈ cb.branch.get? n) (y_eq : y ∈ cb.branch.get? (n + 1)) : ∃ (h : GroundTermMapping sig), h.isHomomorphism x.core y.fs := by
       have sub : x.core ⊆ y.fs := before_core_sub_after_fs cb n x y x_eq y_eq
-      exact x.core.ex_hom_sub y.fs sub
+      exists id
+      exact GroundTermMapping.isHomomorphism_id_of_subset sub
 
   theorem ex_hom_core_succ_core_if_some (cb : CoreChaseBranch kb) (n : Nat) (x y : CoreChaseNode kb.rules)
     (x_eq : cb.branch.infinite_list n = some x) (y_eq : cb.branch.infinite_list (n + 1) = some y) :
@@ -56,7 +57,7 @@ namespace CoreChaseBranch
         have eq : cn = x := by grind
         exists id
         rw [eq]
-        exact GroundTermMapping.id_is_hom
+        exact GroundTermMapping.isHomomorphism_id_of_subset Set.subset_refl
       | succ m ih =>
         intro y y_eq
         simp only [Option.mem_def] at ih
@@ -82,7 +83,7 @@ namespace CoreChaseBranch
         have eq : x = y := by grind
         rw [eq]
         exists id
-        exact GroundTermMapping.id_is_hom
+        exact GroundTermMapping.isHomomorphism_id_of_subset Set.subset_refl
       | succ m ih =>
         intro y y_eq
         have ex_z := cb.ex_prev_node_at_each_leq (n+m+1) (Option.isSome_of_mem y_eq) (n+m) (Nat.le_add_right (n + m) 1)
