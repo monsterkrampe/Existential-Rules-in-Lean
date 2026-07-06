@@ -23,27 +23,6 @@ public section
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
-section ChaseStep
-
-/-!
-## Chase Step
-
-To define how one chase step follows from the previous, we introduce an auxiliary definitions that capture that the next `ChaseNode` in a `ChaseDerivationSkeleton` always follows from the previous from a trigger application, given that a next node still exists.
--/
-
-@[expose]
-def exists_trigger_opt_fs (obs : ObsolescenceCondition sig) (rules : RuleSet sig) (before : ChaseNode obs rules) (after : Option (ChaseNode obs rules)) : Prop :=
-  ∀ node ∈ after,
-  ∃ trg : (RTrigger (obs : LaxObsolescenceCondition sig) rules),
-  ∃ i,
-  node = {
-    facts := before.facts ∪ (trg.val.mapped_head[i.val]'(i.isLt)).toSet,
-    origin := some ⟨trg, i⟩
-    facts_contain_origin_result := by intro _ eq; rw [Option.mem_def, Option.some_inj] at eq; rw [← eq]; apply Set.subset_union_of_subset_right; apply Set.subset_refl
-  }
-
-end ChaseStep
-
 /-!
 ## The ChaseDerivation Structure
 
@@ -53,18 +32,19 @@ The backbone of the `ChaseDerivationSkeleton` is a `PossiblyInfiniteList` of `Ch
 2. At each step in the derivation, either there exists a trigger that yields the next node or there is no next node.
 -/
 
-structure ChaseDerivationSkeleton (obs : ObsolescenceCondition sig) (rules : RuleSet sig) where
-  branch : PossiblyInfiniteList (ChaseNode obs rules)
+structure ChaseDerivationSkeleton (N : Type u) (obs : ObsolescenceCondition sig) (rules : RuleSet sig) [CN : ChaseNode N obs rules] where
+  branch : PossiblyInfiniteList N
   isSome_head : branch.head.isSome
   triggers_exist : ∀ n : Nat, ∀ before ∈ (branch.drop n).head,
-    let after := (branch.drop n).tail.head
-    (exists_trigger_opt_fs obs rules before after)
+    ∀ after ∈ (branch.drop n).tail.head, CN.succ before after
 
 namespace ChaseDerivationSkeleton
 
 variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 
 section Basics
+
+variable {N : Type u} [CN : ChaseNode N obs rules]
 
 /-!
 ## Basic Definitions
@@ -73,20 +53,20 @@ Here we introduce some auxiliary definitions and theorems and we lift some of th
 -/
 
 /-- Membership of `ChaseNode`s in the `ChaseDerivationSkeleton` directly corresponds to membership in the `PossiblyInfiniteList`. -/
-instance : Membership (ChaseNode obs rules) (ChaseDerivationSkeleton obs rules) where
+instance : Membership N (ChaseDerivationSkeleton N obs rules) where
   mem cd node := node ∈ cd.branch
 
 /-- An element is a member of the derivation iff it occurs at some index in the underlying branch. -/
-theorem mem_iff {cd : ChaseDerivationSkeleton obs rules} : ∀ {e}, e ∈ cd ↔ ∃ n, cd.branch.get? n = some e := by rfl
+theorem mem_iff {cd : ChaseDerivationSkeleton N obs rules} : ∀ {e}, e ∈ cd ↔ ∃ n, cd.branch.get? n = some e := by rfl
 
 /-- Each suffix of the underlying `PossiblyInfiniteList` is itself a `ChaseDerivationSkeleton` as long as its head is not none. -/
 @[expose]
 def derivation_for_branch_suffix
-    (cd : ChaseDerivationSkeleton obs rules)
-    (l2 : PossiblyInfiniteList (ChaseNode obs rules))
+    (cd : ChaseDerivationSkeleton N obs rules)
+    (l2 : PossiblyInfiniteList N)
     (suffix : l2 <:+ cd.branch)
     (l2_head_some : l2.head.isSome) :
-    ChaseDerivationSkeleton obs rules where
+    ChaseDerivationSkeleton N obs rules where
   branch := l2
   isSome_head := l2_head_some
   triggers_exist := by
@@ -100,11 +80,11 @@ def derivation_for_branch_suffix
 
 /-- The head of the `ChaseDerivationSkeleton` is the initial `ChaseNode`. We know that this is never none. -/
 @[expose]
-def head (cd : ChaseDerivationSkeleton obs rules) : ChaseNode obs rules := cd.branch.head.get (cd.isSome_head)
+def head (cd : ChaseDerivationSkeleton N obs rules) : N := cd.branch.head.get (cd.isSome_head)
 
 /-- The `head` is a member. -/
 @[grind <-]
-theorem head_mem {cd : ChaseDerivationSkeleton obs rules} : cd.head ∈ cd := by exists 0; simp [head, PossiblyInfiniteList.head_eq, PossiblyInfiniteList.get?]
+theorem head_mem {cd : ChaseDerivationSkeleton N obs rules} : cd.head ∈ cd := by exists 0; simp [head, PossiblyInfiniteList.head_eq, PossiblyInfiniteList.get?]
 
 section Next
 
@@ -116,28 +96,28 @@ We mainly introduce a couple of theorems here that abstract away the `triggers_e
 -/
 
 @[expose]
-def next (cd : ChaseDerivationSkeleton obs rules) : Option (ChaseNode obs rules) := cd.branch.tail.head
+def next (cd : ChaseDerivationSkeleton N obs rules) : Option N := cd.branch.tail.head
 
 /-- The `next` node is a member. -/
 @[grind ->]
-theorem next_mem_of_mem {cd : ChaseDerivationSkeleton obs rules} : ∀ next ∈ cd.next, next ∈ cd := by
+theorem next_mem_of_mem {cd : ChaseDerivationSkeleton N obs rules} : ∀ next ∈ cd.next, next ∈ cd := by
   intro next next_mem; apply cd.branch.tail.mem_of_mem_suffix cd.branch.IsSuffix_tail; apply cd.branch.tail.head_mem; exact next_mem
 
 /-- The origin of the `next` `ChaseNode` needs to be set. -/
 @[grind ->]
-theorem isSome_origin_next {cd : ChaseDerivationSkeleton obs rules} {next : ChaseNode obs rules} (eq : cd.next = some next) : next.origin.isSome := by
+theorem isSome_origin_next {cd : ChaseDerivationSkeleton N obs rules} {next : N} (eq : cd.next = some next) : (CN.origin next).isSome := by
   have trg_ex := cd.triggers_exist 0 cd.head (by simp [PossiblyInfiniteList.drop_zero, head])
   rw [PossiblyInfiniteList.drop_zero] at trg_ex
   specialize trg_ex _ eq
-  rcases trg_ex with ⟨_, _, trg_ex⟩; rw [trg_ex]; simp
+  rcases trg_ex with ⟨isSome, _⟩; exact isSome
 
 /-- The fact set of the `next` `ChaseNode` consists exactly of the facts from `head` and the result of the trigger that introduces `next`. -/
-theorem facts_next {cd : ChaseDerivationSkeleton obs rules} {next : ChaseNode obs rules} (eq : cd.next = some next) :
-    next.facts = cd.head.facts ∪ (next.origin_result (cd.isSome_origin_next eq)).toSet := by
+theorem facts_next {cd : ChaseDerivationSkeleton N obs rules} {next : N} (eq : cd.next = some next) :
+    CN.ingoingFacts next = CN.outgoingFacts cd.head ∪ (CN.origin_result next (cd.isSome_origin_next eq)).toSet := by
   have trg_ex := cd.triggers_exist 0 cd.head (by simp [PossiblyInfiniteList.drop_zero, head])
   rw [PossiblyInfiniteList.drop_zero] at trg_ex
   specialize trg_ex _ eq
-  rcases trg_ex with ⟨trg', _, trg_ex⟩; simp only [trg_ex]; rfl
+  rcases trg_ex with ⟨_, facts_eq⟩; rw [facts_eq]
 
 end Next
 
@@ -150,15 +130,15 @@ We define a suffix relation on `ChaseDerivationSkeleton` simply as the suffix re
 -/
 
 @[expose]
-def IsSuffix (cd1 cd2 : ChaseDerivationSkeleton obs rules) : Prop := cd1.branch <:+ cd2.branch
+def IsSuffix (cd1 cd2 : ChaseDerivationSkeleton N obs rules) : Prop := cd1.branch <:+ cd2.branch
 infixl:50 " <:+ " => IsSuffix
 
 /-- Unfolds the definition of the suffix relation. -/
-theorem IsSuffix_iff {cd1 cd2 : ChaseDerivationSkeleton obs rules} : cd1 <:+ cd2 ↔ ∃ m, cd2.branch.drop m = cd1.branch := PossiblyInfiniteList.IsSuffix_iff
+theorem IsSuffix_iff {cd1 cd2 : ChaseDerivationSkeleton N obs rules} : cd1 <:+ cd2 ↔ ∃ m, cd2.branch.drop m = cd1.branch := PossiblyInfiniteList.IsSuffix_iff
 
 /-- Members of our suffix are also our members. -/
 @[grind ->]
-theorem mem_of_mem_suffix {cd1 cd2 : ChaseDerivationSkeleton obs rules} (suffix : cd1 <:+ cd2) : ∀ node ∈ cd1, node ∈ cd2 := by
+theorem mem_of_mem_suffix {cd1 cd2 : ChaseDerivationSkeleton N obs rules} (suffix : cd1 <:+ cd2) : ∀ node ∈ cd1, node ∈ cd2 := by
   simp only [mem_iff]
   intro node ⟨n, node_eq⟩
   rw [IsSuffix_iff] at suffix
@@ -168,8 +148,8 @@ theorem mem_of_mem_suffix {cd1 cd2 : ChaseDerivationSkeleton obs rules} (suffix 
   exact node_eq
 
 /-- Each `ChaseNode` in the `ChaseDerivationSkeleton` induces a subderivation. -/
-theorem subderivation_of_node_mem {cd : ChaseDerivationSkeleton obs rules} {node : ChaseNode obs rules} (node_mem : node ∈ cd) :
-    ∃ (cd2 : ChaseDerivationSkeleton obs rules), cd2.head = node ∧ cd2 <:+ cd := by
+theorem subderivation_of_node_mem {cd : ChaseDerivationSkeleton N obs rules} {node : N} (node_mem : node ∈ cd) :
+    ∃ (cd2 : ChaseDerivationSkeleton N obs rules), cd2.head = node ∧ cd2 <:+ cd := by
   rw [mem_iff] at node_mem
   rcases node_mem with ⟨n, node_mem⟩
   exists cd.derivation_for_branch_suffix (cd.branch.drop n) (cd.branch.IsSuffix_drop n) (by simp [node_mem])
@@ -188,21 +168,21 @@ If `next` exists, we can drop the first element from the `ChaseDerivationSkeleto
 -/
 
 @[expose]
-def tail (cd : ChaseDerivationSkeleton obs rules) (next_some : cd.next.isSome) : ChaseDerivationSkeleton obs rules :=
+def tail (cd : ChaseDerivationSkeleton N obs rules) (next_some : cd.next.isSome) : ChaseDerivationSkeleton N obs rules :=
   cd.derivation_for_branch_suffix cd.branch.tail (cd.branch.IsSuffix_tail) next_some
 
 /-- The `head` of the `tail` is `next`. -/
-theorem head_tail {cd : ChaseDerivationSkeleton obs rules} {next_some : cd.next.isSome} : some (cd.tail next_some).head = cd.next := by
+theorem head_tail {cd : ChaseDerivationSkeleton N obs rules} {next_some : cd.next.isSome} : some (cd.tail next_some).head = cd.next := by
   unfold tail head ChaseDerivationSkeleton.next derivation_for_branch_suffix
   simp only [Option.some_get]
 
 /-- The `head` of the `tail` is `next`. -/
 @[simp, grind =]
-theorem head_tail' {cd : ChaseDerivationSkeleton obs rules} {next_some : cd.next.isSome} : (cd.tail next_some).head = cd.next.get next_some := by rfl
+theorem head_tail' {cd : ChaseDerivationSkeleton N obs rules} {next_some : cd.next.isSome} : (cd.tail next_some).head = cd.next.get next_some := by rfl
 
 /-- `next` is a member of the `tail`. -/
 @[grind ->]
-theorem next_mem_tail {cd : ChaseDerivationSkeleton obs rules} {next_some : cd.next.isSome} : ∀ next ∈ cd.next, next ∈ cd.tail next_some := by
+theorem next_mem_tail {cd : ChaseDerivationSkeleton N obs rules} {next_some : cd.next.isSome} : ∀ next ∈ cd.next, next ∈ cd.tail next_some := by
   intro next next_mem
   have : next = cd.next.get next_some := by
     conv => right; left; rw [next_mem]
@@ -211,7 +191,7 @@ theorem next_mem_tail {cd : ChaseDerivationSkeleton obs rules} {next_some : cd.n
   exact head_mem
 
 /-- A node is a member if and only if it is either the head or it is a member of the tail. -/
-theorem mem_iff_eq_head_or_mem_tail {cd : ChaseDerivationSkeleton obs rules} {node : ChaseNode obs rules} :
+theorem mem_iff_eq_head_or_mem_tail {cd : ChaseDerivationSkeleton N obs rules} {node : N} :
     node ∈ cd ↔ node = cd.head ∨ ∃ h, node ∈ cd.tail h := by
   constructor
   . rw [mem_iff]
@@ -232,7 +212,7 @@ theorem mem_iff_eq_head_or_mem_tail {cd : ChaseDerivationSkeleton obs rules} {no
     | inr mem_tail => rcases mem_tail with ⟨_, mem_tail⟩; apply mem_of_mem_suffix _ _ mem_tail; exact cd.branch.IsSuffix_tail
 
 /-- A derivation is a suffix of another if and only if both are the same or the first is a suffix of the second's tail. -/
-theorem suffix_iff_eq_or_suffix_tail {cd1 cd2 : ChaseDerivationSkeleton obs rules} : cd1 <:+ cd2 ↔ cd1 = cd2 ∨ ∃ h, cd1 <:+ cd2.tail h := by
+theorem suffix_iff_eq_or_suffix_tail {cd1 cd2 : ChaseDerivationSkeleton N obs rules} : cd1 <:+ cd2 ↔ cd1 = cd2 ∨ ∃ h, cd1 <:+ cd2.tail h := by
   -- TODO: maybe we should extract a result like this to (Possibly)InfiniteList directly
   constructor
   . rw [IsSuffix_iff]
@@ -274,26 +254,26 @@ properties of `ChaseNode`s in a `ChaseDerivationSkeleton`.
 For this, we introduce `ChaseDerivationSkeleton.Node` as the subtype of `ChaseNode` that features a membership proof.
 -/
 
-abbrev Node (cd : ChaseDerivationSkeleton obs rules) := { node : ChaseNode obs rules // node ∈ cd}
+abbrev Node (cd : ChaseDerivationSkeleton N obs rules) := { node : N // node ∈ cd}
 
 /-- A `Node` of our suffix can be cast into our `Node` type. -/
 @[expose]
-def Node.cast_suffix {cd cd2 : ChaseDerivationSkeleton obs rules} (suffix : cd <:+ cd2) (node : Node cd) : Node cd2 :=
+def Node.cast_suffix {cd cd2 : ChaseDerivationSkeleton N obs rules} (suffix : cd <:+ cd2) (node : Node cd) : Node cd2 :=
   ⟨node.val, mem_of_mem_suffix suffix _ node.property⟩
 
 /-- If we want to show a motive for all nodes in a derivation, it is enough to show the motive for the head and for the next node in each abitrary subderivation where the motive already holds for the head. This can be used with the induction tactic. -/
 theorem mem_rec
-    {cd : ChaseDerivationSkeleton obs rules}
+    {cd : ChaseDerivationSkeleton N obs rules}
     {motive : Node cd -> Prop}
     (head : motive ⟨cd.head, cd.head_mem⟩)
-    (step : ∀ (cd2 : ChaseDerivationSkeleton obs rules), (suffix : cd2 <:+ cd) -> motive ⟨cd2.head, mem_of_mem_suffix suffix _ cd2.head_mem⟩ -> ∀ next, (next_mem : next ∈ cd2.next) -> motive ⟨next, mem_of_mem_suffix suffix _ (cd2.next_mem_of_mem _ next_mem)⟩)
+    (step : ∀ (cd2 : ChaseDerivationSkeleton N obs rules), (suffix : cd2 <:+ cd) -> motive ⟨cd2.head, mem_of_mem_suffix suffix _ cd2.head_mem⟩ -> ∀ next, (next_mem : next ∈ cd2.next) -> motive ⟨next, mem_of_mem_suffix suffix _ (cd2.next_mem_of_mem _ next_mem)⟩)
     (node : Node cd) :
     motive node := by
   induction node using PossiblyInfiniteList.mem_rec with
   | head head' mem => unfold ChaseDerivationSkeleton.head at head; rw [Option.mem_def] at mem; simp only [mem, Option.get_some] at head; exact head
   | step l2 suffix ih next next_mem =>
     rcases ih with ⟨head, head_mem, ih⟩
-    let cd2 : ChaseDerivationSkeleton obs rules := cd.derivation_for_branch_suffix l2 suffix (by rw [head_mem]; simp)
+    let cd2 : ChaseDerivationSkeleton N obs rules := cd.derivation_for_branch_suffix l2 suffix (by rw [head_mem]; simp)
     apply step cd2 suffix
     . simp only [cd2, derivation_for_branch_suffix, ChaseDerivationSkeleton.head];
       conv => right; left; left; rw [head_mem]
@@ -302,7 +282,7 @@ theorem mem_rec
     . exact next_mem
 
 /-- A node is a member of the `tail` if and only if there is a subderivation where the node is in the `next` position. Part of this proof uses the induction principle defined above. -/
-theorem mem_tail_iff {cd : ChaseDerivationSkeleton obs rules} {next_some : cd.next.isSome} {node : ChaseNode obs rules} :
+theorem mem_tail_iff {cd : ChaseDerivationSkeleton N obs rules} {next_some : cd.next.isSome} {node : N} :
     node ∈ cd.tail next_some ↔ ∃ cd2, cd2 <:+ cd ∧ cd2.next = some node := by
   constructor
   . intro node_mem
@@ -342,7 +322,7 @@ Since `ChaseNodes` always extend the previous facts, the fact sets can only be g
 
 /-- Each member's facts contain the head facts. Note that this extends to arbitrary pairs of members since each member always induces a subderivation where it acts as the head. -/
 @[grind <-]
-theorem facts_node_subset_every_mem {cd : ChaseDerivationSkeleton obs rules} : ∀ node ∈ cd, cd.head.facts ⊆ node.facts := by
+theorem facts_node_subset_every_mem {cd : ChaseDerivationSkeleton (RegularChaseNode obs rules) obs rules} : ∀ node ∈ cd, cd.head.facts ⊆ node.facts := by
   intro node node_mem
   let node' : cd.Node := ⟨node, node_mem⟩
   show cd.head.facts ⊆ node'.val.facts
@@ -350,12 +330,13 @@ theorem facts_node_subset_every_mem {cd : ChaseDerivationSkeleton obs rules} : �
   | head => apply Set.subset_refl
   | step cd2 suffix subset next next_eq =>
     apply Set.subset_trans subset
+    rw [← next.ingoingFacts_eq]
     rw [cd2.facts_next next_eq]
     apply Set.subset_union_of_subset_left
     apply Set.subset_refl
 
 /-- A first implication of `facts_node_subset_every_mem` is that, considering one of our subderivations, each of our members either has all of its facts contained in the head of the subderivation or it is itself a member of the subderivation. -/
-theorem mem_suffix_of_mem {cd1 cd2 : ChaseDerivationSkeleton obs rules} (suffix : cd1 <:+ cd2) : ∀ node ∈ cd2, node.facts ⊆ cd1.head.facts ∨ node ∈ cd1 := by
+theorem mem_suffix_of_mem {cd1 cd2 : ChaseDerivationSkeleton (RegularChaseNode obs rules) obs rules} (suffix : cd1 <:+ cd2) : ∀ node ∈ cd2, node.facts ⊆ cd1.head.facts ∨ node ∈ cd1 := by
   intro node node_mem
   rcases subderivation_of_node_mem node_mem with ⟨cd3, cd3_head, suffix'⟩
   cases PossiblyInfiniteList.suffix_or_suffix_of_suffix suffix suffix' with
@@ -375,10 +356,13 @@ For each node, the set of generated facts is finite since each trigger only intr
 
 /-- The generated facts of a chase node are the facts that orruc in the node but not in the initial chase node. -/
 @[expose]
-def generatedFacts (cd : ChaseDerivationSkeleton obs rules) (node : ChaseNode obs rules) : FactSet sig := fun f => f ∈ node.facts ∧ f ∉ cd.head.facts
+def generatedFacts {N : Type u} [CN : ChaseNode N obs rules] (cd : ChaseDerivationSkeleton N obs rules) (node : N) : FactSet sig :=
+  fun f => f ∈ CN.ingoingFacts node ∧ f ∉ CN.outgoingFacts cd.head
 
 /-- Each node's facts are formed by the initial facts and its `generatedFacts`. -/
-theorem facts_node_eq_union_initial_and_generated {cd : ChaseDerivationSkeleton obs rules} {node : ChaseNode obs rules} (mem : node ∈ cd) :
+theorem facts_node_eq_union_initial_and_generated
+    {cd : ChaseDerivationSkeleton (RegularChaseNode obs rules) obs rules}
+    {node : RegularChaseNode obs rules} (mem : node ∈ cd) :
     node.facts = cd.head.facts ∪ cd.generatedFacts node := by
   unfold generatedFacts
   apply Set.ext; intro f; constructor
@@ -390,14 +374,15 @@ theorem facts_node_eq_union_initial_and_generated {cd : ChaseDerivationSkeleton 
     | inr f_mem => exact f_mem.left
 
 /-- The `generatedFacts` are always finite. -/
-theorem generatedFacts_finite_of_mem {cd : ChaseDerivationSkeleton obs rules} {node : ChaseNode obs rules} (mem : node ∈ cd) :
+theorem generatedFacts_finite_of_mem {cd : ChaseDerivationSkeleton (RegularChaseNode obs rules) obs rules}
+    {node : RegularChaseNode obs rules} (mem : node ∈ cd) :
     (cd.generatedFacts node).finite := by
   let node' : cd.Node := ⟨node, mem⟩
   show (cd.generatedFacts node'.val).finite
   induction node' using mem_rec with
-  | head => exists []; simp only [List.nodup_nil, true_and]; intro _; rw [List.mem_nil_iff]; simp [generatedFacts, Membership.mem]
+  | head => exists []; simp only [List.nodup_nil, true_and]; intro _; rw [List.mem_nil_iff]; simp [generatedFacts, Membership.mem, RegularChaseNode.ingoingFacts_eq, RegularChaseNode.outgoingFacts_eq]
   | step cd2 suffix ih next next_mem =>
-    suffices cd.generatedFacts next ⊆ cd.generatedFacts cd2.head ∪ (next.origin_result (cd2.isSome_origin_next next_mem)).toSet by
+    suffices cd.generatedFacts next ⊆ cd.generatedFacts cd2.head ∪ (ChaseNode.origin_result next (cd2.isSome_origin_next next_mem)).toSet by
       apply Set.finite_of_subset_finite _ this
       apply Set.union_finite_of_both_finite ih
       apply List.finite_toSet
@@ -420,14 +405,18 @@ We can define a predecessor relation (`≼`) on `ChaseDerivation.Node`.
 At this point, it does not have many properties. On Proper `ChaseDerivation`s it will be a total order.
 -/
 
+section General
+
+variable {N : Type u} [CN : ChaseNode N obs rules]
+
 /-- A node $n$ is a predecessor of a node $m$ if there is a subderivation there $n$ is the head and $m$ is an arbitrary member. -/
 @[expose]
-def predecessor {cd : ChaseDerivationSkeleton obs rules} (n1 n2 : Node cd) : Prop := ∃ cd2, cd2 <:+ cd ∧ cd2.head = n1.val ∧ n2.val ∈ cd2
+def predecessor {cd : ChaseDerivationSkeleton N obs rules} (n1 n2 : Node cd) : Prop := ∃ cd2, cd2 <:+ cd ∧ cd2.head = n1.val ∧ n2.val ∈ cd2
 infixl:50 " ≼ " => predecessor
 
 /-- The predecessor relation is stable across suffixes. That is, predecessor in our suffix are also predecessor for us. We only need to cast the nodes. -/
 @[grind <-]
-theorem predecessor_of_suffix {cd cd2 : ChaseDerivationSkeleton obs rules} {n1 n2 : Node cd} (suffix : cd <:+ cd2) :
+theorem predecessor_of_suffix {cd cd2 : ChaseDerivationSkeleton N obs rules} {n1 n2 : Node cd} (suffix : cd <:+ cd2) :
     n1 ≼ n2 -> (n1.cast_suffix suffix) ≼ (n2.cast_suffix suffix) := by
   rintro ⟨cd3, suffix', head_eq, mem⟩
   exists cd3; constructor
@@ -438,11 +427,11 @@ theorem predecessor_of_suffix {cd cd2 : ChaseDerivationSkeleton obs rules} {n1 n
 
 /-- The predecessor relation is reflexive. -/
 @[grind <-]
-theorem predecessor_refl {cd : ChaseDerivationSkeleton obs rules} {node : Node cd} : node ≼ node := by
+theorem predecessor_refl {cd : ChaseDerivationSkeleton N obs rules} {node : Node cd} : node ≼ node := by
   rcases cd.subderivation_of_node_mem node.property with ⟨cd2, head_eq, suffix⟩; exists cd2; simp only [suffix, head_eq, true_and]; rw [← head_eq]; exact cd2.head_mem
 
 /-- The predecessor relation is total. -/
-theorem predecessor_total {cd : ChaseDerivationSkeleton obs rules} (n1 n2 : Node cd) : n1 ≼ n2 ∨ n2 ≼ n1 := by
+theorem predecessor_total {cd : ChaseDerivationSkeleton N obs rules} (n1 n2 : Node cd) : n1 ≼ n2 ∨ n2 ≼ n1 := by
   rcases cd.subderivation_of_node_mem n1.property with ⟨cd1, head1, suf1⟩
   rcases cd.subderivation_of_node_mem n2.property with ⟨cd2, head2, suf2⟩
   cases PossiblyInfiniteList.suffix_or_suffix_of_suffix suf1 suf2 with
@@ -450,16 +439,8 @@ theorem predecessor_total {cd : ChaseDerivationSkeleton obs rules} (n1 n2 : Node
   | inr suffix => apply Or.inl; exists cd1; simp only [suf1, head1, true_and]; apply cd2.mem_of_mem_suffix; exact suffix; rw [← head2]; exact cd2.head_mem
 
 /-- The `head` is a predecessor of `next`. -/
-theorem head_prec_next {cd : ChaseDerivationSkeleton obs rules} : ∀ {next}, (mem : next ∈ cd.next) -> ⟨cd.head, cd.head_mem⟩ ≼ ⟨next, cd.next_mem_of_mem _ mem⟩ := by
+theorem head_prec_next {cd : ChaseDerivationSkeleton N obs rules} : ∀ {next}, (mem : next ∈ cd.next) -> ⟨cd.head, cd.head_mem⟩ ≼ ⟨next, cd.next_mem_of_mem _ mem⟩ := by
   intro next next_mem; exact ⟨cd, cd.branch.IsSuffix_refl, rfl, cd.next_mem_of_mem _ next_mem⟩
-
-/-- The facts of our predecessor are a subset of our facts. -/
-@[grind ->]
-theorem facts_node_subset_of_prec {cd : ChaseDerivationSkeleton obs rules} {node1 node2 : cd.Node} : node1 ≼ node2 -> node1.val.facts ⊆ node2.val.facts := by
-  rintro ⟨cd2, suffix, head_eq, mem⟩
-  rw [← head_eq]
-  apply facts_node_subset_every_mem
-  exact mem
 
 
 section StrictPredecessor
@@ -470,12 +451,12 @@ We also define a strict version of the predecessor relation (`≺`) in the obvio
 
 /-- A node is a strict predecessor of another if it is a predecessor but not equal. -/
 @[expose]
-def strict_predecessor {cd : ChaseDerivationSkeleton obs rules} (n1 n2 : Node cd) : Prop := n1 ≼ n2 ∧ n1 ≠ n2
+def strict_predecessor {cd : ChaseDerivationSkeleton N obs rules} (n1 n2 : Node cd) : Prop := n1 ≼ n2 ∧ n1 ≠ n2
 infixl:50 " ≺ " => strict_predecessor
 
 /-- As for the predecessor relation, we can show that the relation is stable across suffixes given that we cast the nodes. -/
 @[grind <-]
-theorem strict_predecessor_of_suffix {cd cd2 : ChaseDerivationSkeleton obs rules} {n1 n2 : Node cd} (suffix : cd <:+ cd2) : n1 ≺ n2 -> (n1.cast_suffix suffix) ≺ (n2.cast_suffix suffix) := by
+theorem strict_predecessor_of_suffix {cd cd2 : ChaseDerivationSkeleton N obs rules} {n1 n2 : Node cd} (suffix : cd <:+ cd2) : n1 ≺ n2 -> (n1.cast_suffix suffix) ≺ (n2.cast_suffix suffix) := by
   intro prec
   constructor
   . apply predecessor_of_suffix suffix; exact prec.left
@@ -483,24 +464,24 @@ theorem strict_predecessor_of_suffix {cd cd2 : ChaseDerivationSkeleton obs rules
 
 /-- The strict predecessor relation is irreflexive. -/
 @[grind <-]
-theorem strict_predecessor_irreflexive {cd : ChaseDerivationSkeleton obs rules} {n : Node cd} : ¬ n ≺ n := by intro contra; apply contra.right; rfl
+theorem strict_predecessor_irreflexive {cd : ChaseDerivationSkeleton N obs rules} {n : Node cd} : ¬ n ≺ n := by intro contra; apply contra.right; rfl
 
 /-- The strict predecessor relation is total. -/
-theorem strict_predecessor_total {cd : ChaseDerivationSkeleton obs rules} {n1 n2 : Node cd} : n1 ≠ n2 -> n1 ≺ n2 ∨ n2 ≺ n1 := by
+theorem strict_predecessor_total {cd : ChaseDerivationSkeleton N obs rules} {n1 n2 : Node cd} : n1 ≠ n2 -> n1 ≺ n2 ∨ n2 ≺ n1 := by
   intro ne
   cases predecessor_total n1 n2 with
   | inl prec => apply Or.inl; constructor; exact prec; exact ne
   | inr prec => apply Or.inr; constructor; exact prec; exact Ne.symm ne
 
 /-- A predecessor is either equal or a strict predecessor. -/
-theorem eq_or_strict_of_predecessor {cd : ChaseDerivationSkeleton obs rules} {n1 n2 : Node cd} : n1 ≼ n2 -> n1 = n2 ∨ n1 ≺ n2 := by
+theorem eq_or_strict_of_predecessor {cd : ChaseDerivationSkeleton N obs rules} {n1 n2 : Node cd} : n1 ≼ n2 -> n1 = n2 ∨ n1 ≺ n2 := by
   intro prec
   cases Classical.em (n1 = n2) with
   | inl eq => apply Or.inl; exact eq
   | inr ne => apply Or.inr; exact ⟨prec, ne⟩
 
 /-- If a node is a strict successor of the head, then it is at least a successor of the next element. -/
-theorem next_prec_of_head_strict_prec {cd : ChaseDerivationSkeleton obs rules} {node : Node cd} :
+theorem next_prec_of_head_strict_prec {cd : ChaseDerivationSkeleton N obs rules} {node : Node cd} :
     ⟨cd.head, cd.head_mem⟩ ≺ node -> ∀ {next}, (mem : next ∈ cd.next) -> ⟨next, cd.next_mem_of_mem _ mem⟩ ≼ node := by
   intro ⟨prec, ne⟩ next next_mem
   rcases prec with ⟨cd2, suffix, head_eq, node_mem⟩
@@ -525,6 +506,20 @@ theorem next_prec_of_head_strict_prec {cd : ChaseDerivationSkeleton obs rules} {
 
 end StrictPredecessor
 
+end General
+
+section RegularChaseNodeSpecific
+
+/-- The facts of our predecessor are a subset of our facts. -/
+@[grind ->]
+theorem facts_node_subset_of_prec {cd : ChaseDerivationSkeleton (RegularChaseNode obs rules) obs rules} {node1 node2 : cd.Node} : node1 ≼ node2 -> node1.val.facts ⊆ node2.val.facts := by
+  rintro ⟨cd2, suffix, head_eq, mem⟩
+  rw [← head_eq]
+  apply facts_node_subset_every_mem
+  exact mem
+
+end RegularChaseNodeSpecific
+
 end Predecessors
 
 section ChaseResult
@@ -536,16 +531,16 @@ Here, we define the result of a `ChaseDerivationSkeleton`, which is simply the `
 -/
 
 @[expose]
-def result (cd : ChaseDerivationSkeleton obs rules) : FactSet sig :=
+def result (cd : ChaseDerivationSkeleton (RegularChaseNode obs rules) obs rules) : FactSet sig :=
   fun f => ∃ node ∈ cd, f ∈ node.facts
 
 /-- Every node's facts occur in the result. -/
 @[grind <-]
-theorem facts_node_subset_result {cd : ChaseDerivationSkeleton obs rules} : ∀ node ∈ cd, node.facts ⊆ cd.result := by intro node _ _ _; exists node
+theorem facts_node_subset_result {cd : ChaseDerivationSkeleton (RegularChaseNode obs rules) obs rules} : ∀ node ∈ cd, node.facts ⊆ cd.result := by intro node _ _ _; exists node
 
 /-- The result of our suffix is the same our result. -/
 @[grind ->]
-theorem result_suffix {cd1 cd2 : ChaseDerivationSkeleton obs rules} (suffix : cd1 <:+ cd2) : cd1.result = cd2.result := by
+theorem result_suffix {cd1 cd2 : ChaseDerivationSkeleton (RegularChaseNode obs rules) obs rules} (suffix : cd1 <:+ cd2) : cd1.result = cd2.result := by
   ext f
   constructor
   . rintro ⟨node, node_mem, f_mem⟩; apply cd2.facts_node_subset_result; exact mem_of_mem_suffix suffix _ node_mem; exact f_mem
@@ -555,7 +550,7 @@ theorem result_suffix {cd1 cd2 : ChaseDerivationSkeleton obs rules} (suffix : cd
     | inr mem_suffix => apply cd1.facts_node_subset_result; exact mem_suffix; exact f_mem
 
 /-- For each (finite) list of facts in the result, there is a node that that contains all of them. -/
-theorem facts_mem_some_node_of_mem_result {cd : ChaseDerivationSkeleton obs rules} :
+theorem facts_mem_some_node_of_mem_result {cd : ChaseDerivationSkeleton (RegularChaseNode obs rules) obs rules} :
     ∀ (l : List (Fact sig)), l.toSet ⊆ cd.result -> ∃ node ∈ cd, l.toSet ⊆ node.facts := by
   intro l
   induction l with
@@ -589,7 +584,7 @@ theorem facts_mem_some_node_of_mem_result {cd : ChaseDerivationSkeleton obs rule
           rw [cd_f_head]; exact f_mem
 
 /-- If a trigger is loaded for the result, then it is loaded for some node in the derivation. -/
-theorem trg_loaded_for_some_node_of_trg_loaded_for_result {cd : ChaseDerivationSkeleton obs rules} :
+theorem trg_loaded_for_some_node_of_trg_loaded_for_result {cd : ChaseDerivationSkeleton (RegularChaseNode obs rules) obs rules} :
     ∀ trg : Trigger obs, trg.loaded cd.result -> ∃ node ∈ cd, trg.loaded node.facts := by
   intro trg trg_loaded
   apply cd.facts_mem_some_node_of_mem_result

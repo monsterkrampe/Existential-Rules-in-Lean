@@ -144,7 +144,7 @@ This is safe to do since applying these again would not make a difference.
 The necessesity for doing this comes from `DeterministicSkolemObsolescence.blocks_each_obs`. `BlockingObsolescence.blocks_corresponding_obs` works without.
 -/
 def MfaObsolescenceCondition.blocks_obs (mfa_obs : MfaObsolescenceCondition sig) (obs : ObsolescenceCondition sig) (rs : RuleSet sig) (special_const : sig.C) : Prop :=
-  ∀ {db : Database sig} (cb : ChaseBranch obs ⟨db, rs⟩) (node : cb.Node) (trg : RTrigger obs rs) (fs : FactSet sig),
+  ∀ {db : Database sig} (cb : ChaseBranch (RegularChaseNode obs rs) obs ⟨db, rs⟩) (node : cb.Node) (trg : RTrigger obs rs) (fs : FactSet sig),
   (∃ (i : Fin trg.val.mapped_head.length), ¬ ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact_set trg.val.mapped_head[i.val].toSet) ⊆ fs) ->
   (mfa_obs.cond { rule := trg.val.rule, subs := (rs.mfaConstantMapping special_const).toConstantMapping.apply_ground_term ∘ trg.val.subs } fs) ->
   trg.val.loaded node.val.facts -> obs.cond trg.val node.val.facts
@@ -385,7 +385,7 @@ theorem BlockingObsolescence.blocks_corresponding_obs [GetFreshInhabitant sig.C]
   specialize blocked (by apply cb.trigger_disjIdx_valid_of_loaded node.property rl rl_rs_eq; exact loaded)
   specialize blocked (by apply cb.trigger_rule_arity_valid_of_loaded node.property rl rl_rs_eq; exact loaded)
 
-  rcases cb.backtracking_of_loaded_trigger_in_node node.property rl rl_rs_eq trg.val loaded with ⟨g, g_h⟩
+  rcases ChaseBranch.backtracking_of_loaded_trigger_in_node node.property rl rl_rs_eq trg.val loaded with ⟨g, g_h⟩
 
   have blocked := obs_propagates_under_const_mapping
     (g := g)
@@ -438,7 +438,7 @@ namespace KnowledgeBase
 /-- This result is not necessary for MFA-like conditions but still interesting, also as a sanity check: The result of every deterministic Skolem `ChaseBranch` is the same as the `parallelDeterminizedChase_result`. -/
 theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
     (kb : KnowledgeBase sig) (det : kb.rules.isDeterministic) :
-    ∀ (cb : ChaseBranch (SkolemObsolescence sig) kb), cb.result =
+    ∀ (cb : ChaseBranch (RegularChaseNode (SkolemObsolescence sig) kb.rules) (SkolemObsolescence sig) kb), cb.result =
       parallelDeterminizedChase_result kb (DeterministicSkolemObsolescence sig) := by
   intro cb
   apply Set.ext
@@ -451,13 +451,13 @@ theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
     induction node using cb.toChaseDerivation.mem_rec with
     | head =>
       intro f f_mem
-      simp only [cb.database_first'] at f_mem
+      simp only [← cb.head.outgoingFacts_eq, cb.database_first'] at f_mem
       exists (parallelDeterminizedChase kb (DeterministicSkolemObsolescence sig)).head
       simp only [parallelDeterminizedChase, InfiniteList.head_mem]
       simp [f_mem]
     | step cd suffix ih next next_mem =>
       intro f f_mem
-      simp only [cd.facts_next next_mem] at f_mem
+      simp only [← next.ingoingFacts_eq, cd.facts_next next_mem] at f_mem
       cases f_mem with
       | inl f_mem => apply ih; exact f_mem
       | inr f_mem =>
@@ -527,7 +527,7 @@ theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
       | head =>
         simp only [parallelDeterminizedDerivation_head]
         apply Set.subset_trans _ (ChaseDerivationSkeleton.facts_node_subset_result _ cb.head_mem)
-        rw [cb.database_first']
+        rw [← cb.head.outgoingFacts_eq, cb.database_first'.right.left]
         apply Set.subset_refl
       | step _ ih =>
         intro f f_mem; cases f_mem with
@@ -713,14 +713,14 @@ theorem mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_pred
     (rs : RuleSet sig) (finite : rs.rules.finite)
     (special_const : sig.C) (mfa_obs : MfaObsolescenceCondition sig) :
     ∀ {db : Database sig} {obs : ObsolescenceCondition sig}, (mfa_obs.blocks_obs obs rs special_const) ->
-    ∀ (cb : ChaseBranch obs { rules := rs, db := db }) (node : cb.Node),
+    ∀ (cb : ChaseBranch (RegularChaseNode obs rs) obs { rules := rs, db := db }) (node : cb.Node),
     ∀ f, f.predicate ∈ rs.predicates -> f ∈ node.val.facts ->
       ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact f) ∈ (rs.mfaSet finite special_const mfa_obs) := by
   intro db obs blocks cb node
   induction node using cb.mem_rec with
   | head =>
     intro f f_predicate f_mem
-    simp only [cb.database_first'] at f_mem
+    simp only [← cb.head.outgoingFacts_eq, cb.database_first'] at f_mem
     exists (parallelDeterminizedChase (rs.mfaKb finite special_const) mfa_obs).head
     simp only [parallelDeterminizedChase, InfiniteList.head_mem, true_and]
     rw [parallelDeterminizedDerivation_head]
@@ -763,7 +763,7 @@ theorem mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_pred
     . rw [Fact.toFact_after_toFunctionFreeFact_is_id]
   | step cd suffix ih next next_mem =>
     intro f f_predicate f_mem
-    simp only [cd.facts_next next_mem] at f_mem
+    simp only [← next.ingoingFacts_eq, cd.facts_next next_mem] at f_mem
     cases f_mem with
     | inl f_mem =>
       apply ih
@@ -774,7 +774,7 @@ theorem mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_pred
         let kb := rs.mfaKb finite special_const
         let prev_filtered : FactSet sig := fun f => f.predicate ∈ rs.predicates ∧ f ∈ cd.head.facts
         have prev_finite : prev_filtered.finite := by
-          rcases cb.facts_finite_of_mem ⟨cd.head, (cd.mem_of_mem_suffix suffix _ cd.head_mem)⟩ with ⟨prev_l, _, prev_l_eq⟩
+          rcases ChaseBranch.facts_finite_of_mem ⟨cd.head, (cd.mem_of_mem_suffix suffix _ cd.head_mem)⟩ with ⟨prev_l, _, prev_l_eq⟩
           rcases (RuleSet.predicates_finite_of_finite _ finite) with ⟨preds_l, _, preds_l_eq⟩
           exists (prev_l.filter (fun f => f.predicate ∈ preds_l)).eraseDupsKeepRight
           constructor
@@ -968,7 +968,7 @@ theorem mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_pred
 /-- We can extend the result above to the whole result of the `ChaseBranch`. -/
 theorem filtered_cb_result_subset_mfaSet (rs : RuleSet sig) (finite : rs.rules.finite) (special_const : sig.C) (mfa_obs : MfaObsolescenceCondition sig) :
     ∀ {db : Database sig} {obs : ObsolescenceCondition sig}, (mfa_obs.blocks_obs obs rs special_const) ->
-    ∀ (cb : ChaseBranch obs { rules := rs, db := db }), ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact_set (fun f => f.predicate ∈ rs.predicates ∧ f ∈ cb.result)) ⊆ (rs.mfaSet finite special_const mfa_obs) := by
+    ∀ (cb : ChaseBranch (RegularChaseNode obs rs) obs { rules := rs, db := db }), ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact_set (fun f => f.predicate ∈ rs.predicates ∧ f ∈ cb.result)) ⊆ (rs.mfaSet finite special_const mfa_obs) := by
   intro db obs blocks cb f f_mem
   rw [GroundTermMapping.mem_applyFactSet] at f_mem
   rcases f_mem with ⟨f', f'_mem, f_eq⟩
@@ -981,7 +981,7 @@ theorem filtered_cb_result_subset_mfaSet (rs : RuleSet sig) (finite : rs.rules.f
 
 /-- If the `mfaSet` is finite, then the rule set terminates. The argument is that if the `mfaSet` is finite and every `ChaseBranch` can be embedded into this set, then each of these `ChaseBranch`es also needs to be finite. This is still a bit involved since we need to show that only finitely many terms can collapse to the same on in the `mfaSet`. -/
 theorem terminates_of_mfaSet_finite [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.rules.finite) (mfa_obs : MfaObsolescenceCondition sig) :
-    ∀ {obs : ObsolescenceCondition sig}, (mfa_obs.blocks_obs obs rs Inhabited.default) -> (rs.mfaSet rs_finite Inhabited.default mfa_obs).finite -> rs.terminates obs := by
+    ∀ {obs : ObsolescenceCondition sig}, (mfa_obs.blocks_obs obs rs Inhabited.default) -> (rs.mfaSet rs_finite Inhabited.default mfa_obs).finite -> rs.terminates obs (RegularChaseNode obs rs) := by
   intro obs blocks mfa_finite
   unfold RuleSet.terminates
   intro db
@@ -1042,7 +1042,8 @@ theorem terminates_of_mfaSet_finite [Inhabited sig.C] (rs : RuleSet sig) (rs_fin
     . rcases f_mem.right with ⟨node, node_mem, f_mem⟩
       intro c c_mem
       rw [List.mem_append]
-      cases ChaseBranch.constants_node_subset_constants_db_union_constants_rules (node := ⟨node, node_mem⟩) c (by exists f) with
+      let node : cb.Node := ⟨node, node_mem⟩
+      cases ChaseBranch.constants_node_subset_constants_db_union_constants_rules (node := node) c (by exists f) with
       | inl this => apply Or.inl; rw [l_db_c_eq]; exact this
       | inr this => apply Or.inr; rw [l_rs_c_eq]; exact this
     . apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
@@ -1052,9 +1053,9 @@ theorem terminates_of_mfaSet_finite [Inhabited sig.C] (rs : RuleSet sig) (rs_fin
     have each_step_sub_db_and_filtered : ∀ node : cb.Node, node.val.facts ⊆ db.toFactSet.val ∪ res_filtered := by
       intro node
       induction node using cb.mem_rec with
-      | head => simp only [cb.database_first']; intro f f_mem; apply Or.inl; exact f_mem
+      | head => simp only [← cb.head.outgoingFacts_eq, cb.database_first']; intro f f_mem; apply Or.inl; exact f_mem
       | step cd suffix ih next next_mem =>
-        simp only [cd.facts_next next_mem]
+        simp only [← next.ingoingFacts_eq, cd.facts_next next_mem]
         intro f f_mem
         cases f_mem with
         | inl f_mem => apply ih; exact f_mem
@@ -1083,7 +1084,7 @@ theorem terminates_of_mfaSet_finite [Inhabited sig.C] (rs : RuleSet sig) (rs_fin
               exists a
           . exists next; constructor
             . exact cd.mem_of_mem_suffix suffix _ (cd.next_mem_of_mem _ next_mem)
-            . rw [cd.facts_next next_mem]; apply Or.inr; exact f_mem
+            . rw [← next.ingoingFacts_eq, cd.facts_next next_mem]; apply Or.inr; exact f_mem
 
     intro f f_mem
     rcases f_mem with ⟨node, node_mem, f_mem⟩
@@ -1103,7 +1104,8 @@ def isMfa [Inhabited sig.C] (rs : RuleSet sig) (finite : rs.rules.finite) (mfa_o
 
 /-- A rule set terminates if it `isMfa`. What mainly remains to be shown here is that only finitely many terms are non-cyclic. -/
 theorem terminates_of_isMfa [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.rules.finite) (mfa_obs : MfaObsolescenceCondition sig) :
-    ∀ {obs : ObsolescenceCondition sig}, (mfa_obs.blocks_obs obs rs Inhabited.default) -> rs.isMfa rs_finite mfa_obs -> rs.terminates obs := by
+    ∀ {obs : ObsolescenceCondition sig}, (mfa_obs.blocks_obs obs rs Inhabited.default) ->
+      rs.isMfa rs_finite mfa_obs -> rs.terminates obs (RegularChaseNode obs rs) := by
   intro obs blocks isMfa
   apply rs.terminates_of_mfaSet_finite rs_finite mfa_obs blocks
   apply FactSet.finite_of_preds_finite_of_terms_finite
@@ -1207,14 +1209,14 @@ theorem terminates_of_isMfa [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs
 
 /-- MFA correctness - If a rule set is MFA (`isMfa` with `DeterministicSkolemObsolescence`), then it terminates. -/
 theorem terminates_of_isMfa_with_DeterministicSkolemObsolescence [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.rules.finite) :
-    rs.isMfa rs_finite (DeterministicSkolemObsolescence sig) -> ∀ obs, rs.terminates obs := by
+    rs.isMfa rs_finite (DeterministicSkolemObsolescence sig) -> ∀ obs, rs.terminates obs (RegularChaseNode obs rs) := by
   intro isMfa obs
   apply rs.terminates_of_isMfa rs_finite (DeterministicSkolemObsolescence sig) (DeterministicSkolemObsolescence.blocks_each_obs obs default rs)
   exact isMfa
 
 /-- DMFA/RMFA correctness - If a rule set is DMFA/RMFA or anything in between (`isMfa` with `BlockingObsolescence`), then it terminates for the respective `ObsolescenceCondition`. -/
 theorem terminates_of_isMfa_with_BlockingObsolescence [GetFreshInhabitant sig.C] [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.rules.finite) (obs : ObsolescenceCondition sig) (obs_propagates_under_const_mapping : obs.propagates_under_constant_mapping) :
-    rs.isMfa rs_finite (BlockingObsolescence obs rs) -> rs.terminates obs :=
+    rs.isMfa rs_finite (BlockingObsolescence obs rs) -> rs.terminates obs (RegularChaseNode obs rs) :=
   rs.terminates_of_isMfa rs_finite (BlockingObsolescence obs rs) (BlockingObsolescence.blocks_corresponding_obs obs obs_propagates_under_const_mapping rs rs_finite default)
 
 end RuleSet

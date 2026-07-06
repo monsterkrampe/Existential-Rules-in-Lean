@@ -24,11 +24,12 @@ namespace TreeDerivation
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
+variable {N : Type u} [CN : ChaseNode N obs rules]
 
 namespace NodeWithAddress
 
 /-- Given a node and an list of natural numbers, representing an address starting at the node, returns the list of nodes along the address (not including the starting node).  -/
-def nodes_along_address {td : TreeDerivation obs rules} (node : NodeWithAddress td) : List Nat -> List (NodeWithAddress td)
+def nodes_along_address {td : TreeDerivation N obs rules} (node : NodeWithAddress td) : List Nat -> List (NodeWithAddress td)
 | [] => []
 | hd :: tl =>
   (node.childNodes[hd]?.map (fun child =>
@@ -36,29 +37,29 @@ def nodes_along_address {td : TreeDerivation obs rules} (node : NodeWithAddress 
   )).getD []
 
 /-- The first node in `nodes_along_address` is a child of the starting node. -/
-theorem head_of_nodes_along_address_mem_childNodes {td : TreeDerivation obs rules} {node : NodeWithAddress td} (addr : List Nat) :
+theorem head_of_nodes_along_address_mem_childNodes {td : TreeDerivation N obs rules} {node : NodeWithAddress td} (addr : List Nat) :
     ∀ hd ∈ (node.nodes_along_address addr).head?, hd ∈ node.childNodes := by
   fun_cases nodes_along_address; simp; grind
 
 /-- If the address starts with number $i$, then the head of `nodes_along_address` is the $i$-th child of the starting node.-/
 theorem head_nodes_along_address_of_cons
-    {td : TreeDerivation obs rules} {node : NodeWithAddress td} (addr_hd : Nat) (addr_tl : List Nat) :
+    {td : TreeDerivation N obs rules} {node : NodeWithAddress td} (addr_hd : Nat) (addr_tl : List Nat) :
     (node.nodes_along_address (addr_hd :: addr_tl)).head? = node.childNodes[addr_hd]? := by
   simp only [nodes_along_address]; grind
 
 /-- Given two nodes, returns the list of nodes that form the path from one to the other (omitting start and end). This uses `nodes_along_address` internally. -/
-def nodes_to {td : TreeDerivation obs rules} (node1 node2 : NodeWithAddress td) : List (NodeWithAddress td) :=
+def nodes_to {td : TreeDerivation N obs rules} (node1 node2 : NodeWithAddress td) : List (NodeWithAddress td) :=
   node1.nodes_along_address (node2.address.drop node1.address.length).dropLast
 
 /-- The `nodes_to` list from a node to itself is empty. -/
 theorem nodes_to_self
-    {td : TreeDerivation obs rules} {node : NodeWithAddress td} :
+    {td : TreeDerivation N obs rules} {node : NodeWithAddress td} :
     node.nodes_to node = [] := by
   simp [nodes_to, nodes_along_address]
 
 /-- The `nodes_to` list from a node to one of its children is empty. -/
 theorem nodes_to_child
-    {td : TreeDerivation obs rules} {node1 node2 : NodeWithAddress td} (child : node2 ∈ node1.childNodes) :
+    {td : TreeDerivation N obs rules} {node1 node2 : NodeWithAddress td} (child : node2 ∈ node1.childNodes) :
     node1.nodes_to node2 = [] := by
   rw [List.mem_iff_getElem] at child; rcases child with ⟨i, lt, child⟩
   unfold nodes_to
@@ -67,7 +68,7 @@ theorem nodes_to_child
 
 /-- The `nodes_to` list from a node to one of its successors that is not an immediate child starts with the node defined by `next_on_path_to_succ`. -/
 theorem nodes_to_succ_of_no_child_node
-    {td : TreeDerivation obs rules} {node1 node2 : NodeWithAddress td} (succ : node1 ≺ node2) (no_child : node2 ∉ node1.childNodes) :
+    {td : TreeDerivation N obs rules} {node1 node2 : NodeWithAddress td} (succ : node1 ≺ node2) (no_child : node2 ∉ node1.childNodes) :
     node1.nodes_to node2 = next_on_path_to_succ succ :: (next_on_path_to_succ succ).nodes_to node2 := by
   unfold nodes_to
   cases eq : node2.address.drop node1.address.length with
@@ -99,14 +100,14 @@ theorem nodes_to_succ_of_no_child_node
       simp [next_on_path_to_succ]
 
 /-- For two distinct nodes in succession, the head of `nodes_to` is a child of the first node. -/
-theorem nodes_to.head_child {td : TreeDerivation obs rules} {node1 node2 : NodeWithAddress td} (succ : node1 ≺ node2) :
+theorem nodes_to.head_child {td : TreeDerivation N obs rules} {node1 node2 : NodeWithAddress td} (succ : node1 ≺ node2) :
     (node1.nodes_to node2).headD node2 ∈ node1.childNodes := by
   cases Decidable.em (node2 ∈ node1.childNodes) with
   | inl child => rw [nodes_to_child child]; simpa using child
   | inr no_child => rw [nodes_to_succ_of_no_child_node succ no_child, List.headD_cons]; exact next_on_path_to_succ_mem_childNodes succ
 
 /-- For two distinct nodes in succession, the second node is a child of the last element of the `nodes_to` list. -/
-theorem nodes_to.last_child {td : TreeDerivation obs rules} {node1 node2 : NodeWithAddress td} (succ : node1 ≺ node2) :
+theorem nodes_to.last_child {td : TreeDerivation N obs rules} {node1 node2 : NodeWithAddress td} (succ : node1 ≺ node2) :
     node2 ∈ ((node1.nodes_to node2).getLastD node1).childNodes := by
   cases Decidable.em (node2 ∈ node1.childNodes) with
   | inl child => rw [nodes_to_child child]; simpa using child
@@ -125,13 +126,13 @@ theorem nodes_to.last_child {td : TreeDerivation obs rules} {node1 node2 : NodeW
 termination_by node2.address.length - node1.address.length
 
 /-- This definition expresses the condition that, in a list of nodes, each node is a child of the previous one. This is trivially true for empty or singleton lists. -/
-def list_children_of_each_other {td : TreeDerivation obs rules} : List (NodeWithAddress td) -> Prop
+def list_children_of_each_other {td : TreeDerivation N obs rules} : List (NodeWithAddress td) -> Prop
 | [] => True
 | [_] => True
 | hd :: hd2 :: tl => hd2 ∈ hd.childNodes ∧ list_children_of_each_other (hd2 :: tl)
 
 /-- The nodes returned by `nodes_along_address` are children of each other. -/
-theorem nodes_along_address.children_of_each_other {td : TreeDerivation obs rules} {node : NodeWithAddress td} {addr : List Nat} :
+theorem nodes_along_address.children_of_each_other {td : TreeDerivation N obs rules} {node : NodeWithAddress td} {addr : List Nat} :
     list_children_of_each_other (node.nodes_along_address addr) := by
   fun_induction nodes_along_address with
   | case1 _ => simp [list_children_of_each_other]
@@ -157,23 +158,23 @@ theorem nodes_along_address.children_of_each_other {td : TreeDerivation obs rule
           . exact ih
 
 /-- The nodes returned by `nodes_to` are children of each other. -/
-theorem nodes_to.children_of_each_other {td : TreeDerivation obs rules} {node1 node2 : NodeWithAddress td} :
+theorem nodes_to.children_of_each_other {td : TreeDerivation N obs rules} {node1 node2 : NodeWithAddress td} :
   list_children_of_each_other (node1.nodes_to node2) := nodes_along_address.children_of_each_other
 
 end NodeWithAddress
 
 /-- For the a type `β` used in a sparse generator function, the densified type associates each `β` element with a list of nodes that intuitively fill the gap from one generated value to the next (not including the generated values). -/
-abbrev DensifiedResult (β : Type u) (td : TreeDerivation obs rules) := β × List (NodeWithAddress td)
+abbrev DensifiedResult (β : Type u) (td : TreeDerivation N obs rules) := β × List (NodeWithAddress td)
 
 /-- A `DensifiedResult` is `wellFormed` if the node corresponding to the `β` element is a child of the last node in the filler list and if the nodes in the filler list are children of each other. If the filler list is empty, then this is trivially true. -/
-def DensifiedResult.wellFormed {β : Type u} {td : TreeDerivation obs rules} (mapper : β -> NodeWithAddress td) (dr : DensifiedResult β td) : Prop :=
+def DensifiedResult.wellFormed {β : Type u} {td : TreeDerivation N obs rules} (mapper : β -> NodeWithAddress td) (dr : DensifiedResult β td) : Prop :=
   match dr.snd with
   | [] => True
   | hd :: tl =>
     (mapper dr.fst) ∈ ((hd :: tl).getLast (by simp)).childNodes ∧ NodeWithAddress.list_children_of_each_other (hd :: tl)
 
 /-- For a given generator function over a type `β`, this function constructs a densified generator function operating on a `DensifiedResult`. If the previous `DensifiedResult` already contains a filler list, then the function simply drops the first element. Otherwise the function uses the original generator to obtain the next `β` value and constructs a filler list using the `nodes_to` function. -/
-def densify_generator {β : Type u} (td : TreeDerivation obs rules) (generator : β -> Option β) (mapper : β -> NodeWithAddress td) :
+def densify_generator {β : Type u} (td : TreeDerivation N obs rules) (generator : β -> Option β) (mapper : β -> NodeWithAddress td) :
     DensifiedResult β td -> Option (DensifiedResult β td)
 | (b, []) =>
   (generator b).map (fun b' =>
@@ -182,7 +183,7 @@ def densify_generator {β : Type u} (td : TreeDerivation obs rules) (generator :
 | (b, _::tl) => some (b, tl)
 
 /-- For a `wellFormed` input, the `densify_generator` again returns a `wellFormed` result. -/
-theorem densify_generator.wellFormed {β : Type u} {td : TreeDerivation obs rules} {generator : β -> Option β} {mapper : β -> NodeWithAddress td}
+theorem densify_generator.wellFormed {β : Type u} {td : TreeDerivation N obs rules} {generator : β -> Option β} {mapper : β -> NodeWithAddress td}
     (next_is_succ : ∀ b, ∀ b' ∈ generator b, mapper b ≺ mapper b') :
     ∀ dr : DensifiedResult β td, dr.wellFormed mapper -> ∀ next ∈ td.densify_generator generator mapper dr, next.wellFormed mapper := by
   intro dr wellFormed next
@@ -215,11 +216,11 @@ theorem densify_generator.wellFormed {β : Type u} {td : TreeDerivation obs rule
       . exact wellFormed.right.right
 
 /-- When we densify a generator function, we also need to adjust the mapper function (mapping `β` elements to a nodes) accordingly to map `DensifiedResult`s to nodes. This will simply use the first element from the filler list if available and otherwise fall back to using the original mapping function on the `β` value. -/
-def densify_mapper (td : TreeDerivation obs rules) (mapper : β -> NodeWithAddress td) (dr : DensifiedResult β td) : NodeWithAddress td :=
+def densify_mapper (td : TreeDerivation N obs rules) (mapper : β -> NodeWithAddress td) (dr : DensifiedResult β td) : NodeWithAddress td :=
   dr.snd.headD (mapper dr.fst)
 
 /-- After densifying generator and mapper, the next generated value is a child of the previous value. -/
-theorem densify_generator.next_child {β : Type u} {td : TreeDerivation obs rules} {generator : β -> Option β} {mapper : β -> NodeWithAddress td}
+theorem densify_generator.next_child {β : Type u} {td : TreeDerivation N obs rules} {generator : β -> Option β} {mapper : β -> NodeWithAddress td}
     (next_is_succ : ∀ b, ∀ b' ∈ generator b, mapper b ≺ mapper b') :
     ∀ dr : DensifiedResult β td, dr.wellFormed mapper ->
     ∀ next ∈ td.densify_generator generator mapper dr, densify_mapper td mapper next ∈ (densify_mapper td mapper dr).childNodes := by
@@ -242,7 +243,7 @@ theorem densify_generator.next_child {β : Type u} {td : TreeDerivation obs rule
 
 /-- After densifying generator and mapper, if there is no new value generated, then the current nodes has no children. -/
 theorem densify_generator.childTrees_empty_of_next_none {β : Type u}
-    {td : TreeDerivation obs rules} {generator : β -> Option β} {mapper : β -> NodeWithAddress td}
+    {td : TreeDerivation N obs rules} {generator : β -> Option β} {mapper : β -> NodeWithAddress td}
     (maximal : ∀ b, generator b = none -> (mapper b).subderivation.childTrees = []) :
     ∀ dr : DensifiedResult β td, td.densify_generator generator mapper dr = none -> (densify_mapper td mapper dr).subderivation.childTrees = [] := by
   intro dr
@@ -254,7 +255,7 @@ theorem densify_generator.childTrees_empty_of_next_none {β : Type u}
 
 /-- Given any `DensifiedResult`, if we iterate the `densify_generator` n times, where n is the length of the list in the second component, then we obtain a densified result where the first component is unchanged but the second component is the empty list. Intuitively, we have then iterated over exactly the list elements in the second component. -/
 theorem densify_generator.original_generator_value_after_exhausting_list {β : Type u}
-    {td : TreeDerivation obs rules} {generator : β -> Option β} {mapper : β -> NodeWithAddress td} :
+    {td : TreeDerivation N obs rules} {generator : β -> Option β} {mapper : β -> NodeWithAddress td} :
     ∀ dr : DensifiedResult β td, (·.bind (td.densify_generator generator mapper)).repeat_fun dr.snd.length (some dr) = some ⟨dr.fst, []⟩ := by
   intro dr
   induction eq : dr.snd generalizing dr with
@@ -269,7 +270,7 @@ theorem densify_generator.original_generator_value_after_exhausting_list {β : T
 
 /-- Every value that can be reached by iterating the original generator can also be reached by iterating the densified version (but the number of iterations can and will most of the time be different). -/
 theorem mem_densify_generator_of_mem_generator {β : Type u}
-    (td : TreeDerivation obs rules) (generator : β -> Option β) (mapper : β -> NodeWithAddress td)
+    (td : TreeDerivation N obs rules) (generator : β -> Option β) (mapper : β -> NodeWithAddress td)
     (start : β) : ∀ n, ∃ m, (·.bind (td.densify_generator generator mapper)).repeat_fun m (some ⟨start, []⟩) = ((·.bind generator).repeat_fun n (some start)).map (fun b' => ⟨b', []⟩) := by
   intro n; induction n with
   | zero => exists 0
@@ -299,7 +300,7 @@ theorem mem_densify_generator_of_mem_generator {β : Type u}
         rw [← eq_next, Function.repeat_succ, eq_current]; simp
 
 /-- A version of `densify_generator` that works only on `wellFormed` `DensifiedResult`s. -/
-def densify_generator' {β : Type u} (td : TreeDerivation obs rules) (generator : β -> Option β) (mapper : β -> NodeWithAddress td)
+def densify_generator' {β : Type u} (td : TreeDerivation N obs rules) (generator : β -> Option β) (mapper : β -> NodeWithAddress td)
     (next_is_succ : ∀ b, ∀ b' ∈ generator b, mapper b ≺ mapper b')
     (dr : {dr : DensifiedResult β td // dr.wellFormed mapper}) : Option {dr : DensifiedResult β td // dr.wellFormed mapper} :=
   (densify_generator td generator mapper dr.val).attach.map (fun ⟨next, next_mem⟩ =>
@@ -307,13 +308,13 @@ def densify_generator' {β : Type u} (td : TreeDerivation obs rules) (generator 
   )
 
 /-- A version of `densify_mapper` that works only on `wellFormed` `DensifiedResult`s. -/
-def densify_mapper' (td : TreeDerivation obs rules) (mapper : β -> NodeWithAddress td)
+def densify_mapper' (td : TreeDerivation N obs rules) (mapper : β -> NodeWithAddress td)
     (dr : {dr : DensifiedResult β td // dr.wellFormed mapper}) : NodeWithAddress td :=
   densify_mapper td mapper dr.val
 
 /-- Rpeating `densify_generator'` is not different than repeating `densify_generator` except that we need to isolate the value of the subtype. -/
 theorem densify_generator'_eq_densify_generator {β : Type u}
-    {td : TreeDerivation obs rules} {generator : β -> Option β} {mapper : β -> NodeWithAddress td}
+    {td : TreeDerivation N obs rules} {generator : β -> Option β} {mapper : β -> NodeWithAddress td}
     {next_is_succ : ∀ b, ∀ b' ∈ generator b, mapper b ≺ mapper b'}
     {dr : {dr : DensifiedResult β td // dr.wellFormed mapper}} :
     ∀ n, ((·.bind (td.densify_generator' generator mapper next_is_succ)).repeat_fun n (some dr)).map Subtype.val =
@@ -328,7 +329,7 @@ theorem densify_generator'_eq_densify_generator {β : Type u}
 
 /-- Applying `densify_mapper'` after any number of repetitions of `densify_generator'` is the same as applyign `densify_mapper` after repeating `densify_generator` for the same number of iterations. -/
 theorem densify'_eq_densify {β : Type u}
-    {td : TreeDerivation obs rules} {generator : β -> Option β} {mapper : β -> NodeWithAddress td}
+    {td : TreeDerivation N obs rules} {generator : β -> Option β} {mapper : β -> NodeWithAddress td}
     {next_is_succ : ∀ b, ∀ b' ∈ generator b, mapper b ≺ mapper b'}
     {dr : {dr : DensifiedResult β td // dr.wellFormed mapper}} :
     ∀ n, ((·.bind (td.densify_generator' generator mapper next_is_succ)).repeat_fun n (some dr)).map (td.densify_mapper' mapper) =
@@ -338,11 +339,11 @@ theorem densify'_eq_densify {β : Type u}
   cases (·.bind (td.densify_generator' generator mapper next_is_succ)).repeat_fun n (some dr) <;> simp [densify_mapper']
 
 /-- Given a sparse generator function, uses the original `TreeDerivation.generate_subderivation` function together with `densify_generator` and `densify_mapper` to generate a `ChaseDerivation` that corresponds to a branch in the tree. -/
-def generate_subderivation_from_sparse {β : Type u} (td : TreeDerivation obs rules)
+def generate_subderivation_from_sparse {β : Type u} (td : TreeDerivation N obs rules)
     (start : β) (generator : β -> Option β) (mapper : β -> NodeWithAddress td)
     (next_is_succ : ∀ b, ∀ b' ∈ generator b, mapper b ≺ mapper b')
     (maximal : ∀ b, generator b = none -> (mapper b).subderivation.childTrees = []) :
-    ChaseDerivation obs rules :=
+    ChaseDerivation N obs rules :=
   td.generate_subderivation ⟨(start, []), by simp [DensifiedResult.wellFormed]⟩
     (td.densify_generator' generator mapper next_is_succ)
     (td.densify_mapper' mapper)
@@ -360,17 +361,17 @@ def generate_subderivation_from_sparse {β : Type u} (td : TreeDerivation obs ru
         exact densify_generator.childTrees_empty_of_next_none maximal b.val)
 
 /-- Given a sparse but total generator function, uses the original `TreeDerivation.generate_subderivation` function together with `densify_generator` and `densify_mapper` to generate a `ChaseDerivation` that corresponds to a branch in the tree. Since the generator function is total, the generated derivation is necessarily infinite. -/
-public def generate_subderivation_from_sparse_of_total_generator {β : Type u} (td : TreeDerivation obs rules)
+public def generate_subderivation_from_sparse_of_total_generator {β : Type u} (td : TreeDerivation N obs rules)
     (start : β) (generator : β -> β) (mapper : β -> NodeWithAddress td)
     (next_is_succ : ∀ b, mapper b ≺ mapper (generator b)) :
-    ChaseDerivation obs rules :=
+    ChaseDerivation N obs rules :=
   td.generate_subderivation_from_sparse start (Option.some ∘ generator) mapper
     (by intro b _ eq; rw [Function.comp_apply, Option.mem_def, Option.some_inj] at eq; rw [← eq]; exact next_is_succ b)
     (by simp)
 
 /-- `generate_subderivation_from_sparse_of_total_generator` produces a tree branch because underneath it uses `TreeDerivation.generate_subderivation`, which already has this property. -/
 public theorem generate_subderivation_from_sparse_of_total_generator_mem_branches
-    {β : Type u} {td : TreeDerivation obs rules}
+    {β : Type u} {td : TreeDerivation N obs rules}
     {start : β} {generator : β -> β} {mapper : β -> NodeWithAddress td}
     {next_is_succ : ∀ b, mapper b ≺ mapper (generator b)}
     (start_eq : mapper start = NodeWithAddress.root td) :
@@ -383,7 +384,7 @@ public theorem generate_subderivation_from_sparse_of_total_generator_mem_branche
 
 /-- Every node that is part of the original generator also occurs in the derivation produces by the densified version. -/
 public theorem mem_generate_subderivation_from_sparse_of_total_generator_of_mem_original_generator
-    {β : Type u} {td : TreeDerivation obs rules}
+    {β : Type u} {td : TreeDerivation N obs rules}
     {start : β} {generator : β -> β} {mapper : β -> NodeWithAddress td}
     {next_is_succ : ∀ b, mapper b ≺ mapper (generator b)} :
     ∀ b ∈ InfiniteList.iterate start generator, (mapper b).node ∈

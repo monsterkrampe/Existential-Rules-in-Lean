@@ -28,7 +28,7 @@ namespace ChaseBranch
 variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
 
 theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C]
-    {cb : ChaseBranch obs kb} {node : ChaseNode obs kb.rules} (node_mem : node ∈ cb.toChaseDerivation) :
+    {cb : ChaseBranch (RegularChaseNode obs kb.rules) obs kb} {node : RegularChaseNode obs kb.rules} (node_mem : node ∈ cb.toChaseDerivation) :
     ∀ (rl : RuleList sig), (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) ->
     ∀ (term : GroundTerm sig), (term_mem : term ∈ node.facts.terms) ->
     ∀ (forbidden_constants : List sig.C),
@@ -50,7 +50,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
   induction node using ChaseDerivation.mem_rec with
   | head =>
     intro term term_mem forbidden_constants forbidden_constants_subsumes_term forbidden_constants_subsumes_rules
-    simp only [cb.database_first'] at term_mem
+    simp only [← cb.head.outgoingFacts_eq, cb.database_first'] at term_mem
     rcases term_mem with ⟨f, f_mem, term_mem⟩
     rcases kb.db.toFactSet.property.right f f_mem term term_mem with ⟨_, t_eq⟩
     exists GroundTerm.const
@@ -66,13 +66,13 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
     intro term term_mem forbidden_constants forbidden_constants_subsumes_term forbidden_constants_subsumes_rules
     let backtracking := term.backtrackFacts rl (cb.term_ruleIds_valid (cd.mem_of_mem_suffix suffix _ (cd.next_mem_of_mem _ next_mem)) rl rl_rs_eq term term_mem) (cb.term_disjIdx_valid (cd.mem_of_mem_suffix suffix _ (cd.next_mem_of_mem _ next_mem)) rl rl_rs_eq term term_mem) (cb.term_rule_arity_valid (cd.mem_of_mem_suffix suffix _ (cd.next_mem_of_mem _ next_mem)) rl rl_rs_eq term term_mem) forbidden_constants
 
-    simp only [cd.facts_next next_mem, FactSet.terms_union] at term_mem
+    simp only [← next.ingoingFacts_eq, cd.facts_next next_mem, FactSet.terms_union] at term_mem
     cases term_mem with
     | inl term_mem =>
       rcases ih term term_mem forbidden_constants forbidden_constants_subsumes_term forbidden_constants_subsumes_rules with ⟨g, g_h⟩
       exists g
       constructor
-      . simp only [cd.facts_next next_mem]
+      . simp only [← next.ingoingFacts_eq, cd.facts_next next_mem]
         apply Set.subset_union_of_subset_left
         exact g_h.left
       . exact g_h.right
@@ -107,7 +107,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
         ) forbidden_constants forbidden_constants_subsumes_term forbidden_constants_subsumes_rules with ⟨g, g_h⟩
         exists g
         constructor
-        . simp only [cd.facts_next next_mem]
+        . simp only [← next.ingoingFacts_eq, cd.facts_next next_mem]
           apply Set.subset_union_of_subset_left
           exact g_h.left
         . exact g_h.right
@@ -230,7 +230,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
                     . rw [List.mem_append]; apply Or.inl; exact this
                     . exact this
                 rw [f_eq, ← ConstantMapping.apply_fact_eq_groundTermMapping_applyFact, this]
-                rw [cd.facts_next next_mem]
+                rw [← next.ingoingFacts_eq, cd.facts_next next_mem]
                 apply Or.inl
                 apply g_hd_h.left
                 apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
@@ -322,7 +322,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
                 rw [List.mem_flatMap]
                 exists origin.fst.val.subs v
                 constructor
-                . apply List.mem_map_of_mem; rw [← triggers_equiv.left]; exact v_mem'
+                . apply List.mem_map_of_mem; unfold ChaseNode.origin RegularChaseNode.regularChaseNodeInstance; rw [← triggers_equiv.left]; exact v_mem'
                 . exact d_mem
               have : d ∉ fresh_consts_for_pure_body_vars.val := by intro contra; apply fresh_consts_for_pure_body_vars.property.right.right; exact contra; exact d_mem'
               simp only [g, this, ↓reduceDIte]
@@ -383,7 +383,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
           rw [List.mem_append] at f_mem
           cases f_mem with
           | inl f_mem =>
-            simp only [cd.facts_next next_mem]
+            simp only [← next.ingoingFacts_eq, cd.facts_next next_mem]
 
             rw [List.mem_append] at f_mem
             cases f_mem with
@@ -393,7 +393,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
               apply origin_active.left
               rw [List.mem_toSet]
 
-              rw [mapped_body_eq]
+              unfold ChaseNode.origin RegularChaseNode.regularChaseNodeInstance; rw [mapped_body_eq]
               simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list]
               simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list] at f_mem
               rw [List.mem_map]
@@ -417,7 +417,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
               apply Or.inr
               rw [List.mem_toSet, e_eq]
               simp only [ChaseNode.origin_result]
-              rw [mapped_head_eq]
+              unfold ChaseNode.origin RegularChaseNode.regularChaseNodeInstance; rw [mapped_head_eq]
               simp only [PreTrigger.mapped_head]
               simp only [PreTrigger.mapped_head] at f_mem
               rw [List.getElem_map, List.mem_map]
@@ -489,7 +489,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
           exact d_mem
 
 theorem backtracking_of_term_list_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C]
-    {cb : ChaseBranch obs kb} {node : ChaseNode obs kb.rules} (node_mem : node ∈ cb.toChaseDerivation) :
+    {cb : ChaseBranch (RegularChaseNode obs kb.rules) obs kb} {node : RegularChaseNode obs kb.rules} (node_mem : node ∈ cb.toChaseDerivation) :
     ∀ (rl : RuleList sig), (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) ->
     ∀ (terms : List (GroundTerm sig)), (terms_mem : terms.toSet ⊆ node.facts.terms) ->
     ∀ (forbidden_constants : List sig.C),
@@ -596,7 +596,7 @@ theorem backtracking_of_term_list_in_node [GetFreshInhabitant sig.C] [Inhabited 
       . apply g_tl_h.right; rw [List.mem_append]; apply Or.inl; exact d_mem
 
 public theorem backtracking_of_loaded_trigger_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C]
-    {cb : ChaseBranch obs kb} {node : ChaseNode obs kb.rules} (node_mem : node ∈ cb.toChaseDerivation) :
+    {cb : ChaseBranch (RegularChaseNode obs kb.rules) obs kb} {node : RegularChaseNode obs kb.rules} (node_mem : node ∈ cb.toChaseDerivation) :
     ∀ (rl : RuleList sig), (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) ->
     ∀ (trg : PreTrigger sig), (trg_loaded : trg.loaded node.facts) ->
     ∃ (g : ConstantMapping sig),

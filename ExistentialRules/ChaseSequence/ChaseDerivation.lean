@@ -41,17 +41,19 @@ Expressing the conditions in terms of the machinery available form the `Possibly
 As part of the framework built around the `ChaseDerivation`, we will also restate these conditions in a more accessible way. See e.g. `ChaseDerivation.fairness'`.
 -/
 
-public structure ChaseDerivation (obs : ObsolescenceCondition sig) (rules : RuleSet sig) extends ChaseDerivationSkeleton obs rules where
+public structure ChaseDerivation (N : Type u) (obs : ObsolescenceCondition sig) (rules : RuleSet sig) [CN : ChaseNode N obs rules] extends ChaseDerivationSkeleton N obs rules where
   triggers_active : ∀ n : Nat, ∀ before ∈ (branch.drop n).head,
-    ∀ after ∈ (branch.drop n).tail.head, ∃ orig ∈ after.origin, orig.fst.val.active before.facts
-  fairness : ∀ trg : (RTrigger obs rules), ∃ i : Nat, (∃ node ∈ (branch.drop i).head, ¬ trg.val.active node.facts)
-    ∧ (∀ j : Nat, ∀ node2 ∈ (branch.drop i).tail.get? j, ¬ trg.val.active node2.facts)
+    ∀ after ∈ (branch.drop n).tail.head, ∃ orig ∈ CN.origin after, orig.fst.val.active (CN.outgoingFacts before)
+  fairness : ∀ trg : (RTrigger obs rules), ∃ i : Nat, (∃ node ∈ (branch.drop i).head, ¬ trg.val.active (CN.outgoingFacts node))
+    ∧ (∀ j : Nat, ∀ node2 ∈ (branch.drop i).tail.get? j, ¬ trg.val.active (CN.outgoingFacts node2))
 
 namespace ChaseDerivation
 
 variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 
 public section Basics
+
+variable {N : Type u} [CN : ChaseNode N obs rules]
 
 /-!
 ## Basic Definitions
@@ -60,22 +62,22 @@ Here we introduce some auxiliary definitions and theorems and we lift some of th
 -/
 
 /-- Membership of `ChaseNode`s in the `ChaseDerivation` directly corresponds to membership in the `ChaseDerivationSkeleton`. -/
-instance : Membership (ChaseNode obs rules) (ChaseDerivation obs rules) where
+instance : Membership N (ChaseDerivation N obs rules) where
   mem cd node := node ∈ cd.toChaseDerivationSkeleton
 
 /-- Unfolds the Membership definition. -/
-theorem mem_def {cd : ChaseDerivation obs rules} : ∀ {e}, e ∈ cd ↔ e ∈ cd.toChaseDerivationSkeleton := by rfl
+theorem mem_def {cd : ChaseDerivation N obs rules} : ∀ {e}, e ∈ cd ↔ e ∈ cd.toChaseDerivationSkeleton := by rfl
 
 /-- An element is a member of the derivation iff it occurs at some index in the underlying branch. -/
-theorem mem_iff {cd : ChaseDerivation obs rules} : ∀ {e}, e ∈ cd ↔ ∃ n, cd.branch.get? n = some e := ChaseDerivationSkeleton.mem_iff
+theorem mem_iff {cd : ChaseDerivation N obs rules} : ∀ {e}, e ∈ cd ↔ ∃ n, cd.branch.get? n = some e := ChaseDerivationSkeleton.mem_iff
 
 /-- Each suffix of the underlying `ChaseDerivationSkeleton` is itself a `ChaseDerivation`. -/
 @[expose]
 def derivation_for_skeleton
-    (cd : ChaseDerivation obs rules)
-    (l2 : ChaseDerivationSkeleton obs rules)
+    (cd : ChaseDerivation N obs rules)
+    (l2 : ChaseDerivationSkeleton N obs rules)
     (suffix : l2 <:+ cd.toChaseDerivationSkeleton) :
-    ChaseDerivation obs rules where
+    ChaseDerivation N obs rules where
   branch := l2.branch
   isSome_head := l2.isSome_head
   triggers_exist := l2.triggers_exist
@@ -128,8 +130,8 @@ Compared to the `ChaseDerivationSkeleton` we can show some additional results fo
 
 /-- The trigger used to derive `ChaseDerivationSkeleton.next` is active for `ChaseDerivationSkeleton.head`. -/
 @[grind ->]
-theorem active_trigger_origin_next {cd : ChaseDerivation obs rules} {next : ChaseNode obs rules} (eq : cd.next = some next) :
-    (next.origin.get (cd.isSome_origin_next eq)).fst.val.active cd.head.facts := by
+theorem active_trigger_origin_next {cd : ChaseDerivation N obs rules} {next : N} (eq : cd.next = some next) :
+    ((CN.origin next).get (cd.isSome_origin_next eq)).fst.val.active (CN.outgoingFacts cd.head) := by
   have trg_act := cd.triggers_active 0 cd.head (by simp [ChaseDerivationSkeleton.head]) next (by simp [← eq, ChaseDerivationSkeleton.next])
   rcases trg_act with ⟨orig, orig_mem, trg_act⟩
   rw [Option.mem_def] at orig_mem
@@ -137,11 +139,11 @@ theorem active_trigger_origin_next {cd : ChaseDerivation obs rules} {next : Chas
   exact trg_act
 
 /-- The `ChaseDerivationSkeleton.next` node is not none if and only if some trigger is active on `ChaseDerivationSkeleton.head`. -/
-theorem isSome_next_iff_trg_ex {cd : ChaseDerivation obs rules} : cd.next.isSome ↔ ∃ (trg : RTrigger obs rules), trg.val.active cd.head.facts := by
+theorem isSome_next_iff_trg_ex {cd : ChaseDerivation N obs rules} : cd.next.isSome ↔ ∃ (trg : RTrigger obs rules), trg.val.active (CN.outgoingFacts cd.head) := by
   constructor
   . rw [Option.isSome_iff_exists]
     rintro ⟨next, eq⟩
-    exists (next.origin.get (cd.isSome_origin_next eq)).fst
+    exists ((CN.origin next).get (cd.isSome_origin_next eq)).fst
     exact active_trigger_origin_next eq
   . rintro ⟨trg, active⟩
     apply Decidable.byContradiction
@@ -171,23 +173,23 @@ Suffixes on `ChaseDerivation`s allow us to state the fairness condition more nic
 -/
 
 @[expose]
-def IsSuffix (cd1 cd2 : ChaseDerivation obs rules) : Prop := ChaseDerivationSkeleton.IsSuffix cd1.toChaseDerivationSkeleton cd2.toChaseDerivationSkeleton
+def IsSuffix (cd1 cd2 : ChaseDerivation N obs rules) : Prop := ChaseDerivationSkeleton.IsSuffix cd1.toChaseDerivationSkeleton cd2.toChaseDerivationSkeleton
 infixl:50 " <:+ " => IsSuffix
 
 /-- Members of our suffix are also our members. -/
 @[grind ->]
-theorem mem_of_mem_suffix {cd1 cd2 : ChaseDerivation obs rules} (suffix : cd1 <:+ cd2) : ∀ node ∈ cd1, node ∈ cd2 :=
+theorem mem_of_mem_suffix {cd1 cd2 : ChaseDerivation N obs rules} (suffix : cd1 <:+ cd2) : ∀ node ∈ cd1, node ∈ cd2 :=
   ChaseDerivationSkeleton.mem_of_mem_suffix suffix
 
 /-- Each `ChaseNode` in the `ChaseDerivation` induces a subderivation. -/
-theorem subderivation_of_node_mem {cd : ChaseDerivation obs rules} {node : ChaseNode obs rules} (node_mem : node ∈ cd) :
-    ∃ (cd2 : ChaseDerivation obs rules), cd2.head = node ∧ cd2 <:+ cd := by
+theorem subderivation_of_node_mem {cd : ChaseDerivation N obs rules} {node : N} (node_mem : node ∈ cd) :
+    ∃ (cd2 : ChaseDerivation N obs rules), cd2.head = node ∧ cd2 <:+ cd := by
   rcases cd.toChaseDerivationSkeleton.subderivation_of_node_mem node_mem with ⟨cds2, head_eq, suffix⟩
   exists cd.derivation_for_skeleton cds2 suffix
 
 /-- Fairness can be stated as: For each trigger, there exists a subderivation such that the trigger is not active for all nodes in the subderivation. -/
-theorem fairness' {cd : ChaseDerivation obs rules} :
-    ∀ (trg : RTrigger obs rules), ∃ (cd2 : ChaseDerivation obs rules), cd2 <:+ cd ∧ ∀ node ∈ cd2, ¬ trg.val.active node.facts := by
+theorem fairness' {cd : ChaseDerivation N obs rules} :
+    ∀ (trg : RTrigger obs rules), ∃ (cd2 : ChaseDerivation N obs rules), cd2 <:+ cd ∧ ∀ node ∈ cd2, ¬ trg.val.active (CN.outgoingFacts node) := by
   intro trg
   rcases cd.fairness trg with ⟨n, ⟨node, node_mem, fairness_head⟩, fairness_tail⟩
   let cds2 := cd.derivation_for_branch_suffix (cd.branch.drop n) (cd.branch.IsSuffix_drop n) (by rw [node_mem]; simp)
@@ -212,29 +214,29 @@ section Tail
 -/
 
 @[expose]
-def tail (cd : ChaseDerivation obs rules) (next_some : cd.next.isSome) : ChaseDerivation obs rules :=
+def tail (cd : ChaseDerivation N obs rules) (next_some : cd.next.isSome) : ChaseDerivation N obs rules :=
   cd.derivation_for_skeleton (ChaseDerivationSkeleton.tail cd.toChaseDerivationSkeleton next_some) (cd.branch.IsSuffix_tail)
 
 /-- The `ChaseDerivationSkeleton.head` of the `tail` is `ChaseDerivationSkeleton.next`. -/
-theorem head_tail {cd : ChaseDerivation obs rules} {next_some : cd.next.isSome} : some (cd.tail next_some).head = cd.next :=
+theorem head_tail {cd : ChaseDerivation N obs rules} {next_some : cd.next.isSome} : some (cd.tail next_some).head = cd.next :=
   ChaseDerivationSkeleton.head_tail
 
 /-- The `ChaseDerivationSkeleton.head` of the `tail` is `ChaseDerivationSkeleton.next`. -/
 @[simp, grind =]
-theorem head_tail' {cd : ChaseDerivation obs rules} {next_some : cd.next.isSome} : (cd.tail next_some).head = cd.next.get next_some :=
+theorem head_tail' {cd : ChaseDerivation N obs rules} {next_some : cd.next.isSome} : (cd.tail next_some).head = cd.next.get next_some :=
   ChaseDerivationSkeleton.head_tail'
 
 /-- `ChaseDerivationSkeleton.next` is a member of the `tail`. -/
 @[grind ->]
-theorem next_mem_tail {cd : ChaseDerivation obs rules} {next_some : cd.next.isSome} : ∀ next ∈ cd.next, next ∈ cd.tail next_some :=
+theorem next_mem_tail {cd : ChaseDerivation N obs rules} {next_some : cd.next.isSome} : ∀ next ∈ cd.next, next ∈ cd.tail next_some :=
   ChaseDerivationSkeleton.next_mem_tail
 
 /-- A node is a member if and only if it is either the head or it is a member of the tail. -/
-theorem mem_iff_eq_head_or_mem_tail {cd : ChaseDerivation obs rules} {node : ChaseNode obs rules} : node ∈ cd ↔ node = cd.head ∨ ∃ h, node ∈ cd.tail h :=
+theorem mem_iff_eq_head_or_mem_tail {cd : ChaseDerivation N obs rules} {node : N} : node ∈ cd ↔ node = cd.head ∨ ∃ h, node ∈ cd.tail h :=
   ChaseDerivationSkeleton.mem_iff_eq_head_or_mem_tail
 
 /-- A derivation is a suffix of another if and only if both are the same or the first is a suffix of the second's tail. -/
-theorem suffix_iff_eq_or_suffix_tail {cd1 cd2 : ChaseDerivation obs rules} : cd1 <:+ cd2 ↔ cd1 = cd2 ∨ ∃ h, cd1 <:+ cd2.tail h := by
+theorem suffix_iff_eq_or_suffix_tail {cd1 cd2 : ChaseDerivation N obs rules} : cd1 <:+ cd2 ↔ cd1 = cd2 ∨ ∃ h, cd1 <:+ cd2.tail h := by
   simp only [IsSuffix]
   rw [ChaseDerivationSkeleton.suffix_iff_eq_or_suffix_tail]
   rw [ChaseDerivation.mk.injEq]
@@ -250,17 +252,17 @@ section InductionPrinciple
 We lift `ChaseDerivationSkeleton.mem_rec` to `ChaseDerivation`.
 -/
 
-abbrev Node (cd : ChaseDerivation obs rules) := { node : ChaseNode obs rules // node ∈ cd}
+abbrev Node (cd : ChaseDerivation N obs rules) := { node : N // node ∈ cd}
 
 /-- A `Node` of our suffix can be cast into our `Node` type. -/
-def Node.cast_suffix {cd cd2 : ChaseDerivation obs rules} (suffix : cd <:+ cd2) (node : Node cd) : Node cd2 := ⟨node.val, mem_of_mem_suffix suffix _ node.property⟩
+def Node.cast_suffix {cd cd2 : ChaseDerivation N obs rules} (suffix : cd <:+ cd2) (node : Node cd) : Node cd2 := ⟨node.val, mem_of_mem_suffix suffix _ node.property⟩
 
 /-- If we want to show a motive for all nodes in a derivation, it is enough to show the motive for the head and for the next node in each abitrary subderivation where the motive already holds for the head. This can be used with the induction tactic. -/
 theorem mem_rec
-    {cd : ChaseDerivation obs rules}
+    {cd : ChaseDerivation N obs rules}
     {motive : Node cd -> Prop}
     (head : motive ⟨cd.head, cd.head_mem⟩)
-    (step : ∀ (cd2 : ChaseDerivation obs rules), (suffix : cd2 <:+ cd) -> motive ⟨cd2.head, mem_of_mem_suffix suffix _ cd2.head_mem⟩ -> ∀ next, (next_mem : next ∈ cd2.next) -> motive ⟨next, mem_of_mem_suffix suffix _ (cd2.next_mem_of_mem _ next_mem)⟩)
+    (step : ∀ (cd2 : ChaseDerivation N obs rules), (suffix : cd2 <:+ cd) -> motive ⟨cd2.head, mem_of_mem_suffix suffix _ cd2.head_mem⟩ -> ∀ next, (next_mem : next ∈ cd2.next) -> motive ⟨next, mem_of_mem_suffix suffix _ (cd2.next_mem_of_mem _ next_mem)⟩)
     (node : Node cd) :
     motive node := by
   induction node using ChaseDerivationSkeleton.mem_rec with
@@ -270,7 +272,7 @@ theorem mem_rec
     exact step cd2 suffix ih _ next_mem
 
 /-- A node is a member of the `tail` if and only if there is a subderivation where the node is in the `ChaseDerivationSkeleton.next` position. -/
-theorem mem_tail_iff {cd : ChaseDerivation obs rules} {next_some : cd.next.isSome} {node : ChaseNode obs rules} :
+theorem mem_tail_iff {cd : ChaseDerivation N obs rules} {next_some : cd.next.isSome} {node : N} :
     node ∈ cd.tail next_some ↔ ∃ cd2, cd2 <:+ cd ∧ cd2.next = some node := by
   have : node ∈ cd.tail next_some ↔ node ∈ cd.toChaseDerivationSkeleton.tail next_some := by rfl
   rw [this, ChaseDerivationSkeleton.mem_tail_iff]
@@ -292,15 +294,15 @@ Compared to `ChaseDerivationSkeleton`, we get a couple of nice implications out 
 
 /-- Each member's facts contain the head facts. Note that this extends to arbitrary pairs of members since each member always induces a subderivation where it acts as the head. -/
 @[grind <-]
-theorem facts_node_subset_every_mem {cd : ChaseDerivation obs rules} : ∀ node ∈ cd, cd.head.facts ⊆ node.facts :=
+theorem facts_node_subset_every_mem {cd : ChaseDerivation (RegularChaseNode obs rules) obs rules} : ∀ node ∈ cd, cd.head.facts ⊆ node.facts :=
   ChaseDerivationSkeleton.facts_node_subset_every_mem
 
 /-- A first implication of `facts_node_subset_every_mem` is that, considering one of our subderivations, each of our members either has all of its facts contained in the head of the subderivation or it is itself a member of the subderivation. -/
-theorem mem_suffix_of_mem {cd1 cd2 : ChaseDerivation obs rules} (suffix : cd1 <:+ cd2) : ∀ node ∈ cd2, node.facts ⊆ cd1.head.facts ∨ node ∈ cd1 :=
+theorem mem_suffix_of_mem {cd1 cd2 : ChaseDerivation (RegularChaseNode obs rules) obs rules} (suffix : cd1 <:+ cd2) : ∀ node ∈ cd2, node.facts ⊆ cd1.head.facts ∨ node ∈ cd1 :=
   ChaseDerivationSkeleton.mem_suffix_of_mem suffix
 
 /-- The `head` cannot occur in the `tail`. Otherwise, it would be introduced using a trigger but then this trigger is already obsolete since all the facts from `head` already occur in the very beginning. We use `ObsolescenceCondition.contains_trg_result_implies_cond` here. -/
-theorem head_not_mem_tail {cd : ChaseDerivation obs rules} : ∀ h, ¬ cd.head ∈ cd.tail h := by
+theorem head_not_mem_tail {cd : ChaseDerivation (RegularChaseNode obs rules) obs rules} : ∀ h, ¬ cd.head ∈ cd.tail h := by
   intro h contra
   rw [mem_tail_iff] at contra
   rcases contra with ⟨cd2, suffix, contra⟩
@@ -313,7 +315,7 @@ theorem head_not_mem_tail {cd : ChaseDerivation obs rules} : ∀ h, ¬ cd.head �
 
 /-- By `head_not_mem_tail`, if we have a suffix but our head occurs in the suffix, then our suffix is equal to us. -/
 @[grind ->]
-theorem eq_of_suffix_of_head_mem {cd1 cd2 : ChaseDerivation obs rules} (suffix : cd1 <:+ cd2) (head_mem : cd2.head ∈ cd1) : cd1 = cd2 := by
+theorem eq_of_suffix_of_head_mem {cd1 cd2 : ChaseDerivation (RegularChaseNode obs rules) obs rules} (suffix : cd1 <:+ cd2) (head_mem : cd2.head ∈ cd1) : cd1 = cd2 := by
   rw [suffix_iff_eq_or_suffix_tail] at suffix
   cases suffix with
   | inl suffix => exact suffix
@@ -321,7 +323,7 @@ theorem eq_of_suffix_of_head_mem {cd1 cd2 : ChaseDerivation obs rules} (suffix :
 
 /-- And now by `eq_of_suffix_of_head_mem`, if we have two suffixes $C$ and $D$, and the head of $D$ occurs in $C$, then $D$ is a suffix of $C$. This may seem obvious even without the above results but it is really not even though it aligns well with one's intuition. Imagine that a `ChaseNode` could occur multiple times in a `ChaseDerivation`. Then we may have a case where $C$ is a subderivation of $D$, $D$ is not a subderivation of $C$ but $D$ occurs in $C$. -/
 @[grind ->]
-theorem suffix_of_suffix_of_suffix_of_head_mem {cd cd1 cd2 : ChaseDerivation obs rules} : cd1 <:+ cd -> cd2 <:+ cd -> cd2.head ∈ cd1 -> cd2 <:+ cd1 := by
+theorem suffix_of_suffix_of_suffix_of_head_mem {cd cd1 cd2 : ChaseDerivation (RegularChaseNode obs rules) obs rules} : cd1 <:+ cd -> cd2 <:+ cd -> cd2.head ∈ cd1 -> cd2 <:+ cd1 := by
   intro suffix1 suffix2 head_mem
   cases PossiblyInfiniteList.suffix_or_suffix_of_suffix suffix1 suffix2 with
   | inr suffix => exact suffix
@@ -340,23 +342,24 @@ This is particularly nice, since we can do this while completely ignoring indice
 -/
 
 /-- We could also define the predecessor relation directly on `ChaseDerivation`s. This theorem shows how this would look. -/
-theorem predecessor_iff {cd : ChaseDerivation obs rules} (n1 n2 : Node cd) : n1 ≼ n2 ↔ ∃ cd2, cd2 <:+ cd ∧ cd2.head = n1.val ∧ n2.val ∈ cd2 := by
+theorem predecessor_iff {N : Type u} [ChaseNode N obs rules] {cd : ChaseDerivation N obs rules} (n1 n2 : Node cd) :
+    n1 ≼ n2 ↔ ∃ cd2, cd2 <:+ cd ∧ cd2.head = n1.val ∧ n2.val ∈ cd2 := by
   constructor
   . rintro ⟨cds2, suf, head, mem⟩; exists cd.derivation_for_skeleton cds2 suf
   . rintro ⟨cd2, suf, head, mem⟩; exists cd2.toChaseDerivationSkeleton
 
 /-- The predecessor relation is antisymmetric. -/
 @[grind ->]
-theorem predecessor_antisymm {cd : ChaseDerivation obs rules} {n1 n2 : Node cd} : n1 ≼ n2 -> n2 ≼ n1 -> n1 = n2 := by
+theorem predecessor_antisymm {cd : ChaseDerivation (RegularChaseNode obs rules) obs rules} {n1 n2 : Node cd} : n1 ≼ n2 -> n2 ≼ n1 -> n1 = n2 := by
   simp only [predecessor_iff]; grind
 
 /-- The predecessor relation is transitive. -/
 @[grind ->]
-theorem predecessor_trans {cd : ChaseDerivation obs rules} {n1 n2 n3 : Node cd} : n1 ≼ n2 -> n2 ≼ n3 -> n1 ≼ n3 := by
+theorem predecessor_trans {cd : ChaseDerivation (RegularChaseNode obs rules) obs rules} {n1 n2 n3 : Node cd} : n1 ≼ n2 -> n2 ≼ n3 -> n1 ≼ n3 := by
   simp only [predecessor_iff]; grind
 
 /-- We can express fairness in terms of the predecessor relation: For each trigger, there is a node such that the trigger is not active for each of the node's successors. -/
-theorem fairness_prec {cd : ChaseDerivation obs rules} : ∀ (trg : RTrigger obs rules), ∃ (node : cd.Node), ∀ node2, node ≼ node2 -> ¬ trg.val.active node2.val.facts := by
+theorem fairness_prec {cd : ChaseDerivation (RegularChaseNode obs rules) obs rules} : ∀ (trg : RTrigger obs rules), ∃ (node : cd.Node), ∀ node2, node ≼ node2 -> ¬ trg.val.active node2.val.facts := by
   intro trg
   rcases cd.fairness' trg with ⟨cd2, suffix, fair⟩
   exists ⟨cd2.head, cd2.mem_of_mem_suffix suffix _ cd2.head_mem⟩
@@ -381,19 +384,20 @@ The strict version of the predecessor is a strict total order on `ChaseDerivatio
 
 /-- The strict predecessor relation is asymmetric. -/
 @[grind ->]
-theorem strict_predecessor_asymmetric {cd : ChaseDerivation obs rules} {n1 n2 : Node cd} : n1 ≺ n2 -> ¬ n2 ≺ n1 := by
+theorem strict_predecessor_asymmetric {cd : ChaseDerivation (RegularChaseNode obs rules) obs rules} {n1 n2 : Node cd} : n1 ≺ n2 -> ¬ n2 ≺ n1 := by
   intro prec contra; apply prec.right; apply predecessor_antisymm prec.left contra.left
 
 /-- The strict predecessor relation is transitive. -/
 @[grind ->]
-theorem strict_predecessor_trans {cd : ChaseDerivation obs rules} {n1 n2 n3 : Node cd} : n1 ≺ n2 -> n2 ≺ n3 -> n1 ≺ n3 := by
+theorem strict_predecessor_trans {cd : ChaseDerivation (RegularChaseNode obs rules) obs rules} {n1 n2 n3 : Node cd} : n1 ≺ n2 -> n2 ≺ n3 -> n1 ≺ n3 := by
   intro prec1 prec2
   constructor
   . exact predecessor_trans prec1.left prec2.left
   . grind
 
 /-- The `ChaseDerivationSkeleton.head` is a strict predecessor of `ChaseDerivationSkeleton.next`. -/
-theorem head_strict_prec_next {cd : ChaseDerivation obs rules} : ∀ {next}, (mem : next ∈ cd.next) -> ⟨cd.head, cd.head_mem⟩ ≺ ⟨next, cd.next_mem_of_mem _ mem⟩ := by
+theorem head_strict_prec_next {cd : ChaseDerivation (RegularChaseNode obs rules) obs rules} :
+    ∀ {next}, (mem : next ∈ cd.next) -> ⟨cd.head, cd.head_mem⟩ ≺ ⟨next, cd.next_mem_of_mem _ mem⟩ := by
   intro next next_mem
   constructor
   . exact cd.head_prec_next next_mem
@@ -403,7 +407,8 @@ theorem head_strict_prec_next {cd : ChaseDerivation obs rules} : ∀ {next}, (me
 
 /-- The facts of a strict successor cannot be a subset of our facts. This is because strict successor nodes can only be introduced by active triggers. But if a trigger only produces facts that already exist, then it cannot be active. -/
 @[grind ->]
-theorem facts_not_subset_of_strict_predecessor {cd : ChaseDerivation obs rules} {n1 n2 : Node cd} : n1 ≺ n2 -> ¬ n2.val.facts ⊆ n1.val.facts := by
+theorem facts_not_subset_of_strict_predecessor {cd : ChaseDerivation (RegularChaseNode obs rules) obs rules} {n1 n2 : Node cd} :
+    n1 ≺ n2 -> ¬ n2.val.facts ⊆ n1.val.facts := by
   intro prec contra
   rcases (predecessor_iff _ _).mp prec.left with ⟨d, suf, head, mem⟩
   rcases cd.subderivation_of_node_mem n2.property with ⟨d2, head2, suf2⟩
@@ -426,7 +431,7 @@ theorem facts_not_subset_of_strict_predecessor {cd : ChaseDerivation obs rules} 
         . simp [d.head_tail', next_some]
         . apply ChaseDerivation.mem_of_mem_suffix suf3; rw [← head2]; exact d2.head_mem
       grind
-    exact Set.subset_trans (by rw [d.facts_next next_some]; apply Set.subset_union_of_subset_right; apply Set.subset_refl) this
+    exact Set.subset_trans (by rw [← next.ingoingFacts_eq, d.facts_next next_some]; apply Set.subset_union_of_subset_right; apply Set.subset_refl) this
 
 end StrictPredecessor
 
@@ -442,7 +447,7 @@ Opposed to the `ChaseDerivationSkeleton`, the result is now a model for all rule
 
 /-- The result is a model of all rules. This is true because otherwise, there would be an active trigger on the result. But then, this trigger needs to be active for some node and the hence it needs to become inactive at some point due to fairness. Hence it cannot be active on the result. Contradiction! -/
 @[grind <-]
-theorem result_models_rules {cd : ChaseDerivation obs rules} : cd.result.modelsRules rules := by
+theorem result_models_rules {cd : ChaseDerivation (RegularChaseNode obs rules) obs rules} : cd.result.modelsRules rules := by
   intro r r_mem subs subs_loaded
   let trg : Trigger obs := ⟨r, subs⟩
   have trg_loaded : trg.loaded cd.result := subs_loaded
@@ -484,7 +489,8 @@ that the trigger that introduces this term must have been applied in some `Chase
 -/
 
 /-- Constants in the chase can only come from the initial fact set or from a constant in a rule. -/
-theorem constants_node_subset_constants_fs_union_constants_rules {cd : ChaseDerivation obs rules} {node : ChaseNode obs rules} (node_mem : node ∈ cd) :
+theorem constants_node_subset_constants_fs_union_constants_rules
+    {cd : ChaseDerivation (RegularChaseNode obs rules) obs rules} {node : RegularChaseNode obs rules} (node_mem : node ∈ cd) :
     node.facts.constants ⊆ (cd.head.facts.constants ∪ rules.head_constants) := by
   let node' : cd.Node := ⟨node, node_mem⟩
   show node'.val.facts.constants ⊆ (cd.head.facts.constants ∪ rules.head_constants)
@@ -493,7 +499,7 @@ theorem constants_node_subset_constants_fs_union_constants_rules {cd : ChaseDeri
     apply Set.subset_union_of_subset_left
     apply Set.subset_refl
   | step cd2 suffix ih next next_eq =>
-    rw [ChaseDerivationSkeleton.facts_next next_eq]
+    rw [← next.ingoingFacts_eq, ChaseDerivationSkeleton.facts_next next_eq]
     intro c c_mem
     rw [FactSet.constants_union] at c_mem
     cases c_mem with
@@ -542,7 +548,7 @@ theorem constants_node_subset_constants_fs_union_constants_rules {cd : ChaseDeri
 
 /-- Each functional term in the chase originates as a fresh term from a trigger if it was not already part of the initial fact set. -/
 theorem functional_term_originates_from_some_trigger
-    {cd : ChaseDerivation obs rules}
+    {cd : ChaseDerivation (RegularChaseNode obs rules) obs rules}
     (node : Node cd)
     {t : GroundTerm sig}
     (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok)
@@ -551,7 +557,7 @@ theorem functional_term_originates_from_some_trigger
   induction node using mem_rec with
   | head => apply Or.inl; exact t_mem
   | step cd2 suffix ih next next_mem =>
-    rw [cd2.facts_next next_mem, FactSet.terms_union] at t_mem
+    rw [← next.ingoingFacts_eq, cd2.facts_next next_mem, FactSet.terms_union] at t_mem
 
     have aux : t ∈ cd2.head.facts.terms -> t ∈ cd.head.facts.terms ∨ ∃ (node2 : cd.Node), node2 ≼ ⟨next, cd2.mem_of_mem_suffix suffix _ (cd2.next_mem_of_mem _ next_mem)⟩ ∧ ∃ orig ∈ node2.val.origin, t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val (by rw [← PreTrigger.length_mapped_head]; exact orig.snd.isLt) := by
       intro t_mem
@@ -591,7 +597,7 @@ theorem functional_term_originates_from_some_trigger
 
 /-- If a functional term occurs in the chase, then the trigger that introduces this term must have been used in the chase, unless the term already occurs in the initial fact set. -/
 theorem trigger_introducing_functional_term_occurs_in_chase
-    {cd : ChaseDerivation obs rules}
+    {cd : ChaseDerivation (RegularChaseNode obs rules) obs rules}
     (node : Node cd)
     {t : GroundTerm sig}
     (t_mem_node : t ∈ node.val.facts.terms)
@@ -617,7 +623,7 @@ theorem trigger_introducing_functional_term_occurs_in_chase
 
 /-- If a functional term occurs in the chase, then the result of the trigger that introduces this term is contained in the current node, unless the functional term already occurs in the initial fact set. -/
 theorem result_of_trigger_introducing_functional_term_occurs_in_chase
-    {cd : ChaseDerivation obs rules}
+    {cd : ChaseDerivation (RegularChaseNode obs rules) obs rules}
     (node : Node cd)
     {t : GroundTerm sig}
     (t_mem_node : t ∈ node.val.facts.terms)
@@ -647,7 +653,7 @@ The result itself is `prop_for_node_has_minimal_such_node` and is shown via `pro
 This forces us to take into account specific node indices and therefore requires auxiliary theorems, mainly `get?_branch_injective`, which is shown using `node_has_unique_position`.
 -/
 
-theorem node_has_unique_position (cd : ChaseDerivation obs rules) : ∀ node, ∀ i j, i < j -> cd.branch.get? i = some node -> cd.branch.get? j ≠ some node := by
+theorem node_has_unique_position (cd : ChaseDerivation (RegularChaseNode obs rules) obs rules) : ∀ node, ∀ i j, i < j -> cd.branch.get? i = some node -> cd.branch.get? j ≠ some node := by
   intro node i j lt eq_i eq_j
   have le := Nat.le_pred_of_lt lt
   let cds2 := cd.derivation_for_branch_suffix (cd.branch.drop j.pred) (PossiblyInfiniteList.IsSuffix_drop j.pred) (by
@@ -680,7 +686,7 @@ theorem node_has_unique_position (cd : ChaseDerivation obs rules) : ∀ node, �
     exact cd.facts_node_subset_of_prec prec
   exact Set.subset_trans (node.facts_contain_origin_result (node.origin.get (cd2.isSome_origin_next next_eq)) (by simp)) sub
 
-theorem get?_branch_injective (cd : ChaseDerivation obs rules) : ∀ node, ∀ i j, cd.branch.get? i = some node -> cd.branch.get? j = some node -> i = j := by
+theorem get?_branch_injective (cd : ChaseDerivation (RegularChaseNode obs rules) obs rules) : ∀ node, ∀ i j, cd.branch.get? i = some node -> cd.branch.get? j = some node -> i = j := by
   intro node i j eq_i eq_j
   apply Decidable.byContradiction
   intro ne
@@ -688,9 +694,9 @@ theorem get?_branch_injective (cd : ChaseDerivation obs rules) : ∀ node, ∀ i
   | inl lt => exact cd.node_has_unique_position node i j lt eq_i eq_j
   | inr lt => exact cd.node_has_unique_position node j i lt eq_j eq_i
 
-public theorem prop_for_node_has_minimal_such_node {cd : ChaseDerivation obs rules} (prop : cd.Node -> Prop) :
+public theorem prop_for_node_has_minimal_such_node {cd : ChaseDerivation (RegularChaseNode obs rules) obs rules} (prop : cd.Node -> Prop) :
     ∀ n, prop n -> ∃ n2, prop n2 ∧ ∀ n3, n3 ≺ n2 -> ¬ prop n3 := by
-  let prop' : Nat -> Prop := fun i => ∃ (e : ChaseNode obs rules) (mem : e ∈ cd.branch.get? i), prop ⟨e, by exists i⟩
+  let prop' : Nat -> Prop := fun i => ∃ (e : RegularChaseNode obs rules) (mem : e ∈ cd.branch.get? i), prop ⟨e, by exists i⟩
   intro n prop_n
   rcases n.property with ⟨i, n_mem⟩
   rcases prop_for_nat_has_minimal_such_nat prop' i (by exists n.val, n_mem) with ⟨k, prop_k, not_lt_k⟩

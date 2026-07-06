@@ -26,12 +26,12 @@ variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq 
 section BasicDefinitions
 
 /-- A `KnowledgeBase` never-terminates if none of its `ChaseTree`s terminates. -/
-def KnowledgeBase.neverTerminates (kb : KnowledgeBase sig) (obs : ObsolescenceCondition sig) : Prop :=
-  ∀ (ct : ChaseTree obs kb), ¬ ct.terminates
+def KnowledgeBase.neverTerminates (kb : KnowledgeBase sig) (obs : ObsolescenceCondition sig) (N : Type u) [CN : ChaseNode N obs kb.rules] : Prop :=
+  ∀ (ct : ChaseTree N obs kb), ¬ ct.terminates
 
 /-- Maybe this seems counterintuitive but a `RuleSet` never-terminates if for at least one `Database` the corresponding `KnowledgeBase.neverTerminates`. Asking this question for all Databases would be trivial, at least for the restricted chase, since for every rule set there is a database that satisfies all the rules directly and therefore only has terminating restricted chase trees. -/
-def RuleSet.neverTerminates (rs : RuleSet sig) (obs : ObsolescenceCondition sig) : Prop :=
-  ∃ (db : Database sig), { rules := rs, db := db : KnowledgeBase sig }.neverTerminates obs
+def RuleSet.neverTerminates (rs : RuleSet sig) (obs : ObsolescenceCondition sig) (N : Type u) [CN : ChaseNode N obs rs] : Prop :=
+  ∃ (db : Database sig), { rules := rs, db := db : KnowledgeBase sig }.neverTerminates obs N
 
 end BasicDefinitions
 
@@ -42,12 +42,13 @@ def Trigger.unblockable
     (trg : Trigger obs.toLaxObsolescenceCondition)
     (disjIdx : Fin trg.mapped_head.length)
     (rules : RuleSet sig) : Prop :=
-  ∀ td : TreeDerivation obs rules, ∀ node : td.NodeWithAddress, trg.loaded node.node.facts ->
+  ∀ td : TreeDerivation (RegularChaseNode obs rules) obs rules, ∀ node : td.NodeWithAddress, trg.loaded node.node.facts ->
   ∃ node2 : td.NodeWithAddress, node ≼ node2 ∧
   trg.mapped_head[disjIdx.val].toSet ⊆ node2.node.facts
 
 /-- A `CyclicityDerivation` is an infinite list of `ChaseNode`s. We demand only that triggers are loaded, new terms keep being added (growing) and that triggers are unblockable. This is much different from a `ChaseDerivation` but intuitively, we can view a `CyclicityDerivation` as a very special non-continuous subderivation of a suitable `ChaseDerivation`. -/
-structure CyclicityDerivation (obs : ObsolescenceCondition sig) (rules : RuleSet sig) extends ChaseDerivationSkeleton obs rules where
+structure CyclicityDerivation (obs : ObsolescenceCondition sig) (rules : RuleSet sig)
+    extends ChaseDerivationSkeleton (RegularChaseNode obs rules) obs rules where
   triggers_loaded : ∀ n : Nat, ∀ before ∈ (branch.drop n).head,
     ∀ after ∈ (branch.drop n).tail.head, ∃ orig ∈ after.origin, orig.fst.val.loaded before.facts
   growing : ∀ n, ∃ m, ∃ t, (∀ node ∈ (branch.drop n).head, ¬ t ∈ node.facts.terms) ∧ (∃ node ∈ (branch.drop (n+m)).head, t ∈ node.facts.terms)
@@ -57,13 +58,13 @@ namespace CyclicityDerivation
 
 variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 
-instance : Membership (ChaseNode obs rules) (CyclicityDerivation obs rules) where
+instance : Membership (RegularChaseNode obs rules) (CyclicityDerivation obs rules) where
   mem cd node := node ∈ cd.toChaseDerivationSkeleton
 
 /-- Each suffix of the underlying `ChaseDerivationSkeleton` is itself a `CyclicityDerivation`. -/
 def derivation_for_skeleton
     (cd : CyclicityDerivation obs rules)
-    (l2 : ChaseDerivationSkeleton obs rules)
+    (l2 : ChaseDerivationSkeleton (RegularChaseNode obs rules) obs rules)
     (suffix : l2 <:+ cd.toChaseDerivationSkeleton) :
     CyclicityDerivation obs rules where
   branch := l2.branch
@@ -96,7 +97,8 @@ theorem growing' {cd : CyclicityDerivation obs rules} : ∃ cd2 : CyclicityDeriv
   rcases cd.growing 0 with ⟨m, t, t_not_mem, ⟨node, node_mem, t_mem⟩⟩
   rw [Nat.zero_add] at node_mem
   specialize t_not_mem cd.head (by simp [ChaseDerivationSkeleton.head])
-  let cd2 : ChaseDerivationSkeleton obs rules := cd.derivation_for_branch_suffix _ (cd.branch.IsSuffix_drop m) (by rw [node_mem]; simp)
+  let cd2 : ChaseDerivationSkeleton (RegularChaseNode obs rules) obs rules :=
+    cd.derivation_for_branch_suffix _ (cd.branch.IsSuffix_drop m) (by rw [node_mem]; simp)
   have cd2_suffix : cd2 <:+ cd.toChaseDerivationSkeleton := cd.branch.IsSuffix_drop m
   exists cd.derivation_for_skeleton cd2 cd2_suffix
   constructor; exact cd2_suffix
@@ -133,7 +135,7 @@ theorem growing'' {cd : CyclicityDerivation obs rules} : ∀ node : cd.Node,
   rw [ChaseDerivationSkeleton.mem_iff] at node_mem
   rcases node_mem with ⟨n, node_eq⟩
 
-  let cd2 : ChaseDerivationSkeleton obs rules := cd.derivation_for_branch_suffix _ (cd.branch.IsSuffix_drop n) (by simp [node_eq])
+  let cd2 : ChaseDerivationSkeleton (RegularChaseNode obs rules) obs rules := cd.derivation_for_branch_suffix _ (cd.branch.IsSuffix_drop n) (by simp [node_eq])
   have cd2_suffix : cd2 <:+ cd.toChaseDerivationSkeleton := cd.branch.IsSuffix_drop n
   have node_head : node = cd2.head := by simp only [cd2, ChaseDerivationSkeleton.derivation_for_branch_suffix, ChaseDerivationSkeleton.head]; rcases Option.eq_some_iff_get_eq.mp node_eq with ⟨_, node_eq⟩; simp [← node_eq]
 
@@ -162,7 +164,7 @@ theorem isSome_next {cd : CyclicityDerivation obs rules} : cd.toChaseDerivationS
   | inr n2_mem => rcases n2_mem with ⟨n2_mem, _⟩; exact n2_mem
 
 /-- Lifting `ChaseDerivationSkeleton.next` to the `CyclicityDerivation`. -/
-def next (cd : CyclicityDerivation obs rules) : ChaseNode obs rules := cd.toChaseDerivationSkeleton.next.get (isSome_next)
+def next (cd : CyclicityDerivation obs rules) : RegularChaseNode obs rules := cd.toChaseDerivationSkeleton.next.get (isSome_next)
 
 /-- The `next` node is a member. -/
 @[grind <-]
@@ -176,7 +178,7 @@ theorem isSome_origin_next {cd : CyclicityDerivation obs rules} : cd.next.origin
 
 /-- The fact set of the `next` `ChaseNode` consists exactly of the facts from `head` and the result of the trigger that introduces `next`. -/
 theorem facts_next {cd : CyclicityDerivation obs rules} :
-    cd.next.facts = cd.head.facts ∪ (cd.next.origin_result cd.isSome_origin_next).toSet := by
+    cd.next.facts = cd.head.facts ∪ (ChaseNode.origin_result cd.next cd.isSome_origin_next).toSet := by
   apply cd.toChaseDerivationSkeleton.facts_next; simp [next]
 
 /-- The trigger used to derive `ChaseDerivationSkeleton.next` is loaded for `ChaseDerivationSkeleton.head`. -/
@@ -220,7 +222,7 @@ theorem infinite {cd : CyclicityDerivation obs rules} : ¬ cd.terminates := by
   exact t_mem
 
 /-- In every `TreeDerivation` that starts on the same initial fact set as the `CyclicityDerivation`, there exists a branch that corresponds to the `CyclicityDerivation`, meaning that it has the same result. -/
-theorem corresponding_tree_branch_exists {cd : CyclicityDerivation obs rules} (td : TreeDerivation obs rules) (same_start : cd.head.facts = td.root.facts) :
+theorem corresponding_tree_branch_exists {cd : CyclicityDerivation obs rules} (td : TreeDerivation (RegularChaseNode obs rules) obs rules) (same_start : cd.head.facts = td.root.facts) :
     ∃ deriv ∈ td.branches, cd.result ⊆ deriv.result := by
   -- NOTE: The need for the suffix part of the property might not be obvious. This is required to show `different_value_exists` down below. For this we need to ensure that every possible value for β is already restricted to adhering to the suffix property. The more general claim without this property would not hold.
   let β := { pair : CyclicityDerivation obs rules × td.NodeWithAddress // pair.fst.head.facts ⊆ pair.snd.node.facts ∧ pair.fst.toChaseDerivationSkeleton <:+ cd.toChaseDerivationSkeleton}
@@ -281,7 +283,7 @@ theorem corresponding_tree_branch_exists {cd : CyclicityDerivation obs rules} (t
     simp only [ChaseDerivationSkeleton.head]
     rcases t_mem with ⟨f, f_mem, t_mem⟩
     exists f; simp only [t_mem, and_true]; constructor; exact f_mem
-    rw [← same_start]
+    rw [td.root.outgoingFacts_eq, ← same_start]
     intro contra; apply t_not_mem
     exists f; simp only [t_mem, and_true]
     apply cd.facts_node_subset_every_mem _ _ _ contra
@@ -376,32 +378,28 @@ end CyclicityDerivation
 
 /-- This is the CyclicitySequence from the RPC paper. For us, it is a `CyclicityDerivation` that starts on a database.  -/
 structure CyclicityBranch (obs : ObsolescenceCondition sig) (kb : KnowledgeBase sig) extends CyclicityDerivation obs kb.rules where
-  database_first : branch.head = some {
-    facts := kb.db.toFactSet,
-    origin := none,
-    facts_contain_origin_result := by simp
-  }
+  database_first : ∀ head ∈ branch.head,
+    head.facts = kb.db.toFactSet ∧
+    head.origin = none
 
 namespace CyclicityBranch
 
 variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
 
 /-- We restate the `database_first` condition in terms of the `CyclicityDerivation` vocabulary. -/
-theorem database_first' {cb : CyclicityBranch obs kb} : cb.head = {
-  facts := kb.db.toFactSet,
-  origin := none,
-  facts_contain_origin_result := by simp
-} := by simp only [ChaseDerivationSkeleton.head, cb.database_first, Option.get_some]
+theorem database_first' {cb : CyclicityBranch obs kb} :
+    cb.head.facts = kb.db.toFactSet ∧
+    cb.head.origin = none := by apply cb.database_first; simp [ChaseDerivationSkeleton.head]
 
 /-- In every `ChaseTree`, there exists a branch that corresponds to the `CyclicityBranch`, meaning that it has the same result. -/
-theorem corresponding_tree_branch_exists {cb : CyclicityBranch obs kb} (ct : ChaseTree obs kb) :
-    ∃ branch : ChaseBranch obs kb, branch.toChaseDerivation ∈ ct.branches ∧ cb.result ⊆ branch.result := by
-  rcases cb.toCyclicityDerivation.corresponding_tree_branch_exists ct.toTreeDerivation (by simp [cb.database_first', ct.database_first']) with ⟨cd, cd_mem, res_sub⟩
+theorem corresponding_tree_branch_exists {cb : CyclicityBranch obs kb} (ct : ChaseTree (RegularChaseNode obs kb.rules) obs kb) :
+    ∃ branch : ChaseBranch (RegularChaseNode obs kb.rules) obs kb, branch.toChaseDerivation ∈ ct.branches ∧ cb.result ⊆ branch.result := by
+  rcases cb.toCyclicityDerivation.corresponding_tree_branch_exists ct.toTreeDerivation (by rw [cb.database_first'.left, ← RegularChaseNode.outgoingFacts_eq, ct.database_first'.right.left]) with ⟨cd, cd_mem, res_sub⟩
   exists ct.chaseBranch_for_branch cd_mem
 
 /-- If a KB admist a `CyclicityBranch`, then its rule set `neverTerminates`. -/
 theorem neverTerminates_of_cyclicityBranch {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
-    (cb : CyclicityBranch obs kb) : kb.rules.neverTerminates obs := by
+    (cb : CyclicityBranch obs kb) : kb.rules.neverTerminates obs (RegularChaseNode obs kb.rules) := by
   exists kb.db
   intro ct terminates
   rcases cb.corresponding_tree_branch_exists ct with ⟨branch, branch_mem, res_sub⟩
