@@ -1,10 +1,14 @@
+/-
+Copyright 2026 Henrik Tscherny, Lukas Gerlach
+Released under Apache 2.0 license as described in the file LICENSE.
+-/
+
+module
+
 import ExistentialRules.ChaseSequence.CoreChase.AuxiliarySeq
 import ExistentialRules.ChaseSequence.CoreChase.Basic
 import ExistentialRules.ChaseSequence.CoreChase.CoreChaseBranch
 import ExistentialRules.ChaseSequence.CoreChase.CoreChaseNode
-import ExistentialRules.ChaseSequence.CoreChase.Homomorphisms
-import ExistentialRules.ChaseSequence.CoreChase.Termination
-import ExistentialRules.ChaseSequence.CoreChase.Triggers
 import ExistentialRules.ChaseSequence.CoreChase.Universality
 
 /-!

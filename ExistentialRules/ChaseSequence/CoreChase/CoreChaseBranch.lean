@@ -1,441 +1,572 @@
-import ExistentialRules.ChaseSequence.ChaseBranch
-import ExistentialRules.Models.Basic
-import ExistentialRules.Models.Cores
-import PossiblyInfiniteTrees.PossiblyInfiniteTree.FiniteDegreeTree.Basic
-import ExistentialRules.Models.Basic
-import ExistentialRules.Triggers.Basic
-import ExistentialRules.AtomsAndFacts.Basic
-import ExistentialRules.AtomsAndFacts.SubstitutionsAndHomomorphisms
-import ExistentialRules.ChaseSequence.Termination.Basic
-import ExistentialRules.ChaseSequence.Universality
+/-
+Copyright 2026 Henrik Tscherny, Lukas Gerlach
+Released under Apache 2.0 license as described in the file LICENSE.
+-/
 
+module
 
-import ExistentialRules.ChaseSequence.Deterministic
+public import ExistentialRules.ChaseSequence.ChaseBranch
+public import ExistentialRules.ChaseSequence.Termination.Basic
 
 import ExistentialRules.ChaseSequence.CoreChase.Basic
+public import ExistentialRules.ChaseSequence.CoreChase.CoreChaseNode
 
+/-!
+# Core Chase Derivations and Branches
 
-import ExistentialRules.ChaseSequence.CoreChase.CoreChaseNode
+Similar to `RegularChaseDerivation`s and `RegularChaseBranch`es, we define `CoreChaseDerivation`s and `CoreChaseBranch`es.
+The main result of this file is that the result of a `CoreChaseBranch` models the underlying `KnowledgeBase`.
+-/
+
+public section
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
-variable {kb : KnowledgeBase sig}
-
-abbrev obs := RestrictedObsolescence sig
-
-def existsTriggerOptFsCore (rules : RuleSet sig) (before : CoreChaseNode rules) (after : Option (CoreChaseNode rules)) : Prop :=
-  ∀ node ∈ after,
-  ∃ trg : (RTrigger (obs.toLaxObsolescenceCondition) rules),
-  ∃ (i : Fin trg.val.mapped_head.length),
-  ∃ (c : FactSet sig),
-  ∃ (c_wc : c.isWeakCore),
-  ∃ (c_sub : c.homSubset (before.core ∪ (trg.val.mapped_head[i.val]'(i.isLt)).toSet)),
-
-    node = {
-      facts := before.core ∪ (trg.val.mapped_head[i.val]'(i.isLt)).toSet
-      core := c
-      isWeakCore := c_wc
-      homSubset := c_sub
-      origin := some ⟨trg, i⟩
-      facts_contain_origin_result := by intro _ eq; rw [Option.mem_def, Option.some_inj] at eq; rw [← eq]; apply Set.subset_union_of_subset_right; apply Set.subset_refl
-    }
-
-structure CoreChaseBranch (kb : KnowledgeBase sig) where
-  branch : PossiblyInfiniteList (CoreChaseNode kb.rules)
-  database_first : branch.get? 0 = some {
-    facts := kb.db.toFactSet
-    core := kb.db.toFactSet
-    isWeakCore := kb.db.isWeakCore
-    homSubset := ⟨Set.subset_refl, ⟨_, GroundTermMapping.isHomomorphism_id_of_subset Set.subset_refl⟩⟩
-    origin := none,
-    facts_contain_origin_result := by simp
-  }
-
-  triggers_active : ∀ (n : Nat), ∀ before ∈ branch.get? n, ∀ after ∈ branch.get? (n+1), ∃ o ∈ after.origin, o.fst.val.active before.core
-
-  triggers_exist : ∀ n : Nat, ∀ before ∈ branch.get? n,
-    let after := branch.get? (n+1)
-    (existsTriggerOptFsCore kb.rules before after)
-
-  fairness : ∀ trg : (RTrigger obs.toLaxObsolescenceCondition kb.rules), ∃ (i : Nat), (∃ node ∈ branch.get? i, ¬ trg.val.active node.facts)
-    ∧ (∀ (j : Nat), j > i → ∀ node2  ∈ branch.get? j, ¬ trg.val.active node2.facts)
 
 
+abbrev CoreChaseDerivation (rules : RuleSet sig) := ChaseDerivation (CoreChaseNode rules) (RestrictedObsolescence sig) rules
+
+namespace CoreChaseDerivation
+
+variable {rules : RuleSet sig}
+
+section FinitenessOfFactSets
+
+/-!
+## Finiteness of FactSets in the Core Chase
+
+If we start a `CoreChaseDerivation` on a finite fact set, all other fact sets (and cores) also remain finite.
+For regular chase derivations, we only show this for `ChaseBranch`es that start on a database. However, here we also require such a result on auxiliary results that we show for the `CoreChaseDerivation`.
+-/
+
+/-- If the initial facts are finite, then the facts of every node are finite. -/
+theorem facts_finite_of_mem_of_head_finite {cd : CoreChaseDerivation rules} (head_fin : cd.head.facts.finite) (node : cd.Node) : node.val.facts.finite := by
+  induction node using ChaseDerivation.mem_rec with
+  | head => exact head_fin
+  | step cd2 suffix ih next next_mem =>
+    rw [← next.ingoingFacts_eq, cd2.facts_next next_mem, cd2.head.outgoingFacts_eq]
+    apply Set.union_finite_of_both_finite (Set.finite_of_subset_finite ih cd2.head.homSubset.left)
+    apply List.finite_toSet
+
+/-- If the initial core is finite, then the cores of every node are finite. -/
+theorem core_finite_of_mem_of_head_finite {cd : CoreChaseDerivation rules} (head_fin : cd.head.core.finite) (node : cd.Node) : node.val.core.finite := by
+  have node_mem : node.val ∈ cd := node.property
+  rw [cd.mem_iff_eq_head_or_mem_tail] at node_mem
+  cases node_mem with
+  | inl node_mem => rw [node_mem]; exact head_fin
+  | inr node_mem =>
+    rcases node_mem with ⟨h, node_mem⟩
+    apply Set.finite_of_subset_finite (facts_finite_of_mem_of_head_finite (cd := (cd.tail h)) _ ⟨node.val, node_mem⟩) node.val.homSubset.left
+    let next := cd.next.get h
+    have next_eq : cd.next = some next := by simp [next]
+    rw [cd.head_tail', ← next.ingoingFacts_eq, cd.facts_next next_eq, cd.head.outgoingFacts_eq]
+    apply Set.union_finite_of_both_finite head_fin
+    apply List.finite_toSet
+
+end FinitenessOfFactSets
+
+section HomomorphismsAlongChase
+
+/-!
+## Homomorphisms along the Chase
+
+In the regular `ChaseDerivation`, each steps can only add facts, which makes consecutive nodes subsets of each other.
+This is not true for the core chase. But at least, we can always find a homomorphism into the next fact set. (This trivially holds for the regular chase derivation as well since with the subset relation the id mapping always forms such a homomorphism.)
+-/
+
+/-- For each derivation, there is a homomorphism from its head into every node. -/
+theorem exists_homomorphism_from_head_of_mem {cd : CoreChaseDerivation rules} :
+    ∀ node ∈ cd, ∃ h : GroundTermMapping sig, h.isHomomorphism cd.head.core node.core := by
+  intro node node_mem
+  let node : cd.Node := ⟨node, node_mem⟩
+  show ∃ h : GroundTermMapping sig, h.isHomomorphism cd.head.core node.val.core
+  induction node using cd.mem_rec with
+  | head => exact ⟨id, GroundTermMapping.isHomomorphism_id_of_subset Set.subset_refl⟩
+  | step cd2 suffix ih next next_eq =>
+    rcases ih with ⟨h_ih, h_ih_hom⟩
+    rcases next.homSubset.right with ⟨h_next, h_next_hom⟩
+    have id_hom_to_next : GroundTermMapping.isHomomorphism id cd2.head.core next.facts := by
+      apply GroundTermMapping.isHomomorphism_id_of_subset
+      rw [← next.ingoingFacts_eq, cd2.facts_next next_eq]
+      rw [cd2.head.outgoingFacts_eq]
+      exact Set.subset_union_of_subset_left Set.subset_refl
+    exists h_next ∘ id ∘ h_ih
+    apply GroundTermMapping.isHomomorphism_compose
+    apply GroundTermMapping.isHomomorphism_compose
+    . exact h_ih_hom
+    . exact id_hom_to_next
+    . exact h_next_hom
+
+/-- The head's core cannot occur again in the tail. If this was the case and since we always find homomorphism from to successor cores, we can argue that then the triggers would have already been satisfied. The same theorem exists for regular `ChaseDerivation`s but the argument is easier for them. -/
+theorem head_core_not_mem_tail_of_finite {cd : CoreChaseDerivation rules} (head_finite : cd.head.core.finite) : ∀ h,
+    ∀ node ∈ cd.tail h, cd.head.core ≠ node.core := by
+  intro h node node_mem contra
+  let next := cd.next.get h
+  have next_eq : cd.next = some next := by simp [next]
+  let origin := next.origin.get (cd.isSome_origin_next next_eq)
+  apply next.origin_trg_inactive_of_isWeakCore_of_homSubset_of_finite cd.head.isWeakCore _ head_finite origin (by simp [origin])
+  . exact cd.active_trigger_origin_next next_eq
+  . constructor
+    . rw [← next.ingoingFacts_eq, cd.facts_next next_eq, cd.head.outgoingFacts_eq]
+      exact Set.subset_union_of_subset_left Set.subset_refl
+    . -- there exists a homomorphism from next to (the second occurrence of) cd.head
+      rcases exists_homomorphism_from_head_of_mem _ node_mem with ⟨h, hom⟩
+      rw [ChaseDerivation.head_tail'] at hom
+      -- we also have a homomorphism from next.facts to next.core by definition
+      rcases next.homSubset.right with ⟨h_core, h_core_hom⟩
+      -- we can compose both homomorphisms into a homomorphism from next.facts to cd.head.core
+      let h_facts_head : GroundTermMapping sig := h ∘ h_core
+      have h_facts_head_hom : h_facts_head.isHomomorphism next.facts cd.head.core := by
+        apply GroundTermMapping.isHomomorphism_compose; exact h_core_hom; rw [contra]; exact hom
+      exists h_facts_head
+
+/-- The `head` cannot occur in the `tail`. Otherwise, the same fact set would occur twice in the chase. But since we always find homomorphism from to successor fact sets, we can argue that then the triggers would have already been satisfied. The same theorem exists for regular `ChaseDerivation`s but the argument is easier for them. -/
+theorem head_not_mem_tail_of_finite {cd : CoreChaseDerivation rules} (head_finite : cd.head.core.finite) : ∀ h, ¬ cd.head ∈ cd.tail h := by
+  intro h contra
+  exact cd.head_core_not_mem_tail_of_finite head_finite h _ contra rfl
+
+/-- By `head_not_mem_tail_of_finite`, if we have a suffix but our head occurs in the suffix, then our suffix is equal to us. -/
+@[grind ->]
+theorem eq_of_suffix_of_head_mem_of_finite {cd1 cd2 : CoreChaseDerivation rules} (suffix : cd1 <:+ cd2) (head_mem : cd2.head ∈ cd1) (head_finite : cd2.head.core.finite) : cd1 = cd2 := by
+  rw [ChaseDerivation.suffix_iff_eq_or_suffix_tail] at suffix
+  cases suffix with
+  | inl suffix => exact suffix
+  | inr suffix => rcases suffix with ⟨h, suffix⟩; apply False.elim; apply head_not_mem_tail_of_finite head_finite h; apply ChaseDerivation.mem_of_mem_suffix suffix; exact head_mem
+
+/-- And now by `eq_of_suffix_of_head_mem_of_finite`, if we have two suffixes $C$ and $D$, and the head of $D$ occurs in $C$, then $D$ is a suffix of $C$. This also holds for regular chase derivations but for different reasons (see the differences of `head_not_mem_tail_of_finite` and `ChaseDerivation.head_not_mem_tail`.) -/
+@[grind ->]
+theorem suffix_of_suffix_of_suffix_of_head_mem_of_finite {cd cd1 cd2 : CoreChaseDerivation rules} : cd1 <:+ cd -> cd2 <:+ cd -> cd2.head ∈ cd1 -> cd2.head.core.finite -> cd2 <:+ cd1 := by
+  intro suffix1 suffix2 head_mem head_finite
+  cases PossiblyInfiniteList.suffix_or_suffix_of_suffix suffix1 suffix2 with
+  | inr suffix => exact suffix
+  | inl suffix => rw [eq_of_suffix_of_head_mem_of_finite suffix head_mem head_finite]; exact PossiblyInfiniteList.IsSuffix_refl
+
+end HomomorphismsAlongChase
+
+section Predecessors
+
+/-!
+## Predecessor Relation
+
+We port the predecessor results from the `ChaseDerivation` that are there only shown for derivations with `RegularChaseNode`s. But since we have `suffix_of_suffix_of_suffix_of_head_mem_of_finite`, we can also show these for `CoreChaseDerivation`s given that the cores are finite.
+
+We also add a few results on top that are specific to the core chase such as `exists_homomorphism_of_prec` or `core_not_subset_of_strict_predecessor` (where the latter is a variant of `ChaseDerivation.facts_not_subset_of_strict_predecessor`.
+-/
+
+/-- The predecessor relation is antisymmetric. -/
+@[grind ->]
+theorem predecessor_antisymm_of_finite {cd : CoreChaseDerivation rules} {n1 n2 : cd.Node} (n1_fin : n1.val.core.finite) (n2_fin : n2.val.core.finite) :
+    n1 ≼ n2 -> n2 ≼ n1 -> n1 = n2 := by
+  simp only [cd.predecessor_iff]; grind
+
+/-- The predecessor relation is transitive. -/
+@[grind ->]
+theorem predecessor_trans_of_finite {cd : CoreChaseDerivation rules} {n1 n2 n3 : cd.Node} (n2_fin : n2.val.core.finite) :
+    n1 ≼ n2 -> n2 ≼ n3 -> n1 ≼ n3 := by
+  simp only [cd.predecessor_iff]; grind
+
+/-- We can express fairness in terms of the predecessor relation: For each trigger, there is a node such that the trigger is not active for each of the node's successors. -/
+theorem fairness_prec_of_finite {cd : CoreChaseDerivation rules} (head_fin : cd.head.core.finite) : ∀ (trg : RTrigger (RestrictedObsolescence sig) rules), ∃ (node : cd.Node), ∀ node2, node ≼ node2 -> ¬ trg.val.active node2.val.core := by
+  intro trg
+  rcases cd.fairness' trg with ⟨cd2, suffix, fair⟩
+  exists ⟨cd2.head, cd2.mem_of_mem_suffix suffix _ cd2.head_mem⟩
+  intro node2 prec
+  apply fair
+  rw [cd.predecessor_iff] at prec
+  rcases prec with ⟨cd3, suf3, head3, node2_mem_cd3⟩
+  simp only at head3
+  have : cd3 = cd2 := by
+    have cd2_head_fin : cd2.head.core.finite := by
+      let cd2_head_node : cd.Node := ⟨cd2.head, by apply ChaseDerivation.mem_of_mem_suffix suffix; exact cd2.head_mem⟩
+      exact cd.core_finite_of_mem_of_head_finite head_fin cd2_head_node
+    apply eq_of_suffix_of_head_mem_of_finite _ (by rw [← head3]; exact cd3.head_mem) cd2_head_fin
+    apply suffix_of_suffix_of_suffix_of_head_mem_of_finite suffix suf3 _ (by rw [head3]; exact cd2_head_fin)
+    rw [head3]; exact cd2.head_mem
+  rw [← this]
+  exact node2_mem_cd3
+
+/-- For each node, there exists a homomorphism to each of its successors. -/
+theorem exists_homomorphism_of_prec {cd : CoreChaseDerivation rules} {n1 n2 : cd.Node} :
+    n1 ≼ n2 -> ∃ h : GroundTermMapping sig, h.isHomomorphism n1.val.core n2.val.core := by
+  rw [cd.predecessor_iff]; intro ⟨cd2, suffix, head_eq, n2_mem⟩
+  rw [← head_eq]
+  exact exists_homomorphism_from_head_of_mem (cd := cd2) n2.val n2_mem
+
+
+section StrictPredecessor
+
+/-- The strict predecessor relation is asymmetric. -/
+@[grind ->]
+theorem strict_predecessor_asymmetric_of_finite {cd : CoreChaseDerivation rules} {n1 n2 : cd.Node}
+    (n1_fin : n1.val.core.finite) (n2_fin : n2.val.core.finite) :
+    n1 ≺ n2 -> ¬ n2 ≺ n1 := by
+  intro prec contra; apply prec.right; apply predecessor_antisymm_of_finite n1_fin n2_fin prec.left contra.left
+
+/-- The strict predecessor relation is transitive. -/
+@[grind ->]
+theorem strict_predecessor_trans_of_finite {cd : CoreChaseDerivation rules} {n1 n2 n3 : cd.Node}
+    (n1_fin : n1.val.core.finite) (n2_fin : n2.val.core.finite) :
+    n1 ≺ n2 -> n2 ≺ n3 -> n1 ≺ n3 := by
+  intro prec1 prec2
+  constructor
+  . exact predecessor_trans_of_finite n2_fin prec1.left prec2.left
+  . grind
+
+/-- The `ChaseDerivationSkeleton.head` is a strict predecessor of `ChaseDerivationSkeleton.next`. -/
+theorem head_strict_prec_next_of_finite {cd : CoreChaseDerivation rules} (head_fin : cd.head.core.finite) :
+    ∀ {next}, (mem : next ∈ cd.next) -> ⟨cd.head, cd.head_mem⟩ ≺ ⟨next, cd.next_mem_of_mem _ mem⟩ := by
+  intro next next_mem
+  constructor
+  . exact cd.head_prec_next next_mem
+  . intro contra
+    apply cd.head_not_mem_tail_of_finite head_fin (by rw [next_mem]; simp)
+    grind
+
+/-- The core of a strict successor cannot be a subset of our core. Otherwise, our current core would not be a core. -/
+@[grind ->]
+theorem core_not_subset_of_strict_predecessor_of_finite {cd : CoreChaseDerivation rules} {n1 n2 : cd.Node} (n1_fin : n1.val.core.finite) :
+    n1 ≺ n2 -> ¬ n2.val.core ⊆ n1.val.core := by
+  intro ⟨prec, ne⟩ contra
+  have cores_eq : n2.val.core = n1.val.core := by
+    apply FactSet.homSubset_eq_self_of_isWeakCore_of_finite _ n1.val.isWeakCore n1_fin
+    exact ⟨contra, exists_homomorphism_of_prec prec⟩
+  rw [cd.predecessor_iff] at prec
+  rcases prec with ⟨cd2, suffix, head_eq, n2_mem⟩
+  rw [cd2.mem_iff_eq_head_or_mem_tail] at n2_mem
+  cases n2_mem with
+  | inl n2_mem => apply ne; rw [Subtype.mk.injEq]; grind
+  | inr n2_mem =>
+    rcases n2_mem with ⟨next_some, n2_mem⟩
+    apply head_core_not_mem_tail_of_finite (cd := cd2) (by rw [head_eq]; exact n1_fin) next_some _ n2_mem
+    rw [head_eq, cores_eq]
+
+end StrictPredecessor
+
+end Predecessors
+
+section TermsInChase
+
+/-!
+## Terms in the Chase
+
+We make some general observations about certain terms that might occur in the chase.
+
+1. Constants can only originate directly from rules or from the initial fact set. No other constants can be introduced.
+2. Functional terms can either also originate from the initial fact set or they are introduced as fresh terms by a trigger.
+
+The second observation entails that the precense of a functional term that does not occur in the initial fact set implies
+that the trigger that introduces this term must have been applied in some `ChaseNode`.
+-/
+
+
+/-- Constants in the chase can only come from the initial fact set or from a constant in a rule. -/
+theorem constants_node_subset_constants_fs_union_constants_rules
+    {cd : CoreChaseDerivation rules}
+    (start_eq : cd.head.facts = cd.head.core)
+    {node : CoreChaseNode rules} (node_mem : node ∈ cd) :
+    node.facts.constants ⊆ cd.head.core.constants ∪ rules.head_constants := by
+  exact ChaseDerivation.constants_node_subset_constants_fs_union_constants_rules CoreChaseNode.out_sub_in start_eq node_mem
+
+/-- Each functional term in the chase originates as a fresh term from a trigger if it was not already part of the initial fact set. -/
+theorem functional_term_originates_from_some_trigger
+    {cd : CoreChaseDerivation rules}
+    (start_eq : cd.head.facts = cd.head.core)
+    (start_finite : cd.head.core.finite)
+    (node : cd.Node)
+    {t : GroundTerm sig}
+    (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok)
+    (t_mem : t ∈ node.val.facts.terms) :
+    t ∈ cd.head.core.terms ∨ ∃ node2, node2 ≼ node ∧ ∃ orig ∈ node2.val.origin, t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val (by rw [← PreTrigger.length_mapped_head]; exact orig.snd.isLt) := by
+  apply ChaseDerivation.functional_term_originates_from_some_trigger CoreChaseNode.out_sub_in start_eq _ node t_is_func t_mem
+  intro n1 n2 n3; apply predecessor_trans_of_finite; apply cd.core_finite_of_mem_of_head_finite; exact start_finite
+
+/-- If a functional term occurs in the chase, then the trigger that introduces this term must have been used in the chase, unless the term already occurs in the initial fact set. -/
+theorem trigger_introducing_functional_term_occurs_in_chase
+    {cd : CoreChaseDerivation rules}
+    (start_eq : cd.head.facts = cd.head.core)
+    (start_finite : cd.head.core.finite)
+    (node : cd.Node)
+    {t : GroundTerm sig}
+    (t_mem_node : t ∈ node.val.facts.terms)
+    {trg : RTrigger (RestrictedObsolescence sig) rules}
+    {disj_idx : Nat}
+    {lt : disj_idx < trg.val.rule.head.length}
+    (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :
+    t ∈ cd.head.core.terms ∨ ∃ node2, node2 ≼ node ∧ ∃ orig ∈ node2.val.origin, orig.fst.equiv trg ∧ orig.snd.val = disj_idx := by
+  apply ChaseDerivation.trigger_introducing_functional_term_occurs_in_chase CoreChaseNode.out_sub_in start_eq _ node t_mem_node t_mem_trg
+  intro n1 n2 n3; apply predecessor_trans_of_finite; apply cd.core_finite_of_mem_of_head_finite; exact start_finite
+
+end TermsInChase
+
+section FactRemoval
+
+/-!
+## Fact Removal (through core computations)
+
+In the core chase, facts might disappear if they are redudant due to considering the core of each chase step.
+Here, we show an auxiliary theorem proving that a fact that disappears must disappear in a specific node, i.e. it occurs in its facts but not in its core.
+-/
+
+theorem missing_fact_disappears_in_some_node_of_head_finite
+    {cd : CoreChaseDerivation rules} {n : cd.Node} (head_fin : cd.head.core.finite)
+    {f : Fact sig} (f_mem : f ∈ cd.head.facts) (f_nmem : f ∉ n.val.core) :
+    ∃ (n2 : cd.Node), n2 ≼ n ∧ f ∈ n2.val.facts ∧ f ∉ n2.val.core := by
+  induction n using cd.mem_rec with
+  | head => exists ⟨cd.head, cd.head_mem⟩; grind
+  | step cd2 suffix ih next next_mem =>
+    cases Classical.em (f ∈ cd2.head.core) with
+    | inl mem_cd2 =>
+      exists ⟨next, cd2.mem_of_mem_suffix suffix _ (cd2.next_mem_of_mem _ next_mem)⟩
+      suffices f ∈ next.facts by grind
+      rw [← next.ingoingFacts_eq, cd2.facts_next next_mem]
+      apply Set.mem_union_of_mem_left
+      rw [cd2.head.outgoingFacts_eq]
+      exact mem_cd2
+    | inr mem_cd2 =>
+      rcases ih mem_cd2 with ⟨n2, n2_prec, ih⟩
+      exists n2; constructor
+      . apply cd.predecessor_trans_of_finite (by apply cd.core_finite_of_mem_of_head_finite; exact head_fin) n2_prec
+        exact cd2.predecessor_of_suffix suffix (cd2.head_prec_next next_mem)
+      . exact ih
+
+end FactRemoval
+
+section Result
+
+/-!
+## Core Chase Result
+
+Oppossed to regular chase derivations, the result of a core chase derivation is only defined if the derivation terminates. Then it is simply the last element.
+Just like for RegularChaseDerivations however, the result also models all rules.
+-/
+
+abbrev result (cd : CoreChaseDerivation rules) (term : cd.terminates) : FactSet sig := (cd.last term).core
+
+/-- The result is a model of all rules. This is true because otherwise, there would be an active trigger on the result. But we already know that no trigger can be active on the last node of a terminating chase derivation. -/
+@[grind <-]
+theorem result_models_rules {cd : CoreChaseDerivation rules} (term : cd.terminates) : (cd.result term).modelsRules rules := by
+  intro r r_mem subs subs_loaded
+  let trg : Trigger (RestrictedObsolescence sig) := ⟨r, subs⟩
+  have trg_loaded : trg.loaded (cd.result term) := subs_loaded
+  apply (RestrictedObsolescence sig).cond_implies_trg_is_satisfied (trg := trg)
+  apply Classical.byContradiction; intro contra
+  apply cd.trg_inactive_for_last term ⟨trg, r_mem⟩
+  constructor
+  . rw [CoreChaseNode.outgoingFacts_eq]; exact trg_loaded
+  . rw [CoreChaseNode.outgoingFacts_eq]; exact contra
+
+end Result
+
+end CoreChaseDerivation
+
+
+abbrev CoreChaseBranch (kb : KnowledgeBase sig) := ChaseBranch (CoreChaseNode kb.rules) (RestrictedObsolescence sig) kb
 
 namespace CoreChaseBranch
 
-  def head (cb : CoreChaseBranch kb) : CoreChaseNode kb.rules := cb.branch.head.get (Option.isSome_of_mem cb.database_first)
+variable {kb : KnowledgeBase sig}
 
-  @[simp, grind =]
-  theorem head_eq {cb: CoreChaseBranch kb} : cb.head = cb.branch.get? 0 := by
-    have dbf := cb.database_first
-    unfold CoreChaseBranch.head
-    simp_all
-    exact Option.mem_def.mp dbf
+section FinitenessOfFactSets
 
-  @[grind .]
-  theorem mem_eq (cb : CoreChaseBranch kb) (cn1 cn2 : CoreChaseNode kb.rules) (n : Nat) (cn1_eq : cn1 ∈ cb.branch.get? n) (cn2_eq : cn2 ∈ cb.branch.get? n) : cn1 = cn2 := by
-    rw [Option.mem_def] at cn1_eq cn2_eq
-    grind
+/-!
+## Finiteness of FactSets in the Core Chase
 
-  @[grind .]
-  theorem none_get_eq (cb : CoreChaseBranch kb) : cb.branch.infinite_list m = none ↔ cb.branch.get? m = none := Option.isSome_eq_isSome.mp rfl
+Just as in a regular `ChaseBranch`, every fact set (and every core) that occurs in the `CoreChaseBranch` is finite simply since the (initial) database is finite and since each step only adds finitely many facts.
+-/
 
-  @[grind .]
-  theorem leq_some_if_some (cb : CoreChaseBranch kb) (n : Nat) (is_some : (cb.branch.get? n).isSome) : ∀ m, m ≤ n → (cb.branch.get? m).isSome := by
-    intro m leq
-    simp only [Option.isSome_iff_ne_none] at *
-    grind
+/- Each fact set in the chase is finite. -/
+theorem facts_finite_of_mem {cb : CoreChaseBranch kb} (node : cb.Node) : node.val.facts.finite := by
+  apply CoreChaseDerivation.facts_finite_of_mem_of_head_finite
+  rw [← cb.head.ingoingFacts_eq, cb.database_first'.left]; exact kb.db.toFactSet.property.left
 
-  @[grind .]
-  theorem ex_prev_node_at_each_leq (cb : CoreChaseBranch kb) (n : Nat) (is_some : (cb.branch.get? n).isSome) : ∀ m, m ≤ n → ∃ cn, cn ∈ (cb.branch.get? m) := by
-    intro m leq
-    have := leq_some_if_some cb n is_some m leq
-    exact Option.isSome_iff_exists.mp this
+/- Each core in the chase is finite. -/
+theorem core_finite_of_mem {cb : CoreChaseBranch kb} (node : cb.Node) : node.val.core.finite := by
+  apply Set.finite_of_subset_finite (cb.facts_finite_of_mem node) node.val.homSubset.left
 
-  @[grind .]
-  theorem geq_none_if_none (cb : CoreChaseBranch kb) (n : Nat) (is_some : (cb.branch.get? n).isNone) : ∀ m, m ≥ n → (cb.branch.get? m).isNone := by
-    intro m geq
-    simp only [Option.isNone_iff_eq_none] at *
-    grind
+end FinitenessOfFactSets
 
-  def prevNode (cb : CoreChaseBranch kb) (n : Nat) (is_some : (cb.branch.get? (n+1)).isSome) : CoreChaseNode kb.rules := by
-    exact (cb.branch.get? n).get (by grind)
+section Predecessors
 
-  @[grind .]
-  theorem prevNode_eq (cb : CoreChaseBranch kb) (n : Nat) (is_some : (cb.branch.get? (n+1)).isSome) :
-    cb.branch.get? n = some (cb.prevNode n is_some) := by
-      simp [prevNode]
+/-!
+## Predecessor Relation
 
-  @[grind .]
-  theorem origin_isSome (cb : CoreChaseBranch kb) (n : Nat) {node : CoreChaseNode kb.rules} (eq : node ∈ cb.branch.get? (n + 1)) : node.origin.isSome := by
-    have ex_before := ex_prev_node_at_each_leq cb n (by rw [Option.isSome_iff_ne_none]; grind) n (Nat.le_refl n)
-    rcases ex_before with ⟨before, before_eq⟩
-    have trg_ex := cb.triggers_exist n before before_eq node eq
-    rcases trg_ex with ⟨trg, i, c, c_wc, c_sub, eq⟩
-    grind
+Compared to the `CoreChaseDerivation`, we can now drop the explicit finiteness conditions.
+-/
 
-  /-
-    node1 (n) ----> node2 (n + 1)
-    ~.core      ⊆   ~.fs
-    because ex trigger from n1 to n2 thus n2.fs = n1.core + trig.result thus n1.core ⊆ n2.fs
-  -/
+/-- The predecessor relation is antisymmetric. -/
+@[grind ->]
+theorem predecessor_antisymm {cb : CoreChaseBranch kb} {n1 n2 : cb.Node} : n1 ≼ n2 -> n2 ≼ n1 -> n1 = n2 := by
+  apply CoreChaseDerivation.predecessor_antisymm_of_finite <;> apply core_finite_of_mem
 
-  theorem before_core_sub_after_fs (cb : CoreChaseBranch kb) (n : Nat) (before after : CoreChaseNode kb.rules) (before_eq : before ∈ cb.branch.get? n) (after_eq : after ∈ cb.branch.get? (n + 1)) :
-    before.core ⊆ after.facts := by
-      have trg_ex := cb.triggers_exist n before before_eq after after_eq
-      rcases trg_ex with ⟨trg, i, c, c_wc, c_sub, eq⟩
-      have eq : after.facts = before.core ∪ trg.val.mapped_head[↑i].toSet := by grind
-      rw [eq]
-      exact Set.subset_union_of_subset_left fun e a => a
+/-- The predecessor relation is transitive. -/
+@[grind ->]
+theorem predecessor_trans {cb : CoreChaseBranch kb} {n1 n2 n3 : cb.Node} :
+    n1 ≼ n2 -> n2 ≼ n3 -> n1 ≼ n3 := by
+  apply CoreChaseDerivation.predecessor_trans_of_finite; apply core_finite_of_mem
 
-  @[simp]
-  theorem cb_fist_isSome (cb : CoreChaseBranch kb) : (cb.branch.get? 0).isSome := by
-    exact Option.isSome_of_mem cb.database_first
-
-  @[simp, grind =]
-  theorem cb_head_fs_eq (cb : CoreChaseBranch kb) : cb.head.facts = kb.db.toFactSet := by
-    have dbf := cb.database_first
-    have : ∃ cn, cn ∈ cb.branch.get? 0 := Option.isSome_iff_exists.mp (Option.isSome_of_mem dbf)
-    rcases this with ⟨cn, cn_eq⟩
-    rw [dbf, Option.mem_def, Option.some_inj] at cn_eq
-    have eq : cb.head = cb.branch.get? 0 := head_eq
-    grind
-
-  @[simp, grind =]
-  theorem cb_head_core_eq (cb : CoreChaseBranch kb) : cb.head.core = kb.db.toFactSet := by
-    have dbf := cb.database_first
-    have : ∃ cn, cn ∈ cb.branch.get? 0 := Option.isSome_iff_exists.mp (Option.isSome_of_mem dbf)
-    rcases this with ⟨cn, cn_eq⟩
-    rw [dbf, Option.mem_def, Option.some_inj] at cn_eq
-    have eq : cb.head = cb.branch.get? 0 := head_eq
-    grind
-
-  @[grind .]
-  theorem ex_prev_cn_if_origin_some (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (n : Nat) (cn_eq : cn ∈ cb.branch.get? n) (origin_some : cn.origin.isSome) :
-    ∃ prev_cn, prev_cn ∈ cb.branch.get? (n-1) := by
-      induction n generalizing cn with
-        | zero =>
-          simp [cb.database_first]
-        | succ n ih =>
-          have := ex_prev_node_at_each_leq cb (n+1) (by exact Option.isSome_of_mem cn_eq) n (Nat.le_add_right n 1)
-          rcases this with ⟨prev_cn, prev_cn_eq⟩
-          exists prev_cn
-
-  @[grind .]
-  theorem origin_result_finite {rules : RuleSet sig} (node : CoreChaseNode rules) (is_some : node.origin.isSome) : (ChaseNode.origin_result node is_some).toSet.finite := by
-    apply Set.finite_of_list_with_same_elements (ChaseNode.origin_result node is_some)
-    intro _; rw [List.mem_toSet]
-
-  @[grind .]
-  theorem origin_trg_active_prev_core (cb : CoreChaseBranch kb) (n : Nat) (after : CoreChaseNode kb.rules) (after_eq : after ∈ cb.branch.get? (n+1)) :
-    let prev_node : CoreChaseNode kb.rules := cb.prevNode n (Option.isSome_of_mem after_eq)
-    ∀ o, o ∈ after.origin → o.fst.val.active prev_node.core := by
-      let prev_node : CoreChaseNode kb.rules := cb.prevNode n (Option.isSome_of_mem after_eq)
-      have trg_ex := cb.triggers_exist n prev_node (by grind) after after_eq
-      have trg_act := cb.triggers_active n prev_node (by grind) after after_eq
-      grind
-
-  @[grind .]
-  theorem next_fs_eq (cb : CoreChaseBranch kb) (n : Nat) (node : CoreChaseNode kb.rules) (node_eq : node ∈ cb.branch.get? (n+1)) :
-    let prev_node : CoreChaseNode kb.rules := cb.prevNode n (Option.isSome_of_mem node_eq)
-    node.facts = prev_node.core ∪ (ChaseNode.origin_result node (cb.origin_isSome n node_eq)).toSet := by
-      let prev_node : CoreChaseNode kb.rules := cb.prevNode n (Option.isSome_of_mem node_eq)
-      have trg_ex := cb.triggers_exist n prev_node (by grind) node node_eq
-      rcases trg_ex with ⟨trg, i, c, c_wc, c_sub, eq⟩
-      simp_all
-      constructor
-
-  @[grind .]
-  theorem next_fs_eq' (cb : CoreChaseBranch kb) (n : Nat) (a b : CoreChaseNode kb.rules) (eq_a : a ∈ cb.branch.get? n) (eq_b : b ∈ cb.branch.get? (n + 1)) :
-    b.facts = a.core ∪ (ChaseNode.origin_result b (origin_isSome cb n eq_b)).toSet := by
-      have trg_ex := cb.triggers_exist n a eq_a b eq_b
-      rcases trg_ex with ⟨trg, i, c, c_wc, c_sub, eq⟩
-      subst b
-      rfl
-
-  @[grind .]
-  theorem prev_node_eq_db_if_origin_none (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (n : Nat) (cn_eq : cn ∈ cb.branch.get? n) (cn_origin_none : cn.origin.isNone) :
-    cn.facts = kb.db.toFactSet ∧ cn.core = kb.db.toFactSet := by
-      by_cases c : n = 0
-      have := cb.database_first
-      subst c
-      grind
-      have gt : n > 0 := Nat.zero_lt_of_ne_zero c
-      have eq : n - 1 + 1 = n := Nat.sub_add_cancel gt
-      have := @origin_isSome _ _ _ _ _ cb (n - 1) cn (by rw [eq]; exact cn_eq)
-      simp only [Option.isSome_iff_ne_none, Option.isNone_iff_eq_none] at *
-      grind
-
-  theorem fs_finite (cb : CoreChaseBranch kb) (n : Nat) (cn : CoreChaseNode kb.rules) (eq : cn ∈ cb.branch.get? n) : cn.facts.finite := by
-    -- we will prove this once we adopted the new chase derivation framework for the core chase, this will make this much more elegant
-    sorry
-
-  theorem core_finite (cb : CoreChaseBranch kb) (n : Nat) (cn : CoreChaseNode kb.rules) (eq : cn ∈ cb.branch.get? n) : cn.core.finite := by
-    exact Set.finite_of_subset_finite (cb.fs_finite n cn eq) cn.homSubset.left
-
-  @[grind .]
-  theorem not_first_if_origin_some (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (cn_origin_some : cn.origin.isSome) :
-    ∀ (n : Nat), cn ∈ cb.branch.get? n → n > 0 := by
-      intro n cn_eq
-      have dbf := cb.database_first
-      grind
-
-  @[grind .]
-  theorem db_applyFact_eq_id (cb : CoreChaseBranch kb) (init : CoreChaseNode kb.rules) (init_eq : init ∈  cb.branch.get? 0) (gtm : GroundTermMapping sig) (gtm_hom : gtm.isHomomorphism init.facts fs2) :
-    ∀ f, f ∈ init.facts → gtm.applyFact f = f := by
-      intro f f_in
-      unfold GroundTermMapping.applyFact
-      rw [GeneralizedAtom.mk.injEq]
-      constructor
-      · rfl
-      · apply List.map_id_of_id_on_all_mem
-        intro gt gt_in
-        unfold GroundTermMapping.isHomomorphism at gtm_hom
-        have db_funfree := kb.db.toFactSet.property.right
-        rw [cb.database_first] at init_eq
-        simp only [Option.mem_def, Option.some.injEq] at init_eq
-        rw [← init_eq] at f_in
-        specialize db_funfree f f_in gt gt_in
-        rcases db_funfree with ⟨c, c_eq⟩
-        rw [c_eq]
-        exact @gtm_hom.left c
-
-  @[grind .]
-  theorem f_in_core_if_in_fs_if_f_isFunctionFree (cb : CoreChaseBranch kb) (n : Nat) (x_eq : x ∈ cb.branch.get? n) (f : Fact sig) (f_in : f ∈ x.facts) (f_is_ff : f.isFunctionFree) : f ∈ x.core := by
-      have ex_gtm := x.homSubset.right
-      rcases ex_gtm with ⟨gtm, gtm_hom⟩
-      have eq : gtm.applyFact f = f := by apply GroundTermMapping.applyFact_eq_self_of_isIdOnConstants_of_isFunctionFree; exact gtm_hom.left; exact f_is_ff
-      have x_core := x.isWeakCore
-      rcases gtm_hom with ⟨gtm_c, gtm_st⟩
-      specialize gtm_st f
-      apply gtm_st
-      exists f
-
-  @[grind .]
-  theorem f_isFunctionFree_in_next_if_some (cb : CoreChaseBranch kb) (n : Nat) (x : CoreChaseNode kb.rules) (x_eq : x ∈ cb.branch.get? n) :
-    ∀ cn ∈ cb.branch.get? (n+1), ∀ f, f ∈ x.facts ∧ f.isFunctionFree → f ∈ cn.facts := by
-      intro cn cn_eq f ⟨f_in, f_in_ff⟩
-      have trg_ex := cb.triggers_exist n x x_eq cn cn_eq
-      rcases trg_ex with ⟨trg, i, c, c_wc, c_sub, eq⟩
-      rcases eq with ⟨lhs, rhs⟩
-      grind
-
-  @[grind .]
-  theorem f_isFunctionFree_in_geq (cb : CoreChaseBranch kb) (n m : Nat) (x : CoreChaseNode kb.rules) (x_eq : x ∈ cb.branch.get? n) :
-     ∀ cn ∈ cb.branch.get? (n+m), ∀ f, f ∈ x.facts ∧ f.isFunctionFree → f ∈ cn.facts := by
-      induction m with
-        | zero =>
-          simp only [Nat.add_zero, and_imp]
-          intro cn_succ cn_succ_eq f f_in_fs f_is_ff
-          have eq : x = cn_succ := mem_eq cb x cn_succ n x_eq cn_succ_eq
-          subst eq
-          exact f_in_fs
-        | succ m ih =>
-          intro cn_succ cn_succ_eq f ⟨f_in_fs, f_is_ff⟩
-          have ex_cm : ∃ (cn_mid : CoreChaseNode kb.rules), cn_mid ∈ cb.branch.get? (n + m) :=
-            cb.ex_prev_node_at_each_leq (n + m + 1) (Option.isSome_of_mem cn_succ_eq) (n + m) (Nat.le_add_right (n + m) 1)
-          rcases ex_cm with ⟨cm, cm_eq⟩
-          have := cb.triggers_exist (n + m) cm cm_eq cn_succ cn_succ_eq
-          grind
-
-  @[grind .]
-  theorem db_fs_sub_geq_core (cb : CoreChaseBranch kb) (n : Nat) (init cn : CoreChaseNode kb.rules) (init_eq : init ∈ cb.branch.get? 0) (cn_eq : cn ∈ cb.branch.get? n) :
-    init.facts ⊆ cn.core := by
-      have db_funfree := kb.db.toFactSet.property.right
-      have init_eq' : init.facts = kb.db.toFactSet.val := by
-        have := cb.database_first
-        grind
-
-      induction n generalizing cn with
-        | zero =>
-          intro f f_in
-          have eq : cn = init := by simp_all
-          exact f_in_core_if_in_fs_if_f_isFunctionFree cb 0 cn_eq f
-            (by rw [eq]; exact f_in)
-            (by rw [init_eq'] at f_in; exact db_funfree f f_in)
-        | succ n ih =>
-          have prev_cn_ex : ∃ prev_cn, prev_cn ∈ cb.branch.get? n :=
-            cb.ex_prev_node_at_each_leq (n + 1) (Option.isSome_of_mem cn_eq) n (Nat.le_add_right n 1)
-          intro f f_in
-          refine f_in_core_if_in_fs_if_f_isFunctionFree cb (n + 1) cn_eq f ?_ ?_
-          · rcases prev_cn_ex with ⟨prev_cn, prev_cn_eq⟩
-            specialize ih prev_cn (by grind) f f_in
-            have := f_isFunctionFree_in_next_if_some cb n prev_cn prev_cn_eq cn cn_eq f
-            have f_in_prev_fs : f ∈ prev_cn.facts := by
-              have prev_cn_homSubset := prev_cn.homSubset.left f ih
-              exact prev_cn_homSubset
-            apply this
-            constructor
-            · exact f_in_prev_fs
-            · rw [init_eq'] at f_in
-              exact db_funfree f f_in
-          · rw [init_eq'] at f_in
-            exact db_funfree f f_in
+/-- We can express fairness in terms of the predecessor relation: For each trigger, there is a node such that the trigger is not active for each of the node's successors. -/
+theorem fairness_prec {cb : CoreChaseBranch kb} : ∀ (trg : RTrigger (RestrictedObsolescence sig) kb.rules), ∃ (node : cb.Node), ∀ node2, node ≼ node2 -> ¬ trg.val.active node2.val.core := by
+  apply CoreChaseDerivation.fairness_prec_of_finite; exact core_finite_of_mem ⟨cb.head, cb.head_mem⟩
 
 
- theorem ex_intermediate_if_f_mem_not_mem_succ (cb : CoreChaseBranch kb) (cn cn_succ : CoreChaseNode kb.rules) (n k : Nat)
-    (cn_eq : cn ∈ cb.branch.get? n) (cn_succ_eq : cn_succ ∈ cb.branch.get? (n + k))
-    (f : Fact sig) (f_in : f ∈ cn.core) (f_nin : ¬ f ∈ cn_succ.core) :
-      ∃ (cm : CoreChaseNode kb.rules), f ∈ cm.facts ∧ ¬ f ∈ cm.core := by
-      induction k generalizing cn_succ with
-        | zero =>
-          grind
-        | succ k ih =>
-          have ex_cm : ∃ cm, cb.branch.infinite_list (n + k) = some cm :=
-            cb.ex_prev_node_at_each_leq (n + k + 1) (Option.isSome_of_mem cn_succ_eq) (n+k) (Nat.le_add_right (n + k) 1)
-          rcases ex_cm with ⟨cm, cm_eq⟩
-          by_cases c : (f ∈ cm.core)
-          exists cn_succ
-          constructor
-          · have := before_core_sub_after_fs cb (n + k) cm cn_succ cm_eq cn_succ_eq
-            exact this f c
-          · exact f_nin
-          specialize ih cm cm_eq c
-          exact ih
+section StrictPredecessor
 
-  @[grind .]
-  theorem origin_trg_active_core (cb : CoreChaseBranch kb) (n : Nat) (cn : CoreChaseNode kb.rules) (cn_eq : cn ∈ cb.branch.get? (n + 1)) :
-    (cn.origin.get (cb.origin_isSome n cn_eq)).fst.val.active (cb.prevNode n (Option.isSome_of_mem cn_eq)).core := by
-      have ex_prev_node := ex_prev_node_at_each_leq cb (n+1) (by exact Option.isSome_of_mem cn_eq) n (Nat.le_add_right n 1)
-      rcases ex_prev_node with ⟨prev_node, prev_node_eq⟩
-      have trg_ex := cb.triggers_exist n prev_node prev_node_eq cn cn_eq
-      rcases trg_ex with ⟨trg, i, c, c_wc, c_sub, eq⟩
-      grind
+/-- The strict predecessor relation is asymmetric. -/
+@[grind ->]
+theorem strict_predecessor_asymmetric {cb : CoreChaseBranch kb} {n1 n2 : cb.Node} : n1 ≺ n2 -> ¬ n2 ≺ n1 := by
+  apply CoreChaseDerivation.strict_predecessor_asymmetric_of_finite <;> apply core_finite_of_mem
 
-  @[grind .]
-  theorem functional_term_originates_from_some_trigger_or_database_core (cb : CoreChaseBranch kb) (n : Nat) (cn : CoreChaseNode kb.rules)
-    (cn_eq : cb.branch.get? n = some cn) (t : GroundTerm sig) (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok) (t_mem : t ∈ cn.facts.terms) :
-      t ∈ ((cb.branch.get? 0).get (cb_fist_isSome cb)).facts.terms ∨
-      ∃ (m : Nat) (node2 : CoreChaseNode kb.rules), node2 ∈ cb.branch.get? m ∧
-      (∃ origin, origin ∈ node2.origin ∧ t ∈ origin.fst.val.fresh_terms_for_head_disjunct origin.snd.val (by rw [← PreTrigger.length_mapped_head]; exact origin.snd.isLt)) := by
-        induction n generalizing cn with
-          | zero =>
-            rw [cb.database_first, Option.some.injEq] at cn_eq
-            have func_free := kb.db.toFactSet.property.right
-            unfold FactSet.isFunctionFree at func_free
-            rcases t_mem with ⟨f, f_mem, t_mem⟩
-            rw [← cn_eq] at f_mem
-            specialize func_free f f_mem
-            unfold Fact.isFunctionFree at func_free
-            specialize func_free _ t_mem
-            rcases func_free with ⟨_, func_free⟩
-            rcases t_is_func with ⟨_, _, _, t_is_func⟩
-            rw [t_is_func] at func_free
-            simp [GroundTerm.func, GroundTerm.const] at func_free
-          | succ n ih =>
-            let prev_node := (cb.prevNode n (Option.isSome_of_mem cn_eq))
-            cases Classical.em (t ∈ prev_node.core.terms) with
-              | inl term_in_prev_node_core =>
-                have term_in_prev_node_fs : t ∈ prev_node.facts.terms := FactSet.terms_subset_of_subset prev_node.homSubset.left _ term_in_prev_node_core
-                specialize ih prev_node (prevNode_eq cb n (Option.isSome_of_mem cn_eq)) term_in_prev_node_fs
-                rcases ih with ⟨m2, ih⟩
-                left
-                exists m2
-                rename_i ex
-                rcases ex with ⟨m, cm, cm_eq, o, o_eq⟩
-                right
-                exists m, cm, cm_eq, o
-              | inr term_not_in_prev_node_core =>
-                right
-                exists (n+1)
-                exists cn
-                constructor
-                exact Option.mem_def.mpr cn_eq
-                let origin := cn.origin.get (origin_isSome cb n cn_eq)
-                exists origin
-                rcases t_mem with ⟨f, f_mem, t_mem⟩
-                rw [cb.next_fs_eq n cn cn_eq] at f_mem
-                change f ∈ (cb.prevNode n _).core ∨ f ∈ (ChaseNode.origin_result cn _).toSet at f_mem
-                cases f_mem with
-                  | inl f_mem =>
-                    apply False.elim
-                    apply term_not_in_prev_node_core
-                    exists f
-                  | inr f_mem =>
-                    have t_mem : t ∈ origin.fst.val.mapped_head[origin.snd.val].flatMap GeneralizedAtom.terms := by
-                      rw[List.mem_flatMap]
-                      exists f
-                    rw [PreTrigger.mem_terms_mapped_head_iff] at t_mem
-                    cases t_mem with
-                    | inl t_mem =>
-                      rcases t_is_func with ⟨_, _, _, t_is_func⟩
-                      rcases t_mem with ⟨_, _, t_mem⟩
-                      rw [t_is_func] at t_mem
-                      simp [GroundTerm.const, GroundTerm.func] at t_mem
-                    | inr t_mem =>
-                      cases t_mem with
-                      | inl t_mem =>
-                      apply False.elim; apply term_not_in_prev_node_core
-                      apply FactSet.terms_subset_of_subset (cb.origin_trg_active_core n cn cn_eq).left
-                      rw [FactSet.mem_terms_toSet]
-                      rw [PreTrigger.mem_terms_mapped_body_iff]
-                      apply Or.inr
-                      rw [List.mem_map] at t_mem; rcases t_mem with ⟨v, v_mem, t_mem⟩
-                      exists v
-                      constructor
-                      · apply Rule.frontier_subset_vars_body;
-                        apply Rule.mem_frontier_iff_mem_frontier_for_head.mpr;
-                        grind
-                      . exact t_mem
-                      | inr t_mem =>
-                        constructor
-                        exact Option.get_mem (origin_isSome cb n cn_eq)
-                        exact t_mem
+/-- The strict predecessor relation is transitive. -/
+@[grind ->]
+theorem strict_predecessor_trans {cb : CoreChaseBranch kb} {n1 n2 n3 : cb.Node} : n1 ≺ n2 -> n2 ≺ n3 -> n1 ≺ n3 := by
+  apply CoreChaseDerivation.strict_predecessor_trans_of_finite <;> apply core_finite_of_mem
 
-  theorem func_term_not_mem_head {cb : CoreChaseBranch kb} {t : GroundTerm sig} (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok) :
-    ¬ t ∈ cb.head.facts.terms := by
-      intro t_mem
-      rcases t_mem with ⟨f, f_mem, t_mem⟩
-      rcases kb.db.toFactSet.property.right f (by grind) t t_mem with ⟨c, t_eq⟩
-      rcases t_is_func with ⟨_, _, _, t_eq'⟩
-      rw [t_eq'] at t_eq
-      simp [GroundTerm.func_neq_const] at t_eq
+/-- The `ChaseDerivationSkeleton.head` is a strict predecessor of `ChaseDerivationSkeleton.next`. -/
+theorem head_strict_prec_next {cb : CoreChaseBranch kb} :
+    ∀ {next}, (mem : next ∈ cb.next) -> ⟨cb.head, cb.head_mem⟩ ≺ ⟨next, cb.next_mem_of_mem _ mem⟩ := by
+  apply CoreChaseDerivation.head_strict_prec_next_of_finite; exact core_finite_of_mem ⟨cb.head, cb.head_mem⟩
 
-  theorem term_mem_cn_not_mem_trg_fresh_terms (cb : CoreChaseBranch kb) (cn cn_succ : CoreChaseNode kb.rules) (n : Nat) (cn_eq : cn ∈ cb.branch.get? n) (cn_succ_eq : cn_succ ∈ cb.branch.get? (n+1))
-   (t : GroundTerm sig) (t_mem : t ∈ cn.core.terms) :
-    let trg := (cn_succ.origin.get (origin_isSome cb n cn_succ_eq)).fst
-    let disj := (cn_succ.origin.get (origin_isSome cb n cn_succ_eq)).snd
-    ¬ t ∈ trg.val.fresh_terms_for_head_disjunct disj (by grind) := by
-      sorry
+/-- The core of a strict successor cannot be a subset of our core. Otherwise, our current core would not be a core. -/
+@[grind ->]
+theorem core_not_subset_of_strict_predecessor {cb : CoreChaseBranch kb} {n1 n2 : cb.Node} : n1 ≺ n2 -> ¬ n2.val.core ⊆ n1.val.core := by
+  apply CoreChaseDerivation.core_not_subset_of_strict_predecessor_of_finite; apply core_finite_of_mem
+
+end StrictPredecessor
+
+end Predecessors
+
+section TermsInChase
+
+/-!
+## Terms in the Chase
+
+We make some general observations about certain terms that might occur in the chase.
+
+1. Constants can only originate directly from rules or from the initial fact set. No other constants can be introduced.
+2. Functional terms can either also originate from the initial fact set or they are introduced as fresh terms by a trigger.
+
+The second observation entails that the precense of a functional term that does not occur in the initial fact set implies
+that the trigger that introduces this term must have been applied in some `ChaseNode`.
+-/
+
+/-- Constants in the chase must be in the database or in some rule. -/
+theorem constants_node_subset_constants_db_union_constants_rules {cb : CoreChaseBranch kb} {node : cb.Node} :
+    node.val.facts.constants ⊆ (kb.db.constants.val ∪ kb.rules.head_constants) := by
+  have start_eq : cb.head.facts = cb.head.core := by
+    rw [← cb.head.outgoingFacts_eq, cb.database_first'.right.left]
+    rw [← cb.head.ingoingFacts_eq, cb.database_first'.left]
+  have := CoreChaseDerivation.constants_node_subset_constants_fs_union_constants_rules start_eq node.property
+  rw [← cb.head.outgoingFacts_eq, cb.database_first'.right.left, Database.toFactSet_constants_same] at this
+  exact this
+
+/-- Each functional term in the chase originates as a fresh term from a trigger. -/
+theorem functional_term_originates_from_some_trigger
+    {cb : CoreChaseBranch kb}
+    (node : cb.Node)
+    {t : GroundTerm sig}
+    (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok)
+    (t_mem : t ∈ node.val.facts.terms) :
+    ∃ node2, node2 ≼ node ∧ ∃ orig ∈ node2.val.origin,
+      t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val (by rw [← PreTrigger.length_mapped_head]; exact orig.snd.isLt) := by
+  have start_eq : cb.head.facts = cb.head.core := by
+    rw [← cb.head.outgoingFacts_eq, cb.database_first'.right.left]
+    rw [← cb.head.ingoingFacts_eq, cb.database_first'.left]
+  have start_finite := (cb.core_finite_of_mem ⟨_, cb.head_mem⟩)
+  cases CoreChaseDerivation.functional_term_originates_from_some_trigger start_eq start_finite node t_is_func t_mem with
+  | inl t_mem => apply False.elim; exact cb.func_term_not_mem_head t_is_func t_mem
+  | inr t_mem => exact t_mem
+
+/-- If a functional term occurs in the chase, then the trigger that introduces this term must have been used in the chase. -/
+theorem trigger_introducing_functional_term_occurs_in_chase
+    {cb : CoreChaseBranch kb}
+    (node : cb.Node)
+    {t : GroundTerm sig}
+    (t_mem_node : t ∈ node.val.facts.terms)
+    {trg : RTrigger (RestrictedObsolescence sig) kb.rules}
+    {disj_idx : Nat}
+    {lt : disj_idx < trg.val.rule.head.length}
+    (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :
+    ∃ node2, node2 ≼ node ∧ ∃ orig ∈ node2.val.origin, orig.fst.equiv trg ∧ orig.snd.val = disj_idx := by
+  have start_eq : cb.head.facts = cb.head.core := by
+    rw [← cb.head.outgoingFacts_eq, cb.database_first'.right.left]
+    rw [← cb.head.ingoingFacts_eq, cb.database_first'.left]
+  have start_finite := (cb.core_finite_of_mem ⟨_, cb.head_mem⟩)
+  cases CoreChaseDerivation.trigger_introducing_functional_term_occurs_in_chase start_eq start_finite node t_mem_node t_mem_trg with
+  | inl t_mem => apply False.elim; exact cb.func_term_not_mem_head (PreTrigger.term_functional_of_mem_fresh_terms _ t_mem_trg) t_mem
+  | inr t_mem => exact t_mem
+
+end TermsInChase
+
+section DatabaseContainment
+
+/-!
+## Database Containment
+
+Even though we do not have fact set monotonicity in the core chase, it is still true that the database occurs in every fact set and core in the chase.
+This is because the database only features constants and these can never be remapped by any homomorphism.
+This result is essential for showing that the core chase result is a model, which we also show here.
+-/
+
+/-- The database is a subset of each node since the database only contains constants which can never be remapped by homomorphisms. -/
+theorem db_mem_of_mem {cb : CoreChaseBranch kb} : ∀ (node : cb.Node), kb.db.toFactSet.val ⊆ node.val.core := by
+  intro node
+  rcases CoreChaseDerivation.exists_homomorphism_from_head_of_mem _ node.property with ⟨h, hom⟩
+  intro f f_mem
+  apply hom.right
+  rw [← CoreChaseNode.outgoingFacts_eq, cb.database_first'.right.left]
+  rw [GroundTermMapping.mem_applyFactSet]; exists f; constructor; exact f_mem
+  apply Eq.symm; apply h.applyFact_eq_self_of_isIdOnConstants_of_isFunctionFree
+  . exact hom.left
+  . exact kb.db.toFactSet.property.right f f_mem
+
+/-- The result of a `CoreChaseBranch` models the whole `KnowledgeBase`. -/
+@[grind <-]
+theorem result_models_kb {cb : CoreChaseBranch kb} (term : cb.terminates) : (CoreChaseDerivation.result cb.toChaseDerivation term).modelsKb kb := by
+  constructor
+  . exact cb.db_mem_of_mem ⟨cb.last term, cb.last_mem term⟩
+  . exact CoreChaseDerivation.result_models_rules term
+
+end DatabaseContainment
+
+section FactRemoval
+
+/-!
+## Fact Removal (through core computations)
+
+In the core chase, facts might disappear if they are redudant due to considering the core of each chase step.
+Here, we show an auxiliary theorem proving that a fact that disappears must disappear in a specific node, i.e. it occurs in its facts but not in its core.
+-/
+
+theorem missing_fact_disappears_in_some_node
+    {cb : CoreChaseBranch kb} {n1 n2 : cb.Node} (prec : n1 ≼ n2)
+    {f : Fact sig} (f_mem : f ∈ n1.val.facts) (f_nmem : f ∉ n2.val.core) :
+    ∃ n3, n1 ≼ n3 ∧ n3 ≼ n2 ∧ f ∈ n3.val.facts ∧ f ∉ n3.val.core := by
+  rw [cb.predecessor_iff] at prec; rcases prec with ⟨cd2, suffix, head_eq, n2_mem⟩
+  rcases CoreChaseDerivation.missing_fact_disappears_in_some_node_of_head_finite (cd := cd2) (by exact cb.core_finite_of_mem ⟨cd2.head, cd2.mem_of_mem_suffix suffix _ cd2.head_mem⟩) (by rw [head_eq]; exact f_mem) (by show f ∉ (⟨n2.val, n2_mem⟩ : cd2.Node).val.core; exact f_nmem) with ⟨n3, n3_prec, goal⟩
+  let n3' : cb.Node := n3.cast_suffix suffix
+  exists n3'; constructor
+  . rw [cb.predecessor_iff]; exists cd2; exact ⟨suffix, head_eq, n3.property⟩
+  constructor
+  . exact cd2.predecessor_of_suffix suffix n3_prec
+  . exact goal
+
+end FactRemoval
+
+section OriginTriggerRemainsInactive
+
+/-!
+## Used triggers remain inactive
+
+Here we prove that triggers used in the core chase remain inactive from this point.
+Not only that but also every equivalent trigger (producing the same result) is inactive from this point on.
+For regular chase derivations this is trivial because of fact monotonicity but here it is not quite obvious (even though it's intuitive).
+-/
+
+theorem origin_trg_remains_inactive {cb : CoreChaseBranch kb} {n1 n2 : cb.Node} (prec : n1 ≼ n2) :
+    ∀ orig ∈ n1.val.origin, ∀ trg, orig.fst.equiv trg -> ¬ trg.val.active n2.val.core := by
+  -- part of this can be proven with CoreChaseNode.origin_trg_inactive_for_own_core_of_finite
+  sorry
+
+end OriginTriggerRemainsInactive
 
 end CoreChaseBranch
+
