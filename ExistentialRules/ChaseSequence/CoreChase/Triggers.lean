@@ -11,7 +11,7 @@ variable {kb : KnowledgeBase sig}
 namespace CoreChaseBranch
 
   theorem origin_trg_inactive_in_fs (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (n : Nat) (cn_eq : cn ∈ cb.branch.get? n) (cn_origin_some : cn.origin.isSome) :
-    ¬ (cn.origin.get cn_origin_some).fst.val.active cn.fs := by
+    ¬ (cn.origin.get cn_origin_some).fst.val.active cn.facts := by
         have trg_ex := cb.triggers_exist (n - 1)
         by_cases c_lt : n = 0
         subst c_lt
@@ -26,22 +26,22 @@ namespace CoreChaseBranch
         rcases contra with ⟨loaded, non_obs⟩
         apply non_obs
         have len_eq : trg.val.mapped_head.length = trg.val.rule.head.length := by exact PreTrigger.length_mapped_head trg.val.toPreTrigger
-        have lt : ↑i < (cn.origin.get cn_origin_some).fst.val.rule.head.length := by grind
+        have lt : ↑i < (cn.origin.get cn_origin_some).fst.val.rule.head.length := by simp only [eq, Option.get_some, ← len_eq]; exact i.isLt
         exists ⟨i, lt⟩
-        rcases cn.core_sse.right with ⟨gtm, gtm_hom⟩
-        have := PreTrigger.satisfied_for_disj_of_mapped_head_contained (cn.origin.get cn_origin_some).fst.val.toPreTrigger cn.fs ⟨↑i, by grind⟩
+        rcases cn.homSubset.right with ⟨gtm, gtm_hom⟩
+        have := PreTrigger.satisfied_for_disj_of_mapped_head_contained (cn.origin.get cn_origin_some).fst.val.toPreTrigger cn.facts ⟨↑i, by grind⟩
         apply this
         simp_all
         exact Set.subset_union_of_subset_right trg.val.mapped_head[↑i].toSet prev_cn.core trg.val.mapped_head[↑i].toSet fun e a => a
 
   -- muss fs loaded in core oder loaded in fs
   theorem trg_obs_in_core_if_obs_in_fs_and_loaded_in_core (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (n : Nat) (cn_eq : cn ∈ cb.branch.get? n) (trg : Trigger obs.toLaxObsolescenceCondition) :
-      (obs.cond trg.toPreTrigger cn.fs) ∧ (trg.loaded cn.core) → obs.cond trg.toPreTrigger cn.core := by
+      (obs.cond trg.toPreTrigger cn.facts) ∧ (trg.loaded cn.core) → obs.cond trg.toPreTrigger cn.core := by
         simp only [obs, RestrictedObsolescence]
         intro ⟨trg_sat, trg_loaded⟩
         unfold PreTrigger.satisfied at *
         rcases trg_sat with ⟨i, gs, h1, h2⟩
-        rcases cn.core_sse.right with ⟨gtm, gtm_hom⟩
+        rcases cn.homSubset.right with ⟨gtm, gtm_hom⟩
         have ex_eq_list : ∃ (tl : List (GroundTerm sig)), tl.toSet = cn.core.terms := by
           have := FactSet.terms_finite_of_finite cn.core (cb.core_finite _ _ cn_eq)
           rcases this with ⟨tl, h1, h2⟩
@@ -79,7 +79,7 @@ namespace CoreChaseBranch
             specialize tl_eq (gs v)
             rw [← List.mem_toSet, tl_eq]
             rw [h1]
-            have terms_sub := FactSet.terms_subset_of_subset cn.core_sse.left
+            have terms_sub := FactSet.terms_subset_of_subset cn.homSubset.left
             rcases (cb.core_finite _ _ cn_eq) with ⟨cn_core_l, _, cn_core_l_eq⟩
             have eq : cn_core_l.toSet = cn.core := Set.ext cn_core_l.toSet cn.core cn_core_l_eq
             have t1 := @FactSet.mem_terms_toSet _ _ _ _ cn_core_l (trg.subs v)
@@ -97,7 +97,7 @@ namespace CoreChaseBranch
           exact h
 
         · intro f f_in
-          have rep_hom_hom' : GroundTermMapping.isHomomorphism rep_hom cn.fs cn.core := by
+          have rep_hom_hom' : GroundTermMapping.isHomomorphism rep_hom cn.facts cn.core := by
             simp only [rep_hom]
             have g1 := gtm_hom
 
@@ -110,8 +110,8 @@ namespace CoreChaseBranch
                   exact GroundTermMapping.repeat_isHomomorphism gtm_endo (k + 1)
             specialize this rep
 
-            have g1_this_hom : GroundTermMapping.isHomomorphism ((gtm.repeat_fun rep) ∘ gtm) cn.fs cn.core := by
-              have y := GroundTermMapping.isHomomorphism_compose gtm (gtm.repeat_fun rep) cn.fs cn.core cn.core g1 this
+            have g1_this_hom : GroundTermMapping.isHomomorphism ((gtm.repeat_fun rep) ∘ gtm) cn.facts cn.core := by
+              have y := GroundTermMapping.isHomomorphism_compose gtm (gtm.repeat_fun rep) cn.facts cn.core cn.core g1 this
               exact y
             rw [Function.repeat_add', Function.repeat_once]
             exact g1_this_hom
@@ -134,23 +134,23 @@ namespace CoreChaseBranch
 
   theorem trg_inactive_in_core_if_inactive_in_fs_and_loaded_in_core (cb : CoreChaseBranch kb) (cn : CoreChaseNode kb.rules) (n : Nat)
     (cn_eq : cb.branch.infinite_list n = some cn) (trg : Trigger obs.toLaxObsolescenceCondition) :
-    (¬ trg.active cn.fs ∧ trg.loaded cn.core) → ¬ trg.active cn.core := by
+    (¬ trg.active cn.facts ∧ trg.loaded cn.core) → ¬ trg.active cn.core := by
       intro ⟨trg_not_active_fs, trg_loaded_core⟩
       unfold Trigger.active at *
       rw [Classical.not_and_iff_not_or_not, Classical.not_not] at *
-      have : ¬trg.loaded cn.fs ∨ (trg.loaded cn.fs ∧ obs.cond trg.toPreTrigger cn.fs) := by grind
+      have : ¬trg.loaded cn.facts ∨ (trg.loaded cn.facts ∧ obs.cond trg.toPreTrigger cn.facts) := by grind
       rcases this with trg_not_loaded | ⟨trg_loaded, trg_obs⟩
       left
       intro contra
       apply trg_not_loaded
       intro e e_in
       specialize contra e e_in
-      exact cn.core_sse.left e contra
+      exact cn.homSubset.left e contra
       right
       exact trg_obs_in_core_if_obs_in_fs_and_loaded_in_core cb cn n cn_eq trg ⟨trg_obs, trg_loaded_core⟩
 
   theorem origin_trg_obs_and_loaded_in_fs (cb : CoreChaseBranch kb) (n : Nat) (cn : CoreChaseNode kb.rules) (cn_eq : cb.branch.infinite_list n = some cn) (cn_origin_some : cn.origin.isSome) :
-    (cn.origin.get cn_origin_some).fst.val.loaded cn.fs ∧ obs.cond (cn.origin.get cn_origin_some).fst.val.toPreTrigger cn.fs := by
+    (cn.origin.get cn_origin_some).fst.val.loaded cn.facts ∧ obs.cond (cn.origin.get cn_origin_some).fst.val.toPreTrigger cn.facts := by
 
       have n_gt : n > 0 := not_first_if_origin_some cb cn cn_origin_some n cn_eq
       have trg_active_origin := origin_trg_active_prev_core cb (n-1) cn (by rw [Nat.sub_add_cancel n_gt]; exact cn_eq)
@@ -162,7 +162,7 @@ namespace CoreChaseBranch
       have ex_prev_node := cb.ex_prev_cn_if_origin_some cn n cn_eq cn_origin_some
       rcases ex_prev_node with ⟨prev_cn, prev_cn_eq⟩
       have fs_eq := next_fs_eq' cb (n-1) prev_cn cn prev_cn_eq (by rw [Nat.sub_add_cancel n_gt]; exact cn_eq)
-      have trg_loaded_cn_fs : (cn.origin.get cn_origin_some).fst.val.loaded cn.fs := by
+      have trg_loaded_cn_fs : (cn.origin.get cn_origin_some).fst.val.loaded cn.facts := by
         intro f f_in
         specialize trg_loaded f f_in
         grind
@@ -179,7 +179,7 @@ namespace CoreChaseBranch
   theorem functional_term_originates_from_some_trigger {cb : CoreChaseBranch kb} (n : Nat) (cn : CoreChaseNode kb.rules) (cn_eq : cn ∈ cb.branch.get? n) (t : GroundTerm sig)
     (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok) (t_mem : t ∈ cn.core.terms) :
       let init_node := ((cb.branch.get? 0).get (cb_fist_isSome cb))
-      t ∈ init_node.fs.terms ∨
+      t ∈ init_node.facts.terms ∨
       ∃ (m : Nat) (prev_cn : CoreChaseNode kb.rules), m ≤ n ∧ prev_cn ∈ cb.branch.get? m ∧
       ∃ o ∈ cn.origin, t ∈ o.fst.val.fresh_terms_for_head_disjunct o.snd.val (by rw [← PreTrigger.length_mapped_head]; exact o.snd.isLt) := by sorry
 
@@ -197,7 +197,7 @@ namespace CoreChaseBranch
             sorry
 
   theorem func_term_not_mem_head_core {cb : CoreChaseBranch kb} {t : GroundTerm sig} (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok) :
-      ¬ t ∈ ((cb.branch.get? 0).get (cb_fist_isSome cb)).fs.terms := by
+      ¬ t ∈ ((cb.branch.get? 0).get (cb_fist_isSome cb)).facts.terms := by
         intro t_mem
         simp only [cb.database_first] at t_mem
         rcases t_mem with ⟨f, f_mem, t_mem⟩
@@ -293,17 +293,17 @@ namespace CoreChaseBranch
 
               have t_mem : ∃ (t : GroundTerm sig), t ∈ prev_cn.core.terms ∧ ¬ t ∈ cm.core.terms ∧ t ∈ cn_succ.core.terms := by
 
-                have s1 := FactSet.terms_subset_of_subset cn.core_sse.left
-                have s2 := FactSet.terms_subset_of_subset cn_k.core_sse.left
-                have s3 := FactSet.terms_subset_of_subset cn_succ.core_sse.left
+                have s1 := FactSet.terms_subset_of_subset cn.homSubset.left
+                have s2 := FactSet.terms_subset_of_subset cn_k.homSubset.left
+                have s3 := FactSet.terms_subset_of_subset cn_succ.homSubset.left
                 sorry
 
               rcases t_mem with ⟨t, t_in_prev_cn, t_nin_cm, t_in_cn_succ⟩
-              have t_in_cn_fs : t ∈ cn.fs.terms := by sorry
+              have t_in_cn_fs : t ∈ cn.facts.terms := by sorry
               cases eq : t with
                 | const c =>
 
-                  have ex_f : ∃ (f : Fact sig), f ∈ cn.fs ∧ t ∈ f.terms := t_in_cn_fs
+                  have ex_f : ∃ (f : Fact sig), f ∈ cn.facts ∧ t ∈ f.terms := t_in_cn_fs
                   rcases ex_f with ⟨f, f_in_cn_fs, t_in_f⟩
 
                   have := f_isFunctionFree_in_next_if_some cb (n + k) cn_k cn_k_eq
@@ -319,15 +319,15 @@ namespace CoreChaseBranch
                   specialize this f
                   have ff_in_all_succ := f_isFunctionFree_in_geq cb n k cn cn_eq
                   specialize ff_in_all_succ cn_k cn_k_eq
-                  have f_in_cn_k_fs : f ∈ cn_k.fs := by
+                  have f_in_cn_k_fs : f ∈ cn_k.facts := by
                     apply ff_in_all_succ
                     exact ⟨f_in_cn_fs, f_is_ff⟩
-                  have f_nin_cn_k_fs : ¬ f ∈ cn_k.fs := by
+                  have f_nin_cn_k_fs : ¬ f ∈ cn_k.facts := by
                     sorry
                   contradiction
 
                 | func func ts arity_ok =>
-                  have ex_snd_trg : ∃ (m : Nat), m < n ∧ t ∈ FactSet.terms (((cb.branch.infinite_list m).get sorry).origin_result sorry).toSet := by sorry
+                  have ex_snd_trg : ∃ (m : Nat), m < n ∧ t ∈ FactSet.terms (ChaseNode.origin_result (obs := RestrictedObsolescence sig) (rules := kb.rules) ((cb.branch.infinite_list m).get sorry) sorry).toSet := by sorry
                   rcases ex_snd_trg with ⟨m, lt, t_in⟩
                   sorry
 
@@ -336,7 +336,7 @@ namespace CoreChaseBranch
               intro contra
               apply contra.right
               have trg_loaded_cn_succ_core := contra.left
-              have trg_obs_succ_fs : obs.cond (cn.origin.get cn_origin_some).fst.val.toPreTrigger cn_succ.fs := by
+              have trg_obs_succ_fs : obs.cond (cn.origin.get cn_origin_some).fst.val.toPreTrigger cn_succ.facts := by
                 have := before_core_sub_after_fs cb (n + k) cn_k cn_succ cn_k_eq cn_succ_eq
                 exact obs.monotone this trg_obs_k_core
               have := trg_obs_in_core_if_obs_in_fs_and_loaded_in_core cb cn_succ (n + (k + 1)) cn_succ_eq ((cn.origin.get cn_origin_some).fst.val) ⟨trg_obs_succ_fs, trg_loaded_cn_succ_core⟩

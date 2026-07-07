@@ -12,13 +12,13 @@ namespace CoreChaseBranch
 
 
   abbrev InductiveHomomorphismResultCore (cb : CoreChaseBranch kb) (m : FactSet sig) (depth : Nat) :=
-    {gtm : GroundTermMapping sig // ∀ cn, cn ∈ cb.branch.get? depth → gtm.isHomomorphism cn.fs m}
+    {gtm : GroundTermMapping sig // ∀ cn, cn ∈ cb.branch.get? depth → gtm.isHomomorphism cn.facts m}
 
 
   noncomputable def inductiveHomomorphismCoreWithPrevNodeAndTrgIfNextSome (cb : CoreChaseBranch kb) (m : FactSet sig) (m_mod : m.modelsKb kb) (kb_det : kb.isDeterministic)
     (prev_depth : Nat) (prev_node : CoreChaseNode kb.rules) (prev_node_eq : prev_node ∈ cb.branch.get? prev_depth)
-    (prev_gtm : GroundTermMapping sig) (prev_gtm_hom : prev_gtm.isHomomorphism prev_node.fs m) :
-      ∀ next_node ∈ cb.branch.get? (prev_depth.succ), ∃ (next_gtm : GroundTermMapping sig), GroundTermMapping.isHomomorphism next_gtm next_node.fs m := by
+    (prev_gtm : GroundTermMapping sig) (prev_gtm_hom : prev_gtm.isHomomorphism prev_node.facts m) :
+      ∀ next_node ∈ cb.branch.get? (prev_depth.succ), ∃ (next_gtm : GroundTermMapping sig), GroundTermMapping.isHomomorphism next_gtm next_node.facts m := by
 
         intro next_node next_node_eq
 
@@ -53,7 +53,7 @@ namespace CoreChaseBranch
           . exact prev_gtm_hom.left
           . have trg_origin_act := (cb.origin_trg_active_prev_core prev_depth next_node next_node_eq ⟨trg_on_prev_node, disj_on_prev_node⟩ next_node_origin_some).left
             simp [prev_core_eq] at trg_origin_act
-            exact Set.subset_trans trg_origin_act prev_node.core_sse.left
+            exact Set.subset_trans trg_origin_act prev_node.homSubset.left
 
         have new_trg_satisfied : new_trg.satisfied_for_disj m ⟨fin_disj.val, fin_disj.isLt⟩ := by
           have modelsRule : m.modelsRule new_trg.rule := m_mod.right new_trg.rule trg_on_prev_node.property
@@ -137,7 +137,7 @@ namespace CoreChaseBranch
               rw [GroundTermMapping.mem_applyFactSet]
               exists f
               constructor
-              · exact prev_node.core_sse.left f (by rw [prev_core_eq] at f_mem; exact f_mem)
+              · exact prev_node.homSubset.left f (by rw [prev_core_eq] at f_mem; exact f_mem)
               · unfold next_gtm
                 apply TermMapping.apply_generalized_atom_congr_left
                 intro t t_mem
@@ -173,11 +173,12 @@ namespace CoreChaseBranch
                 . intros; exact next_gtm_is_id_on_const
               rw [this]
               apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
-              simp [CoreChaseNode.origin_result] at f_mem
+              simp [ChaseNode.origin_result] at f_mem
               have n_eq : (cb.prevNode prev_depth (Option.isSome_of_mem next_node_eq)) = prev_node := by grind
               have eq1 : ⟨trg_on_prev_node, disj_on_prev_node⟩ ∈ next_node.origin := Option.mem_def.mpr next_node_origin_some
               have eq2 : (next_node.origin.get (cb.origin_isSome prev_depth next_node_eq)).fst = trg_on_prev_node := by simp_all
               have eq3 : (next_node.origin.get (cb.origin_isSome prev_depth next_node_eq)).snd.val = disj_on_prev_node := by simp_all; grind
+              unfold ChaseNode.origin CoreChaseNode.coreChaseNodeInstance at f_mem
               simp only [eq2, eq3] at f_mem
               exact f_mem
 

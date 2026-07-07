@@ -237,7 +237,7 @@ namespace CoreChaseBranch
     rcases this with ⟨cn, cn_last⟩
     unfold lastNode at cn_last
     rw [← cn_last]
-    exact cn.is_core
+    exact cn.isWeakCore
 
   @[grind .]
   theorem gt_of_terminatesAtStep_index_none (cb : CoreChaseBranch kb) (n : Nat) (term_at_n : cb.terminatesAtStep n) : ∀ m, m > n → cb.branch.infinite_list m = none := by
@@ -297,7 +297,7 @@ namespace CoreChaseBranch
   @[grind .]
   theorem ex_hom_result_if_isSome (cb : CoreChaseBranch kb) (ter' : cb.terminates') (m : Nat) (cn cn_res : CoreChaseNode kb.rules)
     (cn_eq : cn ∈ cb.branch.get? m) (cn_res_eq : cn_res ∈ cb.branch.get? (cb.lastElementIndex ter')) :
-      ∃ (h : GroundTermMapping sig), h.isHomomorphism cn.fs cn_res.core := by
+      ∃ (h : GroundTermMapping sig), h.isHomomorphism cn.facts cn_res.core := by
         rcases ter' with ⟨n, term_at_n⟩
         have ter'_eq : cb.lastElementIndex (Exists.intro n term_at_n : ∃ n, cb.terminatesAtStep n) = n := lastElementIndex_eq_terminatesAtStep_eq cb n term_at_n
         simp only [ter'_eq] at cn_res_eq
@@ -308,16 +308,16 @@ namespace CoreChaseBranch
           rw [← eq] at cn_res_eq
           specialize this cn_res cn_res_eq
           rcases this with ⟨gtm_cn_core_cn_res_core, gtm_cn_core_cn_res_core_hom⟩
-          rcases cn.core_sse.right with ⟨gtm_cn_fs_cn_core, gtm_cn_fs_cn_core_hom⟩
+          rcases cn.homSubset.right with ⟨gtm_cn_fs_cn_core, gtm_cn_fs_cn_core_hom⟩
           exists (gtm_cn_core_cn_res_core ∘ gtm_cn_fs_cn_core)
-          exact GroundTermMapping.isHomomorphism_compose gtm_cn_fs_cn_core gtm_cn_core_cn_res_core cn.fs
+          exact GroundTermMapping.isHomomorphism_compose gtm_cn_fs_cn_core gtm_cn_core_cn_res_core cn.facts
               cn.core cn_res.core gtm_cn_fs_cn_core_hom gtm_cn_core_cn_res_core_hom
         · have case : m = n ∨ m > n:= Nat.eq_or_lt_of_not_lt case
           cases case with
             | inl eq =>
               have : cn = cn_res := by grind
               rw [this]
-              exact cn_res.core_sse.right
+              exact cn_res.homSubset.right
             | inr gt =>
               have contra := lastElementIndex_eq_terminatesAtStep_index_leq cb n term_at_n m
               unfold lastElementIndex at ter'_eq
@@ -342,7 +342,7 @@ namespace CoreChaseBranch
     have t := cb.db_fs_sub_geq_core (cb.lastElementIndex ter') init_node last_node (Option.get_mem (Option.isSome_of_mem cb.database_first))
     intro f f_in
     let := cb.database_first
-    have eq : init_node.fs = kb.db.toFactSet.val := by
+    have eq : init_node.facts = kb.db.toFactSet.val := by
       have dbf := cb.database_first
       have eq : init_node = cb.branch.get? 0 := Option.some_get (Option.isSome_of_mem cb.database_first)
       grind
