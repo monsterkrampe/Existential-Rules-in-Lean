@@ -79,6 +79,10 @@ theorem succ_of_mem_succ_list {n : N} {l : List N} (s : CN.succ_list n l) : ∀ 
     rw [← idx_eq]
     grind
 
+/-- A property expressing that the outgoingFacts facts of a chase node form a subset of the ingoingFacts. We require this general property in a couple of proofs and it trivially holds true for both the regular chase node and the core chase node.  -/
+@[expose]
+def out_sub_in : Prop := ∀ {n : N}, CN.outgoingFacts n ⊆ CN.ingoingFacts n
+
 end ChaseNode
 
 /-- The `RegularChaseNode` is the one we use for most chases (except the core chase). Here ingoingFacts and outgoingFacts are always the same. -/
@@ -100,6 +104,10 @@ instance regularChaseNodeInstance : ChaseNode (RegularChaseNode obs rules) obs r
 
 theorem ingoingFacts_eq {node : RegularChaseNode obs rules} : regularChaseNodeInstance.ingoingFacts node = node.facts := by rfl
 theorem outgoingFacts_eq {node : RegularChaseNode obs rules} : regularChaseNodeInstance.outgoingFacts node = node.facts := by rfl
+
+/-- The `RegularChaseNode` has the `ChaseNode.out_sub_in` property. -/
+theorem out_sub_in : regularChaseNodeInstance.out_sub_in (N := RegularChaseNode obs rules) := by
+  intro node f; rw [ingoingFacts_eq, outgoingFacts_eq]; simp
 
 end RegularChaseNode
 

@@ -22,7 +22,7 @@ namespace ChaseDerivation
 
 variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 
-theorem term_ruleIds_valid {cd : ChaseDerivation (RegularChaseNode obs rules) obs rules} {node : RegularChaseNode obs rules} (node_mem : node ∈ cd) :
+theorem term_ruleIds_valid {cd : RegularChaseDerivation obs rules} {node : RegularChaseNode obs rules} (node_mem : node ∈ cd) :
     ∀ (rl : RuleList sig), (∀ r, r ∈ rl.rules ↔ r ∈ rules.rules) -> (∀ t ∈ cd.head.facts.terms, t.skolem_ruleIds_valid rl) ->
     ∀ t ∈ node.facts.terms, t.skolem_ruleIds_valid rl := by
   intro rl rl_rs_eq head_valid
@@ -52,7 +52,7 @@ theorem term_ruleIds_valid {cd : ChaseDerivation (RegularChaseNode obs rules) ob
           . exact f_mem
         . exact t_mem
 
-theorem trigger_ruleIds_valid_of_loaded {cd : ChaseDerivation (RegularChaseNode obs rules) obs rules}
+theorem trigger_ruleIds_valid_of_loaded {cd : RegularChaseDerivation obs rules}
     {node : RegularChaseNode obs rules} (node_mem : node ∈ cd) :
     ∀ (rl : RuleList sig), (∀ r, r ∈ rl.rules ↔ r ∈ rules.rules) -> (∀ t ∈ cd.head.facts.terms, t.skolem_ruleIds_valid rl) ->
     ∀ (trg : PreTrigger sig), trg.loaded node.facts -> trg.skolem_ruleIds_valid rl := by
@@ -62,7 +62,7 @@ theorem trigger_ruleIds_valid_of_loaded {cd : ChaseDerivation (RegularChaseNode 
   rw [FactSet.mem_terms_toSet]
   exact t_mem
 
-theorem term_disjIdx_valid_aux {cd : ChaseDerivation (RegularChaseNode obs rules) obs rules} {node : RegularChaseNode obs rules} (node_mem : node ∈ cd) :
+theorem term_disjIdx_valid_aux {cd : RegularChaseDerivation obs rules} {node : RegularChaseNode obs rules} (node_mem : node ∈ cd) :
     ∀ (rl : RuleList sig), (∀ r, r ∈ rl.rules ↔ r ∈ rules.rules) -> (h_head : ∀ t ∈ cd.head.facts.terms, t.skolem_ruleIds_valid rl) ->
     (∀ t, (t_mem : t ∈ cd.head.facts.terms) -> t.skolem_disjIdx_valid rl (h_head _ t_mem)) ->
     ∀ t ∈ node.facts.terms, (h : t.skolem_ruleIds_valid rl) -> t.skolem_disjIdx_valid rl h := by
@@ -95,7 +95,7 @@ theorem term_disjIdx_valid_aux {cd : ChaseDerivation (RegularChaseNode obs rules
           . exact f_mem
         . exact t_mem
 
-theorem term_disjIdx_valid {cd : ChaseDerivation (RegularChaseNode obs rules) obs rules} {node : RegularChaseNode obs rules}
+theorem term_disjIdx_valid {cd : RegularChaseDerivation obs rules} {node : RegularChaseNode obs rules}
     (node_mem : node ∈ cd) (rl : RuleList sig) (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ rules.rules)
     (head_ruleIds_valid : ∀ t ∈ cd.head.facts.terms, t.skolem_ruleIds_valid rl)
     (head_valid : (∀ t, (t_mem : t ∈ cd.head.facts.terms) -> t.skolem_disjIdx_valid rl (head_ruleIds_valid _ t_mem)))
@@ -103,7 +103,7 @@ theorem term_disjIdx_valid {cd : ChaseDerivation (RegularChaseNode obs rules) ob
     t.skolem_disjIdx_valid rl (cd.term_ruleIds_valid node_mem rl rl_rs_eq head_ruleIds_valid t t_mem) :=
   cd.term_disjIdx_valid_aux node_mem rl rl_rs_eq head_ruleIds_valid head_valid t t_mem (cd.term_ruleIds_valid node_mem rl rl_rs_eq head_ruleIds_valid t t_mem)
 
-theorem trigger_disjIdx_valid_of_loaded {cd : ChaseDerivation (RegularChaseNode obs rules) obs rules} {node : RegularChaseNode obs rules}
+theorem trigger_disjIdx_valid_of_loaded {cd : RegularChaseDerivation obs rules} {node : RegularChaseNode obs rules}
     (node_mem : node ∈ cd) (rl : RuleList sig) (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ rules.rules)
     (head_ruleIds_valid : ∀ t ∈ cd.head.facts.terms, t.skolem_ruleIds_valid rl)
     (head_valid : (∀ t, (t_mem : t ∈ cd.head.facts.terms) -> t.skolem_disjIdx_valid rl (head_ruleIds_valid _ t_mem)))
@@ -115,7 +115,7 @@ theorem trigger_disjIdx_valid_of_loaded {cd : ChaseDerivation (RegularChaseNode 
   rw [FactSet.mem_terms_toSet]
   exact t_mem
 
-theorem term_rule_arity_valid_aux {cd : ChaseDerivation (RegularChaseNode obs rules) obs rules} {node : RegularChaseNode obs rules} (node_mem : node ∈ cd) :
+theorem term_rule_arity_valid_aux {cd : RegularChaseDerivation obs rules} {node : RegularChaseNode obs rules} (node_mem : node ∈ cd) :
     ∀ (rl : RuleList sig), (∀ r, r ∈ rl.rules ↔ r ∈ rules.rules) ->
     (h_head : ∀ t ∈ cd.head.facts.terms, t.skolem_ruleIds_valid rl) -> (∀ t, (t_mem : t ∈ cd.head.facts.terms) ->
     t.skolem_rule_arity_valid rl (h_head _ t_mem)) -> ∀ t ∈ node.facts.terms, (h : t.skolem_ruleIds_valid rl) -> t.skolem_rule_arity_valid rl h := by
@@ -148,7 +148,7 @@ theorem term_rule_arity_valid_aux {cd : ChaseDerivation (RegularChaseNode obs ru
           . exact f_mem
         . exact t_mem
 
-theorem term_rule_arity_valid {cd : ChaseDerivation (RegularChaseNode obs rules) obs rules} {node : RegularChaseNode obs rules}
+theorem term_rule_arity_valid {cd : RegularChaseDerivation obs rules} {node : RegularChaseNode obs rules}
     (node_mem : node ∈ cd) (rl : RuleList sig) (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ rules.rules)
     (head_ruleIds_valid : ∀ t ∈ cd.head.facts.terms, t.skolem_ruleIds_valid rl)
     (head_valid : (∀ t, (t_mem : t ∈ cd.head.facts.terms) -> t.skolem_rule_arity_valid rl (head_ruleIds_valid _ t_mem)))
@@ -156,7 +156,7 @@ theorem term_rule_arity_valid {cd : ChaseDerivation (RegularChaseNode obs rules)
     t.skolem_rule_arity_valid rl (cd.term_ruleIds_valid node_mem rl rl_rs_eq head_ruleIds_valid t t_mem) :=
   cd.term_rule_arity_valid_aux node_mem rl rl_rs_eq head_ruleIds_valid head_valid t t_mem (cd.term_ruleIds_valid node_mem rl rl_rs_eq head_ruleIds_valid t t_mem)
 
-theorem trigger_rule_arity_valid_of_loaded {cd : ChaseDerivation (RegularChaseNode obs rules) obs rules} {node : RegularChaseNode obs rules}
+theorem trigger_rule_arity_valid_of_loaded {cd : RegularChaseDerivation obs rules} {node : RegularChaseNode obs rules}
     (node_mem : node ∈ cd) (rl : RuleList sig) (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ rules.rules)
     (head_ruleIds_valid : ∀ t ∈ cd.head.facts.terms, t.skolem_ruleIds_valid rl)
     (head_valid : (∀ t, (t_mem : t ∈ cd.head.facts.terms) -> t.skolem_rule_arity_valid rl (head_ruleIds_valid _ t_mem)))
@@ -175,7 +175,7 @@ namespace ChaseBranch
 
 variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
 
-theorem term_ruleIds_valid {cb : ChaseBranch (RegularChaseNode obs kb.rules) obs kb} {node : RegularChaseNode obs kb.rules} (node_mem : node ∈ cb.toChaseDerivation) :
+theorem term_ruleIds_valid {cb : RegularChaseBranch obs kb} {node : RegularChaseNode obs kb.rules} (node_mem : node ∈ cb.toChaseDerivation) :
     ∀ (rl : RuleList sig), (∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) -> ∀ t ∈ node.facts.terms, t.skolem_ruleIds_valid rl := by
   intro rl rl_rs_eq t t_mem
   apply cb.toChaseDerivation.term_ruleIds_valid node_mem rl rl_rs_eq _ t t_mem
@@ -186,7 +186,7 @@ theorem term_ruleIds_valid {cb : ChaseBranch (RegularChaseNode obs kb.rules) obs
   rw [t_eq]
   apply GroundTerm.skolem_ruleIds_valid_const
 
-theorem trigger_ruleIds_valid_of_loaded {cb : ChaseBranch (RegularChaseNode obs kb.rules) obs kb} {node : RegularChaseNode obs kb.rules} (node_mem : node ∈ cb.toChaseDerivation) :
+theorem trigger_ruleIds_valid_of_loaded {cb : RegularChaseBranch obs kb} {node : RegularChaseNode obs kb.rules} (node_mem : node ∈ cb.toChaseDerivation) :
     ∀ (rl : RuleList sig), (∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) -> ∀ (trg : PreTrigger sig), trg.loaded node.facts -> trg.skolem_ruleIds_valid rl := by
   intro rl rl_rs_eq trg trg_loaded t t_mem
   apply cb.term_ruleIds_valid node_mem rl rl_rs_eq
@@ -194,7 +194,7 @@ theorem trigger_ruleIds_valid_of_loaded {cb : ChaseBranch (RegularChaseNode obs 
   rw [FactSet.mem_terms_toSet]
   exact t_mem
 
-theorem term_disjIdx_valid {cb : ChaseBranch (RegularChaseNode obs kb.rules) obs kb}
+theorem term_disjIdx_valid {cb : RegularChaseBranch obs kb}
     {node : RegularChaseNode obs kb.rules} (node_mem : node ∈ cb.toChaseDerivation)
     (rl : RuleList sig) (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) (t : GroundTerm sig) (t_mem : t ∈ node.facts.terms) :
     t.skolem_disjIdx_valid rl (cb.term_ruleIds_valid node_mem rl rl_rs_eq t t_mem) := by
@@ -212,7 +212,7 @@ theorem term_disjIdx_valid {cb : ChaseBranch (RegularChaseNode obs kb.rules) obs
     simp only [t_eq]
     apply GroundTerm.skolem_disjIdx_valid_const
 
-theorem trigger_disjIdx_valid_of_loaded {cb : ChaseBranch (RegularChaseNode obs kb.rules) obs kb} {node : RegularChaseNode obs kb.rules} (node_mem : node ∈ cb.toChaseDerivation)
+theorem trigger_disjIdx_valid_of_loaded {cb : RegularChaseBranch obs kb} {node : RegularChaseNode obs kb.rules} (node_mem : node ∈ cb.toChaseDerivation)
     (rl : RuleList sig) (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) (trg : PreTrigger sig) (trg_loaded : trg.loaded node.facts) :
     trg.skolem_disjIdx_valid rl (cb.trigger_ruleIds_valid_of_loaded node_mem rl rl_rs_eq trg trg_loaded) := by
   intro t t_mem
@@ -221,7 +221,7 @@ theorem trigger_disjIdx_valid_of_loaded {cb : ChaseBranch (RegularChaseNode obs 
   rw [FactSet.mem_terms_toSet]
   exact t_mem
 
-theorem term_rule_arity_valid {cb : ChaseBranch (RegularChaseNode obs kb.rules) obs kb} {node : RegularChaseNode obs kb.rules} (node_mem : node ∈ cb.toChaseDerivation)
+theorem term_rule_arity_valid {cb : RegularChaseBranch obs kb} {node : RegularChaseNode obs kb.rules} (node_mem : node ∈ cb.toChaseDerivation)
     (rl : RuleList sig) (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) (t : GroundTerm sig) (t_mem : t ∈ node.facts.terms) :
     t.skolem_rule_arity_valid rl (cb.term_ruleIds_valid node_mem rl rl_rs_eq t t_mem) := by
   apply cb.toChaseDerivation.term_rule_arity_valid node_mem rl rl_rs_eq _ _ t t_mem
@@ -238,7 +238,7 @@ theorem term_rule_arity_valid {cb : ChaseBranch (RegularChaseNode obs kb.rules) 
     simp only [t_eq]
     apply GroundTerm.skolem_rule_arity_valid_const
 
-theorem trigger_rule_arity_valid_of_loaded {cb : ChaseBranch (RegularChaseNode obs kb.rules) obs kb} {node : RegularChaseNode obs kb.rules} (node_mem : node ∈ cb.toChaseDerivation)
+theorem trigger_rule_arity_valid_of_loaded {cb : RegularChaseBranch obs kb} {node : RegularChaseNode obs kb.rules} (node_mem : node ∈ cb.toChaseDerivation)
     (rl : RuleList sig) (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) (trg : PreTrigger sig) (trg_loaded : trg.loaded node.facts) :
     trg.skolem_rule_arity_valid rl (cb.trigger_ruleIds_valid_of_loaded node_mem rl rl_rs_eq trg trg_loaded) := by
   intro t t_mem

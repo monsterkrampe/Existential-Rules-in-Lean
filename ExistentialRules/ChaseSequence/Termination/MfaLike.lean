@@ -144,7 +144,7 @@ This is safe to do since applying these again would not make a difference.
 The necessesity for doing this comes from `DeterministicSkolemObsolescence.blocks_each_obs`. `BlockingObsolescence.blocks_corresponding_obs` works without.
 -/
 def MfaObsolescenceCondition.blocks_obs (mfa_obs : MfaObsolescenceCondition sig) (obs : ObsolescenceCondition sig) (rs : RuleSet sig) (special_const : sig.C) : Prop :=
-  ∀ {db : Database sig} (cb : ChaseBranch (RegularChaseNode obs rs) obs ⟨db, rs⟩) (node : cb.Node) (trg : RTrigger obs rs) (fs : FactSet sig),
+  ∀ {db : Database sig} (cb : RegularChaseBranch obs ⟨db, rs⟩) (node : cb.Node) (trg : RTrigger obs rs) (fs : FactSet sig),
   (∃ (i : Fin trg.val.mapped_head.length), ¬ ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact_set trg.val.mapped_head[i.val].toSet) ⊆ fs) ->
   (mfa_obs.cond { rule := trg.val.rule, subs := (rs.mfaConstantMapping special_const).toConstantMapping.apply_ground_term ∘ trg.val.subs } fs) ->
   trg.val.loaded node.val.facts -> obs.cond trg.val node.val.facts
@@ -438,7 +438,7 @@ namespace KnowledgeBase
 /-- This result is not necessary for MFA-like conditions but still interesting, also as a sanity check: The result of every deterministic Skolem `ChaseBranch` is the same as the `parallelDeterminizedChase_result`. -/
 theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
     (kb : KnowledgeBase sig) (det : kb.rules.isDeterministic) :
-    ∀ (cb : ChaseBranch (RegularChaseNode (SkolemObsolescence sig) kb.rules) (SkolemObsolescence sig) kb), cb.result =
+    ∀ (cb : RegularChaseBranch (SkolemObsolescence sig) kb), cb.result =
       parallelDeterminizedChase_result kb (DeterministicSkolemObsolescence sig) := by
   intro cb
   apply Set.ext
@@ -526,7 +526,7 @@ theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
       induction elem using parallelDeterminizedDerivation_mem_rec with
       | head =>
         simp only [parallelDeterminizedDerivation_head]
-        apply Set.subset_trans _ (ChaseDerivationSkeleton.facts_node_subset_result _ cb.head_mem)
+        apply Set.subset_trans _ (RegularChaseDerivationSkeleton.facts_node_subset_result _ cb.head_mem)
         rw [← cb.head.outgoingFacts_eq, cb.database_first'.right.left]
         apply Set.subset_refl
       | step _ ih =>
@@ -553,14 +553,14 @@ theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
                   intro f f_mem; rw [List.mem_cons] at f_mem; cases f_mem with
                   | inl f_mem => rw [f_mem]; exact from_hd
                   | inr f_mem =>
-                    apply cb.facts_node_subset_of_prec prec
+                    apply RegularChaseDerivationSkeleton.facts_node_subset_of_prec prec
                     apply from_ih; exact f_mem
                 | inr prec =>
                   exists n_from_ih; simp only [n_from_ih_mem, true_and]
                   intro f f_mem; rw [List.mem_cons] at f_mem; cases f_mem with
                   | inr f_mem => apply from_ih; exact f_mem
                   | inl f_mem =>
-                    apply cb.facts_node_subset_of_prec prec
+                    apply RegularChaseDerivationSkeleton.facts_node_subset_of_prec prec
                     rw [f_mem]; exact from_hd
 
             specialize this trg.val.mapped_body (by simp)
@@ -568,7 +568,7 @@ theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
             exists n; exact ⟨this.left, by intro f; rw [List.mem_toSet]; exact this.right f⟩
           rcases trg_loaded_somewhere with ⟨node, node_mem, trg_loaded⟩
 
-          have fair := cb.fairness_prec ⟨{ rule := trg.val.rule, subs:= trg.val.subs }, trg.property⟩
+          have fair := RegularChaseDerivation.fairness_prec (cd := cb.toChaseDerivation) ⟨{ rule := trg.val.rule, subs:= trg.val.subs }, trg.property⟩
           rcases fair with ⟨fairness_node, fair⟩
 
           rcases f_mem with ⟨i, f_mem⟩
@@ -590,7 +590,7 @@ theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
             simp only [not_and, Classical.not_not] at fair
             have trg_loaded : trg.val.loaded fairness_node.val.facts := by
               intro f f_mem
-              apply cb.facts_node_subset_of_prec prec
+              apply RegularChaseDerivationSkeleton.facts_node_subset_of_prec prec
               apply trg_loaded
               exact f_mem
             specialize fair trg_loaded
@@ -713,7 +713,7 @@ theorem mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_pred
     (rs : RuleSet sig) (finite : rs.rules.finite)
     (special_const : sig.C) (mfa_obs : MfaObsolescenceCondition sig) :
     ∀ {db : Database sig} {obs : ObsolescenceCondition sig}, (mfa_obs.blocks_obs obs rs special_const) ->
-    ∀ (cb : ChaseBranch (RegularChaseNode obs rs) obs { rules := rs, db := db }) (node : cb.Node),
+    ∀ (cb : RegularChaseBranch obs { rules := rs, db := db }) (node : cb.Node),
     ∀ f, f.predicate ∈ rs.predicates -> f ∈ node.val.facts ->
       ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact f) ∈ (rs.mfaSet finite special_const mfa_obs) := by
   intro db obs blocks cb node
@@ -774,7 +774,7 @@ theorem mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_pred
         let kb := rs.mfaKb finite special_const
         let prev_filtered : FactSet sig := fun f => f.predicate ∈ rs.predicates ∧ f ∈ cd.head.facts
         have prev_finite : prev_filtered.finite := by
-          rcases ChaseBranch.facts_finite_of_mem ⟨cd.head, (cd.mem_of_mem_suffix suffix _ cd.head_mem)⟩ with ⟨prev_l, _, prev_l_eq⟩
+          rcases RegularChaseBranch.facts_finite_of_mem ⟨cd.head, (cd.mem_of_mem_suffix suffix _ cd.head_mem)⟩ with ⟨prev_l, _, prev_l_eq⟩
           rcases (RuleSet.predicates_finite_of_finite _ finite) with ⟨preds_l, _, preds_l_eq⟩
           exists (prev_l.filter (fun f => f.predicate ∈ preds_l)).eraseDupsKeepRight
           constructor
@@ -968,7 +968,7 @@ theorem mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_pred
 /-- We can extend the result above to the whole result of the `ChaseBranch`. -/
 theorem filtered_cb_result_subset_mfaSet (rs : RuleSet sig) (finite : rs.rules.finite) (special_const : sig.C) (mfa_obs : MfaObsolescenceCondition sig) :
     ∀ {db : Database sig} {obs : ObsolescenceCondition sig}, (mfa_obs.blocks_obs obs rs special_const) ->
-    ∀ (cb : ChaseBranch (RegularChaseNode obs rs) obs { rules := rs, db := db }), ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact_set (fun f => f.predicate ∈ rs.predicates ∧ f ∈ cb.result)) ⊆ (rs.mfaSet finite special_const mfa_obs) := by
+    ∀ (cb : RegularChaseBranch obs { rules := rs, db := db }), ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact_set (fun f => f.predicate ∈ rs.predicates ∧ f ∈ cb.result)) ⊆ (rs.mfaSet finite special_const mfa_obs) := by
   intro db obs blocks cb f f_mem
   rw [GroundTermMapping.mem_applyFactSet] at f_mem
   rcases f_mem with ⟨f', f'_mem, f_eq⟩
@@ -987,10 +987,10 @@ theorem terminates_of_mfaSet_finite [Inhabited sig.C] (rs : RuleSet sig) (rs_fin
   intro db
   unfold KnowledgeBase.terminates
   intro ct
-  rw [ChaseTree.terminates_iff_result_finite]
-  unfold TreeDerivation.result; simp only [Set.mem_map]
+  rw [RegularChaseTree.terminates_iff_result_finite]
+  unfold RegularChaseTree.result RegularTreeDerivation.result; simp only [Set.mem_map]
   intro result ⟨cb, cb_mem, result_eq⟩
-  let cb := ct.chaseBranch_for_branch cb_mem
+  let cb : RegularChaseBranch obs {db := db, rules := rs} := ct.chaseBranch_for_branch cb_mem
 
   let res_filtered : FactSet sig := fun f => f.predicate ∈ rs.predicates ∧ f ∈ cb.result
   have res_filtered_finite : res_filtered.finite := by
@@ -1043,7 +1043,7 @@ theorem terminates_of_mfaSet_finite [Inhabited sig.C] (rs : RuleSet sig) (rs_fin
       intro c c_mem
       rw [List.mem_append]
       let node : cb.Node := ⟨node, node_mem⟩
-      cases ChaseBranch.constants_node_subset_constants_db_union_constants_rules (node := node) c (by exists f) with
+      cases RegularChaseBranch.constants_node_subset_constants_db_union_constants_rules (node := node) c (by exists f) with
       | inl this => apply Or.inl; rw [l_db_c_eq]; exact this
       | inr this => apply Or.inr; rw [l_rs_c_eq]; exact this
     . apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set

@@ -312,39 +312,6 @@ end InductionPrinciple
 
 end Basics
 
-section FactMonotonicity
-
-/-!
-## Subset Monotonicity of Facts in ChaseNodes
-
-Since `ChaseNodes` always extend the previous facts, the fact sets can only be growing along the `ChaseDerivationSkeleton`.
--/
-
-/-- Each member's facts contain the head facts. Note that this extends to arbitrary pairs of members since each member always induces a subderivation where it acts as the head. -/
-@[grind <-]
-theorem facts_node_subset_every_mem {cd : ChaseDerivationSkeleton (RegularChaseNode obs rules) obs rules} : ∀ node ∈ cd, cd.head.facts ⊆ node.facts := by
-  intro node node_mem
-  let node' : cd.Node := ⟨node, node_mem⟩
-  show cd.head.facts ⊆ node'.val.facts
-  induction node' using mem_rec with
-  | head => apply Set.subset_refl
-  | step cd2 suffix subset next next_eq =>
-    apply Set.subset_trans subset
-    rw [← next.ingoingFacts_eq]
-    rw [cd2.facts_next next_eq]
-    apply Set.subset_union_of_subset_left
-    apply Set.subset_refl
-
-/-- A first implication of `facts_node_subset_every_mem` is that, considering one of our subderivations, each of our members either has all of its facts contained in the head of the subderivation or it is itself a member of the subderivation. -/
-theorem mem_suffix_of_mem {cd1 cd2 : ChaseDerivationSkeleton (RegularChaseNode obs rules) obs rules} (suffix : cd1 <:+ cd2) : ∀ node ∈ cd2, node.facts ⊆ cd1.head.facts ∨ node ∈ cd1 := by
-  intro node node_mem
-  rcases subderivation_of_node_mem node_mem with ⟨cd3, cd3_head, suffix'⟩
-  cases PossiblyInfiniteList.suffix_or_suffix_of_suffix suffix suffix' with
-  | inl suffix => apply Or.inl; rw [← cd3_head]; apply cd3.facts_node_subset_every_mem; apply mem_of_mem_suffix suffix; apply cd1.head_mem
-  | inr suffix => apply Or.inr; rw [← cd3_head]; apply mem_of_mem_suffix suffix; apply cd3.head_mem
-
-end FactMonotonicity
-
 section GeneratedFacts
 
 /-!
@@ -354,33 +321,23 @@ The generated facts of node in a `ChaseDerivationSkeleton` are all facts that ar
 For each node, the set of generated facts is finite since each trigger only introduces finitely many new facts.
 -/
 
+variable {N : Type u} [CN : ChaseNode N obs rules]
+
 /-- The generated facts of a chase node are the facts that orruc in the node but not in the initial chase node. -/
 @[expose]
-def generatedFacts {N : Type u} [CN : ChaseNode N obs rules] (cd : ChaseDerivationSkeleton N obs rules) (node : N) : FactSet sig :=
+def generatedFacts (cd : ChaseDerivationSkeleton N obs rules) (node : N) : FactSet sig :=
   fun f => f ∈ CN.ingoingFacts node ∧ f ∉ CN.outgoingFacts cd.head
 
-/-- Each node's facts are formed by the initial facts and its `generatedFacts`. -/
-theorem facts_node_eq_union_initial_and_generated
-    {cd : ChaseDerivationSkeleton (RegularChaseNode obs rules) obs rules}
-    {node : RegularChaseNode obs rules} (mem : node ∈ cd) :
-    node.facts = cd.head.facts ∪ cd.generatedFacts node := by
-  unfold generatedFacts
-  apply Set.ext; intro f; constructor
-  . intro f_mem; cases Classical.em (f ∈ cd.head.facts) with
-    | inl f_mem' => exact Set.mem_union_of_mem_left f_mem'
-    | inr f_mem' => apply Set.mem_union_of_mem_right; exact ⟨f_mem, f_mem'⟩
-  . intro f_mem; rw [Set.mem_union_iff] at f_mem; cases f_mem with
-    | inl f_mem => exact cd.facts_node_subset_every_mem _ mem _ f_mem
-    | inr f_mem => exact f_mem.left
-
 /-- The `generatedFacts` are always finite. -/
-theorem generatedFacts_finite_of_mem {cd : ChaseDerivationSkeleton (RegularChaseNode obs rules) obs rules}
-    {node : RegularChaseNode obs rules} (mem : node ∈ cd) :
+theorem generatedFacts_finite_of_mem
+    (out_sub_in : CN.out_sub_in)
+    {cd : ChaseDerivationSkeleton N obs rules} (start_eq : CN.ingoingFacts cd.head = CN.outgoingFacts cd.head)
+    {node : N} (mem : node ∈ cd) :
     (cd.generatedFacts node).finite := by
   let node' : cd.Node := ⟨node, mem⟩
   show (cd.generatedFacts node'.val).finite
   induction node' using mem_rec with
-  | head => exists []; simp only [List.nodup_nil, true_and]; intro _; rw [List.mem_nil_iff]; simp [generatedFacts, Membership.mem, RegularChaseNode.ingoingFacts_eq, RegularChaseNode.outgoingFacts_eq]
+  | head => exists []; simp only [List.nodup_nil, true_and]; intro _; rw [List.mem_nil_iff]; simp [generatedFacts, Membership.mem, start_eq]
   | step cd2 suffix ih next next_mem =>
     suffices cd.generatedFacts next ⊆ cd.generatedFacts cd2.head ∪ (ChaseNode.origin_result next (cd2.isSome_origin_next next_mem)).toSet by
       apply Set.finite_of_subset_finite _ this
@@ -391,7 +348,7 @@ theorem generatedFacts_finite_of_mem {cd : ChaseDerivationSkeleton (RegularChase
     intro f ⟨f_mem, f_nmem⟩
     rw [Set.mem_union_iff] at f_mem
     cases f_mem with
-    | inl f_mem => apply Set.mem_union_of_mem_left; exact ⟨f_mem, f_nmem⟩
+    | inl f_mem => apply Set.mem_union_of_mem_left; exact ⟨out_sub_in _ f_mem, f_nmem⟩
     | inr f_mem => exact Set.mem_union_of_mem_right f_mem
 
 end GeneratedFacts
@@ -404,8 +361,6 @@ section Predecessors
 We can define a predecessor relation (`≼`) on `ChaseDerivation.Node`.
 At this point, it does not have many properties. On Proper `ChaseDerivation`s it will be a total order.
 -/
-
-section General
 
 variable {N : Type u} [CN : ChaseNode N obs rules]
 
@@ -506,19 +461,98 @@ theorem next_prec_of_head_strict_prec {cd : ChaseDerivationSkeleton N obs rules}
 
 end StrictPredecessor
 
-end General
+end Predecessors
 
-section RegularChaseNodeSpecific
+end ChaseDerivationSkeleton
+
+
+abbrev RegularChaseDerivationSkeleton (obs : ObsolescenceCondition sig) (rules : RuleSet sig) := ChaseDerivationSkeleton (RegularChaseNode obs rules) obs rules
+
+namespace RegularChaseDerivationSkeleton
+
+variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
+
+section FactMonotonicity
+
+/-!
+## Subset Monotonicity of Facts in ChaseNodes
+
+Since `ChaseNodes` always extend the previous facts, the fact sets can only be growing along the `ChaseDerivationSkeleton`.
+-/
+
+/-- Each member's facts contain the head facts. Note that this extends to arbitrary pairs of members since each member always induces a subderivation where it acts as the head. -/
+@[grind <-]
+theorem facts_node_subset_every_mem {cd : RegularChaseDerivationSkeleton obs rules} : ∀ node ∈ cd, cd.head.facts ⊆ node.facts := by
+  intro node node_mem
+  let node' : cd.Node := ⟨node, node_mem⟩
+  show cd.head.facts ⊆ node'.val.facts
+  induction node' using cd.mem_rec with
+  | head => apply Set.subset_refl
+  | step cd2 suffix subset next next_eq =>
+    apply Set.subset_trans subset
+    rw [← next.ingoingFacts_eq]
+    rw [cd2.facts_next next_eq]
+    apply Set.subset_union_of_subset_left
+    apply Set.subset_refl
+
+/-- A first implication of `facts_node_subset_every_mem` is that, considering one of our subderivations, each of our members either has all of its facts contained in the head of the subderivation or it is itself a member of the subderivation. -/
+theorem mem_suffix_of_mem {cd1 cd2 : RegularChaseDerivationSkeleton obs rules} (suffix : cd1 <:+ cd2) : ∀ node ∈ cd2, node.facts ⊆ cd1.head.facts ∨ node ∈ cd1 := by
+  intro node node_mem
+  rcases cd2.subderivation_of_node_mem node_mem with ⟨cd3, cd3_head, suffix'⟩
+  cases PossiblyInfiniteList.suffix_or_suffix_of_suffix suffix suffix' with
+  | inl suffix => apply Or.inl; rw [← cd3_head]; apply facts_node_subset_every_mem; apply cd1.mem_of_mem_suffix suffix; apply cd1.head_mem
+  | inr suffix => apply Or.inr; rw [← cd3_head]; apply cd3.mem_of_mem_suffix suffix; apply cd3.head_mem
+
+end FactMonotonicity
+
+section GeneratedFacts
+
+/-!
+## Only Finitely many Generated Facts
+
+Here we cover the special case for `RegularChaseDerivationSkeleton`s.
+-/
+
+/-- Each node's facts are formed by the initial facts and its `generatedFacts`. -/
+theorem facts_node_eq_union_initial_and_generated
+    {cd : RegularChaseDerivationSkeleton obs rules}
+    {node : RegularChaseNode obs rules} (mem : node ∈ cd) :
+    node.facts = cd.head.facts ∪ cd.generatedFacts node := by
+  unfold ChaseDerivationSkeleton.generatedFacts
+  apply Set.ext; intro f; constructor
+  . intro f_mem; cases Classical.em (f ∈ cd.head.facts) with
+    | inl f_mem' => exact Set.mem_union_of_mem_left f_mem'
+    | inr f_mem' => apply Set.mem_union_of_mem_right; exact ⟨f_mem, f_mem'⟩
+  . intro f_mem; rw [Set.mem_union_iff] at f_mem; cases f_mem with
+    | inl f_mem => exact facts_node_subset_every_mem _ mem _ f_mem
+    | inr f_mem => exact f_mem.left
+
+/-- The `generatedFacts` are always finite. -/
+theorem generatedFacts_finite_of_mem
+    {cd : RegularChaseDerivationSkeleton obs rules}
+    {node : (RegularChaseNode obs rules)} (mem : node ∈ cd) :
+    (cd.generatedFacts node).finite := by
+  apply ChaseDerivationSkeleton.generatedFacts_finite_of_mem RegularChaseNode.out_sub_in _ mem
+  rw [RegularChaseNode.ingoingFacts_eq, RegularChaseNode.outgoingFacts_eq]
+
+end GeneratedFacts
+
+section Predecessors
+
+/-!
+## Predecessor Relation
+
+Here we cover the special case for `RegularChaseDerivationSkeleton`s.
+-/
 
 /-- The facts of our predecessor are a subset of our facts. -/
 @[grind ->]
-theorem facts_node_subset_of_prec {cd : ChaseDerivationSkeleton (RegularChaseNode obs rules) obs rules} {node1 node2 : cd.Node} : node1 ≼ node2 -> node1.val.facts ⊆ node2.val.facts := by
+theorem facts_node_subset_of_prec {cd : RegularChaseDerivationSkeleton obs rules} {node1 node2 : cd.Node} :
+    node1 ≼ node2 -> node1.val.facts ⊆ node2.val.facts := by
   rintro ⟨cd2, suffix, head_eq, mem⟩
   rw [← head_eq]
   apply facts_node_subset_every_mem
   exact mem
-
-end RegularChaseNodeSpecific
 
 end Predecessors
 
@@ -531,26 +565,26 @@ Here, we define the result of a `ChaseDerivationSkeleton`, which is simply the `
 -/
 
 @[expose]
-def result (cd : ChaseDerivationSkeleton (RegularChaseNode obs rules) obs rules) : FactSet sig :=
+def result (cd : RegularChaseDerivationSkeleton obs rules) : FactSet sig :=
   fun f => ∃ node ∈ cd, f ∈ node.facts
 
 /-- Every node's facts occur in the result. -/
 @[grind <-]
-theorem facts_node_subset_result {cd : ChaseDerivationSkeleton (RegularChaseNode obs rules) obs rules} : ∀ node ∈ cd, node.facts ⊆ cd.result := by intro node _ _ _; exists node
+theorem facts_node_subset_result {cd : RegularChaseDerivationSkeleton obs rules} : ∀ node ∈ cd, node.facts ⊆ cd.result := by intro node _ _ _; exists node
 
 /-- The result of our suffix is the same our result. -/
 @[grind ->]
-theorem result_suffix {cd1 cd2 : ChaseDerivationSkeleton (RegularChaseNode obs rules) obs rules} (suffix : cd1 <:+ cd2) : cd1.result = cd2.result := by
+theorem result_suffix {cd1 cd2 : RegularChaseDerivationSkeleton obs rules} (suffix : cd1 <:+ cd2) : cd1.result = cd2.result := by
   ext f
   constructor
-  . rintro ⟨node, node_mem, f_mem⟩; apply cd2.facts_node_subset_result; exact mem_of_mem_suffix suffix _ node_mem; exact f_mem
+  . rintro ⟨node, node_mem, f_mem⟩; apply cd2.facts_node_subset_result; exact cd1.mem_of_mem_suffix suffix _ node_mem; exact f_mem
   . rintro ⟨node, node_mem, f_mem⟩
     cases mem_suffix_of_mem suffix _ node_mem with
     | inl mem_suffix => apply cd1.facts_node_subset_result; exact cd1.head_mem; apply mem_suffix; exact f_mem
     | inr mem_suffix => apply cd1.facts_node_subset_result; exact mem_suffix; exact f_mem
 
 /-- For each (finite) list of facts in the result, there is a node that that contains all of them. -/
-theorem facts_mem_some_node_of_mem_result {cd : ChaseDerivationSkeleton (RegularChaseNode obs rules) obs rules} :
+theorem facts_mem_some_node_of_mem_result {cd : RegularChaseDerivationSkeleton obs rules} :
     ∀ (l : List (Fact sig)), l.toSet ⊆ cd.result -> ∃ node ∈ cd, l.toSet ⊆ node.facts := by
   intro l
   induction l with
@@ -580,11 +614,11 @@ theorem facts_mem_some_node_of_mem_result {cd : ChaseDerivationSkeleton (Regular
         | inr e_mem => apply l_subset; rw [List.mem_toSet]; exact e_mem
         | inl e_mem =>
           rw [e_mem]
-          apply cd_f.facts_node_subset_every_mem _ mem_suffix
+          apply facts_node_subset_every_mem _ mem_suffix
           rw [cd_f_head]; exact f_mem
 
 /-- If a trigger is loaded for the result, then it is loaded for some node in the derivation. -/
-theorem trg_loaded_for_some_node_of_trg_loaded_for_result {cd : ChaseDerivationSkeleton (RegularChaseNode obs rules) obs rules} :
+theorem trg_loaded_for_some_node_of_trg_loaded_for_result {cd : RegularChaseDerivationSkeleton obs rules} :
     ∀ trg : Trigger obs, trg.loaded cd.result -> ∃ node ∈ cd, trg.loaded node.facts := by
   intro trg trg_loaded
   apply cd.facts_mem_some_node_of_mem_result
@@ -592,5 +626,5 @@ theorem trg_loaded_for_some_node_of_trg_loaded_for_result {cd : ChaseDerivationS
 
 end ChaseResult
 
-end ChaseDerivationSkeleton
+end RegularChaseDerivationSkeleton
 

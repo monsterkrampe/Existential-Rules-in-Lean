@@ -28,7 +28,7 @@ namespace ChaseBranch
 variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
 
 theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C]
-    {cb : ChaseBranch (RegularChaseNode obs kb.rules) obs kb} {node : RegularChaseNode obs kb.rules} (node_mem : node ∈ cb.toChaseDerivation) :
+    {cb : RegularChaseBranch obs kb} {node : RegularChaseNode obs kb.rules} (node_mem : node ∈ cb.toChaseDerivation) :
     ∀ (rl : RuleList sig), (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) ->
     ∀ (term : GroundTerm sig), (term_mem : term ∈ node.facts.terms) ->
     ∀ (forbidden_constants : List sig.C),
@@ -489,7 +489,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
           exact d_mem
 
 theorem backtracking_of_term_list_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C]
-    {cb : ChaseBranch (RegularChaseNode obs kb.rules) obs kb} {node : RegularChaseNode obs kb.rules} (node_mem : node ∈ cb.toChaseDerivation) :
+    {cb : RegularChaseBranch obs kb} {node : RegularChaseNode obs kb.rules} (node_mem : node ∈ cb.toChaseDerivation) :
     ∀ (rl : RuleList sig), (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) ->
     ∀ (terms : List (GroundTerm sig)), (terms_mem : terms.toSet ⊆ node.facts.terms) ->
     ∀ (forbidden_constants : List sig.C),
@@ -596,7 +596,7 @@ theorem backtracking_of_term_list_in_node [GetFreshInhabitant sig.C] [Inhabited 
       . apply g_tl_h.right; rw [List.mem_append]; apply Or.inl; exact d_mem
 
 public theorem backtracking_of_loaded_trigger_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C]
-    {cb : ChaseBranch (RegularChaseNode obs kb.rules) obs kb} {node : RegularChaseNode obs kb.rules} (node_mem : node ∈ cb.toChaseDerivation) :
+    {cb : RegularChaseBranch obs kb} {node : RegularChaseNode obs kb.rules} (node_mem : node ∈ cb.toChaseDerivation) :
     ∀ (rl : RuleList sig), (rl_rs_eq : ∀ r, r ∈ rl.rules ↔ r ∈ kb.rules.rules) ->
     ∀ (trg : PreTrigger sig), (trg_loaded : trg.loaded node.facts) ->
     ∃ (g : ConstantMapping sig),

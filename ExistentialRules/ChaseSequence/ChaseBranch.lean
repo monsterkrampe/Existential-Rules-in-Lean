@@ -35,25 +35,17 @@ structure ChaseBranch (N : Type u) (obs : ObsolescenceCondition sig) (kb : Knowl
 namespace ChaseBranch
 
 variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
+variable {N : Type u} [CN : ChaseNode N obs kb.rules]
 
 /-- We restate the `database_first` condition in terms of the `ChaseDerivation` vocabulary. -/
-theorem database_first' {N : Type u} [CN : ChaseNode N obs kb.rules] {cb : ChaseBranch N obs kb} :
+theorem database_first' {cb : ChaseBranch N obs kb} :
     CN.ingoingFacts cb.head = kb.db.toFactSet ∧
     CN.outgoingFacts cb.head = kb.db.toFactSet ∧
     CN.origin cb.head = none := by
   apply cb.database_first; simp [ChaseDerivationSkeleton.head]
 
-/-- Opposed to a `ChaseDerivation`, we know that each node in a `ChaseBranch` has a finite set of facts. This is because the database is finite and each trigger only adds finitely many new facts. -/
-@[grind <-]
-theorem facts_finite_of_mem {cb : ChaseBranch (RegularChaseNode obs kb.rules) obs kb} (node : cb.Node) : node.val.facts.finite := by
-  rw [cb.facts_node_eq_union_initial_and_generated node.property]
-  apply Set.union_finite_of_both_finite
-  . rw [← cb.head.outgoingFacts_eq, database_first'.right.left]; exact kb.db.toFactSet.property.left
-  . exact cb.generatedFacts_finite_of_mem node.property
-
 /-- The head of the `ChaseBranch` does not contain any function terms. -/
-theorem func_term_not_mem_head {N : Type u} [CN : ChaseNode N obs kb.rules] {cb : ChaseBranch N obs kb}
-    {t : GroundTerm sig} (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok) :
+theorem func_term_not_mem_head {cb : ChaseBranch N obs kb} {t : GroundTerm sig} (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok) :
     -- This is also true for the ingoingFacts but I think that we will only need this for the outgoingFacts.
     ¬ t ∈ (CN.outgoingFacts cb.head).terms := by
   intro t_mem
@@ -64,38 +56,59 @@ theorem func_term_not_mem_head {N : Type u} [CN : ChaseNode N obs kb.rules] {cb 
   rw [t_eq'] at t_eq
   simp [GroundTerm.func_neq_const] at t_eq
 
+end ChaseBranch
+
+
+abbrev RegularChaseBranch (obs : ObsolescenceCondition sig) (kb : KnowledgeBase sig) := ChaseBranch (RegularChaseNode obs kb.rules) obs kb
+
+namespace RegularChaseBranch
+
+variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
+
+/-- Opposed to a `ChaseDerivation`, we know that each node in a `ChaseBranch` has a finite set of facts. This is because the database is finite and each trigger only adds finitely many new facts. -/
+@[grind <-]
+theorem facts_finite_of_mem {cb : RegularChaseBranch obs kb} (node : cb.Node) : node.val.facts.finite := by
+  rw [RegularChaseDerivationSkeleton.facts_node_eq_union_initial_and_generated node.property]
+  apply Set.union_finite_of_both_finite
+  . rw [← cb.head.outgoingFacts_eq, cb.database_first'.right.left]; exact kb.db.toFactSet.property.left
+  . exact RegularChaseDerivationSkeleton.generatedFacts_finite_of_mem node.property
+
+/-- We define a shortcut for `RegularChaseDerivationSkeleton.result`. -/
+abbrev result (cd : RegularChaseBranch obs kb) := RegularChaseDerivationSkeleton.result cd.toChaseDerivationSkeleton
+
 /-- The result of a `ChaseBranch` not only models the rule set but the whole `KnowledgeBase`. -/
 @[grind <-]
-theorem result_models_kb {cb : ChaseBranch (RegularChaseNode obs kb.rules) obs kb} : cb.result.modelsKb kb := by
+theorem result_models_kb {cb : RegularChaseBranch obs kb} : cb.result.modelsKb kb := by
   constructor
   . intro f h
-    apply cb.facts_node_subset_result cb.head
+    apply RegularChaseDerivationSkeleton.facts_node_subset_result cb.head
     . apply cb.head_mem
-    . rw [← cb.head.outgoingFacts_eq, database_first'.right.left]; exact h
-  . exact cb.result_models_rules
+    . rw [← cb.head.outgoingFacts_eq, cb.database_first'.right.left]; exact h
+  . exact RegularChaseDerivation.result_models_rules
 
 /-- Constants in the chase must be in the database or in some rule. -/
-theorem constants_node_subset_constants_db_union_constants_rules {cb : ChaseBranch (RegularChaseNode obs kb.rules) obs kb} {node : cb.Node} :
+theorem constants_node_subset_constants_db_union_constants_rules {cb : RegularChaseBranch obs kb} {node : cb.Node} :
     node.val.facts.constants ⊆ (kb.db.constants.val ∪ kb.rules.head_constants) := by
-  have := cb.constants_node_subset_constants_fs_union_constants_rules node.property
+  have := RegularChaseDerivation.constants_node_subset_constants_fs_union_constants_rules node.property
   rw [← cb.head.outgoingFacts_eq, cb.database_first'.right.left, Database.toFactSet_constants_same] at this
   exact this
 
 /-- Each functional term in the chase originates as a fresh term from a trigger. -/
 theorem functional_term_originates_from_some_trigger
-    {cb : ChaseBranch (RegularChaseNode obs kb.rules) obs kb}
+    {cb : RegularChaseBranch obs kb}
     (node : cb.Node)
     {t : GroundTerm sig}
     (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok)
     (t_mem : t ∈ node.val.facts.terms) :
-    ∃ node2, node2 ≼ node ∧ ∃ orig ∈ node2.val.origin, t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val (by rw [← PreTrigger.length_mapped_head]; exact orig.snd.isLt) := by
-  cases ChaseDerivation.functional_term_originates_from_some_trigger node t_is_func t_mem with
+    ∃ node2, node2 ≼ node ∧ ∃ orig ∈ node2.val.origin,
+      t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val (by rw [← PreTrigger.length_mapped_head]; exact orig.snd.isLt) := by
+  cases RegularChaseDerivation.functional_term_originates_from_some_trigger node t_is_func t_mem with
   | inl t_mem => apply False.elim; exact cb.func_term_not_mem_head t_is_func t_mem
   | inr t_mem => exact t_mem
 
 /-- If a functional term occurs in the chase, then the trigger that introduces this term must have been used in the chase. -/
 theorem trigger_introducing_functional_term_occurs_in_chase
-    {cb : ChaseBranch (RegularChaseNode obs kb.rules) obs kb}
+    {cb : RegularChaseBranch obs kb}
     (node : cb.Node)
     {t : GroundTerm sig}
     (t_mem_node : t ∈ node.val.facts.terms)
@@ -104,13 +117,13 @@ theorem trigger_introducing_functional_term_occurs_in_chase
     {lt : disj_idx < trg.val.rule.head.length}
     (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :
     ∃ node2, node2 ≼ node ∧ ∃ orig ∈ node2.val.origin, orig.fst.equiv trg ∧ orig.snd.val = disj_idx := by
-  cases ChaseDerivation.trigger_introducing_functional_term_occurs_in_chase node t_mem_node t_mem_trg with
+  cases RegularChaseDerivation.trigger_introducing_functional_term_occurs_in_chase node t_mem_node t_mem_trg with
   | inl t_mem => apply False.elim; exact cb.func_term_not_mem_head (PreTrigger.term_functional_of_mem_fresh_terms _ t_mem_trg) t_mem
   | inr t_mem => exact t_mem
 
 /-- If a functional term occurs in the chase, then the result of the trigger that introduces this term is contained in the current node. -/
 theorem result_of_trigger_introducing_functional_term_occurs_in_chase
-    {cb : ChaseBranch (RegularChaseNode obs kb.rules) obs kb}
+    {cb : RegularChaseBranch obs kb}
     (node : cb.Node)
     {t : GroundTerm sig}
     (t_mem_node : t ∈ node.val.facts.terms)
@@ -119,9 +132,9 @@ theorem result_of_trigger_introducing_functional_term_occurs_in_chase
     {lt : disj_idx < trg.val.rule.head.length}
     (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :
     (trg.val.mapped_head[disj_idx]'(by rw [PreTrigger.length_mapped_head]; exact lt)).toSet ⊆ node.val.facts := by
-  cases ChaseDerivation.result_of_trigger_introducing_functional_term_occurs_in_chase node t_mem_node t_mem_trg with
+  cases RegularChaseDerivation.result_of_trigger_introducing_functional_term_occurs_in_chase node t_mem_node t_mem_trg with
   | inl t_mem => apply False.elim; exact cb.func_term_not_mem_head (PreTrigger.term_functional_of_mem_fresh_terms _ t_mem_trg) t_mem
   | inr t_mem => exact t_mem
 
-end ChaseBranch
+end RegularChaseBranch
 

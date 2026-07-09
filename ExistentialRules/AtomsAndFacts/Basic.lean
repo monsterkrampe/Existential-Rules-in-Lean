@@ -580,6 +580,11 @@ theorem mem_constants_toSet {l : List (Fact sig)} : ∀ c, c ∈ FactSet.constan
   intro t; rw [List.mem_flatMap]
   constructor <;> (rintro ⟨f, f_mem, t_mem⟩; exists f; grind)
 
+/-- The a `FactSet` is a subset of another, then their constants share this subset relation. -/
+@[grind ->]
+theorem constants_subset_of_subset {fs1 fs2 : FactSet sig} : fs1 ⊆ fs2 -> fs1.constants ⊆ fs2.constants := by
+  intro sub c ⟨f, f_mem, c_mem⟩; exists f; exact ⟨sub _ f_mem, c_mem⟩
+
 /-- The constants of the union of two `FactSet`s are the union of the constants of both sets. -/
 @[simp, grind =]
 theorem constants_union {fs1 fs2 : FactSet sig} : (fs1 ∪ fs2).constants = fs1.constants ∪ fs2.constants := by

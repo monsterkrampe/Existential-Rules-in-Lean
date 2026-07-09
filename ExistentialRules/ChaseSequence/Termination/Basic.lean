@@ -92,12 +92,12 @@ theorem has_last_node_of_terminates (cds : ChaseDerivationSkeleton N obs rules) 
 
 end ChaseDerivationSkeleton
 
-namespace ChaseDerivation
+namespace RegularChaseDerivation
 
 variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 
 /-- A `ChaseDerivation` terminates if and only if there is a maximal node according to the `≼` relation. -/
-theorem terminating_has_last_node (cd : ChaseDerivation (RegularChaseNode obs rules) obs rules) : cd.terminates ↔ ∃ (node : cd.Node), ∀ (node2 : cd.Node), node2 ≼ node := by
+theorem terminating_has_last_node (cd : RegularChaseDerivation obs rules) : cd.terminates ↔ ∃ (node : cd.Node), ∀ (node2 : cd.Node), node2 ≼ node := by
   constructor
   . exact cd.toChaseDerivationSkeleton.has_last_node_of_terminates
   . rintro ⟨node, all_pred⟩
@@ -115,32 +115,32 @@ theorem terminating_has_last_node (cd : ChaseDerivation (RegularChaseNode obs ru
     have next_d1 : d1.next = some next := by rw [← next_eq]; simp [d1, ChaseDerivationSkeleton.derivation_for_branch_suffix, ChaseDerivationSkeleton.next, PossiblyInfiniteList.tail_drop, PossiblyInfiniteList.head_drop]
     have node_pred_next : node ≼ next_node := by exists d1; simp only [head_eq1, suf1, true_and]; apply d1.next_mem_of_mem; exact next_d1
     have node_eq_next : node = next_node := cd.predecessor_antisymm node_pred_next all_pred
-    apply (cd.derivation_for_skeleton d1 suf1).head_not_mem_tail
-    . simp only [derivation_for_skeleton, tail]
-      rw [mem_def, d1.mem_tail_iff]
+    apply RegularChaseDerivation.head_not_mem_tail (cd := cd.derivation_for_skeleton d1 suf1)
+    . simp only [ChaseDerivation.derivation_for_skeleton, ChaseDerivation.tail]
+      rw [ChaseDerivation.mem_def, d1.mem_tail_iff]
       exists d1; constructor; exact d1.branch.IsSuffix_refl; rw [next_d1, head_eq1, node_eq_next]
-    . simp [derivation_for_skeleton, next_d1]
+    . simp [ChaseDerivation.derivation_for_skeleton, next_d1]
 
-end ChaseDerivation
+end RegularChaseDerivation
 
-namespace ChaseBranch
+namespace RegularChaseBranch
 
 variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
 
 /-- A `ChaseBranch` terminates if and only if its result is `Set.finite`. -/
-theorem terminates_iff_result_finite (cb : ChaseBranch (RegularChaseNode obs kb.rules) obs kb) : cb.terminates ↔ cb.result.finite := by
+theorem terminates_iff_result_finite (cb : RegularChaseBranch obs kb) : cb.terminates ↔ cb.result.finite := by
   constructor
   . intro terminates
-    rcases cb.terminating_has_last_node.mp terminates with ⟨node, all_pred⟩
+    rcases (RegularChaseDerivation.terminating_has_last_node cb.toChaseDerivation).mp terminates with ⟨node, all_pred⟩
     have : cb.result ⊆ node.val.facts := by
       rintro f ⟨node2, node2_mem, f_mem⟩
-      apply cb.facts_node_subset_of_prec (all_pred ⟨node2, node2_mem⟩)
+      apply RegularChaseDerivationSkeleton.facts_node_subset_of_prec (all_pred ⟨node2, node2_mem⟩)
       exact f_mem
     apply Set.finite_of_subset_finite _ this
     apply cb.facts_finite_of_mem
   . rintro ⟨l, _, l_eq⟩
-    rw [cb.terminating_has_last_node]
-    rcases cb.facts_mem_some_node_of_mem_result l (by intro _ mem; rw [List.mem_toSet, l_eq] at mem; exact mem) with ⟨node, node_mem, l_sub⟩
+    rw [RegularChaseDerivation.terminating_has_last_node]
+    rcases RegularChaseDerivationSkeleton.facts_mem_some_node_of_mem_result l (by intro _ mem; rw [List.mem_toSet, l_eq] at mem; exact mem) with ⟨node, node_mem, l_sub⟩
     exists ⟨node, node_mem⟩
     intro node2
     cases cb.predecessor_total ⟨node, node_mem⟩ node2 with
@@ -149,13 +149,13 @@ theorem terminates_iff_result_finite (cb : ChaseBranch (RegularChaseNode obs kb.
       cases cb.eq_or_strict_of_predecessor prec with
       | inl eq => rw [eq]; apply cb.predecessor_refl
       | inr prec =>
-        apply False.elim; apply cb.facts_not_subset_of_strict_predecessor prec
+        apply False.elim; apply RegularChaseDerivation.facts_not_subset_of_strict_predecessor prec
         apply Set.subset_trans _ l_sub
         intro e e_mem; rw [List.mem_toSet, l_eq]
-        apply (cb.facts_node_subset_result _ node2.property)
+        apply (RegularChaseDerivationSkeleton.facts_node_subset_result _ node2.property)
         exact e_mem
 
-end ChaseBranch
+end RegularChaseBranch
 
 namespace TreeDerivation
 
@@ -183,12 +183,18 @@ theorem branches_finite_of_terminates {N : Type u} [CN : ChaseNode N obs rules] 
   . rintro ⟨⟨b, b_mem⟩, branch_eq⟩; simp only [← branch_eq, ← l_eq]; exact b_mem
   . intro branch_mem; exists ⟨branch.branch, by rw [l_eq]; exact branch_mem⟩
 
+end TreeDerivation
+
+namespace RegularTreeDerivation
+
+variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
+
 /-- A `TreeDerivation` with finitely many branches only has finitely many fact sets in its result. -/
 @[grind ->]
-theorem result_finite_of_branches_finite (td : TreeDerivation (RegularChaseNode obs rules) obs rules) : td.branches.finite -> td.result.finite := by
+theorem result_finite_of_branches_finite (td : RegularTreeDerivation obs rules) : td.branches.finite -> td.result.finite := by
   rintro ⟨l, _, iff⟩
   have : DecidableEq (FactSet sig) := Classical.typeDecidableEq (FactSet sig)
-  apply Set.finite_of_list_with_same_elements (l.map (fun deriv => deriv.result))
+  apply Set.finite_of_list_with_same_elements (l.map RegularChaseDerivation.result)
   intro fs
   rw [List.mem_map]
   constructor
@@ -199,34 +205,35 @@ theorem result_finite_of_branches_finite (td : TreeDerivation (RegularChaseNode 
     intro ⟨b, mem, eq⟩
     exists b; grind
 
-end TreeDerivation
+end RegularTreeDerivation
 
-namespace ChaseTree
+namespace RegularChaseTree
 
 variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
 
 /-- A `ChaseTree` terminates if and only if each fact set in its result is finite. -/
-theorem terminates_iff_result_finite (ct : ChaseTree (RegularChaseNode obs kb.rules) obs kb) : ct.terminates ↔ ∀ fs, fs ∈ ct.result -> fs.finite := by
+theorem terminates_iff_result_finite (ct : RegularChaseTree obs kb) :
+    ct.terminates ↔ ∀ fs, fs ∈ ct.result -> fs.finite := by
   constructor
   . intro each_b_term res
-    unfold TreeDerivation.result; rw [Set.mem_map]
+    unfold RegularChaseTree.result RegularTreeDerivation.result; rw [Set.mem_map]
     intro ⟨b, mem, eq⟩
     let b' := ChaseTree.chaseBranch_for_branch mem
-    have : b'.result = b.result := rfl
+    have : RegularChaseBranch.result b' = RegularChaseDerivation.result b := rfl
     simp only [← eq, ← this]
-    rw [← ChaseBranch.terminates_iff_result_finite]
+    rw [← RegularChaseBranch.terminates_iff_result_finite]
     apply each_b_term
     exact mem
   . intro each_b_term b mem
     let b' := ChaseTree.chaseBranch_for_branch mem
     have : b'.terminates ↔ b.terminates := by rfl
     rw [← this]
-    rw [ChaseBranch.terminates_iff_result_finite]
+    rw [RegularChaseBranch.terminates_iff_result_finite]
     apply each_b_term
-    unfold TreeDerivation.result; rw [Set.mem_map]
+    unfold RegularChaseTree.result RegularTreeDerivation.result; rw [Set.mem_map]
     exists b
 
-end ChaseTree
+end RegularChaseTree
 
 end GeneralResults
 
