@@ -218,10 +218,10 @@ theorem result_infinite {cd : CyclicityDerivation obs rules} : ¬ cd.result.fini
 /-- Each `CyclicityDerivation` is infinite because it is `growing`. It might surprise that this is independant from the above result. However, note that we can only relate finiteness of the result and termination for proper ChaseBranches so corresponding results are not applicable here. -/
 theorem infinite {cd : CyclicityDerivation obs rules} : ¬ cd.terminates := by
   intro contra
-  rcases cd.has_last_node_of_terminates contra with ⟨node, node_last⟩
+  let node : cd.Node := ⟨cd.last contra, cd.last_mem contra⟩
   rcases cd.growing'' node with ⟨node2, prec, ⟨t, t_not_mem, t_mem⟩⟩
   apply t_not_mem
-  apply FactSet.terms_subset_of_subset (RegularChaseDerivationSkeleton.facts_node_subset_of_prec (node_last node2))
+  apply FactSet.terms_subset_of_subset (RegularChaseDerivationSkeleton.facts_node_subset_of_prec (cd.each_prec_last contra node2))
   exact t_mem
 
 /-- In every `TreeDerivation` that starts on the same initial fact set as the `CyclicityDerivation`, there exists a branch that corresponds to the `CyclicityDerivation`, meaning that it has the same result. -/

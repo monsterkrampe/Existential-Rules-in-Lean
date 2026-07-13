@@ -26,6 +26,21 @@ section Definitions
 def ChaseDerivationSkeleton.terminates {obs : ObsolescenceCondition sig} {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N obs rules]
   (cds : ChaseDerivationSkeleton N obs rules) : Prop := cds.branch.finite
 
+/-- A `ChaseDerivationSkeleton` terminates if and only if its suffixes terminate. -/
+theorem ChaseDerivationSkeleton.terminates_iff_terminates_suffix
+    {obs : ObsolescenceCondition sig} {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N obs rules]
+    {cd cd2 : ChaseDerivationSkeleton N obs rules} (suf : cd2 <:+ cd) : cd.terminates ↔ cd2.terminates := by
+  rw [IsSuffix_iff] at suf; rcases suf with ⟨m, suf⟩
+  constructor
+  . intro ⟨n, eq_none⟩
+    exists n - m
+    rw [← suf, PossiblyInfiniteList.get?_drop];
+    apply PossiblyInfiniteList.get?_eq_none_of_le_of_eq_none eq_none
+    grind
+  . intro ⟨n, eq_none⟩
+    exists m + n
+    rw [← PossiblyInfiniteList.get?_drop, suf]; exact eq_none
+
 /-- A `ChaseDerivation` terminates if the underlying `ChaseDerivationSkeleton` is finite. -/
 @[expose]
 def ChaseDerivation.terminates {obs : ObsolescenceCondition sig} {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N obs rules]
@@ -48,49 +63,89 @@ def RuleSet.terminates (rs : RuleSet sig) (obs : ObsolescenceCondition sig) (N :
 
 end Definitions
 
-section GeneralResults
+
+section LastChaseElement
+
+/-!
+## Last Chase Element
+
+For terminating derivations, we define machinery to get the last chase node from the derivation.
+-/
 
 namespace ChaseDerivationSkeleton
 
 variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 variable {N : Type u} [CN : ChaseNode N obs rules]
 
-/-- If a `ChaseDerivationSkeleton` terminates, then there is a maximal node according to the `≼` relation. -/
-theorem has_last_node_of_terminates (cds : ChaseDerivationSkeleton N obs rules) :
-    cds.terminates -> ∃ (node : cds.Node), ∀ (node2 : cds.Node), node2 ≼ node := by
-  rintro ⟨n, h⟩
-  induction n with
-  | zero => have contra := cds.isSome_head; rw [PossiblyInfiniteList.head_eq, h] at contra; simp at contra
-  | succ n ih =>
-    cases eq : cds.branch.get? n with
-    | none => apply ih; exact eq
-    | some node =>
-      let node : cds.Node := ⟨node, by exists n⟩
-      exists node
-      intro node2
-      -- TODO: Maybe it helps that ≼ is total here but this is tricky since right now we depend on the specific d1..
-      let d1 := cds.derivation_for_branch_suffix (cds.branch.drop n) (cds.branch.IsSuffix_drop n) (by rw [PossiblyInfiniteList.head_drop]; simp [eq])
-      have head_eq1 : d1.head = node.val := by simp [d1, derivation_for_branch_suffix, head, PossiblyInfiniteList.head_drop, eq, node]
-      have suf1 : d1 <:+ cds := (cds.branch.IsSuffix_drop n)
-      rcases subderivation_of_node_mem node2.property with ⟨d2, head_eq2, suf2⟩
-      cases PossiblyInfiniteList.suffix_or_suffix_of_suffix suf1 suf2 with
-      | inl suf3 => exists d2; constructor; exact suf2; simp only [head_eq2, true_and]; apply d1.mem_of_mem_suffix suf3; rw [← head_eq1]; exact d1.head_mem
-      | inr suf3 =>
-        cases suffix_iff_eq_or_suffix_tail.mp suf3 with
-        | inl suf3 =>
-          have : node = node2 := by rw [Subtype.mk.injEq, ← head_eq2, suf3, head_eq1]
-          rw [this]
-          exact predecessor_refl
-        | inr suf3 =>
-          rcases suf3 with ⟨contra, suf3⟩
-          apply False.elim
-          unfold next at contra
-          rw [Option.isSome_iff_ne_none] at contra
-          apply contra
-          simp only [d1, derivation_for_branch_suffix, PossiblyInfiniteList.tail_drop, PossiblyInfiniteList.head_drop]
-          exact h
+/-- For terminating derivations, we define the last chase node via turning the derivation into a finite list and then retreiving the last element. -/
+def last (cd : ChaseDerivationSkeleton N obs rules) (term : cd.terminates) : N := (cd.branch.toList_of_finite term).getLast (by
+  intro contra
+  rw [PossiblyInfiniteList.toList_of_finite_empty_iff, PossiblyInfiniteList.empty_iff_head_none] at contra
+  have head_some := cd.isSome_head
+  simp [contra] at head_some)
+
+/-- The `last` node is a member of the derivation. -/
+theorem last_mem {cd : ChaseDerivationSkeleton N obs rules} (term : cd.terminates) : cd.last term ∈ cd := by
+  suffices cd.last term ∈ cd.branch.toList_of_finite term by rw [PossiblyInfiniteList.mem_toList_of_finite] at this; exact this
+  simp [last]
+
+/-- All suffixes have the same last node. -/
+theorem last_eq_of_suffix {cd cd2 : ChaseDerivationSkeleton N obs rules} (suf : cd2 <:+ cd) (term : cd.terminates) :
+    cd.last term = cd2.last ((terminates_iff_terminates_suffix suf).mp term) := by
+  apply Eq.symm; apply List.IsSuffix.getLast
+  have cd2_fin := ((terminates_iff_terminates_suffix suf).mp term)
+  rw [IsSuffix_iff] at suf; rcases suf with ⟨m, suf⟩
+  suffices cd2.branch.toList_of_finite cd2_fin = (cd.branch.toList_of_finite term).drop m by
+    rw [this]; apply List.drop_suffix
+  simp only [← suf]
+  apply List.ext_getElem?; intro i; simp
+
+/-- Every node is a predecessor of the last one. -/
+theorem each_prec_last {cd : ChaseDerivationSkeleton N obs rules} (term : cd.terminates) : ∀ (node : cd.Node), node ≼ ⟨cd.last term, cd.last_mem term⟩ := by
+  intro node; rcases cd.subderivation_of_node_mem node.property with ⟨cd2, head_eq, suf⟩
+  exists cd2; constructor; exact suf; constructor; exact head_eq
+  simp only; rw [last_eq_of_suffix suf]; exact cd2.last_mem _
 
 end ChaseDerivationSkeleton
+
+namespace RegularChaseDerivationSkeleton
+
+variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
+
+/-- For terminating derivations, the result is equal to the facts of the last node. -/
+theorem result_eq_facts_last {cd : RegularChaseDerivationSkeleton obs rules} (term : cd.terminates) : cd.result = (cd.last term).facts := by
+  apply Set.ext; intro f; constructor
+  . intro ⟨node, node_mem, f_mem⟩
+    let node : cd.Node := ⟨node, node_mem⟩
+    apply cd.facts_node_subset_of_prec (cd.each_prec_last term node)
+    exact f_mem
+  . apply cd.facts_node_subset_result _ (cd.last_mem term)
+
+end RegularChaseDerivationSkeleton
+
+namespace ChaseDerivation
+
+variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
+variable {N : Type u} [CN : ChaseNode N obs rules]
+
+/-- No trigger is active on the last node. -/
+theorem trg_inactive_for_last {cd : ChaseDerivation N obs rules} (term : cd.terminates) :
+    ∀ (trg : RTrigger obs rules), ¬ trg.val.active (CN.outgoingFacts (cd.last term)) := by
+  intro trg
+  rcases cd.fairness' trg with ⟨cd2, suf, fair⟩
+  apply fair
+  rw [cd.last_eq_of_suffix suf]; exact cd2.last_mem _
+
+end ChaseDerivation
+
+end LastChaseElement
+
+
+section GeneralResults
+
+/-!
+We now show some general results mainly relating termination and finiteness of the chase result.
+-/
 
 namespace RegularChaseDerivation
 
@@ -99,7 +154,9 @@ variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 /-- A `ChaseDerivation` terminates if and only if there is a maximal node according to the `≼` relation. -/
 theorem terminating_has_last_node (cd : RegularChaseDerivation obs rules) : cd.terminates ↔ ∃ (node : cd.Node), ∀ (node2 : cd.Node), node2 ≼ node := by
   constructor
-  . exact cd.toChaseDerivationSkeleton.has_last_node_of_terminates
+  . intro term
+    exists ⟨cd.last term, cd.last_mem term⟩
+    apply cd.each_prec_last
   . rintro ⟨node, all_pred⟩
     rcases node.property with ⟨n, node_eq⟩
     exists n+1
@@ -131,13 +188,10 @@ variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
 theorem terminates_iff_result_finite (cb : RegularChaseBranch obs kb) : cb.terminates ↔ cb.result.finite := by
   constructor
   . intro terminates
-    rcases (RegularChaseDerivation.terminating_has_last_node cb.toChaseDerivation).mp terminates with ⟨node, all_pred⟩
-    have : cb.result ⊆ node.val.facts := by
-      rintro f ⟨node2, node2_mem, f_mem⟩
-      apply RegularChaseDerivationSkeleton.facts_node_subset_of_prec (all_pred ⟨node2, node2_mem⟩)
-      exact f_mem
-    apply Set.finite_of_subset_finite _ this
-    apply cb.facts_finite_of_mem
+    unfold result
+    rw [RegularChaseDerivationSkeleton.result_eq_facts_last terminates]
+    let node : cb.Node := ⟨cb.last terminates, cb.last_mem terminates⟩
+    apply cb.facts_finite_of_mem node
   . rintro ⟨l, _, l_eq⟩
     rw [RegularChaseDerivation.terminating_has_last_node]
     rcases RegularChaseDerivationSkeleton.facts_mem_some_node_of_mem_result l (by intro _ mem; rw [List.mem_toSet, l_eq] at mem; exact mem) with ⟨node, node_mem, l_sub⟩
