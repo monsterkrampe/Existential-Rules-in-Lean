@@ -238,6 +238,30 @@ theorem isStrongCore_of_isWeakCore_of_finite (fs : FactSet sig) (weakCore : fs.i
     . exact isHom
     . exact injective
 
+/-- Each `homSubset` of a finite core is equal to that core. -/
+theorem homSubset_eq_self_of_isWeakCore_of_finite {fs1 fs2 : FactSet sig} (homSub : fs1.homSubset fs2) (core : fs2.isWeakCore) (fin : fs2.finite) : fs1 = fs2 := by
+  apply Set.ext; intro f; constructor; exact homSub.left f
+  intro f_mem
+  have strong_core := fs2.isStrongCore_of_isWeakCore_of_finite core fin
+  rcases homSub.right with ⟨h, hom⟩
+  have h_endo : h.isHomomorphism fs2 fs2 := by constructor; exact hom.left; exact Set.subset_trans hom.right homSub.left
+  have h_endo' : h.isHomomorphism fs1 fs1 := by
+    constructor; exact hom.left; apply Set.subset_trans _ hom.right; apply TermMapping.apply_generalized_atom_set_subset_of_subset; exact homSub.left
+  have h_surj := (strong_core h h_endo).right.right
+  rcases fs2.terms_finite_of_finite fin with ⟨terms, _, terms_eq⟩
+  have terms_eq : ∀ t, t ∈ fs2.terms ↔ t ∈ terms := by intro _; rw [terms_eq]
+  rw [Function.surjective_set_list_equiv terms_eq terms_eq] at h_surj
+  rcases h.exists_repetition_that_is_inverse_of_surj terms h_surj with ⟨k, inv⟩
+  suffices GroundTermMapping.applyFact (h.repeat_fun k ∘ h) f = f by
+    have compose_hom : GroundTermMapping.isHomomorphism (h.repeat_fun k ∘ h) fs2 fs1 := by
+      apply GroundTermMapping.isHomomorphism_compose; exact hom; apply GroundTermMapping.repeat_isHomomorphism; exact h_endo'
+    apply compose_hom.right; rw [← this]; apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set; exact f_mem
+  apply TermMapping.apply_generalized_atom_eq_self_of_id_on_terms
+  intro t t_mem
+  apply inv
+  rw [← terms_eq]
+  exists f
+
 /-- Given two fact sets A,B of which one is a weak and one is a strong core, if there are homomorphisms from A to B and B to A, then there exists an isomorphism from A to B, i.e. a strong homomorphisms that is injective and surjective. -/
 theorem every_weakCore_isomorphic_to_strongCore_of_hom_both_ways
     (sc : FactSet sig) (sc_strong : sc.isStrongCore)

@@ -34,23 +34,28 @@ variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq 
 variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
 
 /-- The `InductiveHomomorphismResult` is used for the step-wise construction is forms the element that is the input and output of the generator function used in `TreeDerivation.generate_subderivation` later. It consists of a node in the chase tree and a `GroundTermMapping` that is a homomorphism from the node to the target model. The generated branch is the chain of all the generated nodes.  -/
-abbrev InductiveHomomorphismResult (ct : ChaseTree obs kb) (m : FactSet sig) :=
-  { pair : ct.NodeWithAddress × (GroundTermMapping sig) // pair.snd.isHomomorphism pair.fst.node.facts m }
+abbrev InductiveHomomorphismResult {N : Type u} [CN : ChaseNode N obs kb.rules] (ct : ChaseTree N obs kb) (m : FactSet sig) :=
+  { pair : ct.NodeWithAddress × (GroundTermMapping sig) // pair.snd.isHomomorphism (CN.outgoingFacts pair.fst.node) m }
 
-/-- Consider any node in the chase tree together with a homomorphism from this node to the target model. Given that there is an active trigger for the node, we return one of its child nodes together with an extended homomorphism. How do we know that such a node and homomorphism exist? This is because the existing trigger is loaded for the target model but since it is a model, we can also show that it also needs to be satisfied for the model. The way in which the trigger is satisfied in the model dictates which child node we pick and how we define the homomorphisms for the fresh terms introduced by the trigger. This is already all that happens here but it is not quite trivial to show that the constructed `GroundTermMapping` is indeed a homomorphism. -/
+/-- Consider any node in the chase tree together with a homomorphism from this node to the target model. Given that the list of child nodes is not empty, we return one of child node together with an extended homomorphism. How do we know that such a node and homomorphism exist? If the list of children is not empty, there needs to exists a trigger that has been used to derive them. The existing trigger is loaded for the target model but since it is a model, we can also show that it also needs to be satisfied for the model. The way in which the trigger is satisfied in the model dictates which child node we pick and how we define the homomorphisms for the fresh terms introduced by the trigger. This is already all that happens here but it is not quite trivial to show that the constructed `GroundTermMapping` is indeed a homomorphism. -/
 noncomputable def hom_step_of_trg_ex
-    (ct : ChaseTree obs kb)
+    {N : Type u} [CN : ChaseNode N obs kb.rules] (out_sub_in : CN.out_sub_in)
+    (ct : ChaseTree N obs kb)
     (m : FactSet sig)
     (m_is_model : m.modelsKb kb)
     (node : ct.NodeWithAddress)
     (prev_hom : GroundTermMapping sig)
-    (prev_hom_is_homomorphism : prev_hom.isHomomorphism node.node.facts m)
-    (trg_ex : exists_trigger_list obs kb.rules node.node node.subderivation.childNodes) :
+    (prev_hom_is_homomorphism : prev_hom.isHomomorphism (CN.outgoingFacts node.node) m)
+    (children_ne_nil : node.subderivation.childNodes ≠ [])
+    (trg_inactive_of_fresh_term_present : ∀ (trg : RTrigger obs kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active (CN.outgoingFacts node.node)) :
     InductiveHomomorphismResult ct m :=
+  have trg_ex := node.triggers_exist children_ne_nil
   let trg := Classical.choose trg_ex
-  let trg_spec := Classical.choose_spec trg_ex
-  let trg_active_for_current_step := trg_spec.left
-  let trg_result_used_for_next_chase_step := trg_spec.right
+  have trg_spec := Classical.choose_spec trg_ex
+  have trg_spec_act := trg_spec.left
+  have trg_spec_facts_eq := trg_spec.right.left
+  have trg_spec_orig_eq := trg_spec.right.right.left
+  have trg_spec_idx_eq := trg_spec.right.right.right
 
   let trg_variant_for_m : RTrigger obs kb.rules := {
     val := {
@@ -60,12 +65,11 @@ noncomputable def hom_step_of_trg_ex
     property := trg.property
   }
   have trg_variant_loaded_for_m : trg_variant_for_m.val.loaded m := by
-    have : trg_variant_for_m.val.loaded (prev_hom.applyFactSet node.node.facts) := by
-      apply PreTrigger.term_mapping_preserves_loadedness
-      . exact prev_hom_is_homomorphism.left
-      . exact trg_active_for_current_step.left
-    apply Set.subset_trans this
-    exact prev_hom_is_homomorphism.right
+    suffices trg_variant_for_m.val.loaded (prev_hom.applyFactSet (CN.outgoingFacts node.node)) by
+      exact Set.subset_trans this prev_hom_is_homomorphism.right
+    apply PreTrigger.term_mapping_preserves_loadedness
+    . exact prev_hom_is_homomorphism.left
+    . exact trg_spec_act.left
   have trg_variant_satisfied_on_m : trg_variant_for_m.val.satisfied m := by
     have m_models_rule : m.modelsRule trg_variant_for_m.val.rule := by exact m_is_model.right trg.val.rule trg.property
     unfold FactSet.modelsRule at m_models_rule
@@ -80,9 +84,9 @@ noncomputable def hom_step_of_trg_ex
   let result_index_for_trg : Fin trg.val.mapped_head.length := ⟨head_index_for_m_subs.val, by unfold PreTrigger.mapped_head; simp; exact head_index_for_m_subs.isLt⟩
 
   let next_hom : GroundTermMapping sig := fun t =>
-    let t_in_root := t ∈ node.node.facts.terms
-    have t_in_root_dec := Classical.propDecidable t_in_root
-    if t_in_root then prev_hom t else
+    let t_in_node := t ∈ (CN.outgoingFacts node.node).terms
+    have t_in_node_dec := Classical.propDecidable t_in_node
+    if t_in_node then prev_hom t else
       let t_fresh := t ∈ trg.val.fresh_terms_for_head_disjunct head_index_for_m_subs.val head_index_for_m_subs.isLt
       have t_fresh_dec := Classical.propDecidable t_fresh
       if t_fresh_true : t_fresh then
@@ -98,12 +102,16 @@ noncomputable def hom_step_of_trg_ex
       case isFalse _ => rfl
       case isTrue h => rcases trg.val.term_functional_of_mem_fresh_terms _ h with ⟨_, _, _, contra⟩; have contra := Eq.symm contra; simp [GroundTerm.func_neq_const] at contra
 
-  ⟨((node.childNodes[head_index_for_m_subs.val]'(by rw [TreeDerivation.NodeWithAddress.length_childNodes, trg_result_used_for_next_chase_step, List.length_map, List.length_attach, List.length_zipIdx_with_lt, PreTrigger.length_mapped_head]; exact head_index_for_m_subs.isLt)), next_hom), by
+  ⟨((node.childNodes[head_index_for_m_subs.val]'(by
+      have length_mapped_eq : (node.subderivation.childNodes.map CN.ingoingFacts).length = node.subderivation.childNodes.length := by simp
+      rw [TreeDerivation.NodeWithAddress.length_childNodes, ← length_mapped_eq, trg_spec_facts_eq, List.length_map, PreTrigger.length_mapped_head]
+      exact head_index_for_m_subs.isLt)), next_hom), by
     constructor
     . exact next_hom_id_const
     intro mapped_f
     rw [GroundTermMapping.mem_applyFactSet]
     intro ⟨f, f_mem, mapped_f_eq⟩
+    have f_mem := out_sub_in _ f_mem
     rw [node.subderivation.facts_childNodes (by apply TreeDerivation.NodeWithAddress.mem_childNodes_of_mem_childNodes; apply List.getElem_mem)] at f_mem
     rw [mapped_f_eq]
     cases f_mem with
@@ -113,18 +121,24 @@ noncomputable def hom_step_of_trg_ex
       exists f; rw [TreeDerivation.NodeWithAddress.root_subderivation'] at f_mem; simp only [f_mem, true_and]
       apply TermMapping.apply_generalized_atom_congr_left
       intro t t_mem
-      have t_mem : t ∈ node.node.facts.terms := by exists f
+      have t_mem : t ∈ (CN.outgoingFacts node.node).terms := by exists f
       simp [next_hom, t_mem]
     | inr f_mem =>
       have f_mem : f ∈ trg.val.mapped_head[result_index_for_trg.val] := by
-        simp only [List.mem_toSet, TreeDerivation.NodeWithAddress.node_getElem_childNodes, trg_result_used_for_next_chase_step] at f_mem
-        simp only [List.getElem_map, List.getElem_attach] at f_mem
-        have : ((Classical.choose trg_ex).val.mapped_head.zipIdx_with_lt[head_index_for_m_subs.val]'(by simpa using result_index_for_trg.isLt)).fst.toSet = ((Classical.choose trg_ex).val.mapped_head[head_index_for_m_subs.val]'(result_index_for_trg.isLt)).toSet := by rw [List.zipIdx_with_lt_getElem_fst_eq_getElem]
-        simp only [this] at f_mem
-        have : ((Classical.choose trg_ex).val.mapped_head.zipIdx_with_lt[head_index_for_m_subs.val]'(by simpa using result_index_for_trg.isLt)).snd = ⟨head_index_for_m_subs.val, result_index_for_trg.isLt⟩ := by rw [List.zipIdx_with_lt_getElem_snd_eq_index]
-        simp only [this] at f_mem
-        simp only [ChaseNode.origin_result, Option.get_some] at f_mem
-        exact f_mem
+        -- this is similar to the proof of ChaseNode.succ_of_mem_succ_list
+        have lt : head_index_for_m_subs.val < node.subderivation.childNodes.length := by
+          have length_mapped_eq : (node.subderivation.childNodes.map CN.ingoingFacts).length = node.subderivation.childNodes.length := by simp
+          rw [← length_mapped_eq, trg_spec_facts_eq, List.length_map, PreTrigger.length_mapped_head]
+          exact head_index_for_m_subs.isLt
+        simp only [TreeDerivation.NodeWithAddress.node_getElem_childNodes] at f_mem
+        specialize trg_spec_orig_eq (node.subderivation.childNodes[head_index_for_m_subs.val]) (by simp)
+        rw [Option.map_eq_some_iff] at trg_spec_orig_eq; rcases trg_spec_orig_eq with ⟨orig, orig_eq, trg_eq⟩
+        rw [List.mem_toSet, CN.origin_result_eq _ (trg := trg.val) (i := result_index_for_trg.val)] at f_mem; exact f_mem
+        . simp only [orig_eq, Option.get_some, trg_eq]; rfl
+        . specialize trg_spec_idx_eq (node.subderivation.childNodes[head_index_for_m_subs.val], result_index_for_trg.val) (by grind)
+          rw [orig_eq, Option.map_some, Option.some_inj] at trg_spec_idx_eq; simp only at trg_spec_idx_eq
+          simp only [← trg_spec_idx_eq]
+          grind
       apply h_obs_at_head_index_for_m_subs.right
       rw [List.mem_toSet]
       rw [GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list]
@@ -149,14 +163,13 @@ noncomputable def hom_step_of_trg_ex
           rw [h_obs_at_head_index_for_m_subs.left v v_front]
           rw [PreTrigger.apply_to_var_or_const_frontier_var _ _ _ v_front]
           simp only [trg_variant_for_m, next_hom]
-          have : trg.val.subs v ∈ node.node.facts.terms := by
-            apply FactSet.terms_subset_of_subset trg_active_for_current_step.left
-            rw [FactSet.mem_terms_toSet, PreTrigger.mem_terms_mapped_body_iff]
-            apply Or.inr
-            exists v; constructor
-            . apply Rule.frontier_subset_vars_body; exact v_front
-            . rfl
-          simp [this]
+          suffices trg.val.subs v ∈ (CN.outgoingFacts node.node).terms by simp [this]
+          apply FactSet.terms_subset_of_subset trg_spec_act.left
+          rw [FactSet.mem_terms_toSet, PreTrigger.mem_terms_mapped_body_iff]
+          apply Or.inr
+          exists v; constructor
+          . apply Rule.frontier_subset_vars_body; exact v_front
+          . rfl
         | inr v_front =>
           have v_exis : v ∈ trg.val.rule.existential_vars_for_head_disjunct head_index_for_m_subs.val head_index_for_m_subs.isLt := by
             simp only [Rule.existential_vars_for_head_disjunct, List.mem_filter, decide_eq_true_eq]; constructor
@@ -165,114 +178,113 @@ noncomputable def hom_step_of_trg_ex
               . apply PreTrigger.atom_for_result_fact_mem_head
               . exact voc_mem
             . exact v_front
-          have func_term_fresh : trg.val.functional_term_for_var result_index_for_trg.val v ∈ trg.val.fresh_terms_for_head_disjunct head_index_for_m_subs.val head_index_for_m_subs.isLt := by
-            apply List.mem_map_of_mem; exact v_exis
+          have func_term_fresh : trg.val.functional_term_for_var result_index_for_trg.val v ∈ trg.val.fresh_terms_for_head_disjunct head_index_for_m_subs.val head_index_for_m_subs.isLt := by apply List.mem_map_of_mem; exact v_exis
           rw [PreTrigger.apply_to_var_or_const_non_frontier_var _ _ _ v_front]
           simp only [next_hom]
-          have : ¬ trg.val.functional_term_for_var result_index_for_trg.val v ∈ node.node.facts.terms := by
-            intro contra
-            apply trg_active_for_current_step.right
-            apply obs.contains_trg_result_implies_cond result_index_for_trg
-            apply ChaseTree.result_of_trigger_introducing_functional_term_occurs_in_chase node contra
-            exact func_term_fresh
-          simp only [this, ↓reduceIte]
-          simp only [func_term_fresh, ↓reduceDIte]
-          rw [PreTrigger.existential_var_for_fresh_term_after_functional_term_for_var]
-          exact v_exis
+          suffices ¬ trg.val.functional_term_for_var result_index_for_trg.val v ∈ (CN.outgoingFacts node.node).terms by
+            simp only [this, ↓reduceIte]
+            simp only [func_term_fresh, ↓reduceDIte]
+            rw [PreTrigger.existential_var_for_fresh_term_after_functional_term_for_var]
+            exact v_exis
+          intro contra
+          apply trg_inactive_of_fresh_term_present _ _ _ _ func_term_fresh contra
+          exact trg_spec_act
   ⟩
 
 /-- The node that we pick in `hom_step_of_trg_ex` is in the childNodes of the previous node. This is trivial. -/
 theorem mem_childNodes_of_mem_hom_step_of_trg_ex
-    {ct : ChaseTree obs kb}
+    {N : Type u} [CN : ChaseNode N obs kb.rules] {out_sub_in : CN.out_sub_in}
+    {ct : ChaseTree N obs kb}
     {m : FactSet sig}
     {m_is_model : m.modelsKb kb}
     {node : ct.NodeWithAddress}
     {prev_hom : GroundTermMapping sig}
-    {prev_hom_is_homomorphism : prev_hom.isHomomorphism node.node.facts m}
-    {trg_ex : exists_trigger_list obs kb.rules node.node node.subderivation.childNodes} :
-    (hom_step_of_trg_ex ct m m_is_model node prev_hom prev_hom_is_homomorphism trg_ex).val.fst ∈ node.childNodes := by
+    {prev_hom_is_homomorphism : prev_hom.isHomomorphism (CN.outgoingFacts node.node) m}
+    {children_ne_nil : node.subderivation.childNodes ≠ []}
+    {trg_inactive_of_fresh_term_present : ∀ (trg : RTrigger obs kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active (CN.outgoingFacts node.node)} :
+    (hom_step_of_trg_ex out_sub_in ct m m_is_model node prev_hom prev_hom_is_homomorphism children_ne_nil trg_inactive_of_fresh_term_present).val.fst ∈ node.childNodes := by
   simp only [hom_step_of_trg_ex]; exact List.getElem_mem _
 
 /-- The homomorphisms that we construct in `hom_step_of_trg_ex` agrees with the previous one on all terms in the previous node. This is also trivial. -/
 theorem hom_extends_prev_in_hom_step_of_trg_ex
-    {ct : ChaseTree obs kb}
+    {N : Type u} [CN : ChaseNode N obs kb.rules] {out_sub_in : CN.out_sub_in}
+    {ct : ChaseTree N obs kb}
     {m : FactSet sig}
     {m_is_model : m.modelsKb kb}
     {node : ct.NodeWithAddress}
     {prev_hom : GroundTermMapping sig}
-    {prev_hom_is_homomorphism : prev_hom.isHomomorphism node.node.facts m}
-    {trg_ex : exists_trigger_list obs kb.rules node.node node.subderivation.childNodes} :
-    ∀ t ∈ node.node.facts.terms, prev_hom t = (hom_step_of_trg_ex ct m m_is_model node prev_hom prev_hom_is_homomorphism trg_ex).val.snd t := by intro t t_mem; simp [hom_step_of_trg_ex, t_mem]
+    {prev_hom_is_homomorphism : prev_hom.isHomomorphism (CN.outgoingFacts node.node) m}
+    {children_ne_nil : node.subderivation.childNodes ≠ []}
+    {trg_inactive_of_fresh_term_present : ∀ (trg : RTrigger obs kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active (CN.outgoingFacts node.node)} :
+    ∀ t ∈ (CN.outgoingFacts node.node).terms, prev_hom t = (hom_step_of_trg_ex out_sub_in ct m m_is_model node prev_hom prev_hom_is_homomorphism children_ne_nil trg_inactive_of_fresh_term_present).val.snd t := by intro t t_mem; simp [hom_step_of_trg_ex, t_mem]
 
 /-- When extending the `InductiveHomomorphismResult` from one step to the next, we do not necessarily know that a trigger is active for the current node. Indeed the chase might just have already finished. So we do a simple case distinction here and return an `Option` either with the result from `hom_step_of_trg_ex` or simply none. -/
 noncomputable def hom_step
-    (ct : ChaseTree obs kb)
+    {N : Type u} [CN : ChaseNode N obs kb.rules] (out_sub_in : CN.out_sub_in)
+    (ct : ChaseTree N obs kb)
     (m : FactSet sig)
     (m_is_model : m.modelsKb kb)
+    (trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger obs kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active (CN.outgoingFacts node.node))
     (prev_res : InductiveHomomorphismResult ct m) :
     Option (InductiveHomomorphismResult ct m) :=
-  let trg_ex := exists_trigger_list obs kb.rules prev_res.val.fst.node prev_res.val.fst.subderivation.childNodes
-  have _trg_eq_dec := Classical.propDecidable trg_ex
-  if trg_ex_true : trg_ex then
-    some (hom_step_of_trg_ex ct m m_is_model prev_res.val.fst prev_res.val.snd prev_res.property trg_ex_true)
-  else
-    none
+  if eq_nil : prev_res.val.fst.subderivation.childNodes = []
+  then none
+  else some (hom_step_of_trg_ex out_sub_in ct m m_is_model prev_res.val.fst prev_res.val.snd prev_res.property eq_nil (trg_inactive_of_fresh_term_present _))
 
 /-- If there is a new node returned by `hom_step`, then it is in the `childNodes` of the current node. -/
 theorem mem_childNodes_of_mem_hom_step
-    {ct : ChaseTree obs kb}
+    {N : Type u} [CN : ChaseNode N obs kb.rules] {out_sub_in : CN.out_sub_in}
+    {ct : ChaseTree N obs kb}
     {m : FactSet sig}
     {m_is_model : m.modelsKb kb}
+    {trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger obs kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active (CN.outgoingFacts node.node)}
     {prev_res : InductiveHomomorphismResult ct m} :
-    ∀ res ∈ hom_step ct m m_is_model prev_res, res.val.fst ∈ prev_res.val.fst.childNodes := by
+    ∀ res ∈ hom_step out_sub_in ct m m_is_model trg_inactive_of_fresh_term_present prev_res, res.val.fst ∈ prev_res.val.fst.childNodes := by
   intro res
   simp only [hom_step]
   grind [mem_childNodes_of_mem_hom_step_of_trg_ex]
 
 /-- If `hom_step` returns none, then the current node does not have any children. -/
 theorem childNodes_empty_of_hom_step_none
-    {ct : ChaseTree obs kb}
+    {N : Type u} [CN : ChaseNode N obs kb.rules] {out_sub_in : CN.out_sub_in}
+    {ct : ChaseTree N obs kb}
     {m : FactSet sig}
     {m_is_model : m.modelsKb kb}
+    {trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger obs kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active (CN.outgoingFacts node.node)}
     {prev_res : InductiveHomomorphismResult ct m} :
-    hom_step ct m m_is_model prev_res = none -> prev_res.val.fst.childNodes = [] := by
+    hom_step out_sub_in ct m m_is_model trg_inactive_of_fresh_term_present prev_res = none -> prev_res.val.fst.childNodes = [] := by
   simp only [hom_step]
   split
+  case isTrue h => intro _; rw [TreeDerivation.NodeWithAddress.childNodes_eq_childNodes, List.map_eq_nil_iff] at h; exact h
   . simp
-  case isFalse h =>
-    intros
-    have trg_ex := ct.triggers_exist prev_res.val.fst.address
-    rw [FiniteDegreeTree.root_drop] at trg_ex
-    specialize trg_ex _ prev_res.val.fst.eq
-    cases trg_ex with
-    | inl trg_ex =>
-      rw [TreeDerivation.NodeWithAddress.childNodes_subderivation] at h
-      contradiction
-    | inr trg_ex =>
-      suffices prev_res.val.fst.childNodes.map TreeDerivation.NodeWithAddress.node = [] by
-        rw [List.map_eq_nil_iff] at this
-        exact this
-      rw [← TreeDerivation.NodeWithAddress.childNodes_eq_childNodes, TreeDerivation.NodeWithAddress.childNodes_subderivation]
-      unfold not_exists_trigger_list at trg_ex
-      exact trg_ex.right
 
 /-- The homomorphism returns in `hom_step` agrees with the current one on all terms from the current node. -/
 theorem hom_extends_prev_in_hom_step
-    {ct : ChaseTree obs kb}
+    {N : Type u} [CN : ChaseNode N obs kb.rules] {out_sub_in : CN.out_sub_in}
+    {ct : ChaseTree N obs kb}
     {m : FactSet sig}
     {m_is_model : m.modelsKb kb}
+    {trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger obs kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active (CN.outgoingFacts node.node)}
     {prev_res : InductiveHomomorphismResult ct m} :
-    ∀ pair ∈ hom_step ct m m_is_model prev_res, ∀ t ∈ prev_res.val.fst.node.facts.terms, prev_res.val.snd t = pair.val.snd t := by
+    ∀ pair ∈ hom_step out_sub_in ct m m_is_model trg_inactive_of_fresh_term_present prev_res,
+      ∀ t ∈ (CN.outgoingFacts prev_res.val.fst.node).terms, prev_res.val.snd t = pair.val.snd t := by
   intro res
   simp only [hom_step]
   grind [hom_extends_prev_in_hom_step_of_trg_ex]
 
 /-- As outlined at the very top of this file, we now use `TreeDerivation.generate_subderivation` with the `hom_step` generator to obtain the branch in the tree that yields the result `FactSet` for which the combined `GroundTermMapping`s form a homomorphism into the target model. -/
-public theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : FactSet sig), m.modelsKb kb -> ∃ (fs : FactSet sig) (h : GroundTermMapping sig), fs ∈ ct.result ∧ h.isHomomorphism fs m := by
+public theorem chaseTreeResultIsUniversal (ct : RegularChaseTree obs kb) : ∀ (m : FactSet sig), m.modelsKb kb ->
+    ∃ (fs : FactSet sig) (h : GroundTermMapping sig), fs ∈ ct.result ∧ h.isHomomorphism fs m := by
+  have trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger obs kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (RegularChaseNode.regularChaseNodeInstance.outgoingFacts node.node).terms -> ¬ trg.val.active (RegularChaseNode.regularChaseNodeInstance.outgoingFacts node.node) := by
+    intro node trg i lt t t_fresh t_mem_node trg_act
+    apply trg_act.right
+    apply obs.contains_trg_result_implies_cond ⟨i, by simpa using lt⟩
+    exact RegularChaseTree.result_of_trigger_introducing_functional_term_occurs_in_chase node t_mem_node t_fresh
+
   intro m m_is_model
 
   let start : InductiveHomomorphismResult ct m := ⟨(TreeDerivation.NodeWithAddress.root ct.toTreeDerivation, id), by
-    simp only [TreeDerivation.NodeWithAddress.root]; rw [ct.database_first']; simp only
+    simp only [TreeDerivation.NodeWithAddress.root]; rw [ct.database_first'.right.left]
     constructor
     . unfold GroundTermMapping.isIdOnConstants; simp
     . intro e
@@ -283,9 +295,9 @@ public theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : Fac
       rw [this] at hf
       exact hf.left⟩
 
-  let derivs_with_homs : PossiblyInfiniteList (ChaseDerivation obs kb.rules × GroundTermMapping sig) :=
-    PossiblyInfiniteList.generate start (hom_step ct m m_is_model) (fun res =>
-      let deriv : ChaseDerivation obs kb.rules := ct.generate_subderivation res (hom_step ct m m_is_model)
+  let derivs_with_homs : PossiblyInfiniteList (RegularChaseDerivation obs kb.rules × GroundTermMapping sig) :=
+    PossiblyInfiniteList.generate start (hom_step RegularChaseNode.out_sub_in ct m m_is_model trg_inactive_of_fresh_term_present) (fun res =>
+      let deriv : RegularChaseDerivation obs kb.rules := ct.generate_subderivation res (hom_step RegularChaseNode.out_sub_in ct m m_is_model trg_inactive_of_fresh_term_present)
         (fun res => res.val.fst)
         (by intro prev res res_mem; exact mem_childNodes_of_mem_hom_step res res_mem)
         (by intro prev eq_none
@@ -300,6 +312,7 @@ public theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : Fac
   have derivs_with_homs_properties : ∀ step ∈ derivs_with_homs, step.snd.isHomomorphism step.fst.head.facts m := by
     intro step step_mem
     simp only [derivs_with_homs, PossiblyInfiniteList.mem_iff, PossiblyInfiniteList.get?_generate, Option.map_eq_some_iff] at step_mem
+    rw [← RegularChaseNode.outgoingFacts_eq]
     grind
 
   let deriv := (derivs_with_homs.head.get (by simp [derivs_with_homs, PossiblyInfiniteList.head_generate])).fst
@@ -312,7 +325,7 @@ public theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : Fac
 
   have deriv_eq : deriv.branch = derivs_with_homs.map (fun step => step.fst.head) := by
     let pairs : PossiblyInfiniteList (InductiveHomomorphismResult ct m) :=
-      PossiblyInfiniteList.generate start (hom_step ct m m_is_model) id
+      PossiblyInfiniteList.generate start (hom_step RegularChaseNode.out_sub_in ct m m_is_model trg_inactive_of_fresh_term_present) id
     have pairs_eq : pairs.map (fun res => res.val.fst.node) = derivs_with_homs.map (fun step => step.fst.head) := by
       simp only [pairs, derivs_with_homs]
       apply PossiblyInfiniteList.ext; intro n
@@ -374,7 +387,7 @@ public theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : Fac
         constructor
         . simp [ChaseDerivationSkeleton.head, step_mem_deriv, node1]
         . rw [ChaseDerivationSkeleton.mem_iff]; exists m; simp [pair_mem_deriv, node2]
-      exact deriv.facts_node_subset_of_prec prec
+      exact RegularChaseDerivationSkeleton.facts_node_subset_of_prec prec
 
   let global_h : GroundTermMapping sig := fun t =>
     let t_mem := ∃ step ∈ derivs_with_homs, t ∈ step.fst.head.facts.terms
@@ -425,8 +438,8 @@ public theorem chaseTreeResultIsUniversal (ct : ChaseTree obs kb) : ∀ (m : Fac
     apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
     exact f_mem
 
-  exists branch.result, global_h; constructor;
-  . unfold TreeDerivation.result; rw [Set.mem_map]; exists deriv
+  exists RegularChaseBranch.result branch, global_h; constructor
+  . unfold RegularChaseBranch.result RegularChaseTree.result RegularTreeDerivation.result; rw [Set.mem_map]; exists deriv
   constructor
   . intro c
     simp only [global_h]

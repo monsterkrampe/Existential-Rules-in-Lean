@@ -28,8 +28,9 @@ variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 
 /-- A `GroundTermMapping` is an alternative for a `ChaseDerivation` and a `FactSet` if it is an alternative match into the fact set for the trigger is used to derive `ChaseDerivationSkeleton.next`. -/
 @[expose]
-def is_alt_match_for_chase_derivation_and_fs (h : GroundTermMapping sig) (cd : ChaseDerivation obs rules) (fs : FactSet sig) : Prop :=
-  ∃ (next : ChaseNode obs rules) (next_mem : next ∈ cd.next),
+def is_alt_match_for_chase_derivation_and_fs
+    (h : GroundTermMapping sig) (cd : RegularChaseDerivation obs rules) (fs : FactSet sig) : Prop :=
+  ∃ (next : RegularChaseNode obs rules) (next_mem : next ∈ cd.next),
     let origin := next.origin.get (cd.isSome_origin_next next_mem)
     h.isAlternativeMatch origin.fst.val origin.snd fs
 
@@ -42,17 +43,17 @@ variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 
 /-- A `ChaseDerivation` has an alternative match into a `FactSet` simply if there is a `GroundTermMapping` that is such an alternative match for `ChaseDerivationSkeleton.next`. -/
 @[expose]
-def has_alt_match_for_next_and_fs (cd : ChaseDerivation obs rules) (fs : FactSet sig) : Prop :=
+def has_alt_match_for_next_and_fs (cd : RegularChaseDerivation obs rules) (fs : FactSet sig) : Prop :=
   ∃ (h : GroundTermMapping sig), h.is_alt_match_for_chase_derivation_and_fs cd fs
 
 /-- More generally, a `ChaseDerivation` has an alternative match into a `FactSet` if one of its subderivations has an alternative match for `ChaseDerivationSkeleton.next` (according to the above definition) into the fact set. -/
 @[expose]
-def has_alt_match_for_fs (cd : ChaseDerivation obs rules) (fs : FactSet sig) : Prop :=
-  ∃ cd2 : ChaseDerivation obs rules, cd2 <:+ cd ∧ cd2.has_alt_match_for_next_and_fs fs
+def has_alt_match_for_fs (cd : RegularChaseDerivation obs rules) (fs : FactSet sig) : Prop :=
+  ∃ cd2 : RegularChaseDerivation obs rules, cd2 <:+ cd ∧ cd2.has_alt_match_for_next_and_fs fs
 
 /-- Finally, a `ChaseDerivation` has an alternative match, if it has an alternative match into its own result. -/
 @[expose]
-def has_alt_match (cd : ChaseDerivation obs rules) : Prop := cd.has_alt_match_for_fs cd.result
+def has_alt_match (cd : RegularChaseDerivation obs rules) : Prop := cd.has_alt_match_for_fs cd.result
 
 end ChaseDerivation
 
@@ -62,7 +63,7 @@ variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [DecidableEq 
 variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
 
 /-- If a `ChaseBranch` has no alternative match (into its own result), then the result is a weak core. -/
-theorem result_isWeakCore_of_noAltMatch {cb : ChaseBranch obs kb} (det : kb.isDeterministic) :
+theorem result_isWeakCore_of_noAltMatch {cb : RegularChaseBranch obs kb} (det : kb.isDeterministic) :
     ¬ cb.has_alt_match -> cb.result.isWeakCore := by
   intro noAltMatch h_0 h_0_hom
   apply Classical.byContradiction
@@ -90,7 +91,7 @@ theorem result_isWeakCore_of_noAltMatch {cb : ChaseBranch obs kb} (det : kb.isDe
         . intro t t_mem
           simp at t_mem
           rcases t_mem with ⟨f, f_mem, t_mem⟩
-          rw [cb.database_first'] at f_mem
+          rw [← RegularChaseNode.outgoingFacts_eq, cb.database_first'.right.left] at f_mem
 
           have isFunctionFree := kb.db.toFactSet.property.right
           specialize isFunctionFree _ f_mem
@@ -106,7 +107,7 @@ theorem result_isWeakCore_of_noAltMatch {cb : ChaseBranch obs kb} (det : kb.isDe
       have origin_trg_active := cd2.active_trigger_origin_next next_mem
       let origin := next.origin.get origin_isSome
 
-      let trg_res_terms := (FactSet.terms (next.origin_result origin_isSome).toSet)
+      let trg_res_terms := (FactSet.terms ((RegularChaseNode.regularChaseNodeInstance.origin_result next) origin_isSome).toSet)
 
       have identity_frontier : ∀ t ∈ List.map (next.origin.get origin_isSome).fst.val.subs (next.origin.get origin_isSome).fst.val.rule.frontier, h_k t = t := by
         intro t t_mem
@@ -133,9 +134,10 @@ theorem result_isWeakCore_of_noAltMatch {cb : ChaseBranch obs kb} (det : kb.isDe
           . exact h_k_hom.left
           . apply Set.subset_trans _ h_k_hom.right
             apply TermMapping.apply_generalized_atom_set_subset_of_subset
-            rw [← ChaseDerivationSkeleton.result_suffix suffix]
-            apply Set.subset_trans _ (cd2.facts_node_subset_result next (cd2.next_mem_of_mem _ next_mem))
-            rw [cd2.facts_next next_mem]
+            unfold RegularChaseBranch.result
+            rw [← RegularChaseDerivationSkeleton.result_suffix suffix]
+            apply Set.subset_trans _ (RegularChaseDerivationSkeleton.facts_node_subset_result next (cd2.next_mem_of_mem _ next_mem))
+            rw [← RegularChaseNode.ingoingFacts_eq, cd2.facts_next next_mem]
             apply Set.subset_union_of_subset_right
             apply Set.subset_refl
         constructor
@@ -156,9 +158,9 @@ theorem result_isWeakCore_of_noAltMatch {cb : ChaseBranch obs kb} (det : kb.isDe
             rw [List.mem_map] at t_mem
             rw [List.mem_map]
             rcases t_mem with ⟨v, v_mem, t_mem⟩
-            exists v; simp only [t_mem, and_true]
-            rw [Rule.mem_frontier_iff_mem_frontier_for_head]
-            exact ⟨_, ⟨_, v_mem⟩⟩
+            exists v; constructor
+            . rw [Rule.mem_frontier_iff_mem_frontier_for_head]; exact ⟨_, ⟨_, v_mem⟩⟩
+            . exact t_mem
           | inr t_mem =>
           exists t
           constructor
@@ -173,7 +175,7 @@ theorem result_isWeakCore_of_noAltMatch {cb : ChaseBranch obs kb} (det : kb.isDe
             exact t'_mem
 
       have h_surj_on_step : h_k.surjectiveSet next.facts.terms next.facts.terms := by
-        rw [cd2.facts_next next_mem, FactSet.terms_union]
+        rw [← RegularChaseNode.ingoingFacts_eq, cd2.facts_next next_mem, FactSet.terms_union]
         intro t t_mem
         cases t_mem with
         | inl t_mem => exists t; constructor; apply Or.inl; exact t_mem; apply identity; exact t_mem
@@ -204,8 +206,9 @@ theorem result_isWeakCore_of_noAltMatch {cb : ChaseBranch obs kb} (det : kb.isDe
         . have is_hom := h_k.repeat_isHomomorphism h_k_hom repetition_number
           apply Set.subset_trans _ is_hom.right
           apply inv.apply_generalized_atom_set_subset_of_subset
-          rw [← ChaseDerivationSkeleton.result_suffix suffix]
-          exact (cd2.facts_node_subset_result next (cd2.next_mem_of_mem _ next_mem))
+          unfold RegularChaseBranch.result
+          rw [← RegularChaseDerivationSkeleton.result_suffix suffix]
+          exact (RegularChaseDerivationSkeleton.facts_node_subset_result next (cd2.next_mem_of_mem _ next_mem))
 
       rcases cb.hom_for_node_extendable_to_result det (cd2.mem_of_mem_suffix suffix _ (cd2.next_mem_of_mem _ next_mem)) inv_hom with ⟨extended_inv, extended_inv_eq, extended_inv_hom⟩
 
@@ -245,7 +248,7 @@ theorem result_isWeakCore_of_noAltMatch {cb : ChaseBranch obs kb} (det : kb.isDe
     have step_ex : ∃ node ∈ cb.toChaseDerivation, ∀ t, t ∈ f.terms -> t ∈ node.facts.terms := by
       have f_dom : f.terms.toSet ⊆ cb.result.terms := by intro _ mem; rw [List.mem_toSet] at mem; apply f_dom; exact mem
       rcases FactSet.list_of_facts_for_list_of_terms f_dom with ⟨l, l_sub, ts_sub⟩
-      rcases cb.facts_mem_some_node_of_mem_result _ l_sub with ⟨node, node_mem, l_sub⟩
+      rcases RegularChaseDerivationSkeleton.facts_mem_some_node_of_mem_result _ l_sub with ⟨node, node_mem, l_sub⟩
       exists node; constructor; exact node_mem
       intro t t_mem
       apply FactSet.terms_subset_of_subset l_sub
@@ -284,7 +287,7 @@ theorem result_isWeakCore_of_noAltMatch {cb : ChaseBranch obs kb} (det : kb.isDe
       have id_s := identity s (by
         exists f_s
         constructor
-        . apply cb.facts_node_subset_of_prec pred
+        . apply RegularChaseDerivationSkeleton.facts_node_subset_of_prec pred
           exact f_s_mem
         . exact s_mem
       )
@@ -302,7 +305,7 @@ theorem result_isWeakCore_of_noAltMatch {cb : ChaseBranch obs kb} (det : kb.isDe
       have id_t := identity t (by
         exists f_t
         constructor
-        . apply cb.facts_node_subset_of_prec pred
+        . apply RegularChaseDerivationSkeleton.facts_node_subset_of_prec pred
           exact f_t_mem
         . exact t_mem
       )
@@ -311,8 +314,8 @@ theorem result_isWeakCore_of_noAltMatch {cb : ChaseBranch obs kb} (det : kb.isDe
       apply retains
 
 /-- If a `ChaseBranch` has an alternative match (into its own result), then there is an non-trivial endomorphism on the result, i.e. an endomorphism that is not the identity. -/
-theorem non_id_endomorphism_of_altMatch {cb : ChaseBranch obs kb} (det : kb.isDeterministic) (altMatch : cb.has_alt_match) :
-    ∃ (endo : GroundTermMapping sig), endo.isHomomorphism cb.result cb.result ∧ ∃ t, endo t ≠ t := by
+theorem non_id_endomorphism_of_altMatch {cb : RegularChaseBranch obs kb} (det : kb.isDeterministic) (altMatch : cb.has_alt_match) :
+    ∃ (endo : GroundTermMapping sig), endo.isHomomorphism (RegularChaseDerivationSkeleton.result cb.toChaseDerivationSkeleton) (RegularChaseDerivationSkeleton.result cb.toChaseDerivationSkeleton) ∧ ∃ t, endo t ≠ t := by
   rcases altMatch with ⟨cd, suffix, h_alt, next, next_mem, altMatch⟩
 
   have ts_finite := cd.head.facts.terms_finite_of_finite (cb.facts_finite_of_mem ⟨cd.head, ChaseDerivation.mem_of_mem_suffix suffix _ cd.head_mem⟩)
@@ -322,7 +325,7 @@ theorem non_id_endomorphism_of_altMatch {cb : ChaseBranch obs kb} (det : kb.isDe
   have hom : h.isHomomorphism next.facts cb.result := by
     constructor
     . intro c; unfold h; split; rfl; exact altMatch.left.left
-    rw [cd.facts_next next_mem]
+    rw [← RegularChaseNode.ingoingFacts_eq, cd.facts_next next_mem]
     intro f
     rw [GroundTermMapping.mem_applyFactSet]
     intro ⟨f', f'_mem, f_eq⟩
@@ -333,13 +336,15 @@ theorem non_id_endomorphism_of_altMatch {cb : ChaseBranch obs kb} (det : kb.isDe
         intro t t_mem
         have : t ∈ ts := by rw [eq_ts]; exists f'
         simp [h, this]
-      rw [this, ← ChaseDerivationSkeleton.result_suffix suffix]; apply cd.facts_node_subset_result _ cd.head_mem _ f'_mem
+      unfold RegularChaseBranch.result
+      rw [this, ← RegularChaseDerivationSkeleton.result_suffix suffix]
+      apply RegularChaseDerivationSkeleton.facts_node_subset_result _ cd.head_mem _ f'_mem
     | inr f'_mem =>
       apply altMatch.left.right
       have : f = h_alt.applyFact f' := by
         rw [f_eq]; apply TermMapping.apply_generalized_atom_congr_left
         intro t t_mem
-        have t_mem : t ∈ (next.origin_result (cd.isSome_origin_next next_mem)).flatMap GeneralizedAtom.terms := by
+        have t_mem : t ∈ ((ChaseNode.origin_result next) (cd.isSome_origin_next next_mem)).flatMap GeneralizedAtom.terms := by
           rw [List.mem_toSet] at f'_mem; rw [List.mem_flatMap]; exists f'
         simp only [ChaseNode.origin_result, PreTrigger.mem_terms_mapped_head_iff] at t_mem
         cases t_mem with
@@ -348,8 +353,9 @@ theorem non_id_endomorphism_of_altMatch {cb : ChaseBranch obs kb} (det : kb.isDe
         cases t_mem with
         | inl t_mem =>
           have t_mem : t ∈ (next.origin.get (cd.isSome_origin_next next_mem)).fst.val.rule.frontier.map (next.origin.get (cd.isSome_origin_next next_mem)).fst.val.subs := by
-            rw [List.mem_map] at t_mem; rw [List.mem_map]; rcases t_mem with ⟨v, v_mem, t_mem⟩; exists v; simp only [t_mem, and_true]
-            rw [Rule.mem_frontier_iff_mem_frontier_for_head]; exact ⟨_, ⟨_, v_mem⟩⟩
+            rw [List.mem_map] at t_mem; rw [List.mem_map]; rcases t_mem with ⟨v, v_mem, t_mem⟩; exists v; constructor
+            . rw [Rule.mem_frontier_iff_mem_frontier_for_head]; exact ⟨_, ⟨_, v_mem⟩⟩
+            . exact t_mem
           unfold h; split <;> simp [altMatch.right.left _ t_mem]
         | inr t_mem =>
           have : ¬ t ∈ ts := by
@@ -384,7 +390,7 @@ theorem non_id_endomorphism_of_altMatch {cb : ChaseBranch obs kb} (det : kb.isDe
     exists n
 
 /-- This is more of a lemma quite technical unfortunately. Take a `ChaseBranch`, a `FactSet` and a homomorphism $h$ from the chase result into the fact set that is at the same time an endomorphism on the fact set. If there is a term $t$ in the chase result such that no non-zero repetition of $h$ maps $t$ to itself, then the chase branch must have an alternative match for the fact set. Intuitively this is because $t$ is apparently a redundant term. -/
-theorem altMatch_of_some_not_reaches_self (cb : ChaseBranch obs kb) (fs : FactSet sig) (h : GroundTermMapping sig)
+theorem altMatch_of_some_not_reaches_self (cb : RegularChaseBranch obs kb) (fs : FactSet sig) (h : GroundTermMapping sig)
     (hom_res : h.isHomomorphism cb.result fs) (hom_fs : h.isHomomorphism fs fs)
     (t : GroundTerm sig) (t_mem : t ∈ cb.result.terms) (t_not_reaches_self : ∀ j, 1 ≤ j -> (h.repeat_fun j) t ≠ t) :
     cb.has_alt_match_for_fs fs := by
@@ -395,7 +401,7 @@ theorem altMatch_of_some_not_reaches_self (cb : ChaseBranch obs kb) (fs : FactSe
   have : ∃ node, node_property node ∧ ∀ node2, node2 ≺ node -> ¬ node_property node2 := by
     rcases t_mem with ⟨f, f_mem, t_mem⟩
     rcases f_mem with ⟨node, node_mem, f_mem⟩
-    apply ChaseDerivation.prop_for_node_has_minimal_such_node node_property ⟨node, node_mem⟩
+    apply RegularChaseDerivation.prop_for_node_has_minimal_such_node node_property ⟨node, node_mem⟩
     unfold node_property
     exists t
     constructor
@@ -413,7 +419,7 @@ theorem altMatch_of_some_not_reaches_self (cb : ChaseBranch obs kb) (fs : FactSe
     | const c => apply prop_t; exact hom_fs.left
     | func func ts arity_ok =>
       have isFunctionFree := kb.db.toFactSet.property.right
-      simp only [eq_head, cb.database_first'] at t_mem
+      simp only [eq_head, ← RegularChaseNode.outgoingFacts_eq, cb.database_first'.right.left] at t_mem
       rcases t_mem with ⟨f, f_mem, t_mem⟩
       specialize isFunctionFree _ f_mem _ t_mem
       rcases isFunctionFree with ⟨_, contra⟩
@@ -423,7 +429,7 @@ theorem altMatch_of_some_not_reaches_self (cb : ChaseBranch obs kb) (fs : FactSe
     exists cd2; simp only [suffix, true_and]
 
     specialize smallest ⟨cd2.head, by apply cd2.mem_of_mem_suffix suffix; exact cd2.head_mem⟩ (by
-      have : ⟨cd2.head, cd2.head_mem⟩ ≺ ⟨node.val, cd2.next_mem_of_mem _ next_eq⟩ := cd2.head_strict_prec_next next_eq
+      have : ⟨cd2.head, cd2.head_mem⟩ ≺ ⟨node.val, cd2.next_mem_of_mem _ next_eq⟩ := RegularChaseDerivation.head_strict_prec_next next_eq
       exact ChaseDerivationSkeleton.strict_predecessor_of_suffix suffix this)
     simp only [node_property, term_property, not_exists, not_and, Classical.not_forall, ne_eq, Decidable.not_not] at smallest
 
@@ -495,7 +501,7 @@ theorem altMatch_of_some_not_reaches_self (cb : ChaseBranch obs kb) (fs : FactSe
         . exact (TermMapping.apply_generalized_atom_set_subset_of_subset (h.repeat_fun ((k + 1) * l)) _ _ origin_res_in_facts)
         . apply Set.subset_trans (b := GroundTermMapping.applyFactSet (h.repeat_fun ((k + 1) * l)) cb.result)
           . apply TermMapping.apply_generalized_atom_set_subset_of_subset
-            apply cb.facts_node_subset_result
+            apply RegularChaseDerivationSkeleton.facts_node_subset_result
             exact node.property
           . apply hom_res'.right
     constructor
@@ -514,7 +520,7 @@ theorem altMatch_of_some_not_reaches_self (cb : ChaseBranch obs kb) (fs : FactSe
     . exists t
       constructor
       . have t_mem' := t_mem
-        rw [cd2.facts_next next_eq, FactSet.terms_union] at t_mem
+        rw [← RegularChaseNode.ingoingFacts_eq, cd2.facts_next next_eq, FactSet.terms_union] at t_mem
         have not_mem_head : ¬ t ∈ cd2.head.facts.terms := by
           intro t_mem
           apply prop_node ((k + 1) * l) _ t
@@ -549,7 +555,7 @@ theorem altMatch_of_some_not_reaches_self (cb : ChaseBranch obs kb) (fs : FactSe
           | inr t_mem => exact t_mem
       . intro t_mem; rw [List.mem_map] at t_mem; rcases t_mem with ⟨s, s_mem, t_eq⟩
         apply prop_node ((k + 1) * l) _ s
-        . rw [cd2.facts_next next_eq, FactSet.terms_union]; apply Or.inr
+        . rw [← RegularChaseNode.ingoingFacts_eq, cd2.facts_next next_eq, FactSet.terms_union]; apply Or.inr
           rw [FactSet.mem_terms_toSet]
           simp only [ChaseNode.origin_result, PreTrigger.mem_terms_mapped_head_iff]
           apply Or.inr; apply Or.inr
@@ -558,7 +564,7 @@ theorem altMatch_of_some_not_reaches_self (cb : ChaseBranch obs kb) (fs : FactSe
         . apply Nat.le_trans; apply Nat.le_succ; apply Nat.le_mul_of_pos_right; apply Nat.lt_of_succ_le; exact l_le
 
 /-- For a `ChaseBranch` without alternative match, every endomorphism on the result is surjective. This is shown by contradiction using `altMatch_of_some_not_reaches_self`. -/
-theorem every_endo_surjective_of_noAltMatch (cb : ChaseBranch obs kb) : ¬ cb.has_alt_match -> ∀ (h : GroundTermMapping sig),
+theorem every_endo_surjective_of_noAltMatch (cb : RegularChaseBranch obs kb) : ¬ cb.has_alt_match -> ∀ (h : GroundTermMapping sig),
     h.isHomomorphism cb.result cb.result -> h.surjectiveSet cb.result.terms cb.result.terms := by
   intro noAltMatch h endo
   apply Classical.byContradiction
@@ -586,7 +592,7 @@ theorem every_endo_surjective_of_noAltMatch (cb : ChaseBranch obs kb) : ¬ cb.ha
     grind
 
 /-- From `result_isWeakCore_of_noAltMatch` and `every_endo_surjective_of_noAltMatch`, we get that the result of a `ChaseBranch` without alternative matches is a strong core. -/
-theorem result_isStrongCore_of_noAltMatch (cb : ChaseBranch obs kb) (det : kb.isDeterministic) : ¬ cb.has_alt_match -> cb.result.isStrongCore := by
+theorem result_isStrongCore_of_noAltMatch (cb : RegularChaseBranch obs kb) (det : kb.isDeterministic) : ¬ cb.has_alt_match -> cb.result.isStrongCore := by
   unfold FactSet.isStrongCore
   intro noAltMatch h endo
   have ⟨strong, inj⟩ := cb.result_isWeakCore_of_noAltMatch det noAltMatch h endo
@@ -613,7 +619,7 @@ Of course, it still remains to show the theorems where this would actually be us
 -/
 
 theorem core_superset_of_chase_result
-    (cb : ChaseBranch obs kb) (fs : FactSet sig) (fs_super : cb.result ⊆ fs) (noAltMatch : ¬ cb.has_alt_match_for_fs fs) :
+    (cb : RegularChaseBranch obs kb) (fs : FactSet sig) (fs_super : cb.result ⊆ fs) (noAltMatch : ¬ cb.has_alt_match_for_fs fs) :
     ∀ (sub_fs : FactSet sig), sub_fs.homSubset fs -> cb.result ⊆ sub_fs := by
   intro sub_fs sub_fs_sub
   rcases sub_fs_sub with ⟨sub_fs_sub, h, hom⟩
