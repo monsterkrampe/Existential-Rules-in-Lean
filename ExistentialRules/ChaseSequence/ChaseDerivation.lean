@@ -255,6 +255,7 @@ We lift `ChaseDerivationSkeleton.mem_rec` to `ChaseDerivation`.
 abbrev Node (cd : ChaseDerivation N obs rules) := { node : N // node ∈ cd}
 
 /-- A `Node` of our suffix can be cast into our `Node` type. -/
+@[expose]
 def Node.cast_suffix {cd cd2 : ChaseDerivation N obs rules} (suffix : cd <:+ cd2) (node : Node cd) : Node cd2 := ⟨node.val, mem_of_mem_suffix suffix _ node.property⟩
 
 /-- If we want to show a motive for all nodes in a derivation, it is enough to show the motive for the head and for the next node in each abitrary subderivation where the motive already holds for the head. This can be used with the induction tactic. -/
