@@ -601,6 +601,24 @@ theorem strict_predecessor_trans {cd : RegularChaseDerivation obs rules} {n1 n2 
   . exact predecessor_trans prec1.left prec2.left
   . grind
 
+/-- The strict predecessor relation is transitive with respect to the regular predecessor relation. -/
+@[grind ->]
+theorem strict_prec_of_prec_of_strict_prec {cd : RegularChaseDerivation obs rules} {n1 n2 n3 : cd.Node} :
+    n1 ≼ n2 -> n2 ≺ n3 -> n1 ≺ n3 := by
+  intro prec1 prec2
+  constructor
+  . exact predecessor_trans prec1 prec2.left
+  . cases cd.eq_or_strict_of_predecessor prec1 <;> grind
+
+/-- The strict predecessor relation is transitive with respect to the regular predecessor relation. -/
+@[grind ->]
+theorem strict_prec_of_strict_prec_of_prec {cd : RegularChaseDerivation obs rules} {n1 n2 n3 : cd.Node} :
+    n1 ≺ n2 -> n2 ≼ n3 -> n1 ≺ n3 := by
+  intro prec1 prec2
+  constructor
+  . exact predecessor_trans prec1.left prec2
+  . cases cd.eq_or_strict_of_predecessor prec2 <;> grind
+
 /-- The `ChaseDerivationSkeleton.head` is a strict predecessor of `ChaseDerivationSkeleton.next`. -/
 theorem head_strict_prec_next {cd : RegularChaseDerivation obs rules} :
     ∀ {next}, (mem : next ∈ cd.next) -> ⟨cd.head, cd.head_mem⟩ ≺ ⟨next, cd.next_mem_of_mem _ mem⟩ := by

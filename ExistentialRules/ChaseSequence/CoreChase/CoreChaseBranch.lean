@@ -213,6 +213,26 @@ theorem strict_predecessor_trans_of_finite {cd : CoreChaseDerivation rules} {n1 
   . exact predecessor_trans_of_finite n2_fin prec1.left prec2.left
   . grind
 
+/-- The strict predecessor relation is transitive with respect to the regular predecessor relation. -/
+@[grind ->]
+theorem strict_prec_of_prec_of_strict_prec_of_finite {cd : CoreChaseDerivation rules} {n1 n2 n3 : cd.Node}
+    (n1_fin : n1.val.core.finite) (n2_fin : n2.val.core.finite) :
+    n1 ≼ n2 -> n2 ≺ n3 -> n1 ≺ n3 := by
+  intro prec1 prec2
+  constructor
+  . exact predecessor_trans_of_finite n2_fin prec1 prec2.left
+  . cases cd.eq_or_strict_of_predecessor prec1 <;> grind
+
+/-- The strict predecessor relation is transitive with respect to the regular predecessor relation. -/
+@[grind ->]
+theorem strict_prec_of_strict_prec_of_prec_of_finite {cd : CoreChaseDerivation rules} {n1 n2 n3 : cd.Node}
+    (n1_fin : n1.val.core.finite) (n2_fin : n2.val.core.finite) :
+    n1 ≺ n2 -> n2 ≼ n3 -> n1 ≺ n3 := by
+  intro prec1 prec2
+  constructor
+  . exact predecessor_trans_of_finite n2_fin prec1.left prec2
+  . cases cd.eq_or_strict_of_predecessor prec2 <;> grind
+
 /-- The `ChaseDerivationSkeleton.head` is a strict predecessor of `ChaseDerivationSkeleton.next`. -/
 theorem head_strict_prec_next_of_finite {cd : CoreChaseDerivation rules} (head_fin : cd.head.core.finite) :
     ∀ {next}, (mem : next ∈ cd.next) -> ⟨cd.head, cd.head_mem⟩ ≺ ⟨next, cd.next_mem_of_mem _ mem⟩ := by
@@ -419,6 +439,18 @@ theorem strict_predecessor_asymmetric {cb : CoreChaseBranch kb} {n1 n2 : cb.Node
 @[grind ->]
 theorem strict_predecessor_trans {cb : CoreChaseBranch kb} {n1 n2 n3 : cb.Node} : n1 ≺ n2 -> n2 ≺ n3 -> n1 ≺ n3 := by
   apply CoreChaseDerivation.strict_predecessor_trans_of_finite <;> apply core_finite_of_mem
+
+/-- The strict predecessor relation is transitive with respect to the regular predecessor relation. -/
+@[grind ->]
+theorem strict_prec_of_prec_of_strict_prec {cb : CoreChaseBranch kb} {n1 n2 n3 : cb.Node} :
+    n1 ≼ n2 -> n2 ≺ n3 -> n1 ≺ n3 := by
+  apply CoreChaseDerivation.strict_prec_of_prec_of_strict_prec_of_finite <;> apply core_finite_of_mem
+
+/-- The strict predecessor relation is transitive with respect to the regular predecessor relation. -/
+@[grind ->]
+theorem strict_prec_of_strict_prec_of_prec {cb : CoreChaseBranch kb} {n1 n2 n3 : cb.Node} :
+    n1 ≺ n2 -> n2 ≼ n3 -> n1 ≺ n3 := by
+  apply CoreChaseDerivation.strict_prec_of_strict_prec_of_prec_of_finite <;> apply core_finite_of_mem
 
 /-- The `ChaseDerivationSkeleton.head` is a strict predecessor of `ChaseDerivationSkeleton.next`. -/
 theorem head_strict_prec_next {cb : CoreChaseBranch kb} :

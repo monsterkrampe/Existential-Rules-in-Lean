@@ -765,6 +765,24 @@ theorem strict_predecessor_trans {td : TreeDerivation N obs rules} {n1 n2 n3 : N
   . exact predecessor_trans prec1.left prec2.left
   . grind
 
+/-- The strict predecessor relation is transitive with respect to the regular predecessor relation. -/
+@[grind ->]
+theorem strict_prec_of_prec_of_strict_prec {td : TreeDerivation N obs rules} {n1 n2 n3 : NodeWithAddress td} :
+    n1 ≼ n2 -> n2 ≺ n3 -> n1 ≺ n3 := by
+  intro prec1 prec2
+  constructor
+  . exact predecessor_trans prec1 prec2.left
+  . cases td.eq_or_strict_of_predecessor prec1 <;> grind
+
+/-- The strict predecessor relation is transitive with respect to the regular predecessor relation. -/
+@[grind ->]
+theorem strict_prec_of_strict_prec_of_prec {td : TreeDerivation N obs rules} {n1 n2 n3 : NodeWithAddress td} :
+    n1 ≺ n2 -> n2 ≼ n3 -> n1 ≺ n3 := by
+  intro prec1 prec2
+  constructor
+  . exact predecessor_trans prec1.left prec2
+  . cases td.eq_or_strict_of_predecessor prec2 <;> grind
+
 /-- If a node is a strict predecessor, the length of its address is strictly smaller. -/
 @[grind <-]
 theorem length_address_lt_of_strict_predecessor {td : TreeDerivation N obs rules} {n1 n2 : NodeWithAddress td} :
