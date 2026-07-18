@@ -536,23 +536,52 @@ theorem satisfied_for_disj_of_mapped_head_contained (trg : PreTrigger sig) (fs :
 def satisfied (trg : PreTrigger sig) (F : FactSet sig) : Prop :=
   ∃ disj_index, trg.satisfied_for_disj F disj_index
 
+/-- If a trigger is satisfied, then it is also satisfied on all supersets. -/
+theorem satisfied_of_satisfied_subset {trg : PreTrigger sig} {fs fs2 : FactSet sig} (sub : fs ⊆ fs2) :
+    trg.satisfied fs -> trg.satisfied fs2 := by
+  simp [PreTrigger.satisfied, PreTrigger.satisfied_for_disj]
+  intro i subs frontier_same_under_subs applied_head_sub_fs
+  exists i
+  exists subs
+  constructor
+  . apply frontier_same_under_subs
+  . apply Set.subset_trans
+    . exact applied_head_sub_fs
+    . exact sub
+
 /-- We consider two trigger to be equivalent if they share the same rule and their substitutions agree on the frontier variables. This entails that they have the same result. -/
 @[expose]
 def equiv (trg1 trg2 : PreTrigger sig) : Prop :=
   trg1.rule = trg2.rule ∧ ∀ v, v ∈ trg1.rule.frontier -> trg1.subs v = trg2.subs v
 
+/-- Trigger equivalence is reflexive. -/
+@[grind <-]
+theorem equiv_refl {trg : PreTrigger sig} : trg.equiv trg := by simp [equiv]
+
 /-- Trigger equivalence is symmetric. -/
 @[grind ->]
 theorem equiv_symm {trg1 trg2 : PreTrigger sig} : trg1.equiv trg2 -> trg2.equiv trg1 := by unfold equiv; grind
+
+/-- Trigger equivalence is transitive. -/
+@[grind ->]
+theorem equiv_trans {trg1 trg2 trg3 : PreTrigger sig} : trg1.equiv trg2 -> trg2.equiv trg3 -> trg1.equiv trg3 := by unfold equiv; grind
 
 /-- We consider two trigger to be strongly equivalent if they share the same rule and their substitutions agree not only on the frontier variables but on all body variables. -/
 @[expose]
 def strong_equiv (trg1 trg2 : PreTrigger sig) : Prop :=
   trg1.rule = trg2.rule ∧ ∀ v, v ∈ trg1.rule.body.vars -> trg1.subs v = trg2.subs v
 
+/-- Strong equivalence is reflexive. -/
+@[grind <-]
+theorem strong_equiv_refl {trg : PreTrigger sig} : trg.strong_equiv trg := by simp [strong_equiv]
+
 /-- Strong equivalence is symmetric. -/
 @[grind ->]
 theorem strong_equiv_symm {trg1 trg2 : PreTrigger sig} : trg1.strong_equiv trg2 -> trg2.strong_equiv trg1 := by unfold strong_equiv; grind
+
+/-- strong equivalence is transitive. -/
+@[grind ->]
+theorem strong_equiv_trans {trg1 trg2 trg3 : PreTrigger sig} : trg1.strong_equiv trg2 -> trg2.strong_equiv trg3 -> trg1.strong_equiv trg3 := by unfold strong_equiv; grind
 
 /-- Strong equivalence implies equivalence. -/
 @[grind ->]

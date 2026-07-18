@@ -95,17 +95,7 @@ def SkolemObsolescence (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C]
 @[expose]
 def RestrictedObsolescence (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] : ObsolescenceCondition sig := {
   cond := fun (trg : PreTrigger sig) (fs : FactSet sig) => trg.satisfied fs
-  monotone := by
-    intro trg A B A_sub_B
-    simp [PreTrigger.satisfied, PreTrigger.satisfied_for_disj]
-    intro i subs frontier_same_under_subs applied_head_sub_A
-    exists i
-    exists subs
-    constructor
-    . apply frontier_same_under_subs
-    . apply Set.subset_trans
-      . exact applied_head_sub_A
-      . exact A_sub_B
+  monotone := PreTrigger.satisfied_of_satisfied_subset
   cond_implies_trg_is_satisfied := by intro _ _ h; exact h
   contains_trg_result_implies_cond := by
     intro trg fs i result_in_fs
