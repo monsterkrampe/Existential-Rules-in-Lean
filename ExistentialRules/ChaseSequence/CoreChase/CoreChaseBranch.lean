@@ -601,8 +601,73 @@ For regular chase derivations this is trivial because of fact monotonicity but h
 
 theorem origin_trg_remains_inactive {cb : CoreChaseBranch kb} {n1 n2 : cb.Node} (prec : n1 ≼ n2) :
     ∀ orig ∈ n1.val.origin, ∀ trg, orig.fst.equiv trg -> ¬ trg.val.active n2.val.core := by
-  -- part of this can be proven with CoreChaseNode.origin_trg_inactive_for_own_core_of_finite
-  sorry
+  intro orig orig_mem trg equiv contra
+  rw [cb.predecessor_iff] at prec; rcases prec with ⟨cd, suf, n1_eq, n2_mem⟩
+  cases cd.mem_iff_eq_head_or_mem_tail.mp n2_mem with
+  | inl n2_mem =>
+    apply n1.val.equiv_origin_trg_inactive_for_own_core_of_finite (cb.core_finite_of_mem n1) _ orig_mem _ equiv
+    rw [← n1_eq, ← n2_mem]
+    exact contra
+  | inr n2_mem =>
+    rcases n2_mem with ⟨_, n2_mem⟩; rw [cd.mem_tail_iff] at n2_mem
+    rcases n2_mem with ⟨cd2, cd2_suf, n2_mem⟩
+    let cd2_head_node : cb.Node := ⟨cd2.head, cd2.mem_of_mem_suffix (PossiblyInfiniteList.IsSuffix_trans cd2_suf suf) _ cd2.head_mem⟩
+    have cd2_head_node_succ : n1 ≼ cd2_head_node := by
+      rw [cb.predecessor_iff]; exists cd; constructor; exact suf
+      constructor; exact n1_eq; exact cd2.mem_of_mem_suffix cd2_suf _ cd2.head_mem
+    have _term : cd2_head_node ≺ n2 := by
+      have := cd2.head_prec_next n2_mem
+      sorry
+    have no_trg_active_head_cd2 : ∀ trg, orig.fst.equiv trg -> ¬ trg.val.active cd2_head_node.val.core := origin_trg_remains_inactive cd2_head_node_succ _ orig_mem
+    cases Classical.em (∃ trg, orig.fst.equiv trg ∧ trg.val.loaded cd2_head_node.val.core) with
+    | inl ex_loaded_trg =>
+      rcases ex_loaded_trg with ⟨loaded_trg, loaded_trg_equiv, loaded_trg_loaded⟩
+      apply no_trg_active_head_cd2 loaded_trg loaded_trg_equiv
+      constructor; exact loaded_trg_loaded; intro loaded_trg_obs
+      apply contra.right
+      apply equiv_trg_obsolete_of_isWeakCore_of_homSubset_of_finite n2.val.isWeakCore n2.val.homSubset (cb.core_finite_of_mem n2) _ _ _ (PreTrigger.equiv_trans (PreTrigger.equiv_symm loaded_trg_equiv) equiv) contra.left
+      apply PreTrigger.satisfied_of_satisfied_subset _ loaded_trg_obs
+      rw [← n2.val.ingoingFacts_eq, cd2.facts_next n2_mem]
+      apply Set.subset_union_of_subset_left
+      rw [cd2.head.outgoingFacts_eq]
+      exact Set.subset_refl
+    | inr ex_loaded_trg =>
+      let target_prop (node : cb.Node) : Prop := n1 ≼ node ∧ ¬ ∃ trg, orig.fst.equiv trg ∧ trg.val.loaded node.val.core
+      rcases cb.prop_for_node_has_minimal_such_node target_prop cd2_head_node ⟨cd2_head_node_succ, ex_loaded_trg⟩ with ⟨n3, ⟨n3_prec, none_loaded_n3⟩, n3_minimal⟩
+      suffices ∃ v ∈ trg.val.rule.frontier, trg.val.subs v ∉ n3.val.core.terms by
+        rcases this with ⟨v, v_mem, t_nmem⟩
+        have t_func : ∃ func ts arity_ok, trg.val.subs v = .func func ts arity_ok := by sorry
+        have t_mem_facts_n1 : trg.val.subs v ∈ n1.val.facts.terms := by sorry
+        have t_mem_facts_n2 : trg.val.subs v ∈ n2.val.facts.terms := by sorry
+        have n3_prec_n2 : n3 ≺ n2 := by sorry
+        rcases (cb.predecessor_iff _ _).mp n3_prec_n2.left with ⟨cd3, suf', cd3_head, n2_mem_cd3⟩
+
+        rcases cb.functional_term_originates_from_some_trigger n1 t_func t_mem_facts_n1 with ⟨t_orig_node_before_n1, t_orig_node_before_n1_prec, t_orig_before_n1, t_orig_before_n1_mem, t_mem_orig_before_n1⟩
+
+        cases cd3.mem_iff_eq_head_or_mem_tail.mp n2_mem_cd3 with
+        | inl contra => exfalso; apply n3_prec_n2.right; rw [Subtype.mk.injEq, contra, cd3_head]
+        | inr n2_mem_cd3 =>
+          rcases n2_mem_cd3 with ⟨cd3_next_some, n2_mem_cd3⟩
+          cases CoreChaseDerivation.trigger_introducing_functional_term_occurs_in_chase (cd := cd3)
+            (by sorry)
+            ⟨n2.val, n2_mem_cd3⟩
+            t_mem_facts_n2
+            t_mem_orig_before_n1 with
+          | inl contra => apply t_nmem; rw [← cd3_head]; exact contra
+          | inr trg_occurs_again =>
+            rcases trg_occurs_again with ⟨t_orig_node_after_n3, t_orig_node_after_n3_prec, t_orig_after_n3, t_orig_after_n3_mem, t_orig_trgs_equiv, t_mem_orig_after_n3⟩
+            rcases cd3.mem_tail_iff.mp t_orig_node_after_n3.property with ⟨cd4, cd4_suf, cd4_next_eq⟩
+            have t_orig_nodes_prec : t_orig_node_before_n1 ≼ ⟨cd4.head, by apply cd4.mem_of_mem_suffix _ _ cd4.head_mem; exact PossiblyInfiniteList.IsSuffix_trans cd4_suf suf'⟩ := by
+              sorry
+            have _term : t_orig_node_before_n1 ≺ n1 := by sorry
+            apply origin_trg_remains_inactive t_orig_nodes_prec _ t_orig_before_n1_mem _ (PreTrigger.equiv_symm t_orig_trgs_equiv)
+            suffices t_orig_after_n3 = t_orig_node_after_n3.val.origin.get (cd4.isSome_origin_next cd4_next_eq) by
+              rw [this]; exact cd4.active_trigger_origin_next cd4_next_eq
+            rw [Option.mem_def] at t_orig_after_n3_mem
+            simp [t_orig_after_n3_mem]
+      have prop_still_true_on_n3_facts : ∃ trg, orig.fst.equiv trg ∧ trg.val.loaded n3.val.facts := by sorry
+      sorry
+termination_by (n1, n2)
 
 end OriginTriggerRemainsInactive
 
