@@ -6,7 +6,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import BasicLeanDatastructures.Function.Repetition
-import BasicLeanDatastructures.Nat
+import BasicLeanDatastructures.WellFounded
 
 /-!
 
@@ -49,8 +49,10 @@ public def condense_generator
   have stronger_claim : ∀ b, ∃ n, mapper (generator.repeat_fun n b) ≠ mapper b ∧ ∀ m : Fin n, mapper (generator.repeat_fun m b) = mapper b := by
     intro b; specialize different_value_exists b
     rcases different_value_exists with ⟨n, h⟩
-    rcases prop_for_nat_has_minimal_such_nat (fun m => mapper (generator.repeat_fun m b) ≠ mapper b) n h with ⟨n', strong_h⟩
-    exists n'
+    rcases minimal_element_for_property_and_relation (fun m => mapper (generator.repeat_fun m b) ≠ mapper b) n h with ⟨n', strong_h_l, strong_h_r⟩
+    exists n'; constructor; exact strong_h_l
+    intro m
+    specialize strong_h_r m.val m.isLt
     grind
   condense_generator_weak generator mapper stronger_claim b
 

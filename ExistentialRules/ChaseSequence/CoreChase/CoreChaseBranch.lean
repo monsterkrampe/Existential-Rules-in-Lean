@@ -5,6 +5,8 @@ Released under Apache 2.0 license as described in the file LICENSE.
 
 module
 
+import BasicLeanDatastructures.WellFounded
+
 public import ExistentialRules.ChaseSequence.ChaseBranch
 public import ExistentialRules.ChaseSequence.Termination.Basic
 
@@ -297,39 +299,6 @@ theorem trigger_introducing_functional_term_occurs_in_chase
 
 end TermsInChase
 
-section FactRemoval
-
-/-!
-## Fact Removal (through core computations)
-
-In the core chase, facts might disappear if they are redudant due to considering the core of each chase step.
-Here, we show an auxiliary theorem proving that a fact that disappears must disappear in a specific node, i.e. it occurs in its facts but not in its core.
--/
-
-theorem missing_fact_disappears_in_some_node_of_head_finite
-    {cd : CoreChaseDerivation rules} {n : cd.Node} (head_fin : cd.head.core.finite)
-    {f : Fact sig} (f_mem : f ∈ cd.head.facts) (f_nmem : f ∉ n.val.core) :
-    ∃ (n2 : cd.Node), n2 ≼ n ∧ f ∈ n2.val.facts ∧ f ∉ n2.val.core := by
-  induction n using cd.mem_rec with
-  | head => exists ⟨cd.head, cd.head_mem⟩; grind
-  | step cd2 suffix ih next next_mem =>
-    cases Classical.em (f ∈ cd2.head.core) with
-    | inl mem_cd2 =>
-      exists ⟨next, cd2.mem_of_mem_suffix suffix _ (cd2.next_mem_of_mem _ next_mem)⟩
-      suffices f ∈ next.facts by grind
-      rw [← next.ingoingFacts_eq, cd2.facts_next next_mem]
-      apply Set.mem_union_of_mem_left
-      rw [cd2.head.outgoingFacts_eq]
-      exact mem_cd2
-    | inr mem_cd2 =>
-      rcases ih mem_cd2 with ⟨n2, n2_prec, ih⟩
-      exists n2; constructor
-      . apply cd.predecessor_trans_of_finite (by apply cd.core_finite_of_mem_of_head_finite; exact head_fin) n2_prec
-        exact cd2.predecessor_of_suffix suffix (cd2.head_prec_next next_mem)
-      . exact ih
-
-end FactRemoval
-
 section Result
 
 /-!
@@ -384,6 +353,37 @@ theorem core_finite_of_mem {cb : CoreChaseBranch kb} (node : cb.Node) : node.val
 
 end FinitenessOfFactSets
 
+section DatabaseContainment
+
+/-!
+## Database Containment
+
+Even though we do not have fact set monotonicity in the core chase, it is still true that the database occurs in every fact set and core in the chase.
+This is because the database only features constants and these can never be remapped by any homomorphism.
+This result is essential for showing that the core chase result is a model, which we also show here.
+-/
+
+/-- The database is a subset of each node since the database only contains constants which can never be remapped by homomorphisms. -/
+theorem db_mem_of_mem {cb : CoreChaseBranch kb} : ∀ (node : cb.Node), kb.db.toFactSet.val ⊆ node.val.core := by
+  intro node
+  rcases CoreChaseDerivation.exists_homomorphism_from_head_of_mem _ node.property with ⟨h, hom⟩
+  intro f f_mem
+  apply hom.right
+  rw [← CoreChaseNode.outgoingFacts_eq, cb.database_first'.right.left]
+  rw [GroundTermMapping.mem_applyFactSet]; exists f; constructor; exact f_mem
+  apply Eq.symm; apply h.applyFact_eq_self_of_isIdOnConstants_of_isFunctionFree
+  . exact hom.left
+  . exact kb.db.toFactSet.property.right f f_mem
+
+/-- The result of a `CoreChaseBranch` models the whole `KnowledgeBase`. -/
+@[grind <-]
+theorem result_models_kb {cb : CoreChaseBranch kb} (term : cb.terminates) : (CoreChaseDerivation.result cb.toChaseDerivation term).modelsKb kb := by
+  constructor
+  . exact cb.db_mem_of_mem ⟨cb.last term, cb.last_mem term⟩
+  . exact CoreChaseDerivation.result_models_rules term
+
+end DatabaseContainment
+
 section Predecessors
 
 /-!
@@ -431,6 +431,64 @@ theorem core_not_subset_of_strict_predecessor {cb : CoreChaseBranch kb} {n1 n2 :
   apply CoreChaseDerivation.core_not_subset_of_strict_predecessor_of_finite; apply core_finite_of_mem
 
 end StrictPredecessor
+
+section WellFounded
+
+/-- The `strict_predecessor` relation is `WellFounded`. -/
+theorem wellFounded_pred {cb : CoreChaseBranch kb} : WellFounded cb.strict_predecessor := by
+  constructor; intro node
+  induction node using cb.mem_rec with
+  | head =>
+    constructor; intro node prec
+    exfalso
+    apply cb.core_not_subset_of_strict_predecessor prec
+    rw [← cb.head.outgoingFacts_eq, cb.database_first'.right.left]
+    apply cb.db_mem_of_mem
+  | step cd2 suf ih next next_mem =>
+    constructor
+    intro n2 prec
+    let cd2_head : cb.Node := ⟨cd2.head, cd2.mem_of_mem_suffix suf _ cd2.head_mem⟩
+    suffices n2 = cd2_head ∨ n2 ≺ cd2_head by
+      cases this with
+      | inl eq => rw [eq]; exact ih
+      | inr prec => rcases ih with ⟨_, ih⟩; apply ih; exact prec
+    cases cb.predecessor_total n2 ⟨cd2.head, cd2.mem_of_mem_suffix suf _ cd2.head_mem⟩ with
+    | inl prec' => apply cb.eq_or_strict_of_predecessor; exact prec'
+    | inr prec' =>
+      cases cb.eq_or_strict_of_predecessor prec' with
+      | inl eq => apply Or.inl; exact Eq.symm eq
+      | inr prec' =>
+        exfalso
+        suffices ⟨next, cd2.mem_of_mem_suffix suf _ (cd2.next_mem_of_mem _ next_mem)⟩ ≼ n2 by
+          apply prec.right
+          apply CoreChaseDerivation.predecessor_antisymm_of_finite
+          . apply cb.core_finite_of_mem
+          . apply cb.core_finite_of_mem
+          . exact prec.left
+          . exact this
+        have ne := prec'.right
+        have prec' := prec'.left
+        rw [cb.predecessor_iff] at prec'; rcases prec' with ⟨cd2', suf2, head_eq, n2_mem⟩
+        suffices cd2 = cd2' by
+          let cd2_head' : cd2.Node := ⟨cd2.head, cd2.head_mem⟩
+          let n2' : cd2.Node := ⟨n2.val, by rw [this]; exact n2_mem⟩
+          have prec : cd2_head' ≺ n2' := by
+            constructor
+            . rw [cd2.predecessor_iff]; exists cd2; constructor; exact PossiblyInfiniteList.IsSuffix_refl; grind
+            . grind
+          exact ChaseDerivationSkeleton.predecessor_of_suffix suf (cd2.next_prec_of_head_strict_prec prec next_mem)
+        apply CoreChaseDerivation.eq_of_suffix_of_head_mem_of_finite
+        . apply CoreChaseDerivation.suffix_of_suffix_of_suffix_of_head_mem_of_finite suf2 suf
+          . simp only at head_eq; rw [← head_eq]; exact cd2'.head_mem
+          . exact cb.core_finite_of_mem cd2_head
+        . rw [head_eq]; exact cd2.head_mem
+        . rw [head_eq]; exact cb.core_finite_of_mem cd2_head
+
+instance {cb : CoreChaseBranch kb} : WellFoundedRelation cb.Node where
+  rel := cb.strict_predecessor
+  wf := wellFounded_pred
+
+end WellFounded
 
 end Predecessors
 
@@ -496,60 +554,22 @@ theorem trigger_introducing_functional_term_occurs_in_chase
 
 end TermsInChase
 
-section DatabaseContainment
+section MinimalNodeWithProp
 
 /-!
-## Database Containment
+## Minimal Nodes with given Properties
 
-Even though we do not have fact set monotonicity in the core chase, it is still true that the database occurs in every fact set and core in the chase.
-This is because the database only features constants and these can never be remapped by any homomorphism.
-This result is essential for showing that the core chase result is a model, which we also show here.
+If a property hold for a given node in the chase, then there must be a "first" node for which this property holds. That means that this node is minimal with respect to the `≺` relation.
+The result follows by the well foundedness of the `≺` relation.
 -/
 
-/-- The database is a subset of each node since the database only contains constants which can never be remapped by homomorphisms. -/
-theorem db_mem_of_mem {cb : CoreChaseBranch kb} : ∀ (node : cb.Node), kb.db.toFactSet.val ⊆ node.val.core := by
-  intro node
-  rcases CoreChaseDerivation.exists_homomorphism_from_head_of_mem _ node.property with ⟨h, hom⟩
-  intro f f_mem
-  apply hom.right
-  rw [← CoreChaseNode.outgoingFacts_eq, cb.database_first'.right.left]
-  rw [GroundTermMapping.mem_applyFactSet]; exists f; constructor; exact f_mem
-  apply Eq.symm; apply h.applyFact_eq_self_of_isIdOnConstants_of_isFunctionFree
-  . exact hom.left
-  . exact kb.db.toFactSet.property.right f f_mem
+theorem prop_for_node_has_minimal_such_node
+    {cb : CoreChaseBranch kb} (prop : cb.Node -> Prop) :
+    ∀ n, prop n -> ∃ n2, prop n2 ∧ ∀ n3, n3 ≺ n2 -> ¬ prop n3 := by
+  intro n prop_n
+  exact minimal_element_for_property_and_relation prop n prop_n
 
-/-- The result of a `CoreChaseBranch` models the whole `KnowledgeBase`. -/
-@[grind <-]
-theorem result_models_kb {cb : CoreChaseBranch kb} (term : cb.terminates) : (CoreChaseDerivation.result cb.toChaseDerivation term).modelsKb kb := by
-  constructor
-  . exact cb.db_mem_of_mem ⟨cb.last term, cb.last_mem term⟩
-  . exact CoreChaseDerivation.result_models_rules term
-
-end DatabaseContainment
-
-section FactRemoval
-
-/-!
-## Fact Removal (through core computations)
-
-In the core chase, facts might disappear if they are redudant due to considering the core of each chase step.
-Here, we show an auxiliary theorem proving that a fact that disappears must disappear in a specific node, i.e. it occurs in its facts but not in its core.
--/
-
-theorem missing_fact_disappears_in_some_node
-    {cb : CoreChaseBranch kb} {n1 n2 : cb.Node} (prec : n1 ≼ n2)
-    {f : Fact sig} (f_mem : f ∈ n1.val.facts) (f_nmem : f ∉ n2.val.core) :
-    ∃ n3, n1 ≼ n3 ∧ n3 ≼ n2 ∧ f ∈ n3.val.facts ∧ f ∉ n3.val.core := by
-  rw [cb.predecessor_iff] at prec; rcases prec with ⟨cd2, suffix, head_eq, n2_mem⟩
-  rcases CoreChaseDerivation.missing_fact_disappears_in_some_node_of_head_finite (cd := cd2) (by exact cb.core_finite_of_mem ⟨cd2.head, cd2.mem_of_mem_suffix suffix _ cd2.head_mem⟩) (by rw [head_eq]; exact f_mem) (by show f ∉ (⟨n2.val, n2_mem⟩ : cd2.Node).val.core; exact f_nmem) with ⟨n3, n3_prec, goal⟩
-  let n3' : cb.Node := n3.cast_suffix suffix
-  exists n3'; constructor
-  . rw [cb.predecessor_iff]; exists cd2; exact ⟨suffix, head_eq, n3.property⟩
-  constructor
-  . exact cd2.predecessor_of_suffix suffix n3_prec
-  . exact goal
-
-end FactRemoval
+end MinimalNodeWithProp
 
 section OriginTriggerRemainsInactive
 

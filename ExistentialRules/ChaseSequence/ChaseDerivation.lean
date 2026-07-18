@@ -5,7 +5,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 
 module
 
-import BasicLeanDatastructures.Nat
+import BasicLeanDatastructures.WellFounded
 
 public import ExistentialRules.Models.Basic
 public import ExistentialRules.ChaseSequence.ChaseDerivationSkeleton
@@ -27,6 +27,8 @@ The goal of the chase is to eventually build a most general (i.e. universal) mod
 For the more generic `ChaseDerivation`, we cannot quite expect this as a result but we can already show that the `ChaseDerivationSkeleton.result` models all of the rules in `ChaseDerivation.result_models_rules`.
 -/
 
+public section
+
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 /-!
@@ -41,7 +43,7 @@ Expressing the conditions in terms of the machinery available form the `Possibly
 As part of the framework built around the `ChaseDerivation`, we will also restate these conditions in a more accessible way. See e.g. `ChaseDerivation.fairness'`.
 -/
 
-public structure ChaseDerivation (N : Type u) (obs : ObsolescenceCondition sig) (rules : RuleSet sig) [CN : ChaseNode N obs rules] extends ChaseDerivationSkeleton N obs rules where
+structure ChaseDerivation (N : Type u) (obs : ObsolescenceCondition sig) (rules : RuleSet sig) [CN : ChaseNode N obs rules] extends ChaseDerivationSkeleton N obs rules where
   triggers_active : ∀ n : Nat, ∀ before ∈ (branch.drop n).head,
     ∀ after ∈ (branch.drop n).tail.head, ∃ orig ∈ CN.origin after, orig.fst.val.active (CN.outgoingFacts before)
   fairness : ∀ trg : (RTrigger obs rules), ∃ i : Nat, (∃ node ∈ (branch.drop i).head, ¬ trg.val.active (CN.outgoingFacts node))
@@ -51,7 +53,7 @@ namespace ChaseDerivation
 
 variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 
-public section Basics
+section Basics
 
 variable {N : Type u} [CN : ChaseNode N obs rules]
 
@@ -285,7 +287,7 @@ end InductionPrinciple
 
 end Basics
 
-public section Predecessors
+section Predecessors
 
 /-!
 ## Predecessor Relation
@@ -304,7 +306,7 @@ theorem predecessor_iff {cd : ChaseDerivation N obs rules} (n1 n2 : Node cd) :
 
 end Predecessors
 
-public section TermsInChase
+section TermsInChase
 
 /-!
 ## Terms in the Chase
@@ -470,13 +472,13 @@ end TermsInChase
 end ChaseDerivation
 
 
-public abbrev RegularChaseDerivation (obs : ObsolescenceCondition sig) (rules : RuleSet sig) := ChaseDerivation (RegularChaseNode obs rules) obs rules
+abbrev RegularChaseDerivation (obs : ObsolescenceCondition sig) (rules : RuleSet sig) := ChaseDerivation (RegularChaseNode obs rules) obs rules
 
 namespace RegularChaseDerivation
 
 variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 
-public section FactMonotonicity
+section FactMonotonicity
 
 /-!
 ## Subset Monotonicity of Facts in ChaseNodes
@@ -524,7 +526,7 @@ theorem suffix_of_suffix_of_suffix_of_head_mem {cd cd1 cd2 : RegularChaseDerivat
 
 end FactMonotonicity
 
-public section Predecessors
+section Predecessors
 
 /-!
 ## Predecessor Relation
@@ -622,9 +624,63 @@ theorem facts_not_subset_of_strict_predecessor {cd : RegularChaseDerivation obs 
 
 end StrictPredecessor
 
+section WellFounded
+
+/-- The `strict_predecessor` relation is `WellFounded`. -/
+theorem wellFounded_pred {cd : RegularChaseDerivation obs rules} : WellFounded cd.strict_predecessor := by
+  constructor; intro node
+  induction node using cd.mem_rec with
+  | head =>
+    constructor; intro node prec
+    exfalso
+    apply facts_not_subset_of_strict_predecessor prec
+    apply facts_node_subset_every_mem
+    exact node.property
+  | step cd2 suf ih next next_mem =>
+    constructor
+    intro n2 prec
+    let cd2_head : cd.Node := ⟨cd2.head, cd2.mem_of_mem_suffix suf _ cd2.head_mem⟩
+    suffices n2 = cd2_head ∨ n2 ≺ cd2_head by
+      cases this with
+      | inl eq => rw [eq]; exact ih
+      | inr prec => rcases ih with ⟨_, ih⟩; apply ih; exact prec
+    cases cd.predecessor_total n2 ⟨cd2.head, cd2.mem_of_mem_suffix suf _ cd2.head_mem⟩ with
+    | inl prec' => apply cd.eq_or_strict_of_predecessor; exact prec'
+    | inr prec' =>
+      cases cd.eq_or_strict_of_predecessor prec' with
+      | inl eq => apply Or.inl; exact Eq.symm eq
+      | inr prec' =>
+        exfalso
+        suffices ⟨next, cd2.mem_of_mem_suffix suf _ (cd2.next_mem_of_mem _ next_mem)⟩ ≼ n2 by
+          apply prec.right
+          apply predecessor_antisymm
+          . exact prec.left
+          . exact this
+        have ne := prec'.right
+        have prec' := prec'.left
+        rw [cd.predecessor_iff] at prec'; rcases prec' with ⟨cd2', suf2, head_eq, n2_mem⟩
+        suffices cd2 = cd2' by
+          let cd2_head' : cd2.Node := ⟨cd2.head, cd2.head_mem⟩
+          let n2' : cd2.Node := ⟨n2.val, by rw [this]; exact n2_mem⟩
+          have prec : cd2_head' ≺ n2' := by
+            constructor
+            . rw [cd2.predecessor_iff]; exists cd2; grind
+            . grind
+          exact ChaseDerivationSkeleton.predecessor_of_suffix suf (cd2.next_prec_of_head_strict_prec prec next_mem)
+        apply eq_of_suffix_of_head_mem
+        . apply suffix_of_suffix_of_suffix_of_head_mem suf2 suf
+          simp only at head_eq; rw [← head_eq]; exact cd2'.head_mem
+        . rw [head_eq]; exact cd2.head_mem
+
+instance {cd : RegularChaseDerivation obs rules} : WellFoundedRelation cd.Node where
+  rel := cd.strict_predecessor
+  wf := wellFounded_pred
+
+end WellFounded
+
 end Predecessors
 
-public section ChaseResult
+section ChaseResult
 
 /-!
 ## Chase Result
@@ -665,7 +721,7 @@ theorem result_models_rules {cd : RegularChaseDerivation obs rules} : cd.result.
 
 end ChaseResult
 
-public section TermsInChase
+section TermsInChase
 
 /-!
 ## Terms in the Chase
@@ -741,85 +797,14 @@ section MinimalNodeWithProp
 ## Minimal Nodes with given Properties
 
 If a property hold for a given node in the chase, then there must be a "first" node for which this property holds. That means that this node is minimal with respect to the `≺` relation.
-The result itself is `prop_for_node_has_minimal_such_node` and is shown via `prop_for_nat_has_minimal_such_nat`.
-This forces us to take into account specific node indices and therefore requires auxiliary theorems, mainly `get?_branch_injective`, which is shown using `node_has_unique_position`.
+The result follows by the well foundedness of the `≺` relation.
 -/
 
-theorem node_has_unique_position (cd : RegularChaseDerivation obs rules) :
-    ∀ node, ∀ i j, i < j -> cd.branch.get? i = some node -> cd.branch.get? j ≠ some node := by
-  intro node i j lt eq_i eq_j
-  have le := Nat.le_pred_of_lt lt
-  let cds2 := cd.derivation_for_branch_suffix (cd.branch.drop j.pred) (PossiblyInfiniteList.IsSuffix_drop j.pred) (by
-    rw [Option.isSome_iff_ne_none, PossiblyInfiniteList.head_drop]; intro contra
-    have := cd.branch.no_holes' j.pred contra
-    rw [Nat.succ_pred (Nat.ne_zero_of_lt lt)] at this
-    rw [eq_j] at this
-    simp at this
-  )
-  let cd2 := cd.derivation_for_skeleton cds2 (PossiblyInfiniteList.IsSuffix_drop j.pred)
-  have next_eq : cd2.next = some node := by
-    simp only [ChaseDerivationSkeleton.next, cd2, ChaseDerivation.derivation_for_skeleton, cds2, ChaseDerivationSkeleton.derivation_for_branch_suffix, PossiblyInfiniteList.tail_drop, PossiblyInfiniteList.head_drop]
-    rw [Nat.succ_pred (Nat.ne_zero_of_lt lt)]
-    exact eq_j
-  apply (cd2.active_trigger_origin_next next_eq).right
-  apply obs.contains_trg_result_implies_cond
-  have sub : node.facts ⊆ cd2.head.facts := by
-    let node : cd.Node := ⟨node, by exists i⟩
-    let node2 : cd.Node := ⟨cd2.head, by exists j.pred; simp only [cd2, ChaseDerivation.derivation_for_skeleton, cds2, ChaseDerivationSkeleton.derivation_for_branch_suffix, ChaseDerivationSkeleton.head, Option.some_get, PossiblyInfiniteList.head_drop]; rfl⟩
-    have prec : node ≼ node2 := by
-      exists cd.derivation_for_branch_suffix (cd.branch.drop i) (PossiblyInfiniteList.IsSuffix_drop i) (by simp [PossiblyInfiniteList.head_drop, eq_i])
-      simp only [ChaseDerivationSkeleton.derivation_for_branch_suffix, ChaseDerivationSkeleton.head, PossiblyInfiniteList.head_drop]
-      constructor; exact PossiblyInfiniteList.IsSuffix_drop i
-      constructor; simp [eq_i, node]
-      apply ChaseDerivationSkeleton.mem_of_mem_suffix (cd1 := cds2) _ _ cd2.head_mem
-      rw [ChaseDerivationSkeleton.IsSuffix_iff]
-      exists j.pred - i
-      simp only [cds2, ChaseDerivationSkeleton.derivation_for_branch_suffix]
-      grind
-    exact RegularChaseDerivationSkeleton.facts_node_subset_of_prec prec
-  exact Set.subset_trans (node.facts_contain_origin_result (node.origin.get (cd2.isSome_origin_next next_eq)) (by simp)) sub
-
-theorem get?_branch_injective (cd : RegularChaseDerivation obs rules) : ∀ node, ∀ i j, cd.branch.get? i = some node -> cd.branch.get? j = some node -> i = j := by
-  intro node i j eq_i eq_j
-  apply Decidable.byContradiction
-  intro ne
-  cases Nat.lt_or_lt_of_ne ne with
-  | inl lt => exact cd.node_has_unique_position node i j lt eq_i eq_j
-  | inr lt => exact cd.node_has_unique_position node j i lt eq_j eq_i
-
-public theorem prop_for_node_has_minimal_such_node {cd : RegularChaseDerivation obs rules} (prop : cd.Node -> Prop) :
+theorem prop_for_node_has_minimal_such_node
+    {cd : RegularChaseDerivation obs rules} (prop : cd.Node -> Prop) :
     ∀ n, prop n -> ∃ n2, prop n2 ∧ ∀ n3, n3 ≺ n2 -> ¬ prop n3 := by
-  let prop' : Nat -> Prop := fun i => ∃ (e : RegularChaseNode obs rules) (mem : e ∈ cd.branch.get? i), prop ⟨e, by exists i⟩
   intro n prop_n
-  rcases n.property with ⟨i, n_mem⟩
-  rcases prop_for_nat_has_minimal_such_nat prop' i (by exists n.val, n_mem) with ⟨k, prop_k, not_lt_k⟩
-  rcases prop_k with ⟨n2, n2_mem, prop_n2⟩
-  exists ⟨n2, by exists k⟩, prop_n2
-  intro n3 prec contra
-  rcases n3.property with ⟨j, n3_mem⟩
-  apply not_lt_k ⟨j, by
-    apply Decidable.byContradiction
-    intro le; simp only [Nat.not_lt] at le
-    apply strict_predecessor_asymmetric prec
-    constructor
-    . rw [cd.predecessor_iff]
-      have n2_mem' : n2 ∈ cd := by exists k
-      rcases cd.subderivation_of_node_mem n2_mem' with ⟨cd2, head2, suf2⟩
-      exists cd2; simp only [suf2, head2, true_and]
-      rw [cd2.mem_iff]
-      exists j - k
-      unfold ChaseDerivation.IsSuffix at suf2; rw [ChaseDerivationSkeleton.IsSuffix_iff] at suf2; rcases suf2 with ⟨k', suf2⟩
-      have : k' = k := by
-        apply cd.get?_branch_injective n2
-        . rw [← head2]
-          simp only [ChaseDerivationSkeleton.head, Option.some_get]
-          rw [← suf2]
-          simp
-        . exact n2_mem
-      rw [← suf2, this, PossiblyInfiniteList.get?_drop, Nat.add_sub_of_le le]
-      exact n3_mem
-    . exact Ne.symm prec.right⟩
-  exists n3.val, n3_mem
+  exact minimal_element_for_property_and_relation prop n prop_n
 
 end MinimalNodeWithProp
 
