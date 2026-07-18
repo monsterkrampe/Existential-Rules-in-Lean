@@ -639,56 +639,17 @@ theorem core_superset_of_chase_result
       apply TermMapping.apply_generalized_atom_set_subset_of_subset; exact sub_fs_sub
 
   have : ∃ t, t ∈ cb.result.terms ∧ ∀ j, 1 ≤ j -> (h.repeat_fun j) t ≠ t := by
+    suffices ∃ f ∈ cb.result, f ∉ sub_fs by
+      rcases this with ⟨f, f_mem, f_nmem⟩
+      rcases FactSet.homSubset_fact_missing_means_term_not_reaches_self sub_fs_sub hom (fs_super _ f_mem) f_nmem with ⟨t, t_mem, not_reaches⟩
+      exists t; constructor; exists f
+      exact not_reaches
+
     apply Classical.byContradiction
     intro contra
-    simp at contra
+    simp only [not_exists, not_and, Classical.not_not] at contra
     apply not_subsumes
-
-    intro f f_mem
-    rcases f_mem with ⟨node, node_mem, f_mem⟩
-
-    have : ∃ j, 1 ≤ j ∧ ∀ t, t ∈ node.facts.terms -> (h.repeat_fun j) t = t := by
-      have terms_finite := node.facts.terms_finite_of_finite (cb.facts_finite_of_mem ⟨node, node_mem⟩)
-      rcases terms_finite with ⟨terms, terms_nodup, terms_eq⟩
-      have repeats_globally := h.repeat_globally_cyclic_of_each_cyclic terms (by
-        intro s s_mem
-        apply contra
-        rw [terms_eq] at s_mem
-        rcases s_mem with ⟨f, f_mem, s_mem⟩
-        exists f; constructor
-        . exists node
-        . exact s_mem
-      )
-      rcases repeats_globally with ⟨j, j_le, repeats_globally⟩
-      exists j
-      constructor
-      . exact j_le
-      . intro t t_mem
-        apply repeats_globally
-        rw [terms_eq]
-        exact t_mem
-    rcases this with ⟨j, j_le, each_repeats⟩
-
-    have : GroundTermMapping.applyFact (h.repeat_fun j) f = f := by
-      simp [GroundTermMapping.applyFact]
-      have : f.terms.map (h.repeat_fun j) = f.terms := by
-        apply List.map_id_of_id_on_all_mem
-        intro t t_mem
-        apply each_repeats
-        exists f
-      simp only [TermMapping.apply_generalized_atom, this]
-    rw [← this]
-    have : GroundTermMapping.isHomomorphism (h.repeat_fun j) fs sub_fs := by
-      suffices h.repeat_fun j = h.repeat_fun (j-1+1) by
-        rw [this, h.repeat_add', h.repeat_once]
-        apply GroundTermMapping.isHomomorphism_compose h (h.repeat_fun (j-1)) fs sub_fs sub_fs
-        . exact hom
-        . apply h.repeat_isHomomorphism; exact hom_sub_fs
-      grind
-    apply this.right
-    apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
-    apply fs_super
-    exists node
+    exact contra
 
   rcases this with ⟨t, t_mem, not_repeats⟩
 

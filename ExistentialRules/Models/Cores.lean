@@ -262,6 +262,77 @@ theorem homSubset_eq_self_of_isWeakCore_of_finite {fs1 fs2 : FactSet sig} (homSu
   rw [← terms_eq]
   exists f
 
+/-- If in a `homSubset` relation a fact from the superset does not appear in the subset, then this fact features a term that is not mapped to itself by any non-zero repetition of the homomorphism. -/
+theorem homSubset_fact_missing_means_term_not_reaches_self {fs1 fs2 : FactSet sig} (sub : fs1 ⊆ fs2)
+    {h : GroundTermMapping sig} (hom : h.isHomomorphism fs2 fs1)
+    {f : Fact sig} (f_mem : f ∈ fs2) (f_nmem : f ∉ fs1) : ∃ t ∈ f.terms, ∀ j ≥ 1, h.repeat_fun j t ≠ t := by
+  apply Classical.byContradiction
+  intro contra
+  simp only [not_exists, not_and] at contra
+  apply f_nmem
+
+  have : ∃ j, 1 ≤ j ∧ ∀ t, t ∈ f.terms -> (h.repeat_fun j) t = t := by
+    have repeats_globally := h.repeat_globally_cyclic_of_each_cyclic f.terms (by
+      intro s s_mem
+      specialize contra s s_mem
+      rw [Classical.not_forall] at contra; rcases contra with ⟨l, contra⟩
+      exists l; rw [not_imp, ne_eq, Decidable.not_not] at contra
+      exact contra
+    )
+    rcases repeats_globally with ⟨j, j_le, repeats_globally⟩
+    exists j
+  rcases this with ⟨j, j_le, each_repeats⟩
+
+  have : GroundTermMapping.applyFact (h.repeat_fun j) f = f := by
+    simp [GroundTermMapping.applyFact]
+    have : f.terms.map (h.repeat_fun j) = f.terms := by
+      apply List.map_id_of_id_on_all_mem
+      intro t t_mem
+      apply each_repeats
+      exact t_mem
+    simp only [TermMapping.apply_generalized_atom, this]
+  rw [← this]
+  have : GroundTermMapping.isHomomorphism (h.repeat_fun j) fs2 fs1 := by
+    suffices h.repeat_fun j = h.repeat_fun (j-1+1) by
+      rw [this, h.repeat_add', h.repeat_once]
+      apply GroundTermMapping.isHomomorphism_compose h (h.repeat_fun (j-1)) fs2 fs1 fs1
+      . exact hom
+      . apply h.repeat_isHomomorphism
+        constructor; exact hom.left
+        apply Set.subset_trans _ hom.right
+        exact TermMapping.apply_generalized_atom_set_subset_of_subset _ _ _ sub
+    grind
+  apply this.right
+  apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
+  exact f_mem
+
+/-- As a direct consequence of `homSubset_fact_missing_means_term_not_reaches_self`, we find that the term that is not reached cannot occur anymore, given that the subset is a finite core. -/
+theorem homSubset_fact_missing_means_term_missing_of_isWeakCore_of_finite
+    {fs1 fs2 : FactSet sig} (wc : fs1.isWeakCore) (homSub : fs1.homSubset fs2) (fin : fs1.finite)
+    {f : Fact sig} (f_mem : f ∈ fs2) (f_nmem : f ∉ fs1) : ∃ t ∈ f.terms, t ∉ fs1.terms := by
+  rcases homSub.right with ⟨h, hom⟩
+  rcases homSubset_fact_missing_means_term_not_reaches_self homSub.left hom f_mem f_nmem
+    with ⟨t, t_mem, not_reaches⟩
+  exists t; constructor; exact t_mem
+  intro t_mem_fs1
+  suffices ¬ h.surjectiveSet fs1.terms fs1.terms by
+    have strong := fs1.isStrongCore_of_isWeakCore_of_finite wc fin
+    apply this
+    apply (strong h _).right.right
+    constructor; exact hom.left
+    apply Set.subset_trans _ hom.right
+    apply TermMapping.apply_generalized_atom_set_subset_of_subset _ _ _ homSub.left
+  intro contra
+  rcases FactSet.terms_finite_of_finite _ fin with ⟨terms, _, terms_eq⟩
+  have terms_eq : ∀ t, t ∈ fs1.terms ↔ t ∈ terms := by intro _; rw [terms_eq]
+  rw [Function.surjective_set_list_equiv terms_eq terms_eq] at contra
+  rcases h.exists_repetition_that_is_inverse_of_surj terms contra with ⟨k, inv⟩
+  apply not_reaches k.succ (by simp)
+  rw [Function.repeat_succ, h.repeat_swap_one]
+  apply inv
+  rw [← terms_eq]
+  exact t_mem_fs1
+
 /-- Given two fact sets A,B of which one is a weak and one is a strong core, if there are homomorphisms from A to B and B to A, then there exists an isomorphism from A to B, i.e. a strong homomorphisms that is injective and surjective. -/
 theorem every_weakCore_isomorphic_to_strongCore_of_hom_both_ways
     (sc : FactSet sig) (sc_strong : sc.isStrongCore)
