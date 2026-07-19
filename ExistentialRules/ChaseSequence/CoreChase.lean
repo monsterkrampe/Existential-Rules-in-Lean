@@ -8,7 +8,7 @@ module
 import ExistentialRules.ChaseSequence.CoreChase.Basic
 import ExistentialRules.ChaseSequence.CoreChase.CoreChaseBranch
 import ExistentialRules.ChaseSequence.CoreChase.CoreChaseNode
-import ExistentialRules.ChaseSequence.CoreChase.TerminatesIfFinUnivModelExists
+-- import ExistentialRules.ChaseSequence.CoreChase.TerminatesIfFinUnivModelExists
 import ExistentialRules.ChaseSequence.CoreChase.Universality
 
 /-!
