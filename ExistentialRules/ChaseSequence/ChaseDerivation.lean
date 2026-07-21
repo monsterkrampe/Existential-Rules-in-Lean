@@ -234,7 +234,8 @@ theorem next_mem_tail {cd : ChaseDerivation N obs rules} {next_some : cd.next.is
   ChaseDerivationSkeleton.next_mem_tail
 
 /-- A node is a member if and only if it is either the head or it is a member of the tail. -/
-theorem mem_iff_eq_head_or_mem_tail {cd : ChaseDerivation N obs rules} {node : N} : node ∈ cd ↔ node = cd.head ∨ ∃ h, node ∈ cd.tail h :=
+theorem mem_iff_eq_head_or_mem_tail {cd : ChaseDerivation N obs rules} {node : N} :
+    node ∈ cd ↔ node = cd.head ∨ ∃ h, node ∈ cd.tail h :=
   ChaseDerivationSkeleton.mem_iff_eq_head_or_mem_tail
 
 /-- A derivation is a suffix of another if and only if both are the same or the first is a suffix of the second's tail. -/
@@ -326,125 +327,135 @@ variable {N : Type u} [CN : ChaseNode N obs rules]
 theorem constants_node_subset_constants_fs_union_constants_rules
     (out_sub_in : CN.out_sub_in)
     {cd : ChaseDerivation N obs rules}
-    (start_eq : CN.ingoingFacts cd.head = CN.outgoingFacts cd.head)
-    {node : N} (node_mem : node ∈ cd) :
+    {next_some : cd.next.isSome}
+    {node : N} (node_mem : node ∈ cd.tail next_some) :
     (CN.ingoingFacts node).constants ⊆ ((CN.outgoingFacts cd.head).constants ∪ rules.head_constants) := by
-  let node' : cd.Node := ⟨node, node_mem⟩
+  let node' : (cd.tail next_some).Node := ⟨node, node_mem⟩
   show (CN.ingoingFacts node'.val).constants ⊆ ((CN.outgoingFacts cd.head).constants ∪ rules.head_constants)
-  induction node' using mem_rec with
-  | head =>
-    apply Set.subset_union_of_subset_left
-    rw [start_eq]
-    apply Set.subset_refl
-  | step cd2 suffix ih next next_eq =>
-    rw [ChaseDerivationSkeleton.facts_next next_eq]
-    intro c c_mem
-    rw [FactSet.constants_union] at c_mem
-    cases c_mem with
-    | inl c_mem => apply ih; apply FactSet.constants_subset_of_subset out_sub_in; exact c_mem
-    | inr c_mem =>
-      let origin := (CN.origin next).get (cd2.isSome_origin_next next_eq)
-      apply Set.subset_trans (origin.fst.val.mapped_head_constants_subset origin.snd)
-      . intro c c_mem
-        rw [List.mem_toSet, List.mem_append] at c_mem
-        cases c_mem with
-        | inl c_mem =>
-          apply ih
-          rw [List.mem_flatMap] at c_mem
-          rcases c_mem with ⟨t, t_mem, c_mem⟩
-          rw [List.mem_map] at t_mem
-          rcases t_mem with ⟨v, v_mem, t_mem⟩
-          rcases FunctionFreeConjunction.mem_vars.mp (origin.fst.val.rule.frontier_subset_vars_body v_mem) with ⟨a, a_mem, v_mem'⟩
-          exists origin.fst.val.subs.apply_function_free_atom a
+
+  suffices ∀ cd2 : ChaseDerivation N obs rules, ∀ next ∈ cd2.next, (CN.ingoingFacts next).constants ⊆ ((CN.outgoingFacts cd2.head).constants ∪ rules.head_constants) by
+    induction node' using mem_rec with
+    | head => simp only [cd.head_tail']; apply this; simp
+    | step cd2 suffix ih next next_eq =>
+      specialize this cd2 next next_eq
+      apply Set.subset_trans this
+      rw [Set.union_subset_iff_both_subset]; constructor
+      . apply Set.subset_trans _ ih; exact FactSet.constants_subset_of_subset out_sub_in
+      . apply Set.subset_union_of_subset_right; exact Set.subset_refl
+
+  intro cd2 next next_mem
+  rw [ChaseDerivationSkeleton.facts_next next_mem]
+  intro c c_mem
+  rw [FactSet.constants_union] at c_mem
+  cases c_mem with
+  | inl c_mem => apply Or.inl; exact c_mem
+  | inr c_mem =>
+    let origin := (CN.origin next).get (cd2.isSome_origin_next next_mem)
+    apply Set.subset_trans (origin.fst.val.mapped_head_constants_subset origin.snd)
+    . intro c c_mem
+      rw [List.mem_toSet, List.mem_append] at c_mem
+      cases c_mem with
+      | inl c_mem =>
+        apply Or.inl
+        rw [List.mem_flatMap] at c_mem
+        rcases c_mem with ⟨t, t_mem, c_mem⟩
+        rw [List.mem_map] at t_mem
+        rcases t_mem with ⟨v, v_mem, t_mem⟩
+        rcases FunctionFreeConjunction.mem_vars.mp (origin.fst.val.rule.frontier_subset_vars_body v_mem) with ⟨a, a_mem, v_mem'⟩
+        exists origin.fst.val.subs.apply_function_free_atom a
+        constructor
+        . apply (cd2.active_trigger_origin_next next_mem).left
+          rw [List.mem_toSet]
+          apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_list
+          exact a_mem
+        . unfold Fact.constants
+          rw [List.mem_flatMap]
+          exists t
           constructor
-          . apply out_sub_in
-            apply (cd2.active_trigger_origin_next next_eq).left
-            rw [List.mem_toSet]
-            apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_list
-            exact a_mem
-          . unfold Fact.constants
-            rw [List.mem_flatMap]
-            exists t
+          . unfold GroundSubstitution.apply_function_free_atom
+            unfold TermMapping.apply_generalized_atom
+            rw [List.mem_map]
+            exists VarOrConst.var v
             constructor
-            . unfold GroundSubstitution.apply_function_free_atom
-              unfold TermMapping.apply_generalized_atom
-              rw [List.mem_map]
-              exists VarOrConst.var v
-              constructor
-              . exact v_mem'
-              . unfold PreTrigger.subs_for_mapped_head at t_mem
-                rw [PreTrigger.apply_to_var_or_const_frontier_var _ _ _ v_mem] at t_mem
-                exact t_mem
-            . exact c_mem
-        | inr c_mem =>
-          apply Or.inr
-          exists origin.fst.val.rule
-          constructor
-          . exact origin.fst.property
-          . unfold Rule.head_constants
-            grind
-      . exact c_mem
+            . exact v_mem'
+            . unfold PreTrigger.subs_for_mapped_head at t_mem
+              rw [PreTrigger.apply_to_var_or_const_frontier_var _ _ _ v_mem] at t_mem
+              exact t_mem
+          . exact c_mem
+      | inr c_mem =>
+        apply Or.inr
+        exists origin.fst.val.rule
+        constructor
+        . exact origin.fst.property
+        . unfold Rule.head_constants
+          grind
+    . exact c_mem
 
 /-- Each functional term in the chase originates as a fresh term from a trigger if it was not already part of the initial fact set. -/
 theorem functional_term_originates_from_some_trigger
     (out_sub_in : CN.out_sub_in)
     {cd : ChaseDerivation N obs rules}
-    (start_eq : CN.ingoingFacts cd.head = CN.outgoingFacts cd.head)
-    (predecessor_trans : ∀ {n1 n2 n3 : cd.Node}, n1 ≼ n2 -> n2 ≼ n3 -> n1 ≼ n3)
-    (node : Node cd)
+    {next_some : cd.next.isSome}
+    (predecessor_trans : ∀ {n1 n2 n3 : (cd.tail next_some).Node}, n1 ≼ n2 -> n2 ≼ n3 -> n1 ≼ n3)
+    (node : (cd.tail next_some).Node)
     {t : GroundTerm sig}
     (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok)
     (t_mem : t ∈ (CN.ingoingFacts node.val).terms) :
     t ∈ (CN.outgoingFacts cd.head).terms ∨ ∃ node2, node2 ≼ node ∧ ∃ orig ∈ (CN.origin node2.val), t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val (by rw [← PreTrigger.length_mapped_head]; exact orig.snd.isLt) := by
-  induction node using mem_rec with
-  | head => apply Or.inl; rw [← start_eq]; exact t_mem
-  | step cd2 suffix ih next next_mem =>
-    rw [cd2.facts_next next_mem, FactSet.terms_union] at t_mem
-
-    have aux : t ∈ (CN.ingoingFacts cd2.head).terms -> t ∈ (CN.outgoingFacts cd.head).terms ∨ ∃ (node2 : cd.Node), node2 ≼ ⟨next, cd2.mem_of_mem_suffix suffix _ (cd2.next_mem_of_mem _ next_mem)⟩ ∧ ∃ orig ∈ (CN.origin node2.val), t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val (by rw [← PreTrigger.length_mapped_head]; exact orig.snd.isLt) := by
-      intro t_mem
-      cases ih t_mem with
-      | inl ih => apply Or.inl; exact ih
-      | inr ih =>
-        rcases ih with ⟨node2, prec, t_mem⟩
-        apply Or.inr; exists node2; constructor;
-        . apply predecessor_trans prec
-          exact ChaseDerivationSkeleton.predecessor_of_suffix suffix (ChaseDerivationSkeleton.head_prec_next next_mem)
-        . exact t_mem
-
-    cases t_mem with
-    | inl t_mem => exact aux (FactSet.terms_subset_of_subset out_sub_in _ t_mem)
-    | inr t_mem =>
-      unfold ChaseNode.origin_result at t_mem
-      rw [FactSet.mem_terms_toSet, PreTrigger.mem_terms_mapped_head_iff] at t_mem
-      cases t_mem with
-      | inl t_mem => rcases t_is_func with ⟨func, ts, arity, t_is_func⟩; rcases t_mem with ⟨c, _, t_mem⟩; rw [← t_mem] at t_is_func; apply False.elim; exact GroundTerm.func_neq_const (Eq.symm t_is_func)
-      | inr t_mem =>
-      cases t_mem with
-      | inr t_mem =>
-        apply Or.inr; exists ⟨next, cd2.mem_of_mem_suffix suffix _ (cd2.next_mem_of_mem _ next_mem)⟩; constructor
-        . exact ChaseDerivationSkeleton.predecessor_refl
-        . exists (CN.origin next).get (cd2.isSome_origin_next next_mem)
-          simp only [Option.get_mem, true_and]
-          exact t_mem
+  suffices ∀ cd2 : ChaseDerivation N obs rules, ∀ next ∈ cd2.next, t ∈ (CN.ingoingFacts next).terms -> t ∈ ((CN.outgoingFacts cd2.head).terms) ∨ ∃ orig ∈ (CN.origin next), t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val (by rw [← PreTrigger.length_mapped_head]; exact orig.snd.isLt) by
+    induction node using mem_rec with
+    | head =>
+      simp only [cd.head_tail']
+      simp only [cd.head_tail'] at t_mem
+      cases this cd (cd.next.get next_some) (by simp) t_mem with
+      | inl t_mem => apply Or.inl; exact t_mem
+      | inr t_mem => apply Or.inr; exists ⟨cd.next.get next_some, by grind⟩; constructor; exact ChaseDerivationSkeleton.predecessor_refl; exact t_mem
+    | step cd2 suffix ih next next_mem =>
+      cases this _ _ next_mem t_mem with
       | inl t_mem =>
-        apply aux
-        apply FactSet.terms_subset_of_subset out_sub_in
-        apply FactSet.terms_subset_of_subset (cd2.active_trigger_origin_next next_mem).left
-        rw [List.mem_map] at t_mem
-        rcases t_mem with ⟨v, v_mem, t_mem⟩
-        rw [FactSet.mem_terms_toSet, PreTrigger.mem_terms_mapped_body_iff]
-        apply Or.inr
-        exists v; simp only [t_mem, and_true]
-        apply Rule.frontier_subset_vars_body; rw [Rule.mem_frontier_iff_mem_frontier_for_head]; exact ⟨_, ⟨_, v_mem⟩⟩
+        cases ih (FactSet.terms_subset_of_subset out_sub_in _ t_mem) with
+        | inl ih => apply Or.inl; exact ih
+        | inr ih =>
+          rcases ih with ⟨node2, prec, t_mem⟩
+          apply Or.inr; exists node2; constructor;
+          . apply predecessor_trans prec
+            exact ChaseDerivationSkeleton.predecessor_of_suffix suffix (ChaseDerivationSkeleton.head_prec_next next_mem)
+          . exact t_mem
+      | inr t_mem => apply Or.inr; exact ⟨_, ChaseDerivationSkeleton.predecessor_refl, t_mem⟩
+
+  intro cd2 next next_mem t_mem
+  rw [cd2.facts_next next_mem, FactSet.terms_union] at t_mem
+  cases t_mem with
+  | inl t_mem => apply Or.inl; exact t_mem
+  | inr t_mem =>
+    unfold ChaseNode.origin_result at t_mem
+    rw [FactSet.mem_terms_toSet, PreTrigger.mem_terms_mapped_head_iff] at t_mem
+    cases t_mem with
+    | inl t_mem => rcases t_is_func with ⟨func, ts, arity, t_is_func⟩; rcases t_mem with ⟨c, _, t_mem⟩; rw [← t_mem] at t_is_func; apply False.elim; exact GroundTerm.func_neq_const (Eq.symm t_is_func)
+    | inr t_mem =>
+    cases t_mem with
+    | inr t_mem =>
+      apply Or.inr
+      exists (CN.origin next).get (cd2.isSome_origin_next next_mem)
+      simp only [Option.get_mem, true_and]
+      exact t_mem
+    | inl t_mem =>
+      apply Or.inl
+      apply FactSet.terms_subset_of_subset (cd2.active_trigger_origin_next next_mem).left
+      rw [List.mem_map] at t_mem
+      rcases t_mem with ⟨v, v_mem, t_mem⟩
+      rw [FactSet.mem_terms_toSet, PreTrigger.mem_terms_mapped_body_iff]
+      apply Or.inr
+      exists v; simp only [t_mem, and_true]
+      apply Rule.frontier_subset_vars_body; rw [Rule.mem_frontier_iff_mem_frontier_for_head]; exact ⟨_, ⟨_, v_mem⟩⟩
 
 /-- If a functional term occurs in the chase, then the trigger that introduces this term must have been used in the chase, unless the term already occurs in the initial fact set. -/
 theorem trigger_introducing_functional_term_occurs_in_chase
     (out_sub_in : CN.out_sub_in)
     {cd : ChaseDerivation N obs rules}
-    (start_eq : CN.ingoingFacts cd.head = CN.outgoingFacts cd.head)
-    (predecessor_trans : ∀ {n1 n2 n3 : cd.Node}, n1 ≼ n2 -> n2 ≼ n3 -> n1 ≼ n3)
-    (node : Node cd)
+    {next_some : cd.next.isSome}
+    (predecessor_trans : ∀ {n1 n2 n3 : (cd.tail next_some).Node}, n1 ≼ n2 -> n2 ≼ n3 -> n1 ≼ n3)
+    (node : (cd.tail next_some).Node)
     {t : GroundTerm sig}
     (t_mem_node : t ∈ (CN.ingoingFacts node.val).terms)
     {trg : RTrigger obs rules}
@@ -452,7 +463,7 @@ theorem trigger_introducing_functional_term_occurs_in_chase
     {lt : disj_idx < trg.val.rule.head.length}
     (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :
     t ∈ (CN.outgoingFacts cd.head).terms ∨ ∃ node2, node2 ≼ node ∧ ∃ orig ∈ (CN.origin node2.val), orig.fst.equiv trg ∧ orig.snd.val = disj_idx := by
-  cases functional_term_originates_from_some_trigger out_sub_in start_eq predecessor_trans node (by
+  cases functional_term_originates_from_some_trigger out_sub_in predecessor_trans node (by
     cases eq : t with
     | const _ =>
       rw [eq] at t_mem_trg
@@ -747,8 +758,11 @@ theorem constants_node_subset_constants_fs_union_constants_rules
     {cd : RegularChaseDerivation obs rules}
     {node : RegularChaseNode obs rules} (node_mem : node ∈ cd) :
     node.facts.constants ⊆ cd.head.facts.constants ∪ rules.head_constants := by
-  apply ChaseDerivation.constants_node_subset_constants_fs_union_constants_rules RegularChaseNode.out_sub_in _ node_mem
-  rw [RegularChaseNode.ingoingFacts_eq, RegularChaseNode.outgoingFacts_eq]
+  cases cd.mem_iff_eq_head_or_mem_tail.mp node_mem with
+  | inl node_mem => apply Set.subset_union_of_subset_left; rw [node_mem]; exact Set.subset_refl
+  | inr node_mem =>
+    rcases node_mem with ⟨_, node_mem⟩
+    exact ChaseDerivation.constants_node_subset_constants_fs_union_constants_rules RegularChaseNode.out_sub_in node_mem
 
 /-- Each functional term in the chase originates as a fresh term from a trigger if it was not already part of the initial fact set. -/
 theorem functional_term_originates_from_some_trigger
@@ -758,8 +772,17 @@ theorem functional_term_originates_from_some_trigger
     (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok)
     (t_mem : t ∈ node.val.facts.terms) :
     t ∈ cd.head.facts.terms ∨ ∃ node2, node2 ≼ node ∧ ∃ orig ∈ node2.val.origin, t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val (by rw [← PreTrigger.length_mapped_head]; exact orig.snd.isLt) := by
-  apply ChaseDerivation.functional_term_originates_from_some_trigger RegularChaseNode.out_sub_in _ predecessor_trans node t_is_func t_mem
-  rw [RegularChaseNode.ingoingFacts_eq, RegularChaseNode.outgoingFacts_eq]
+  cases cd.mem_iff_eq_head_or_mem_tail.mp node.property with
+  | inl node_mem => apply Or.inl; rw [← node_mem]; exact t_mem
+  | inr node_mem =>
+    rcases node_mem with ⟨next_some, node_mem⟩
+    rw [← cd.head.outgoingFacts_eq]
+    cases ChaseDerivation.functional_term_originates_from_some_trigger RegularChaseNode.out_sub_in predecessor_trans ⟨node.val, node_mem⟩ t_is_func (by rw [node.val.ingoingFacts_eq]; exact t_mem) with
+    | inl t_mem => apply Or.inl; exact t_mem
+    | inr t_mem =>
+      apply Or.inr; rcases t_mem with ⟨node2, prec, t_mem⟩
+      have suf : cd.tail next_some <:+ cd := PossiblyInfiniteList.IsSuffix_tail
+      exact ⟨_, ChaseDerivationSkeleton.predecessor_of_suffix suf prec, t_mem⟩
 
 /-- If a functional term occurs in the chase, then the trigger that introduces this term must have been used in the chase, unless the term already occurs in the initial fact set. -/
 theorem trigger_introducing_functional_term_occurs_in_chase
@@ -772,8 +795,17 @@ theorem trigger_introducing_functional_term_occurs_in_chase
     {lt : disj_idx < trg.val.rule.head.length}
     (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :
     t ∈ cd.head.facts.terms ∨ ∃ node2, node2 ≼ node ∧ ∃ orig ∈ node2.val.origin, orig.fst.equiv trg ∧ orig.snd.val = disj_idx := by
-  apply ChaseDerivation.trigger_introducing_functional_term_occurs_in_chase RegularChaseNode.out_sub_in _ predecessor_trans node t_mem_node t_mem_trg
-  rw [RegularChaseNode.ingoingFacts_eq, RegularChaseNode.outgoingFacts_eq]
+  cases cd.mem_iff_eq_head_or_mem_tail.mp node.property with
+  | inl node_mem => apply Or.inl; rw [← node_mem]; exact t_mem_node
+  | inr node_mem =>
+    rcases node_mem with ⟨next_some, node_mem⟩
+    rw [← cd.head.outgoingFacts_eq]
+    cases ChaseDerivation.trigger_introducing_functional_term_occurs_in_chase RegularChaseNode.out_sub_in predecessor_trans ⟨node.val, node_mem⟩ t_mem_node t_mem_trg with
+    | inl t_mem => apply Or.inl; exact t_mem
+    | inr t_mem =>
+      apply Or.inr; rcases t_mem with ⟨node2, prec, t_mem⟩
+      have suf : cd.tail next_some <:+ cd := PossiblyInfiniteList.IsSuffix_tail
+      exact ⟨_, ChaseDerivationSkeleton.predecessor_of_suffix suf prec, t_mem⟩
 
 /-- If a functional term occurs in the chase, then the result of the trigger that introduces this term is contained in the current node, unless the functional term already occurs in the initial fact set. -/
 theorem result_of_trigger_introducing_functional_term_occurs_in_chase

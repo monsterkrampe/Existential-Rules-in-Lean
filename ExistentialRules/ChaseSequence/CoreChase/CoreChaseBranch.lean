@@ -263,30 +263,30 @@ that the trigger that introduces this term must have been applied in some `Chase
 /-- Constants in the chase can only come from the initial fact set or from a constant in a rule. -/
 theorem constants_node_subset_constants_fs_union_constants_rules
     {cd : CoreChaseDerivation rules}
-    (start_eq : cd.head.facts = cd.head.core)
-    {node : CoreChaseNode rules} (node_mem : node ∈ cd) :
-    node.facts.constants ⊆ cd.head.core.constants ∪ rules.head_constants := by
-  exact ChaseDerivation.constants_node_subset_constants_fs_union_constants_rules CoreChaseNode.out_sub_in start_eq node_mem
+    {next_some : cd.next.isSome}
+    {node : CoreChaseNode rules} (node_mem : node ∈ cd.tail next_some) :
+    node.facts.constants ⊆ cd.head.core.constants ∪ rules.head_constants :=
+  ChaseDerivation.constants_node_subset_constants_fs_union_constants_rules CoreChaseNode.out_sub_in node_mem
 
 /-- Each functional term in the chase originates as a fresh term from a trigger if it was not already part of the initial fact set. -/
 theorem functional_term_originates_from_some_trigger
     {cd : CoreChaseDerivation rules}
-    (start_eq : cd.head.facts = cd.head.core)
+    {next_some : cd.next.isSome}
     (start_finite : cd.head.core.finite)
-    (node : cd.Node)
+    (node : (cd.tail next_some).Node)
     {t : GroundTerm sig}
     (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok)
     (t_mem : t ∈ node.val.facts.terms) :
     t ∈ cd.head.core.terms ∨ ∃ node2, node2 ≼ node ∧ ∃ orig ∈ node2.val.origin, t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val (by rw [← PreTrigger.length_mapped_head]; exact orig.snd.isLt) := by
-  apply ChaseDerivation.functional_term_originates_from_some_trigger CoreChaseNode.out_sub_in start_eq _ node t_is_func t_mem
-  intro n1 n2 n3; apply predecessor_trans_of_finite; apply cd.core_finite_of_mem_of_head_finite; exact start_finite
+  apply ChaseDerivation.functional_term_originates_from_some_trigger CoreChaseNode.out_sub_in _ node t_is_func t_mem
+  intro n1 n2 n3; apply predecessor_trans_of_finite; apply core_finite_of_mem_of_head_finite; rw [ChaseDerivation.head_tail']; apply cd.core_finite_of_mem_of_head_finite _ ⟨cd.next.get next_some, by apply cd.next_mem_of_mem; simp⟩; exact start_finite
 
 /-- If a functional term occurs in the chase, then the trigger that introduces this term must have been used in the chase, unless the term already occurs in the initial fact set. -/
 theorem trigger_introducing_functional_term_occurs_in_chase
     {cd : CoreChaseDerivation rules}
-    (start_eq : cd.head.facts = cd.head.core)
+    {next_some : cd.next.isSome}
     (start_finite : cd.head.core.finite)
-    (node : cd.Node)
+    (node : (cd.tail next_some).Node)
     {t : GroundTerm sig}
     (t_mem_node : t ∈ node.val.facts.terms)
     {trg : RTrigger (RestrictedObsolescence sig) rules}
@@ -294,8 +294,8 @@ theorem trigger_introducing_functional_term_occurs_in_chase
     {lt : disj_idx < trg.val.rule.head.length}
     (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :
     t ∈ cd.head.core.terms ∨ ∃ node2, node2 ≼ node ∧ ∃ orig ∈ node2.val.origin, orig.fst.equiv trg ∧ orig.snd.val = disj_idx := by
-  apply ChaseDerivation.trigger_introducing_functional_term_occurs_in_chase CoreChaseNode.out_sub_in start_eq _ node t_mem_node t_mem_trg
-  intro n1 n2 n3; apply predecessor_trans_of_finite; apply cd.core_finite_of_mem_of_head_finite; exact start_finite
+  apply ChaseDerivation.trigger_introducing_functional_term_occurs_in_chase CoreChaseNode.out_sub_in _ node t_mem_node t_mem_trg
+  intro n1 n2 n3; apply predecessor_trans_of_finite; apply core_finite_of_mem_of_head_finite; rw [ChaseDerivation.head_tail']; apply cd.core_finite_of_mem_of_head_finite _ ⟨cd.next.get next_some, by apply cd.next_mem_of_mem; simp⟩; exact start_finite
 
 end TermsInChase
 
@@ -509,12 +509,12 @@ that the trigger that introduces this term must have been applied in some `Chase
 /-- Constants in the chase must be in the database or in some rule. -/
 theorem constants_node_subset_constants_db_union_constants_rules {cb : CoreChaseBranch kb} {node : cb.Node} :
     node.val.facts.constants ⊆ (kb.db.constants.val ∪ kb.rules.head_constants) := by
-  have start_eq : cb.head.facts = cb.head.core := by
-    rw [← cb.head.outgoingFacts_eq, cb.database_first'.right.left]
-    rw [← cb.head.ingoingFacts_eq, cb.database_first'.left]
-  have := CoreChaseDerivation.constants_node_subset_constants_fs_union_constants_rules start_eq node.property
-  rw [← cb.head.outgoingFacts_eq, cb.database_first'.right.left, Database.toFactSet_constants_same] at this
-  exact this
+  cases ChaseDerivation.mem_iff_eq_head_or_mem_tail.mp node.property with
+  | inl node_mem => apply Set.subset_union_of_subset_left; rw [node_mem, ← cb.head.ingoingFacts_eq, cb.database_first'.left, Database.toFactSet_constants_same]; exact Set.subset_refl
+  | inr node_mem =>
+    rcases node_mem with ⟨_, node_mem⟩
+    rw [← Database.toFactSet_constants_same, ← cb.database_first'.right.left, cb.head.outgoingFacts_eq]
+    exact CoreChaseDerivation.constants_node_subset_constants_fs_union_constants_rules node_mem
 
 /-- Each functional term in the chase originates as a fresh term from a trigger. -/
 theorem functional_term_originates_from_some_trigger
@@ -525,13 +525,22 @@ theorem functional_term_originates_from_some_trigger
     (t_mem : t ∈ node.val.facts.terms) :
     ∃ node2, node2 ≼ node ∧ ∃ orig ∈ node2.val.origin,
       t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val (by rw [← PreTrigger.length_mapped_head]; exact orig.snd.isLt) := by
-  have start_eq : cb.head.facts = cb.head.core := by
-    rw [← cb.head.outgoingFacts_eq, cb.database_first'.right.left]
-    rw [← cb.head.ingoingFacts_eq, cb.database_first'.left]
-  have start_finite := (cb.core_finite_of_mem ⟨_, cb.head_mem⟩)
-  cases CoreChaseDerivation.functional_term_originates_from_some_trigger start_eq start_finite node t_is_func t_mem with
-  | inl t_mem => apply False.elim; exact cb.func_term_not_mem_head t_is_func t_mem
-  | inr t_mem => exact t_mem
+  have t_nmem_head : t ∉ cb.head.core.terms := by
+    intro t_mem
+    exact cb.func_term_not_mem_head t_is_func t_mem
+  cases ChaseDerivation.mem_iff_eq_head_or_mem_tail.mp node.property with
+  | inl node_mem =>
+    rw [node_mem, ← cb.head.ingoingFacts_eq, cb.database_first'.left, ← cb.database_first'.right.left] at t_mem
+    apply False.elim; apply t_nmem_head; exact t_mem
+  | inr node_mem =>
+    have start_finite := (cb.core_finite_of_mem ⟨_, cb.head_mem⟩)
+    rcases node_mem with ⟨next_some, node_mem⟩
+    cases CoreChaseDerivation.functional_term_originates_from_some_trigger start_finite ⟨node.val, node_mem⟩ t_is_func t_mem with
+    | inl t_mem => apply False.elim; exact t_nmem_head t_mem
+    | inr t_mem =>
+      rcases t_mem with ⟨node2, prec, t_mem⟩
+      have suf : (cb.tail next_some) <:+ cb.toChaseDerivation := PossiblyInfiniteList.IsSuffix_tail
+      exact ⟨_, ChaseDerivationSkeleton.predecessor_of_suffix suf prec, t_mem⟩
 
 /-- If a functional term occurs in the chase, then the trigger that introduces this term must have been used in the chase. -/
 theorem trigger_introducing_functional_term_occurs_in_chase
@@ -544,13 +553,22 @@ theorem trigger_introducing_functional_term_occurs_in_chase
     {lt : disj_idx < trg.val.rule.head.length}
     (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :
     ∃ node2, node2 ≼ node ∧ ∃ orig ∈ node2.val.origin, orig.fst.equiv trg ∧ orig.snd.val = disj_idx := by
-  have start_eq : cb.head.facts = cb.head.core := by
-    rw [← cb.head.outgoingFacts_eq, cb.database_first'.right.left]
-    rw [← cb.head.ingoingFacts_eq, cb.database_first'.left]
-  have start_finite := (cb.core_finite_of_mem ⟨_, cb.head_mem⟩)
-  cases CoreChaseDerivation.trigger_introducing_functional_term_occurs_in_chase start_eq start_finite node t_mem_node t_mem_trg with
-  | inl t_mem => apply False.elim; exact cb.func_term_not_mem_head (PreTrigger.term_functional_of_mem_fresh_terms _ t_mem_trg) t_mem
-  | inr t_mem => exact t_mem
+  have t_nmem_head : t ∉ cb.head.core.terms := by
+    intro t_mem
+    exact cb.func_term_not_mem_head (PreTrigger.term_functional_of_mem_fresh_terms _ t_mem_trg) t_mem
+  cases ChaseDerivation.mem_iff_eq_head_or_mem_tail.mp node.property with
+  | inl node_mem =>
+    rw [node_mem, ← cb.head.ingoingFacts_eq, cb.database_first'.left, ← cb.database_first'.right.left] at t_mem_node
+    apply False.elim; apply t_nmem_head; exact t_mem_node
+  | inr node_mem =>
+    have start_finite := (cb.core_finite_of_mem ⟨_, cb.head_mem⟩)
+    rcases node_mem with ⟨next_some, node_mem⟩
+    cases CoreChaseDerivation.trigger_introducing_functional_term_occurs_in_chase start_finite ⟨node.val, node_mem⟩ t_mem_node t_mem_trg with
+    | inl t_mem => apply False.elim; exact t_nmem_head t_mem
+    | inr t_mem =>
+      rcases t_mem with ⟨node2, prec, t_mem⟩
+      have suf : (cb.tail next_some) <:+ cb.toChaseDerivation := PossiblyInfiniteList.IsSuffix_tail
+      exact ⟨_, ChaseDerivationSkeleton.predecessor_of_suffix suf prec, t_mem⟩
 
 end TermsInChase
 

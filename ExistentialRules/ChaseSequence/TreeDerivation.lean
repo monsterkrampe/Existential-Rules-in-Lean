@@ -246,6 +246,39 @@ theorem childNodes_eq {td : TreeDerivation N obs rules} : td.childNodes = td.chi
 theorem IsSuffix_of_mem_childTrees {td : TreeDerivation N obs rules} : ∀ td2 ∈ td.childTrees, td2 <:+ td := by
   intro td2 mem; apply FiniteDegreeTree.IsSuffix_of_mem_childTrees td2.toFiniteDegreeTreeWithRoot; rw [← mem_childTrees_iff]; exact mem
 
+/-- A node is a member if and only if it is either the root or it is a member of a child tree. -/
+theorem mem_iff_eq_root_or_mem_child {td : TreeDerivation N obs rules} {node : N} :
+    node ∈ td ↔ node = td.root ∨ ∃ child ∈ td.childTrees, node ∈ child := by
+  constructor
+  . rw [mem_iff]
+    intro ⟨ns, mem⟩
+    cases ns with
+    | nil => apply Or.inl; simp [root, FiniteDegreeTree.root_eq, mem]
+    | cons n ns =>
+      apply Or.inr
+      have lt : n < td.childTrees.length := by
+        simp only [TreeDerivation.childTrees, List.length_map, List.length_attach]
+        suffices td.tree.childTrees[n]? ≠ none by
+          apply Decidable.byContradiction
+          intro le
+          apply this
+          rw [List.getElem?_eq_none_iff]
+          exact Nat.le_of_not_lt le
+        intro contra
+        rw [FiniteDegreeTree.get?_childTrees, FiniteDegreeTree.FiniteDegreeTreeWithRoot.tree_to_opt_none_iff, ← FiniteDegreeTree.empty_iff_root_none] at contra
+        suffices (td.tree.drop [n]).get? ns = some node by
+          rw [contra, FiniteDegreeTree.get?_empty] at this; simp at this
+        rw [FiniteDegreeTree.get?_drop, List.singleton_append]
+        exact mem
+      exists td.childTrees[n]; constructor
+      . simp
+      . rw [mem_iff]
+        exists ns
+        simpa [childTrees, derivation_for_suffix] using mem
+  . intro or; cases or with
+    | inl eq_root => rw [eq_root]; exact td.root_mem
+    | inr mem_child => rcases mem_child with ⟨_, mem_child⟩; apply mem_of_mem_suffix _ _ mem_child.right; exact td.IsSuffix_of_mem_childTrees _ mem_child.left
+
 /-- A derivation is a subtree of another if and only if both are the same or the first is a suffix of one of the second's child trees. -/
 theorem suffix_iff_eq_or_suffix_childTree {td1 td2 : TreeDerivation N obs rules} : td1 <:+ td2 ↔ td1 = td2 ∨ ∃ td3 ∈ td2.childTrees, td1 <:+ td3 := by
   constructor
@@ -452,6 +485,44 @@ theorem triggers_exist {td : TreeDerivation N obs rules} (node : td.NodeWithAddr
   apply trg_ex
   suffices node.node = node.subderivation.root by rw [this]; unfold TreeDerivation.root; simp
   simp
+
+/-- A node is a member if and only if it is either the root or it is a member of a child tree. -/
+theorem eq_root_or_mem_child {td : TreeDerivation N obs rules} {node : td.NodeWithAddress} :
+    node = NodeWithAddress.root td ∨ ∃ child ∈ NodeWithAddress.childNodes (NodeWithAddress.root td), ∃ node' : child.subderivation.NodeWithAddress, cast_for_new_root_node child node' = node := by
+  cases addr_eq : node.address with
+  | nil => apply Or.inl; apply eq_of_address_eq; simpa [root] using addr_eq
+  | cons n ns =>
+    apply Or.inr
+    have lt : n < (root td).childNodes.length := by
+      rw [length_childNodes, subderivation_root]
+      simp only [TreeDerivation.childNodes, FiniteDegreeTree.length_childNodes]
+      suffices td.tree.childTrees[n]? ≠ none by
+        apply Decidable.byContradiction
+        intro le
+        apply this
+        rw [List.getElem?_eq_none_iff]
+        exact Nat.le_of_not_lt le
+      intro contra
+      rw [FiniteDegreeTree.get?_childTrees, FiniteDegreeTree.FiniteDegreeTreeWithRoot.tree_to_opt_none_iff, ← FiniteDegreeTree.empty_iff_root_none] at contra
+      suffices (td.tree.drop [n]).get? ns = some node.node by
+        rw [contra, FiniteDegreeTree.get?_empty] at this; simp at this
+      rw [FiniteDegreeTree.get?_drop, List.singleton_append, ← addr_eq]
+      exact node.eq
+    exists (root td).childNodes[n]; constructor
+    . simp
+    . exists {
+        node := node.node,
+        address := ns,
+        eq := by
+          simp only [subderivation, derivation_for_suffix]
+          rw [address_getElem_childNodes, ← node.eq, addr_eq]
+          simp [root]
+      }
+      apply eq_of_address_eq
+      simp only [cast_for_new_root_node]
+      rw [address_getElem_childNodes]
+      rw [addr_eq]
+      rfl
 
 end NodeWithAddress
 
@@ -935,131 +1006,137 @@ variable {N : Type u} [CN : ChaseNode N obs rules]
 /-- Constants in the chase can only come from the initial fact set or from a constant in a rule. -/
 theorem constants_node_subset_constants_fs_union_constants_rules
     (out_sub_in : CN.out_sub_in)
-    {td : TreeDerivation N obs rules}
-    (start_eq : CN.ingoingFacts td.root = CN.outgoingFacts td.root)
-    {node : N} (node_mem : node ∈ td) :
+    {td child : TreeDerivation N obs rules}
+    (child_mem : child ∈ td.childTrees)
+    {node : N} (node_mem : node ∈ child) :
     (CN.ingoingFacts node).constants ⊆ ((CN.outgoingFacts td.root).constants ∪ rules.head_constants) := by
   rw [mem_iff] at node_mem
   rcases node_mem with ⟨addr, node_mem⟩
-  let node' : td.NodeWithAddress := {node := node, address := addr, eq := node_mem}
+  let node' : child.NodeWithAddress := {node := node, address := addr, eq := node_mem}
   show (CN.ingoingFacts node'.node).constants ⊆ ((CN.outgoingFacts td.root).constants ∪ rules.head_constants)
-  induction node' using mem_rec_address with
-  | root =>
-    apply Set.subset_union_of_subset_left
-    simp only [NodeWithAddress.root]
-    rw [start_eq]
-    apply Set.subset_refl
-  | step new_root ih c c_mem =>
-    rw [facts_childNodes (NodeWithAddress.mem_childNodes_of_mem_childNodes c_mem), NodeWithAddress.root_subderivation']
+
+  suffices ∀ td2 : TreeDerivation N obs rules, ∀ next ∈ td2.childNodes, (CN.ingoingFacts next).constants ⊆ ((CN.outgoingFacts td2.root).constants ∪ rules.head_constants) by
+    induction node' using mem_rec_address with
+    | root => apply this; rw [td.childNodes_eq]; apply List.mem_map_of_mem; exact child_mem
+    | step new_root ih c c_mem =>
+      specialize this new_root.subderivation c.node (NodeWithAddress.mem_childNodes_of_mem_childNodes c_mem)
+      apply Set.subset_trans this
+      rw [Set.union_subset_iff_both_subset]; constructor
+      . apply Set.subset_trans _ ih; rw [new_root.root_subderivation']; exact FactSet.constants_subset_of_subset out_sub_in
+      . apply Set.subset_union_of_subset_right; exact Set.subset_refl
+
+  intro td2 next next_mem
+  rw [facts_childNodes next_mem]
+  intro d d_mem
+  rw [FactSet.constants_union] at d_mem
+  cases d_mem with
+  | inl d_mem => apply Or.inl; exact d_mem
+  | inr d_mem =>
+    let origin := (CN.origin next).get (isSome_origin_of_mem_childNodes _ next_mem)
+    apply Set.subset_trans (origin.fst.val.mapped_head_constants_subset origin.snd) _ _ d_mem
     intro d d_mem
-    rw [FactSet.constants_union] at d_mem
+    rw [List.mem_toSet, List.mem_append] at d_mem
     cases d_mem with
-    | inl d_mem => apply ih; apply FactSet.constants_subset_of_subset out_sub_in; exact d_mem
+    | inl d_mem =>
+      apply Or.inl
+      rw [List.mem_flatMap] at d_mem
+      rcases d_mem with ⟨t, t_mem, d_mem⟩
+      rw [List.mem_map] at t_mem
+      rcases t_mem with ⟨v, v_mem, t_mem⟩
+      rcases FunctionFreeConjunction.mem_vars.mp (origin.fst.val.rule.frontier_subset_vars_body v_mem) with ⟨a, a_mem, v_mem'⟩
+      exists origin.fst.val.subs.apply_function_free_atom a
+      constructor
+      . have := active_trigger_origin_of_mem_childNodes next_mem
+        apply this.left
+        unfold PreTrigger.mapped_body
+        rw [List.mem_toSet]
+        apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_list
+        exact a_mem
+      . unfold Fact.constants
+        rw [List.mem_flatMap]
+        exists t
+        constructor
+        . unfold GroundSubstitution.apply_function_free_atom
+          unfold TermMapping.apply_generalized_atom
+          rw [List.mem_map]
+          exists VarOrConst.var v
+          constructor
+          . exact v_mem'
+          . unfold PreTrigger.subs_for_mapped_head at t_mem
+            rw [PreTrigger.apply_to_var_or_const_frontier_var _ _ _ v_mem] at t_mem
+            exact t_mem
+        . exact d_mem
     | inr d_mem =>
-      let origin := (CN.origin c.node).get (isSome_origin_of_mem_childNodes _ (NodeWithAddress.mem_childNodes_of_mem_childNodes c_mem))
-      apply Set.subset_trans (origin.fst.val.mapped_head_constants_subset origin.snd)
-      . intro d d_mem
-        rw [List.mem_toSet, List.mem_append] at d_mem
-        cases d_mem with
-        | inl d_mem =>
-          apply ih
-          rw [List.mem_flatMap] at d_mem
-          rcases d_mem with ⟨t, t_mem, d_mem⟩
-          rw [List.mem_map] at t_mem
-          rcases t_mem with ⟨v, v_mem, t_mem⟩
-          rcases FunctionFreeConjunction.mem_vars.mp (origin.fst.val.rule.frontier_subset_vars_body v_mem) with ⟨a, a_mem, v_mem'⟩
-          exists origin.fst.val.subs.apply_function_free_atom a
-          constructor
-          . apply out_sub_in
-            have := active_trigger_origin_of_mem_childNodes (NodeWithAddress.mem_childNodes_of_mem_childNodes c_mem)
-            rw [NodeWithAddress.root_subderivation'] at this
-            apply this.left
-            unfold PreTrigger.mapped_body
-            rw [List.mem_toSet]
-            apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_list
-            exact a_mem
-          . unfold Fact.constants
-            rw [List.mem_flatMap]
-            exists t
-            constructor
-            . unfold GroundSubstitution.apply_function_free_atom
-              unfold TermMapping.apply_generalized_atom
-              rw [List.mem_map]
-              exists VarOrConst.var v
-              constructor
-              . exact v_mem'
-              . unfold PreTrigger.subs_for_mapped_head at t_mem
-                rw [PreTrigger.apply_to_var_or_const_frontier_var _ _ _ v_mem] at t_mem
-                exact t_mem
-            . exact d_mem
-        | inr d_mem =>
-          apply Or.inr
-          exists origin.fst.val.rule
-          constructor
-          . exact origin.fst.property
-          . unfold Rule.head_constants
-            grind
-      . exact d_mem
+      apply Or.inr
+      exists origin.fst.val.rule
+      constructor
+      . exact origin.fst.property
+      . unfold Rule.head_constants
+        grind
 
 /-- Each functional term in the chase originates as a fresh term from a trigger if it was not already part of the initial fact set. -/
 theorem functional_term_originates_from_some_trigger
     (out_sub_in : CN.out_sub_in)
-    {td : TreeDerivation N obs rules}
-    (start_eq : CN.ingoingFacts td.root = CN.outgoingFacts td.root)
-    (node : NodeWithAddress td)
+    {td child : TreeDerivation N obs rules}
+    (child_mem : child ∈ td.childTrees)
+    (node : NodeWithAddress child)
     {t : GroundTerm sig}
     (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok)
     (t_mem : t ∈ (CN.ingoingFacts node.node).terms) :
     t ∈ (CN.outgoingFacts td.root).terms ∨ ∃ node2, node2 ≼ node ∧ ∃ orig ∈ (CN.origin node2.node), t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val (by rw [← PreTrigger.length_mapped_head]; exact orig.snd.isLt) := by
-  induction node using mem_rec_address with
-  | root => apply Or.inl; rw [← start_eq]; exact t_mem
-  | step new_root ih c c_mem =>
-    rw [facts_childNodes (NodeWithAddress.mem_childNodes_of_mem_childNodes c_mem), NodeWithAddress.root_subderivation', FactSet.terms_union] at t_mem
-
-    have aux : t ∈ (CN.ingoingFacts new_root.node).terms -> t ∈ (CN.outgoingFacts td.root).terms ∨ ∃ (node2 : td.NodeWithAddress), node2 ≼ c ∧ ∃ orig ∈ (CN.origin node2.node), t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val (by rw [← PreTrigger.length_mapped_head]; exact orig.snd.isLt) := by
-      intro t_mem
-      cases ih t_mem with
-      | inl ih => apply Or.inl; exact ih
-      | inr ih =>
-        rcases ih with ⟨node2, prec, t_mem⟩
-        apply Or.inr; exists node2; constructor;
-        . apply predecessor_trans prec; grind
-        . exact t_mem
-
-    cases t_mem with
-    | inl t_mem => exact aux (FactSet.terms_subset_of_subset out_sub_in _ t_mem)
-    | inr t_mem =>
-      unfold ChaseNode.origin_result at t_mem
-      rw [FactSet.mem_terms_toSet, PreTrigger.mem_terms_mapped_head_iff] at t_mem
-      cases t_mem with
-      | inl t_mem => rcases t_is_func with ⟨func, ts, arity, t_is_func⟩; rcases t_mem with ⟨c, _, t_mem⟩; rw [← t_mem] at t_is_func; have contra := Eq.symm t_is_func; simp [GroundTerm.func_neq_const] at contra
-      | inr t_mem =>
-      cases t_mem with
-      | inr t_mem =>
-        apply Or.inr; exists c; constructor
-        . exact predecessor_refl
-        . exists (CN.origin c.node).get (isSome_origin_of_mem_childNodes _ (NodeWithAddress.mem_childNodes_of_mem_childNodes c_mem))
-          simp only [Option.get_mem, true_and]
-          exact t_mem
+  suffices ∀ td2 : TreeDerivation N obs rules, ∀ next ∈ td2.childNodes, t ∈ (CN.ingoingFacts next).terms -> t ∈ ((CN.outgoingFacts td2.root).terms) ∨ ∃ orig ∈ (CN.origin next), t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val (by rw [← PreTrigger.length_mapped_head]; exact orig.snd.isLt) by
+    induction node using mem_rec_address with
+    | root =>
+      cases this td child.root (by rw [childNodes_eq]; apply List.mem_map_of_mem; exact child_mem) t_mem with
+      | inl t_mem => apply Or.inl; exact t_mem
+      | inr t_mem => apply Or.inr; exists NodeWithAddress.root child; constructor; exact predecessor_refl; exact t_mem
+    | step new_root ih c c_mem =>
+      cases this new_root.subderivation c.node (NodeWithAddress.mem_childNodes_of_mem_childNodes c_mem) t_mem with
       | inl t_mem =>
-        apply aux
-        apply FactSet.terms_subset_of_subset out_sub_in
-        have := active_trigger_origin_of_mem_childNodes (NodeWithAddress.mem_childNodes_of_mem_childNodes c_mem)
-        rw [NodeWithAddress.root_subderivation'] at this
-        apply FactSet.terms_subset_of_subset this.left
-        rw [List.mem_map] at t_mem
-        rcases t_mem with ⟨v, v_mem, t_mem⟩
-        rw [FactSet.mem_terms_toSet, PreTrigger.mem_terms_mapped_body_iff]
-        apply Or.inr
-        exists v; simp only [t_mem, and_true]
-        apply Rule.frontier_subset_vars_body; rw [Rule.mem_frontier_iff_mem_frontier_for_head]; exact ⟨_, ⟨_, v_mem⟩⟩
+        rw [new_root.root_subderivation'] at t_mem
+        cases ih (FactSet.terms_subset_of_subset out_sub_in _ t_mem) with
+        | inl ih => apply Or.inl; exact ih
+        | inr ih =>
+          rcases ih with ⟨node2, prec, t_mem⟩
+          apply Or.inr; exists node2; constructor;
+          . apply predecessor_trans prec
+            exact node_prec_childNodes _ c_mem
+          . exact t_mem
+      | inr t_mem => apply Or.inr; exact ⟨_, predecessor_refl, t_mem⟩
+
+  intro td2 next next_mem t_mem
+  rw [facts_childNodes next_mem, FactSet.terms_union] at t_mem
+  cases t_mem with
+  | inl t_mem => apply Or.inl; exact t_mem
+  | inr t_mem =>
+    unfold ChaseNode.origin_result at t_mem
+    rw [FactSet.mem_terms_toSet, PreTrigger.mem_terms_mapped_head_iff] at t_mem
+    cases t_mem with
+    | inl t_mem => rcases t_is_func with ⟨func, ts, arity, t_is_func⟩; rcases t_mem with ⟨c, _, t_mem⟩; rw [← t_mem] at t_is_func; have contra := Eq.symm t_is_func; simp [GroundTerm.func_neq_const] at contra
+    | inr t_mem =>
+    cases t_mem with
+    | inr t_mem =>
+      apply Or.inr
+      exists (CN.origin next).get (isSome_origin_of_mem_childNodes _ next_mem)
+      simp only [Option.get_mem, true_and]
+      exact t_mem
+    | inl t_mem =>
+      apply Or.inl
+      have := active_trigger_origin_of_mem_childNodes next_mem
+      apply FactSet.terms_subset_of_subset this.left
+      rw [List.mem_map] at t_mem
+      rcases t_mem with ⟨v, v_mem, t_mem⟩
+      rw [FactSet.mem_terms_toSet, PreTrigger.mem_terms_mapped_body_iff]
+      apply Or.inr
+      exists v; simp only [t_mem, and_true]
+      apply Rule.frontier_subset_vars_body; rw [Rule.mem_frontier_iff_mem_frontier_for_head]; exact ⟨_, ⟨_, v_mem⟩⟩
 
 /-- If a functional term occurs in the chase, then the trigger that introduces this term must have been used in the chase, unless the term already occurs in the initial fact set. -/
 theorem trigger_introducing_functional_term_occurs_in_chase
     (out_sub_in : CN.out_sub_in)
-    {td : TreeDerivation N obs rules}
-    (start_eq : CN.ingoingFacts td.root = CN.outgoingFacts td.root)
-    (node : NodeWithAddress td)
+    {td child : TreeDerivation N obs rules}
+    (child_mem : child ∈ td.childTrees)
+    (node : NodeWithAddress child)
     {t : GroundTerm sig}
     (t_mem_node : t ∈ (CN.ingoingFacts node.node).terms)
     {trg : RTrigger obs rules}
@@ -1067,7 +1144,7 @@ theorem trigger_introducing_functional_term_occurs_in_chase
     {lt : disj_idx < trg.val.rule.head.length}
     (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :
     t ∈ (CN.outgoingFacts td.root).terms ∨ ∃ node2, node2 ≼ node ∧ ∃ orig ∈ (CN.origin node2.node), orig.fst.equiv trg ∧ orig.snd.val = disj_idx := by
-  cases functional_term_originates_from_some_trigger out_sub_in start_eq node (by
+  cases functional_term_originates_from_some_trigger out_sub_in child_mem node (by
     cases eq : t with
     | const _ =>
       rw [eq] at t_mem_trg
@@ -1394,8 +1471,11 @@ theorem constants_node_subset_constants_fs_union_constants_rules
     {td : RegularTreeDerivation obs rules}
     {node : RegularChaseNode obs rules} (node_mem : node ∈ td) :
     node.facts.constants ⊆ (td.root.facts.constants ∪ rules.head_constants) := by
-  apply TreeDerivation.constants_node_subset_constants_fs_union_constants_rules RegularChaseNode.out_sub_in _ node_mem
-  rw [RegularChaseNode.ingoingFacts_eq, RegularChaseNode.outgoingFacts_eq]
+  cases td.mem_iff_eq_root_or_mem_child.mp node_mem with
+  | inl node_mem => apply Set.subset_union_of_subset_left; rw [node_mem]; exact Set.subset_refl
+  | inr node_mem =>
+    rcases node_mem with ⟨_, node_mem⟩
+    exact TreeDerivation.constants_node_subset_constants_fs_union_constants_rules RegularChaseNode.out_sub_in node_mem.left node_mem.right
 
 /-- Each functional term in the chase originates as a fresh term from a trigger if it was not already part of the initial fact set. -/
 theorem functional_term_originates_from_some_trigger
@@ -1405,8 +1485,18 @@ theorem functional_term_originates_from_some_trigger
     (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok)
     (t_mem : t ∈ node.node.facts.terms) :
     t ∈ td.root.facts.terms ∨ ∃ node2, node2 ≼ node ∧ ∃ orig ∈ node2.node.origin, t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val (by rw [← PreTrigger.length_mapped_head]; exact orig.snd.isLt) := by
-  apply TreeDerivation.functional_term_originates_from_some_trigger RegularChaseNode.out_sub_in _ node t_is_func t_mem
-  rw [RegularChaseNode.ingoingFacts_eq, RegularChaseNode.outgoingFacts_eq]
+  cases node.eq_root_or_mem_child with
+  | inl node_mem => apply Or.inl; simp only [node_mem, TreeDerivation.NodeWithAddress.root] at t_mem; exact t_mem
+  | inr node_mem =>
+    rcases node_mem with ⟨child, child_mem, node', node_eq⟩
+    rw [← td.root.outgoingFacts_eq]
+    cases TreeDerivation.functional_term_originates_from_some_trigger RegularChaseNode.out_sub_in (by apply TreeDerivation.NodeWithAddress.subderivation_mem_childTrees_of_mem_childNodes; exact child_mem) node' t_is_func (by rw [node'.node.ingoingFacts_eq]; rw [← node_eq] at t_mem; exact t_mem) with
+    | inl t_mem => apply Or.inl; rw [TreeDerivation.NodeWithAddress.root_subderivation'] at t_mem; exact t_mem
+    | inr t_mem =>
+      apply Or.inr; rcases t_mem with ⟨node2, prec, t_mem⟩
+      exists child.cast_for_new_root_node node2; constructor
+      . rw [← node_eq]; exact td.predecessor_of_suffix prec
+      . exact t_mem
 
 /-- If a functional term occurs in the chase, then the trigger that introduces this term must have been used in the chase, unless the term already occurs in the initial fact set. -/
 theorem trigger_introducing_functional_term_occurs_in_chase
@@ -1419,8 +1509,18 @@ theorem trigger_introducing_functional_term_occurs_in_chase
     {lt : disj_idx < trg.val.rule.head.length}
     (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :
     t ∈ td.root.facts.terms ∨ ∃ node2, node2 ≼ node ∧ ∃ orig ∈ node2.node.origin, orig.fst.equiv trg ∧ orig.snd.val = disj_idx := by
-  apply TreeDerivation.trigger_introducing_functional_term_occurs_in_chase RegularChaseNode.out_sub_in _ node t_mem_node t_mem_trg
-  rw [RegularChaseNode.ingoingFacts_eq, RegularChaseNode.outgoingFacts_eq]
+  cases node.eq_root_or_mem_child with
+  | inl node_mem => apply Or.inl; simp only [node_mem, TreeDerivation.NodeWithAddress.root] at t_mem_node; exact t_mem_node
+  | inr node_mem =>
+    rcases node_mem with ⟨child, child_mem, node', node_eq⟩
+    rw [← td.root.outgoingFacts_eq]
+    cases TreeDerivation.trigger_introducing_functional_term_occurs_in_chase RegularChaseNode.out_sub_in (by apply TreeDerivation.NodeWithAddress.subderivation_mem_childTrees_of_mem_childNodes; exact child_mem) node' (by rw [node'.node.ingoingFacts_eq]; rw [← node_eq] at t_mem_node; exact t_mem_node) t_mem_trg with
+    | inl t_mem => apply Or.inl; rw [TreeDerivation.NodeWithAddress.root_subderivation'] at t_mem; exact t_mem
+    | inr t_mem =>
+      apply Or.inr; rcases t_mem with ⟨node2, prec, t_mem⟩
+      exists child.cast_for_new_root_node node2; constructor
+      . rw [← node_eq]; exact td.predecessor_of_suffix prec
+      . exact t_mem
 
 /-- If a functional term occurs in the chase, then the result of the trigger that introduces this term is contained in the current node, unless the functional term already occurs in the initial fact set. -/
 theorem result_of_trigger_introducing_functional_term_occurs_in_chase
