@@ -465,6 +465,13 @@ end Predecessors
 
 end ChaseDerivationSkeleton
 
+/-!
+# RegularChaseDerivationSkeleton
+
+In general, the `ChaseDerivationSkeleton` does not enforce a specific node type to be able to define machinery for Skolem, restricted, and core chase all at the same time. Some specific results, we can only show for the Skolem and restricted chase, which is what we do here.
+
+We use the `RegularChaseDerivationSkeleton` as an abbreviation for a `ChaseDerivationSkeleton` that uses the `RegularChaseNode` implementation where the ingoing and outgoing facts of each node are always the same (as opposed to the core chase where the outgoing facts would be a core of the ingoing facts).
+-/
 
 abbrev RegularChaseDerivationSkeleton (obs : ObsolescenceCondition sig) (rules : RuleSet sig) := ChaseDerivationSkeleton (RegularChaseNode obs rules) obs rules
 

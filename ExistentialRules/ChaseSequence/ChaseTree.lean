@@ -81,6 +81,11 @@ theorem func_term_not_mem_root {ct : ChaseTree N obs kb}
 
 end ChaseTree
 
+/-!
+# RegularChaseTree
+
+Similar to the `RegularTreeDerivation`, we consider `RegularChaseTree`s as the special `ChaseTree`s where the node type is fixed to be `RegularChaseNode` (representing Skolem and restricted chase).
+-/
 
 abbrev RegularChaseTree (obs : ObsolescenceCondition sig) (kb : KnowledgeBase sig) := ChaseTree (RegularChaseNode obs kb.rules) obs kb
 

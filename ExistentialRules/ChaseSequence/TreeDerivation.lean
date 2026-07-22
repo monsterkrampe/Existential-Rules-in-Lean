@@ -1205,6 +1205,12 @@ end Generate
 
 end TreeDerivation
 
+/-!
+# RegularTreeDerivation
+
+As for the `RegularChaseDerivation`, we consider the special case of `TreeDerivation` where the node type is fixed to be `RegularChaseNode` to talk about Skolem and restricted chase (but not core chase).
+We abbreviate fixing this node type by introducing the `RegularTreeDerivation`.
+-/
 
 abbrev RegularTreeDerivation (obs : ObsolescenceCondition sig) (rules : RuleSet sig) := TreeDerivation (RegularChaseNode obs rules) obs rules
 

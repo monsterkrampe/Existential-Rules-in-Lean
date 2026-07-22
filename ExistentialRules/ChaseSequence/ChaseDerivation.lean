@@ -471,6 +471,12 @@ end TermsInChase
 
 end ChaseDerivation
 
+/-!
+# RegularChaseDerivation
+
+The `RegularChaseDerivation` relates to the `ChaseDerivation` as the `RegularChaseDerivationSkeleton` relates to the `ChaseDerivationSkeleton`.
+That is, the `RegularChaseDerivation` is an abbreviation for a `ChaseDerivation` where the chase node implementation is fixed to be the `RegularChaseNode`, which lands us in the realm of Skolem and restricted chase (but not core chase).
+-/
 
 abbrev RegularChaseDerivation (obs : ObsolescenceCondition sig) (rules : RuleSet sig) := ChaseDerivation (RegularChaseNode obs rules) obs rules
 

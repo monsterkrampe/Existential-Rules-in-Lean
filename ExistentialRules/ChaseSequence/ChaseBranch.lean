@@ -58,6 +58,11 @@ theorem func_term_not_mem_head {cb : ChaseBranch N obs kb} {t : GroundTerm sig} 
 
 end ChaseBranch
 
+/-!
+# RegularChaseBranch
+
+Again, as for the `RegularChaseDerivation`, here we state results about `ChaseBranch`es that specifically hold when using `RegularChaseNode`. The `RegularChaseBranch` abbreviates hardcoding this node type.
+-/
 
 abbrev RegularChaseBranch (obs : ObsolescenceCondition sig) (kb : KnowledgeBase sig) := ChaseBranch (RegularChaseNode obs kb.rules) obs kb
 
