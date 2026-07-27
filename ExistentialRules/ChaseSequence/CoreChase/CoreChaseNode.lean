@@ -22,24 +22,17 @@ variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq 
 section AuxiliaryResultsForTriggerSatisfaction
 
 /-!
-## Trigger Satisfaction along finite `homSubset`s.
+## Homomorphism Repetition in `homSubset`s
 
-Given a few extra conditions, trigger satisfaction is preserved along the `homSubset` relation.
-This is helpful for the `CoreChaseNode` later on as each node features a `homSubset` internally.
+As a very general insight we prove that we can repeat a homomorphism from a `homSubset` relation
+such that the repeated mapping is still a homomorphism but at the same time the id on all terms that occur in the subset.
+This works if the subset is finite.
 -/
 
-/-- If a trigger is satisfied for fs and all of its frontier terms still occur in a finite core homSubset of fs, then the trigger is also satisfied in this homSubset. -/
-theorem trg_remains_obsolete_of_isWeakCore_of_homSubset_of_finite
+/-- If core is a finite weak core and a `homSubset` of fs, then there is a homomorphism from fs to core that is the identity on all of core's terms. -/
+theorem ex_hom_that_is_id_on_terms_of_isWeakCore_of_homSubset_of_finite
     {fs core : FactSet sig} (wc : core.isWeakCore) (homSub : core.homSubset fs) (fin : core.finite) :
-    ∀ (trg : PreTrigger sig), trg.satisfied fs -> (trg.rule.frontier.map trg.subs).toSet ⊆ core.terms -> trg.satisfied core := by
-  intro trg trg_sat frontier_in_core
-
-  rcases trg_sat with ⟨idx, trg_sat⟩
-  exists idx
-
-  -- the first trigger is satisfied
-  rcases trg_sat with ⟨subs, trg_sat⟩
-
+    ∃ (h : GroundTermMapping sig), h.isHomomorphism fs core ∧ ∀ t ∈ core.terms, h t = t := by
   -- we have a homomorphism from fs to core; because of core is a homSubset of fs,
   -- it is even an endomorphism on core
   rcases homSub.right with ⟨h, hom⟩
@@ -62,17 +55,41 @@ theorem trg_remains_obsolete_of_isWeakCore_of_homSubset_of_finite
   have target_h_hom : target_h.isHomomorphism fs core := by
     apply GroundTermMapping.isHomomorphism_compose; exact hom; exact GroundTermMapping.repeat_isHomomorphism h_endo k
   have target_h_id_terms : ∀ t ∈ terms, target_h t = t := inv
+  exists target_h; constructor; exact target_h_hom
+  intro t t_mem; apply target_h_id_terms
+  rw [← terms_eq]; exact t_mem
 
-  -- we can use the repeated homomorphism together with the substitution that witnesses satisfaction to see that the trigger is also satisfied in core but this yields exactly the contridiction that we were looking for
-  exists target_h ∘ subs; constructor
-  . intro v v_mem; rw [Function.comp_apply, trg_sat.left v v_mem, target_h_id_terms]
-    rw [← terms_eq]
+/-!
+## Trigger Satisfaction along finite `homSubset`s.
+
+Given a few extra conditions, trigger satisfaction is preserved along the `homSubset` relation.
+This is helpful for the `CoreChaseNode` later on as each node features a `homSubset` internally.
+-/
+
+/-- If a trigger is satisfied for fs and all of its frontier terms still occur in a finite core homSubset of fs, then the trigger is also satisfied in this homSubset. -/
+theorem trg_remains_obsolete_of_isWeakCore_of_homSubset_of_finite
+    {fs core : FactSet sig} (wc : core.isWeakCore) (homSub : core.homSubset fs) (fin : core.finite) :
+    ∀ (trg : PreTrigger sig), trg.satisfied fs -> (trg.rule.frontier.map trg.subs).toSet ⊆ core.terms -> trg.satisfied core := by
+  intro trg trg_sat frontier_in_core
+
+  rcases trg_sat with ⟨idx, trg_sat⟩
+  exists idx
+
+  -- the first trigger is satisfied
+  rcases trg_sat with ⟨subs, trg_sat⟩
+
+  -- we have a homomorphism from fs to core that is the identity on the terms in core
+  rcases ex_hom_that_is_id_on_terms_of_isWeakCore_of_homSubset_of_finite wc homSub fin with ⟨h, hom, id_on_terms⟩
+
+  -- we can use the homomorphism together with the substitution that witnesses satisfaction to see that the trigger is also satisfied in core but this yields exactly the contridiction that we were looking for
+  exists h ∘ subs; constructor
+  . intro v v_mem; rw [Function.comp_apply, trg_sat.left v v_mem, id_on_terms]
     apply frontier_in_core; rw [List.mem_toSet]; apply List.mem_map_of_mem v_mem
-  . rw [GroundSubstitution.apply_function_free_conj_compose_of_isIdOnConstants _ _ target_h_hom.left]
+  . rw [GroundSubstitution.apply_function_free_conj_compose_of_isIdOnConstants _ _ hom.left]
     intro f f_mem
     rw [List.mem_toSet, Function.comp_apply, TermMapping.mem_apply_generalized_atom_list] at f_mem
     rcases f_mem with ⟨intermediate, intermediate_mem, f_eq⟩
-    apply target_h_hom.right
+    apply hom.right
     rw [f_eq]
     apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
     apply trg_sat.right

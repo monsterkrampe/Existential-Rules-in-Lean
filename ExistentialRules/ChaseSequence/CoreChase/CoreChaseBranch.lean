@@ -638,6 +638,7 @@ theorem origin_trg_remains_inactive {cb : CoreChaseBranch kb} {n1 n2 : cb.Node} 
   rw [cb.predecessor_iff] at prec; rcases prec with ⟨cd, suf, n1_eq, n2_mem⟩
   cases cd.mem_iff_eq_head_or_mem_tail.mp n2_mem with
   | inl n2_mem =>
+    -- We have shown the base case (n1 = n2) in a separate result on `CoreChaseNode`.
     apply n1.val.equiv_origin_trg_inactive_for_own_core_of_finite (cb.core_finite_of_mem n1) _ orig_mem _ equiv
     rw [← n1_eq, ← n2_mem]
     exact contra
@@ -824,42 +825,24 @@ theorem origin_trg_remains_inactive {cb : CoreChaseBranch kb} {n1 n2 : cb.Node} 
       intro frontier_still_occurs
       apply none_loaded_n3
       rcases prop_still_true_on_n3_facts with ⟨trg', equiv', loaded'⟩
-      rcases n3.val.homSubset.right with ⟨h, hom⟩
 
-      -- the following is repeating a lot from similar proofs found in CoreChaseNode
-      have h_endo : h.isHomomorphism n3.val.core n3.val.core := by
-        constructor; exact hom.left
-        apply Set.subset_trans _ hom.right
-        apply TermMapping.apply_generalized_atom_set_subset_of_subset
-        exact n3.val.homSubset.left
+      rcases ex_hom_that_is_id_on_terms_of_isWeakCore_of_homSubset_of_finite n3.val.isWeakCore n3.val.homSubset (cb.core_finite_of_mem n3)
+        with ⟨h, hom, id_on_terms⟩
 
-      have node_strong_core : n3.val.core.isStrongCore := n3.val.core.isStrongCore_of_isWeakCore_of_finite n3.val.isWeakCore (cb.core_finite_of_mem n3)
-      have endo_surj : h.surjectiveSet n3.val.core.terms n3.val.core.terms := (node_strong_core h h_endo).right.right
-      rcases n3.val.core.terms_finite_of_finite (cb.core_finite_of_mem n3) with ⟨terms, _, terms_eq⟩
-      have terms_eq : ∀ t, t ∈ n3.val.core.terms ↔ t ∈ terms := by intro _; rw [terms_eq]
-      rw [Function.surjective_set_list_equiv terms_eq terms_eq] at endo_surj
-      rcases h.exists_repetition_that_is_inverse_of_surj terms endo_surj with ⟨k, inv⟩
-      let target_h : GroundTermMapping sig := (h.repeat_fun k) ∘ h
-      have target_h_hom : target_h.isHomomorphism n3.val.facts n3.val.core := by
-        apply GroundTermMapping.isHomomorphism_compose; exact hom; exact GroundTermMapping.repeat_isHomomorphism h_endo k
-      have target_h_id_terms : ∀ t ∈ terms, target_h t = t := inv
-      -- here is starts being different again
-
-      let target_trg : Trigger (RestrictedObsolescence sig) := { rule := trg'.val.rule, subs := target_h ∘ trg'.val.subs}
+      let target_trg : Trigger (RestrictedObsolescence sig) := { rule := trg'.val.rule, subs := h ∘ trg'.val.subs}
       exists ⟨target_trg, trg'.property⟩; constructor
       . constructor
         . rw [equiv'.left]
         . intro v v_mem
           rw [equiv'.right _ v_mem]
           simp only [target_trg, Function.comp_apply]
-          rw [target_h_id_terms]
-          rw [← terms_eq]
+          rw [id_on_terms]
           suffices trg'.val.subs v = trg.val.subs v by
             rw [this]; apply frontier_still_occurs; rw [← equiv.left]; exact v_mem
           rw [← equiv'.right _ v_mem, equiv.right _ v_mem]
       . simp only [PreTrigger.loaded, PreTrigger.mapped_body]
-        rw [GroundSubstitution.apply_function_free_conj_compose_of_isIdOnConstants _ _ target_h_hom.left]
-        apply Set.subset_trans _ target_h_hom.right
+        rw [GroundSubstitution.apply_function_free_conj_compose_of_isIdOnConstants _ _ hom.left]
+        apply Set.subset_trans _ hom.right
         rw [Function.comp_apply]
         rw [← TermMapping.apply_generalized_atom_set_toSet]
         apply TermMapping.apply_generalized_atom_set_subset_of_subset
