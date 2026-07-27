@@ -56,6 +56,13 @@ theorem func_term_not_mem_head {cb : ChaseBranch N obs kb} {t : GroundTerm sig} 
   rw [t_eq'] at t_eq
   simp [GroundTerm.func_neq_const] at t_eq
 
+/-- A node that has an origin must be in the tail. -/
+theorem mem_tail_of_isSome_origin {cb : ChaseBranch N obs kb} {n : N} (n_mem : n ∈ cb.toChaseDerivation) : (CN.origin n).isSome -> ∃ next_some, n ∈ cb.tail next_some := by
+  intro isSome_origin
+  cases cb.mem_iff_eq_head_or_mem_tail.mp n_mem with
+  | inl mem => exfalso; rw [Option.isSome_iff_ne_none] at isSome_origin; apply isSome_origin; rw [mem]; exact cb.database_first'.right.right
+  | inr mem => exact mem
+
 end ChaseBranch
 
 /-!
