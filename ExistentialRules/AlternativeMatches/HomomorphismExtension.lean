@@ -10,7 +10,7 @@ public import ExistentialRules.AlternativeMatches.Basic
 /-!
 # Extending arbitrary Homomorphisms along a Chase Branch
 
-For some results about alternative matches, we need the ability to extend a homomorphisms from the chase node to the chase result into an endomorphism on the chase result (`ChaseBranch.hom_for_node_extendable_to_result`). We can do this in a step by step fashion along the chase. Although the result is sufficiently different, the construction, in spirit, is similar to the one used in the universality result (`chaseTreeResultIsUniversal`).
+For some results about alternative matches, we need the ability to extend a homomorphisms from the chase node to the chase result into an endomorphism on the chase result (`ChaseBranch.hom_for_node_extendable_to_result`). We can do this in a step by step fashion along the chase. Although the result is sufficiently different, the construction, in spirit, is similar to the one used in the universality result (`RegularChaseTree.universal_result`).
 -/
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
@@ -224,7 +224,7 @@ theorem hom_extends_prev_in_extend_hom_to_next_step
   rw [hom_extends_prev_in_extend_hom_to_next_step_of_next_eq_some]
   exact t_mem
 
-/-- Using `extend_hom_to_next_step` as a generator in `PossiblyInfiniteList.generate` we can create a possiblibly infinite list of homomorphisms that extend each other and all map to the result. We can combine them into a single function to have an endomorphism on the result. The idea is similar to the construction used in `chaseTreeResultIsUniversal`. -/
+/-- Using `extend_hom_to_next_step` as a generator in `PossiblyInfiniteList.generate` we can create a possiblibly infinite list of homomorphisms that extend each other and all map to the result. We can combine them into a single function to have an endomorphism on the result. The idea is similar to the construction used in `RegularChaseTree.universal_result`. -/
 public theorem hom_for_node_extendable_to_result
     {cb : RegularChaseBranch obs kb} (det : kb.rules.isDeterministic)
     {node : RegularChaseNode obs kb.rules} (node_mem : node ∈ cb.toChaseDerivation)

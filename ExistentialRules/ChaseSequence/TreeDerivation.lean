@@ -5,6 +5,8 @@ Released under Apache 2.0 license as described in the file LICENSE.
 
 module
 
+import BasicLeanDatastructures.WellFounded
+
 public import PossiblyInfiniteTrees.PossiblyInfiniteTree.FiniteDegreeTree.Basic
 
 public import ExistentialRules.ChaseSequence.ChaseDerivation
@@ -720,6 +722,14 @@ theorem node_prec_childNodes {td : TreeDerivation N obs rules} {node : NodeWithA
   rw [← n_mem, NodeWithAddress.address_getElem_childNodes]
   exact List.prefix_append _ _
 
+/-- If n2 is a successor of n1, then n2 must occurs in the subtree induced by n1. -/
+theorem mem_subderivation_of_prec {td : TreeDerivation N obs rules} {n1 n2 : NodeWithAddress td} : n1 ≼ n2 -> n2.node ∈ n1.subderivation := by
+  intro ⟨diff, addr_eq⟩
+  rw [mem_iff]
+  exists diff
+  simp only [NodeWithAddress.subderivation, derivation_for_suffix]
+  rw [← n2.eq, ← addr_eq]
+  simp
 
 section StrictPredecessor
 
@@ -851,8 +861,73 @@ theorem next_on_path_to_succ_is_prec {td : TreeDerivation N obs rules} {n1 n2 : 
 
 end StrictPredecessor
 
+section WellFounded
+
+/-- The `strict_predecessor` relation is `WellFounded`. -/
+theorem wellFounded_pred {td : TreeDerivation N obs rules} : WellFounded td.strict_predecessor := by
+  constructor; intro node
+  induction node using td.mem_rec_address with
+  | root =>
+    constructor; intro node ⟨prec, ne⟩
+    exfalso
+    simp only [predecessor, NodeWithAddress.root, List.prefix_nil] at prec
+    apply ne; apply NodeWithAddress.eq_of_address_eq; rw [prec]; simp [NodeWithAddress.root]
+  | step new_root ih c c_mem =>
+    constructor
+    intro n2 prec
+    suffices n2 = new_root ∨ n2 ≺ new_root by
+      cases this with
+      | inl eq => rw [eq]; exact ih
+      | inr prec => rcases ih with ⟨_, ih⟩; apply ih; exact prec
+    have root_prec_c := node_prec_childNodes c c_mem
+    cases List.prefix_or_prefix_of_prefix prec.left root_prec_c with
+    | inl prec' => apply td.eq_or_strict_of_predecessor; exact prec'
+    | inr prec' =>
+      cases td.eq_or_strict_of_predecessor prec' with
+      | inl eq => apply Or.inl; exact Eq.symm eq
+      | inr prec' =>
+        exfalso
+        apply prec.right
+        apply NodeWithAddress.eq_of_address_eq
+        apply List.IsPrefix.eq_of_length_le prec.left
+        rw [List.mem_iff_getElem] at c_mem; rcases c_mem with ⟨i, _, c_mem⟩
+        rw [← c_mem, NodeWithAddress.address_getElem_childNodes]
+        suffices new_root.address.length < n2.address.length by grind
+        apply Nat.lt_of_le_of_ne
+        . exact List.IsPrefix.length_le prec'.left
+        . intro contra; apply prec'.right
+          apply NodeWithAddress.eq_of_address_eq; apply List.IsPrefix.eq_of_length prec'.left
+          exact contra
+
+instance {td : TreeDerivation N obs rules} : WellFoundedRelation td.NodeWithAddress where
+  rel := td.strict_predecessor
+  wf := wellFounded_pred
+
+end WellFounded
+
 end Predecessors
 
+section MinimalNodeWithProp
+
+/-!
+## Minimal Nodes with given Properties
+
+If a property hold for a given node in the chase, then there must be a "first" node for which this property holds. That means that this node is minimal with respect to the `≺` relation.
+The result follows by the well foundedness of the `≺` relation.
+-/
+
+theorem prop_for_node_has_minimal_such_node {N : Type u} [CN : ChaseNode N obs rules]
+    {td : TreeDerivation N obs rules} (prop : td.NodeWithAddress -> Prop) :
+    ∀ n, prop n -> ∃ n2, prop n2 ∧ n2 ≼ n ∧ ∀ n3, n3 ≺ n2 -> ¬ prop n3 := by
+  intro n prop_n
+  rcases minimal_element_for_property_and_transitive_relation (by intro _ _ _; exact td.strict_predecessor_trans) prop n prop_n with ⟨n2, prop_n2, prec_n2, n2_min⟩
+  exists n2; constructor; exact prop_n2; constructor
+  . cases prec_n2 with
+    | inl prec_n2 => grind
+    | inr prec_n2 => exact prec_n2.left
+  . exact n2_min
+
+end MinimalNodeWithProp
 
 section Branches
 
