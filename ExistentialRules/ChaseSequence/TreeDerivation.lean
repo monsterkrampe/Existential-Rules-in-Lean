@@ -462,6 +462,21 @@ theorem address_getElem_childNodes {td : TreeDerivation N obs rules} {node : Nod
     ∀ i (lt : i < node.childNodes.length), node.childNodes[i].address = node.address ++ [i] := by
   intro i lt; simp only [childNodes]; grind
 
+/-- We can lift membership in childNodes along `cast_for_new_root_node`. -/
+theorem cast_for_new_root_node_mem_chilNodes_cast_for_new_root_node_of_mem_childNodes
+    {td : TreeDerivation N obs rules} {new_root : NodeWithAddress td} {n1 n2 : new_root.subderivation.NodeWithAddress} :
+    n2 ∈ n1.childNodes -> new_root.cast_for_new_root_node n2 ∈ (new_root.cast_for_new_root_node n1).childNodes := by
+  intro n2_mem
+  simp only [NodeWithAddress.childNodes, List.mem_map, List.mem_attach] at n2_mem
+  rcases n2_mem with ⟨⟨⟨n2_node, n2_index⟩, mem_zipIdx⟩, _, n2_mem⟩
+  rw [List.mem_zipIdx_with_lt_iff_mem_zipIdx] at mem_zipIdx
+  rw [← n2_mem]
+  simp only [NodeWithAddress.childNodes, List.mem_map, List.mem_attach]
+  suffices n1.subderivation = (new_root.cast_for_new_root_node n1).subderivation by
+    exists ⟨⟨n2_node, ⟨n2_index, by rw [← this]; exact n2_index.isLt⟩⟩, by simp only [List.mem_zipIdx_with_lt_iff_mem_zipIdx, ← this]; exact mem_zipIdx⟩
+    simp [NodeWithAddress.cast_for_new_root_node]
+  simp [NodeWithAddress.subderivation, NodeWithAddress.cast_for_new_root_node, TreeDerivation.derivation_for_suffix]
+
 /-- The subderivation for a child node is a child tree. -/
 @[grind ->]
 theorem subderivation_mem_childTrees_of_mem_childNodes
@@ -620,6 +635,32 @@ theorem mem_some_childTree_iff {td : TreeDerivation N obs rules} {node : N} :
         apply mem_of_mem_childNodes
         exact node_mem
 
+/-- If a node occurs in the subderivation of a child of the root, then this node also occurs as the child node of some node in the tree.
+This is essentially the `NodeWithAddress` version of `mem_some_childTree_iff` above and uses essentially the same proof for the first direction. -/
+theorem mem_subderivation_childNodes_iff {td : TreeDerivation N obs rules} {node : td.NodeWithAddress} :
+    (∃ child ∈ NodeWithAddress.childNodes (NodeWithAddress.root td),
+      ∃ node' : child.subderivation.NodeWithAddress, NodeWithAddress.cast_for_new_root_node child node' = node)
+    ↔ ∃ (node' : td.NodeWithAddress), node ∈ node'.childNodes := by
+  constructor
+  . intro ⟨c, c_mem, node', node_eq⟩
+    induction node' using mem_rec_address generalizing node with
+    | root => exists (NodeWithAddress.root td); simp only [NodeWithAddress.root_subderivation, NodeWithAddress.cast_for_new_root_node] at node_eq; rw [← node_eq]; simp only [List.append_nil]; exact c_mem
+    | step new_root ih c2 c2_mem =>
+      exists c.cast_for_new_root_node new_root
+      rw [← node_eq]
+      apply NodeWithAddress.cast_for_new_root_node_mem_chilNodes_cast_for_new_root_node_of_mem_childNodes
+      exact c2_mem
+  . intro ⟨node', node_mem⟩
+    cases node.eq_root_or_mem_child with
+    | inl mem =>
+      exfalso
+      rw [List.mem_iff_getElem] at node_mem; rcases node_mem with ⟨i, lt, node_mem⟩
+      suffices (NodeWithAddress.root td).address = node'.childNodes[i].address by
+        rw [NodeWithAddress.address_getElem_childNodes] at this
+        simp [NodeWithAddress.root] at this
+      rw [node_mem, mem]
+    | inr mem => exact mem
+
 end InductionPrinciple
 
 end Basics
@@ -686,6 +727,28 @@ variable {N : Type u} [CN : ChaseNode N obs rules]
 @[expose]
 def predecessor {td : TreeDerivation N obs rules} (n1 n2 : NodeWithAddress td) : Prop := n1.address <+: n2.address
 infixl:50 " ≼ " => predecessor
+
+/--
+A node n1 is a predecessor of another node n2 if and only if there exists a node in the subderivation of n1 that is equal to n2
+(when casting it back to a node of the original `TreeDerivation`).
+-/
+theorem predecessor_iff {td : TreeDerivation N obs rules} {n1 n2 : NodeWithAddress td} :
+    n1 ≼ n2 ↔ ∃ n2' : n1.subderivation.NodeWithAddress, n1.cast_for_new_root_node n2' = n2 := by
+  constructor
+  . intro prec
+    have addr_eq : n2.address = n1.address ++ (n2.address.drop n1.address.length) := by
+      apply Eq.symm; apply List.prefix_iff_eq_append.mp; exact prec
+    exists {
+      node := n2.node,
+      address := n2.address.drop n1.address.length,
+      eq := by rw [← n2.eq]; simp only [NodeWithAddress.subderivation, derivation_for_suffix, FiniteDegreeTree.get?_drop, ← addr_eq]
+    }
+    apply NodeWithAddress.eq_of_address_eq
+    simp only [NodeWithAddress.cast_for_new_root_node]
+    exact Eq.symm addr_eq
+  . intro ⟨n2', n2_eq⟩
+    rw [← n2_eq]
+    apply List.prefix_append
 
 /-- The predecessor relation is stable across suffixes. That is, predecessor in our suffix are also predecessor for us. We only need to cast the nodes. -/
 @[grind <-]
@@ -858,6 +921,30 @@ theorem next_on_path_to_succ_is_prec {td : TreeDerivation N obs rules} {n1 n2 : 
   rw [List.append_assoc, List.singleton_append]
   rw [List.cons_head_tail, ← List.prefix_iff_eq_append]
   exact succ.left
+
+/-- If a node is a strict successor of another, then it occurs as the child of a node which is at least a regular successor. -/
+theorem mem_childNodes_of_some_node_of_strict_prec {td : TreeDerivation N obs rules} {n1 n2 : NodeWithAddress td} :
+    n1 ≺ n2 -> ∃ n3, n1 ≼ n3 ∧ n2 ∈ n3.childNodes := by
+  intro ⟨prec, ne⟩
+  rw [predecessor_iff] at prec; rcases prec with ⟨n2', n2_eq⟩
+  suffices ∃ (n3' : n1.subderivation.NodeWithAddress), n2' ∈ n3'.childNodes by
+    rcases this with ⟨n3', n2'_mem⟩
+    exists n1.cast_for_new_root_node n3'; constructor
+    . apply List.prefix_append
+    . rw [← n2_eq]
+      apply NodeWithAddress.cast_for_new_root_node_mem_chilNodes_cast_for_new_root_node_of_mem_childNodes
+      exact n2'_mem
+  rw [← mem_subderivation_childNodes_iff]
+  have n1_root_prec_n2' : (NodeWithAddress.root n1.subderivation) ≺ n2' := by
+    constructor
+    . simp only [NodeWithAddress.root]; exact List.nil_prefix
+    . intro contra; apply ne
+      apply NodeWithAddress.eq_of_address_eq
+      rw [← n2_eq, ← contra]
+      simp [NodeWithAddress.root, NodeWithAddress.cast_for_new_root_node]
+  exists next_on_path_to_succ n1_root_prec_n2'; constructor
+  . exact next_on_path_to_succ_mem_childNodes n1_root_prec_n2'
+  . rw [← predecessor_iff]; exact next_on_path_to_succ_is_prec n1_root_prec_n2'
 
 end StrictPredecessor
 

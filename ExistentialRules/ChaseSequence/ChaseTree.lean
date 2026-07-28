@@ -79,6 +79,23 @@ theorem func_term_not_mem_root {ct : ChaseTree N obs kb}
   rw [t_eq'] at t_eq
   simp [GroundTerm.func_neq_const] at t_eq
 
+/-- A node that has an origin must be in a child tree. -/
+theorem mem_childTrees_of_isSome_origin {ct : ChaseTree N obs kb} {n : N} (n_mem : n ∈ ct) : (CN.origin n).isSome -> ∃ c ∈ ct.childTrees, n ∈ c := by
+  intro isSome_origin
+  cases ct.mem_iff_eq_root_or_mem_child.mp n_mem with
+  | inl mem => exfalso; rw [Option.isSome_iff_ne_none] at isSome_origin; apply isSome_origin; rw [mem]; exact ct.database_first'.right.right
+  | inr mem => exact mem
+
+/-- Each node that has an origin must be a child node of some other node in the tree. -/
+theorem mem_childNodes_of_some_member_of_isSome_origin {ct : ChaseTree N obs kb} (n : ct.NodeWithAddress) :
+    (CN.origin n.node).isSome -> ∃ n2 : ct.NodeWithAddress, n ∈ n2.childNodes := by
+  intro isSome_origin
+  cases n.eq_root_or_mem_child with
+  | inl mem => exfalso; rw [Option.isSome_iff_ne_none] at isSome_origin; apply isSome_origin; rw [mem]; exact ct.database_first'.right.right
+  | inr mem =>
+    rw [TreeDerivation.mem_subderivation_childNodes_iff] at mem
+    exact mem
+
 end ChaseTree
 
 /-!

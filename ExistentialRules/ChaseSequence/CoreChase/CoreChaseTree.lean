@@ -463,7 +463,181 @@ theorem origin_trg_remains_inactive {ct : CoreChaseTree kb} {n1 n2 : ct.NodeWith
     ∀ orig ∈ n1.node.origin, ∀ trg, orig.fst.equiv trg -> ¬ trg.val.active n2.node.core := by
   -- We assume for a contradiction that trg is active on n2 (captured in contra).
   intro orig orig_mem trg equiv contra
-  sorry
+  cases ct.eq_or_strict_of_predecessor prec with
+  | inl eq =>
+    -- We have shown the base case (n1 = n2) in a separate result on `CoreChaseNode`.
+    apply n1.node.equiv_origin_trg_inactive_for_own_core_of_finite (ct.core_finite_of_mem n1) _ orig_mem _ equiv
+    rw [eq]
+    exact contra
+  | inr prec =>
+    -- We get the node that is just before n1 and show some of its essential properties.
+    rcases ct.mem_childNodes_of_some_member_of_isSome_origin n1 (by simp only [ChaseNode.origin]; rw [orig_mem]; simp) with ⟨just_before_n1, n1_child⟩
+    have just_before_n1_prec : just_before_n1 ≺ n1 := ct.node_strict_prec_childNodes _ n1_child
+    have orig_active_just_before_n1 : orig.fst.val.active just_before_n1.node.core := by
+      have active := just_before_n1.subderivation.active_trigger_origin_of_mem_childNodes (just_before_n1.mem_childNodes_of_mem_childNodes n1_child)
+      rw [Option.mem_def] at orig_mem
+      simp only [ChaseNode.origin, orig_mem, Option.get_some] at active
+      rw [just_before_n1.root_subderivation'] at active
+      apply active
+    -- We also get the node that is just before n2 and show some of its essential properties.
+    rcases ct.mem_childNodes_of_some_node_of_strict_prec prec with ⟨just_before_n2, just_before_n2_succ, n2_child⟩
+    -- The following is used in the proof but also required to prove termination of the recursive theorem.
+    have just_before_n2_prec : just_before_n2 ≺ n2 := ct.node_strict_prec_childNodes _ n2_child
+    -- From a recursive call to the theorem, we get that no equivalent trigger can be active on just_before_n2.
+    have no_trg_active_head_cd2 : ∀ trg, orig.fst.equiv trg -> ¬ trg.val.active just_before_n2.node.core := origin_trg_remains_inactive just_before_n2_succ _ orig_mem
+    -- If however there is an equivalent trigger loaded just_before_n2, then we can quickly conclude the proof
+    -- by showing that this trigger would then in fact be active on just_before_n2, which is a contradiction.
+    -- Or rather: if it was not active, then we can show that trg is obsolete on n2,
+    -- but this contradicts our assumption made in the beginning.
+    cases Classical.em (∃ trg, orig.fst.equiv trg ∧ trg.val.loaded just_before_n2.node.core) with
+    | inl ex_loaded_trg =>
+      rcases ex_loaded_trg with ⟨loaded_trg, loaded_trg_equiv, loaded_trg_loaded⟩
+      apply no_trg_active_head_cd2 loaded_trg loaded_trg_equiv
+      constructor; exact loaded_trg_loaded; intro loaded_trg_obs
+      apply contra.right
+      apply equiv_trg_obsolete_of_isWeakCore_of_homSubset_of_finite n2.node.isWeakCore n2.node.homSubset (ct.core_finite_of_mem n2) _ _ _ (PreTrigger.equiv_trans (PreTrigger.equiv_symm loaded_trg_equiv) equiv) contra.left
+      apply PreTrigger.satisfied_of_satisfied_subset _ loaded_trg_obs
+      rw [← n2.node.ingoingFacts_eq, just_before_n2.subderivation.facts_childNodes (just_before_n2.mem_childNodes_of_mem_childNodes n2_child)]
+      apply Set.subset_union_of_subset_left
+      rw [just_before_n2.root_subderivation', just_before_n2.node.outgoingFacts_eq]
+      exact Set.subset_refl
+    | inr ex_loaded_trg =>
+      -- If no equivalent trigger is loaded just_before_n2, things get more complicated...
+      -- First, we obtain the first node after n1, where no equivalent trigger is loaded; call that n3.
+      let target_prop (node : ct.NodeWithAddress) : Prop :=
+        n1 ≼ node ∧ ¬ ∃ trg, orig.fst.equiv trg ∧ trg.val.loaded node.node.core
+      rcases ct.prop_for_node_has_minimal_such_node target_prop just_before_n2 ⟨just_before_n2_succ, ex_loaded_trg⟩ with ⟨n3, ⟨n3_prec, none_loaded_n3⟩, n3_prec_just_before_n2, n3_minimal⟩
+      -- Now let's assume for a second that we can find a frontier term that is not part of n3's core.
+      suffices ∃ v ∈ trg.val.rule.frontier, trg.val.subs v ∉ n3.node.core.terms by
+        -- We know a couple things about such a term:
+        -- 1. it must occur in just_before_n1 and n2 because the equivalent triggers are loaded there, and
+        -- 2. it must be a functional term since constants can never be removed.
+        rcases this with ⟨v, v_mem, t_nmem⟩
+        have t_mem_core_cd_where_n1_next : trg.val.subs v ∈ just_before_n1.node.core.terms := by
+          apply FactSet.terms_subset_of_subset orig_active_just_before_n1.left
+          rw [FactSet.mem_terms_toSet, PreTrigger.mem_terms_mapped_body_iff]; apply Or.inr
+          exists v; constructor
+          . apply Rule.frontier_subset_vars_body; rw [equiv.left]; exact v_mem
+          . apply equiv.right; rw [equiv.left]; exact v_mem
+        have t_mem_facts_cd_where_n1_next : trg.val.subs v ∈ just_before_n1.node.facts.terms := by
+          apply FactSet.terms_subset_of_subset just_before_n1.node.homSubset.left
+          exact t_mem_core_cd_where_n1_next
+        have t_mem_facts_n2 : trg.val.subs v ∈ n2.node.facts.terms := by
+          apply FactSet.terms_subset_of_subset (Set.subset_trans contra.left n2.node.homSubset.left)
+          rw [FactSet.mem_terms_toSet, PreTrigger.mem_terms_mapped_body_iff]; apply Or.inr
+          exists v; constructor
+          . apply Rule.frontier_subset_vars_body; exact v_mem
+          . rfl
+        have t_func : ∃ func ts arity_ok, trg.val.subs v = .func func ts arity_ok := by
+          cases eq : trg.val.subs v with
+          | func func ts arity_ok => exists func, ts, arity_ok
+          | const c =>
+            exfalso
+            apply t_nmem
+            rcases CoreTreeDerivation.exists_homomorphism_of_prec (ct.predecessor_trans just_before_n1_prec.left n3_prec) with ⟨h, hom⟩
+            suffices h (trg.val.subs v) ∈ n3.node.core.terms by
+              rw [eq]; rw [eq, hom.left] at this; exact this
+            apply FactSet.terms_subset_of_subset hom.right
+            rw [h.terms_applyFactSet]
+            apply Set.mem_map_of_mem
+            exact t_mem_core_cd_where_n1_next
+        -- We also know that n3 strictly occurs before n2 (because it occurs before just_before_n2).
+        -- The argument is a bit more elaborate then one might think.
+        have n3_prec_n2 : n3 ≺ n2 := ct.strict_prec_of_prec_of_strict_prec n3_prec_just_before_n2 just_before_n2_prec
+        -- Since the frontier term in question occurs in just_before_n1,
+        -- it must have been introduced by a trigger before.
+        rcases ct.functional_term_originates_from_some_trigger just_before_n1 t_func t_mem_facts_cd_where_n1_next with ⟨t_orig_node_before_n1, t_orig_node_before_n1_prec, t_orig_before_n1, t_orig_before_n1_mem, t_mem_orig_before_n1⟩
+
+        rcases ct.predecessor_iff.mp (ct.next_on_path_to_succ_is_prec n3_prec_n2) with ⟨n2', n2_eq⟩
+
+        cases CoreTreeDerivation.trigger_introducing_functional_term_occurs_in_chase (td := n3.subderivation)
+          (n3.subderivation_mem_childTrees_of_mem_childNodes (ct.next_on_path_to_succ_mem_childNodes n3_prec_n2))
+          n2'
+          (by rw [← n2_eq] at t_mem_facts_n2; exact t_mem_facts_n2)
+          t_mem_orig_before_n1 with
+        | inl contra => apply t_nmem; rw [n3.root_subderivation'] at contra; exact contra
+        | inr trg_occurs_again =>
+          -- Now for the rest of this subproof we just apply our theorem recursively to conclude
+          -- the proof as we now found two nodes where a trigger is applied twice (up to equivalence).
+          -- The recursive call is fine since the first occurrence is before n1, so the first node is decreasing.
+          rcases trg_occurs_again with ⟨t_orig_node_after_n3, t_orig_node_after_n3_prec, t_orig_after_n3, t_orig_after_n3_mem, t_orig_trgs_equiv, t_mem_orig_after_n3⟩
+
+          have t_orig_node_after_n3_succ : n3 ≺ TreeDerivation.NodeWithAddress.cast_for_new_root_node _ t_orig_node_after_n3 := by
+            apply ct.strict_prec_of_strict_prec_of_prec (ct.node_strict_prec_childNodes _ (ct.next_on_path_to_succ_mem_childNodes n3_prec_n2))
+            apply List.prefix_append
+          rcases ct.mem_childNodes_of_some_node_of_strict_prec t_orig_node_after_n3_succ with ⟨just_before_t_orig_node, just_before_t_orig_node_succ, t_orig_node_child⟩
+          have t_orig_nodes_prec : t_orig_node_before_n1 ≼ just_before_t_orig_node := by
+            apply ct.predecessor_trans t_orig_node_before_n1_prec
+            apply ct.predecessor_trans just_before_n1_prec.left
+            apply ct.predecessor_trans n3_prec
+            exact just_before_t_orig_node_succ
+          have _term : t_orig_node_before_n1 ≺ n1 := by
+            exact ct.strict_prec_of_prec_of_strict_prec t_orig_node_before_n1_prec just_before_n1_prec
+          apply origin_trg_remains_inactive t_orig_nodes_prec _ t_orig_before_n1_mem _ (PreTrigger.equiv_symm t_orig_trgs_equiv)
+          suffices t_orig_after_n3 = t_orig_node_after_n3.node.origin.get (just_before_t_orig_node.subderivation.isSome_origin_of_mem_childNodes _ (just_before_t_orig_node.mem_childNodes_of_mem_childNodes t_orig_node_child)) by
+            rw [this];
+            have active := just_before_t_orig_node.subderivation.active_trigger_origin_of_mem_childNodes (just_before_t_orig_node.mem_childNodes_of_mem_childNodes t_orig_node_child)
+            rw [just_before_t_orig_node.root_subderivation'] at active
+            exact active
+          rw [Option.mem_def] at t_orig_after_n3_mem
+          simp [t_orig_after_n3_mem]
+
+      -- It remains to be shown now that indeed some frontier term cannot be part of n3's core.
+      -- First, we prove that on n3's facts, some equivalent trigger is still loaded
+      -- (meaning that all frontier terms must still be there).
+      -- This means that n3 is the exact node where the frontier term gets removed when taking the core.
+      have prop_still_true_on_n3_facts : ∃ trg, orig.fst.equiv trg ∧ trg.val.loaded n3.node.facts := by
+        cases ct.eq_or_strict_of_predecessor n3_prec with
+        | inl eq =>
+          exists orig.fst; constructor; exact PreTrigger.equiv_refl
+          rw [← eq]
+          apply Set.subset_trans orig_active_just_before_n1.left
+          rw [← n1.node.ingoingFacts_eq, just_before_n1.subderivation.facts_childNodes (just_before_n1.mem_childNodes_of_mem_childNodes n1_child)]
+          apply Set.subset_union_of_subset_left
+          rw [just_before_n1.root_subderivation']
+          exact Set.subset_refl
+        | inr prec =>
+          rcases ct.mem_childNodes_of_some_node_of_strict_prec prec with ⟨just_before_n3, just_before_n3_succ, n3_child⟩
+          specialize n3_minimal just_before_n3 (ct.node_strict_prec_childNodes _ n3_child)
+          unfold target_prop at n3_minimal
+          simp only [not_and, Classical.not_not] at n3_minimal
+          rcases n3_minimal just_before_n3_succ with ⟨trg, equiv, loaded⟩
+          exists trg; constructor; exact equiv
+          rw [← n3.node.ingoingFacts_eq, just_before_n3.subderivation.facts_childNodes (just_before_n3.mem_childNodes_of_mem_childNodes n3_child)]
+          apply Set.subset_union_of_subset_left
+          rw [just_before_n3.root_subderivation']
+          exact loaded
+
+      -- Now let's assume for a contradiction that all frontier terms are still part of n3's core.
+      -- The idea for the rest of the proof is the following:
+      -- There is a homomorphism from n3's facts to its core. If all frontier terms still occur in the core, then we can repeat this homomorphism to just be the identity on these terms. But then this repeated homomorphism can be used to build an equivalent trigger that is loaded on n3's core, which yields the desired contradiction.
+      apply Classical.byContradiction
+      simp only [not_exists, not_and, Classical.not_not]
+      intro frontier_still_occurs
+      apply none_loaded_n3
+      rcases prop_still_true_on_n3_facts with ⟨trg', equiv', loaded'⟩
+
+      rcases ex_hom_that_is_id_on_terms_of_isWeakCore_of_homSubset_of_finite n3.node.isWeakCore n3.node.homSubset (ct.core_finite_of_mem n3)
+        with ⟨h, hom, id_on_terms⟩
+      let target_trg : Trigger (RestrictedObsolescence sig) := { rule := trg'.val.rule, subs := h ∘ trg'.val.subs}
+      exists ⟨target_trg, trg'.property⟩; constructor
+      . constructor
+        . rw [equiv'.left]
+        . intro v v_mem
+          rw [equiv'.right _ v_mem]
+          simp only [target_trg, Function.comp_apply]
+          rw [id_on_terms]
+          suffices trg'.val.subs v = trg.val.subs v by
+            rw [this]; apply frontier_still_occurs; rw [← equiv.left]; exact v_mem
+          rw [← equiv'.right _ v_mem, equiv.right _ v_mem]
+      . simp only [PreTrigger.loaded, PreTrigger.mapped_body]
+        rw [GroundSubstitution.apply_function_free_conj_compose_of_isIdOnConstants _ _ hom.left]
+        apply Set.subset_trans _ hom.right
+        rw [Function.comp_apply]
+        rw [← TermMapping.apply_generalized_atom_set_toSet]
+        apply TermMapping.apply_generalized_atom_set_subset_of_subset
+        exact loaded'
+termination_by (n1, n2)
 
 end OriginTriggerRemainsInactive
 
