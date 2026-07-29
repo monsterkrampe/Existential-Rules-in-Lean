@@ -18,7 +18,7 @@ Here, `ChaseTree` and `ChaseBranch` consequently coincide. At least intuitively.
 Arguably the most interesting result of this file is `deterministicChaseBranchResultUniversallyModelsKb`.
 It states that in the deterministic setting, the result of a `ChaseBranch` is itself a universal model.
 That is, a model that can be homomorphically embedded into every other model [ChaseRevisited].
-On disjunctive rules this is more complicated as can be seen in `chaseTreeResultIsUniversal`.
+On disjunctive rules this is more complicated as can be seen in `RegularChaseTree.universal_result`.
 -/
 
 public section
@@ -130,13 +130,16 @@ theorem branches_start_eq_firstBranch_from_start
 def firstBranch (td : TreeDerivation N obs rules) : ChaseDerivation N obs rules :=
   td.firstBranch_from_start (NodeWithAddress.root td)
 
+/-- The first branch is a branch. This holds in general and not only in the deterministic setting. -/
+theorem firstBranch_mem_branches {td : TreeDerivation N obs rules} : td.firstBranch ∈ td.branches := by
+  apply td.generate_subderivation_mem_branches rfl
+  . intro _ _ mem; exact List.mem_of_getElem? mem
+  . intro node eq; rw [← List.head?_eq_getElem?, List.head?_eq_none_iff, ← List.length_eq_zero_iff, node.length_childNodes, node.subderivation.childNodes_eq, List.length_map] at eq; rw [← List.length_eq_zero_iff]; exact eq
+
 /-- In the deterministic setting, the branches of a `TreeDerivation` only contain the `firstBranch`. -/
 theorem branches_eq_firstBranch_of_determinsitic {td : TreeDerivation N obs rules} (det : rules.isDeterministic) :
-    td.branches = fun b => b = td.firstBranch := by
-  ext deriv
-  constructor
-  . intro deriv_mem; apply branches_start_eq_firstBranch_from_start det; rw [NodeWithAddress.subderivation_root]; exact deriv_mem
-  . intro eq; rw [eq]; simp only [firstBranch, firstBranch_from_start]; exact td.generate_subderivation_mem_branches rfl
+    ∀ b ∈ td.branches, b = td.firstBranch := by
+  intro deriv deriv_mem; apply branches_start_eq_firstBranch_from_start det; rw [NodeWithAddress.subderivation_root]; exact deriv_mem
 
 end TreeDerivation
 
@@ -150,8 +153,8 @@ def firstResult (td : RegularTreeDerivation obs rules) : FactSet sig := RegularC
 /-- The `firstResult` is a member of the `TreeDerivation.result`. -/
 theorem firstResult_mem_result {td : RegularTreeDerivation obs rules} : td.firstResult ∈ td.result := by
   unfold RegularTreeDerivation.result; rw [Set.mem_map]
-  exists td.firstBranch; constructor;
-  . simp only [TreeDerivation.firstBranch, TreeDerivation.firstBranch_from_start]; exact td.generate_subderivation_mem_branches rfl
+  exists td.firstBranch; constructor
+  . exact td.firstBranch_mem_branches
   . rfl
 
 end RegularTreeDerivation
@@ -160,17 +163,17 @@ namespace RegularChaseTree
 
 variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
 
-/-- In the deterministic setting, the `firstResult` of a `ChaseTree` is by itself a universal model. -/
+/-- In the deterministic setting, the `firstResult` of a `RegularChaseTree` is by itself a universal model. -/
 theorem deterministicChaseTreeResultUniversallyModelsKb {ct : RegularChaseTree obs kb} :
     kb.isDeterministic -> (RegularTreeDerivation.firstResult ct.toTreeDerivation).universallyModelsKb kb := by
   intro det
   constructor
   . apply ct.result_models_kb; exact RegularTreeDerivation.firstResult_mem_result
   . intro m m_is_model
-    rcases chaseTreeResultIsUniversal ct m m_is_model with ⟨res, hom, res_mem, hom_is_hom⟩
+    rcases ct.universal_result m m_is_model with ⟨res, hom, res_mem, hom_is_hom⟩
     unfold RegularChaseTree.result RegularTreeDerivation.result at res_mem; rw [Set.mem_map] at res_mem
     rcases res_mem with ⟨b, b_mem, res_mem⟩
-    rw [TreeDerivation.branches_eq_firstBranch_of_determinsitic det] at b_mem
+    have b_mem := TreeDerivation.branches_eq_firstBranch_of_determinsitic det _ b_mem
     unfold RegularTreeDerivation.firstResult
     unfold RegularChaseDerivation.result
     rw [← b_mem, res_mem]
@@ -365,6 +368,12 @@ theorem firstBranch_intoTree_eq_self (cd : ChaseDerivation N obs rules) (det : r
   apply firstBranch_from_start_with_intoTree_eq_cd det
   rw [TreeDerivation.NodeWithAddress.subderivation_root]
 
+/-- The branches of `intoTree` consist only of the original derivation. -/
+theorem branches_intoTree {cd : ChaseDerivation N obs rules} (det : rules.isDeterministic) :
+    ∀ d ∈ (cd.intoTree det).branches, d = cd := by
+  intro d d_mem
+  rw [TreeDerivation.branches_eq_firstBranch_of_determinsitic det _ d_mem, firstBranch_intoTree_eq_self cd det]
+
 end ChaseDerivation
 
 namespace RegularChaseDerivation
@@ -383,6 +392,7 @@ namespace ChaseBranch
 variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
 
 /-- We can not only convert a `ChaseDerivation` into a `TreeDerivation` but also a `ChaseBranch` into a `ChaseTree`. -/
+@[expose]
 def intoTree {N : Type u} [CN : ChaseNode N obs kb.rules] (cb : ChaseBranch N obs kb) (det : kb.isDeterministic) : ChaseTree N obs kb :=
   let td := cb.toChaseDerivation.intoTree det
   {

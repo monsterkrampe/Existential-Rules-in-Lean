@@ -78,6 +78,7 @@ variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 variable {N : Type u} [CN : ChaseNode N obs rules]
 
 /-- For terminating derivations, we define the last chase node via turning the derivation into a finite list and then retreiving the last element. -/
+@[expose]
 def last (cd : ChaseDerivationSkeleton N obs rules) (term : cd.terminates) : N := (cd.branch.toList_of_finite term).getLast (by
   intro contra
   rw [PossiblyInfiniteList.toList_of_finite_empty_iff, PossiblyInfiniteList.empty_iff_head_none] at contra

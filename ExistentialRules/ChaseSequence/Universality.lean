@@ -18,7 +18,7 @@ So what exactly remains to be shown?
 
 We aim to show that for a given `ChaseTree` for a `KnowledgeBase` and any model $M$ of the `KnowledgeBase`,
 we can pick a fact set $F$ from the result of the chase tree such that there is a homomorphism from $F$ to $M$.
-This result is shown in `chaseTreeResultIsUniversal`.
+This result is shown in `RegularChaseTree.universal_result`.
 
 The proof works by step-wise construction of both a branch in the chase tree as well as a suitable homomorphism.
 The constructions builds both at the same time.
@@ -26,20 +26,27 @@ One step of the construction is done by the `hom_step` function below, which cal
 The base of the construction is simply an empty branch and the id mapping.
 In each step of the construction, we consider an `InductiveHomomorphismResult`, which we define to be a pair of a node in the chase tree and a `GroundTermMapping` such that the mapping is a homomorphism from the node into the model $M$.
 
-In the proof of `chaseTreeResultIsUniversal`, we leverage the `TreeDerivation.generate_subderivation` function with `hom_step` as the generator function.
+In the proof of `RegularChaseTree.universal_result`,
+we leverage the `TreeDerivation.generate_subderivation` function with `hom_step` as the generator function.
 Besides that, all the homomorphisms from the individual steps need to be combined into a single function. The definition is not too hard and all relevant properties are also not too hard to show once we can establish that the homomorphisms for each step always extend the previous one.
 -/
 
+public section
+
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
+
+namespace AuxiliaryDefsAndTheoremsForUniversalityProof
+
 variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
+variable {N : Type u} [CN : ChaseNode N obs kb.rules]
 
 /-- The `InductiveHomomorphismResult` is used for the step-wise construction is forms the element that is the input and output of the generator function used in `TreeDerivation.generate_subderivation` later. It consists of a node in the chase tree and a `GroundTermMapping` that is a homomorphism from the node to the target model. The generated branch is the chain of all the generated nodes.  -/
-abbrev InductiveHomomorphismResult {N : Type u} [CN : ChaseNode N obs kb.rules] (ct : ChaseTree N obs kb) (m : FactSet sig) :=
+abbrev InductiveHomomorphismResult (ct : ChaseTree N obs kb) (m : FactSet sig) :=
   { pair : ct.NodeWithAddress × (GroundTermMapping sig) // pair.snd.isHomomorphism (CN.outgoingFacts pair.fst.node) m }
 
 /-- Consider any node in the chase tree together with a homomorphism from this node to the target model. Given that the list of child nodes is not empty, we return one of child node together with an extended homomorphism. How do we know that such a node and homomorphism exist? If the list of children is not empty, there needs to exists a trigger that has been used to derive them. The existing trigger is loaded for the target model but since it is a model, we can also show that it also needs to be satisfied for the model. The way in which the trigger is satisfied in the model dictates which child node we pick and how we define the homomorphisms for the fresh terms introduced by the trigger. This is already all that happens here but it is not quite trivial to show that the constructed `GroundTermMapping` is indeed a homomorphism. -/
 noncomputable def hom_step_of_trg_ex
-    {N : Type u} [CN : ChaseNode N obs kb.rules] (out_sub_in : CN.out_sub_in)
+    (out_sub_in : CN.out_sub_in)
     (ct : ChaseTree N obs kb)
     (m : FactSet sig)
     (m_is_model : m.modelsKb kb)
@@ -193,7 +200,7 @@ noncomputable def hom_step_of_trg_ex
 
 /-- The node that we pick in `hom_step_of_trg_ex` is in the childNodes of the previous node. This is trivial. -/
 theorem mem_childNodes_of_mem_hom_step_of_trg_ex
-    {N : Type u} [CN : ChaseNode N obs kb.rules] {out_sub_in : CN.out_sub_in}
+    {out_sub_in : CN.out_sub_in}
     {ct : ChaseTree N obs kb}
     {m : FactSet sig}
     {m_is_model : m.modelsKb kb}
@@ -207,7 +214,7 @@ theorem mem_childNodes_of_mem_hom_step_of_trg_ex
 
 /-- The homomorphisms that we construct in `hom_step_of_trg_ex` agrees with the previous one on all terms in the previous node. This is also trivial. -/
 theorem hom_extends_prev_in_hom_step_of_trg_ex
-    {N : Type u} [CN : ChaseNode N obs kb.rules] {out_sub_in : CN.out_sub_in}
+    {out_sub_in : CN.out_sub_in}
     {ct : ChaseTree N obs kb}
     {m : FactSet sig}
     {m_is_model : m.modelsKb kb}
@@ -220,7 +227,7 @@ theorem hom_extends_prev_in_hom_step_of_trg_ex
 
 /-- When extending the `InductiveHomomorphismResult` from one step to the next, we do not necessarily know that a trigger is active for the current node. Indeed the chase might just have already finished. So we do a simple case distinction here and return an `Option` either with the result from `hom_step_of_trg_ex` or simply none. -/
 noncomputable def hom_step
-    {N : Type u} [CN : ChaseNode N obs kb.rules] (out_sub_in : CN.out_sub_in)
+    (out_sub_in : CN.out_sub_in)
     (ct : ChaseTree N obs kb)
     (m : FactSet sig)
     (m_is_model : m.modelsKb kb)
@@ -233,7 +240,7 @@ noncomputable def hom_step
 
 /-- If there is a new node returned by `hom_step`, then it is in the `childNodes` of the current node. -/
 theorem mem_childNodes_of_mem_hom_step
-    {N : Type u} [CN : ChaseNode N obs kb.rules] {out_sub_in : CN.out_sub_in}
+    {out_sub_in : CN.out_sub_in}
     {ct : ChaseTree N obs kb}
     {m : FactSet sig}
     {m_is_model : m.modelsKb kb}
@@ -246,7 +253,7 @@ theorem mem_childNodes_of_mem_hom_step
 
 /-- If `hom_step` returns none, then the current node does not have any children. -/
 theorem childNodes_empty_of_hom_step_none
-    {N : Type u} [CN : ChaseNode N obs kb.rules] {out_sub_in : CN.out_sub_in}
+    {out_sub_in : CN.out_sub_in}
     {ct : ChaseTree N obs kb}
     {m : FactSet sig}
     {m_is_model : m.modelsKb kb}
@@ -260,7 +267,7 @@ theorem childNodes_empty_of_hom_step_none
 
 /-- The homomorphism returns in `hom_step` agrees with the current one on all terms from the current node. -/
 theorem hom_extends_prev_in_hom_step
-    {N : Type u} [CN : ChaseNode N obs kb.rules] {out_sub_in : CN.out_sub_in}
+    {out_sub_in : CN.out_sub_in}
     {ct : ChaseTree N obs kb}
     {m : FactSet sig}
     {m_is_model : m.modelsKb kb}
@@ -272,17 +279,12 @@ theorem hom_extends_prev_in_hom_step
   simp only [hom_step]
   grind [hom_extends_prev_in_hom_step_of_trg_ex]
 
-/-- As outlined at the very top of this file, we now use `TreeDerivation.generate_subderivation` with the `hom_step` generator to obtain the branch in the tree that yields the result `FactSet` for which the combined `GroundTermMapping`s form a homomorphism into the target model. -/
-public theorem chaseTreeResultIsUniversal (ct : RegularChaseTree obs kb) : ∀ (m : FactSet sig), m.modelsKb kb ->
-    ∃ (fs : FactSet sig) (h : GroundTermMapping sig), fs ∈ ct.result ∧ h.isHomomorphism fs m := by
-  have trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger obs kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (RegularChaseNode.regularChaseNodeInstance.outgoingFacts node.node).terms -> ¬ trg.val.active (RegularChaseNode.regularChaseNodeInstance.outgoingFacts node.node) := by
-    intro node trg i lt t t_fresh t_mem_node trg_act
-    apply trg_act.right
-    apply obs.contains_trg_result_implies_cond ⟨i, by simpa using lt⟩
-    exact RegularChaseTree.result_of_trigger_introducing_functional_term_occurs_in_chase node t_mem_node t_fresh
-
-  intro m m_is_model
-
+/-- We define the first InductiveHomomorphismResult to be used in the following infinite construction. -/
+noncomputable def start_for_infinite_list_of_derivations_and_homomorphisms
+    (ct : ChaseTree N obs kb)
+    (m : FactSet sig)
+    (m_is_model : m.modelsKb kb) :
+    InductiveHomomorphismResult ct m :=
   let start : InductiveHomomorphismResult ct m := ⟨(TreeDerivation.NodeWithAddress.root ct.toTreeDerivation, id), by
     simp only [TreeDerivation.NodeWithAddress.root]; rw [ct.database_first'.right.left]
     constructor
@@ -294,10 +296,19 @@ public theorem chaseTreeResultIsUniversal (ct : RegularChaseTree obs kb) : ∀ (
       have : f = e := by have hfr := hf.right; rw [hfr]; simp [TermMapping.apply_generalized_atom]
       rw [this] at hf
       exact hf.left⟩
+  start
 
-  let derivs_with_homs : PossiblyInfiniteList (RegularChaseDerivation obs kb.rules × GroundTermMapping sig) :=
-    PossiblyInfiniteList.generate start (hom_step RegularChaseNode.out_sub_in ct m m_is_model trg_inactive_of_fresh_term_present) (fun res =>
-      let deriv : RegularChaseDerivation obs kb.rules := ct.generate_subderivation res (hom_step RegularChaseNode.out_sub_in ct m m_is_model trg_inactive_of_fresh_term_present)
+/-- We use the inductive constructor to generate an infinite list of derivations together with their respective homomorphisms. -/
+noncomputable def infinite_list_of_derivations_and_homomorphisms
+    (out_sub_in : CN.out_sub_in)
+    (ct : ChaseTree N obs kb)
+    (m : FactSet sig)
+    (m_is_model : m.modelsKb kb)
+    (trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger obs kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active (CN.outgoingFacts node.node)) :
+    PossiblyInfiniteList (ChaseDerivation N obs kb.rules × GroundTermMapping sig) :=
+  let derivs_with_homs : PossiblyInfiniteList (ChaseDerivation N obs kb.rules × GroundTermMapping sig) :=
+    PossiblyInfiniteList.generate (start_for_infinite_list_of_derivations_and_homomorphisms ct m m_is_model) (hom_step out_sub_in ct m m_is_model trg_inactive_of_fresh_term_present) (fun res =>
+      let deriv : ChaseDerivation N obs kb.rules := ct.generate_subderivation res (hom_step out_sub_in ct m m_is_model trg_inactive_of_fresh_term_present)
         (fun res => res.val.fst)
         (by intro prev res res_mem; exact mem_childNodes_of_mem_hom_step res res_mem)
         (by intro prev eq_none
@@ -308,42 +319,96 @@ public theorem chaseTreeResultIsUniversal (ct : RegularChaseTree obs kb) : ∀ (
             exact this)
       (deriv, res.val.snd)
     )
+  derivs_with_homs
 
-  have derivs_with_homs_properties : ∀ step ∈ derivs_with_homs, step.snd.isHomomorphism step.fst.head.facts m := by
-    intro step step_mem
-    simp only [derivs_with_homs, PossiblyInfiniteList.mem_iff, PossiblyInfiniteList.get?_generate, Option.map_eq_some_iff] at step_mem
-    rw [← RegularChaseNode.outgoingFacts_eq]
-    grind
+/-- In every step of the infinite list, the associated mapping is indeed a homomorphism from the step's derivation to the target model. -/
+theorem each_step_isHomomorphism_in_infinite_list_of_derivations_and_homomorphisms
+    {out_sub_in : CN.out_sub_in}
+    {ct : ChaseTree N obs kb}
+    {m : FactSet sig}
+    {m_is_model : m.modelsKb kb}
+    {trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger obs kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active (CN.outgoingFacts node.node)} :
+    ∀ step ∈ infinite_list_of_derivations_and_homomorphisms out_sub_in ct m m_is_model trg_inactive_of_fresh_term_present,
+    step.snd.isHomomorphism (CN.outgoingFacts step.fst.head) m := by
+  intro step step_mem
+  simp only [infinite_list_of_derivations_and_homomorphisms, PossiblyInfiniteList.mem_iff, PossiblyInfiniteList.get?_generate, Option.map_eq_some_iff] at step_mem
+  grind
 
-  let deriv := (derivs_with_homs.head.get (by simp [derivs_with_homs, PossiblyInfiniteList.head_generate])).fst
-  have deriv_mem : deriv ∈ ct.branches := by
-    simp only [deriv, derivs_with_homs, PossiblyInfiniteList.head_generate, Option.map_some, Option.get_some]
-    apply ct.generate_subderivation_mem_branches
-    rfl
+/-- The infinite list always has a first element that we unwrap here. -/
+noncomputable def head_infinite_list_of_derivations_and_homomorphisms
+    (out_sub_in : CN.out_sub_in)
+    (ct : ChaseTree N obs kb)
+    (m : FactSet sig)
+    (m_is_model : m.modelsKb kb)
+    (trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger obs kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active (CN.outgoingFacts node.node)) :
+    (ChaseDerivation N obs kb.rules × GroundTermMapping sig) :=
+  (infinite_list_of_derivations_and_homomorphisms out_sub_in ct m m_is_model trg_inactive_of_fresh_term_present).head.get (by simp [infinite_list_of_derivations_and_homomorphisms, PossiblyInfiniteList.head_generate])
 
-  let branch := ct.chaseBranch_for_branch deriv_mem
+/-- The first derivation in the generated list is a branch in the chase tree. -/
+theorem mem_branches_fst_head_infinite_list_of_derivations_and_homomorphisms
+    {out_sub_in : CN.out_sub_in}
+    {ct : ChaseTree N obs kb}
+    {m : FactSet sig}
+    {m_is_model : m.modelsKb kb}
+    {trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger obs kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active (CN.outgoingFacts node.node)} :
+    (head_infinite_list_of_derivations_and_homomorphisms out_sub_in ct m m_is_model trg_inactive_of_fresh_term_present).fst ∈ ct.branches := by
+  simp only [head_infinite_list_of_derivations_and_homomorphisms, infinite_list_of_derivations_and_homomorphisms, PossiblyInfiniteList.head_generate, Option.map_some, Option.get_some]
+  apply ct.generate_subderivation_mem_branches
+  rfl
 
-  have deriv_eq : deriv.branch = derivs_with_homs.map (fun step => step.fst.head) := by
-    let pairs : PossiblyInfiniteList (InductiveHomomorphismResult ct m) :=
-      PossiblyInfiniteList.generate start (hom_step RegularChaseNode.out_sub_in ct m m_is_model trg_inactive_of_fresh_term_present) id
-    have pairs_eq : pairs.map (fun res => res.val.fst.node) = derivs_with_homs.map (fun step => step.fst.head) := by
-      simp only [pairs, derivs_with_homs]
-      apply PossiblyInfiniteList.ext; intro n
-      simp only [PossiblyInfiniteList.get?_map, PossiblyInfiniteList.get?_generate, Option.map_map]
-      apply Option.map_congr
-      simp
-    rw [← pairs_eq]
+/-- The first derivation in the generated list is equal to taking the heads of each derivation. -/
+theorem fst_head_infinite_list_of_derivations_and_homomorphisms_eq_list_of_all_heads
+    {out_sub_in : CN.out_sub_in}
+    {ct : ChaseTree N obs kb}
+    {m : FactSet sig}
+    {m_is_model : m.modelsKb kb}
+    {trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger obs kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active (CN.outgoingFacts node.node)} :
+    (head_infinite_list_of_derivations_and_homomorphisms out_sub_in ct m m_is_model trg_inactive_of_fresh_term_present).fst.branch =
+    (infinite_list_of_derivations_and_homomorphisms out_sub_in ct m m_is_model trg_inactive_of_fresh_term_present).map (fun step => step.fst.head) := by
+  let pairs : PossiblyInfiniteList (InductiveHomomorphismResult ct m) :=
+    PossiblyInfiniteList.generate (start_for_infinite_list_of_derivations_and_homomorphisms ct m m_is_model) (hom_step out_sub_in ct m m_is_model trg_inactive_of_fresh_term_present) id
+  have pairs_eq : pairs.map (fun res => res.val.fst.node) = (infinite_list_of_derivations_and_homomorphisms out_sub_in ct m m_is_model trg_inactive_of_fresh_term_present).map (fun step => step.fst.head) := by
+    simp only [pairs, infinite_list_of_derivations_and_homomorphisms]
     apply PossiblyInfiniteList.ext; intro n
-    rw [PossiblyInfiniteList.get?_map]
-    simp only [pairs, deriv, derivs_with_homs]
-    simp only [PossiblyInfiniteList.head_generate, Option.map_some, Option.get_some]
-    simp only [TreeDerivation.generate_subderivation, TreeDerivation.generate_branch, TreeDerivation.derivation_for_branch, FiniteDegreeTree.get?_generate_branch]
-    simp only [PossiblyInfiniteList.get?_generate, Option.map_map]
+    simp only [PossiblyInfiniteList.get?_map, PossiblyInfiniteList.get?_generate, Option.map_map]
     apply Option.map_congr
-    intro _ _
-    simp only [Function.comp_apply, id_eq]
-    simp only [TreeDerivation.toFiniteDegreeTreeWithRoot]
-    rw [← TreeDerivation.root.eq_def, TreeDerivation.NodeWithAddress.root_subderivation']
+    simp
+  rw [← pairs_eq]
+  apply PossiblyInfiniteList.ext; intro n
+  rw [PossiblyInfiniteList.get?_map]
+  simp only [pairs, head_infinite_list_of_derivations_and_homomorphisms, infinite_list_of_derivations_and_homomorphisms]
+  simp only [PossiblyInfiniteList.head_generate, Option.map_some, Option.get_some]
+  simp only [TreeDerivation.generate_subderivation, TreeDerivation.generate_branch, TreeDerivation.derivation_for_branch, FiniteDegreeTree.get?_generate_branch]
+  simp only [PossiblyInfiniteList.get?_generate, Option.map_map]
+  apply Option.map_congr
+  intro _ _
+  simp only [Function.comp_apply, id_eq]
+  simp only [TreeDerivation.toFiniteDegreeTreeWithRoot]
+  rw [← TreeDerivation.root.eq_def, TreeDerivation.NodeWithAddress.root_subderivation']
+
+end AuxiliaryDefsAndTheoremsForUniversalityProof
+
+namespace RegularChaseTree
+
+variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
+
+open AuxiliaryDefsAndTheoremsForUniversalityProof
+
+/-- As outlined at the very top of this file, we now use `TreeDerivation.generate_subderivation` with the `hom_step` generator to obtain the branch in the tree that yields the result `FactSet` for which the combined `GroundTermMapping`s form a homomorphism into the target model. -/
+theorem universal_result (ct : RegularChaseTree obs kb) : ∀ (m : FactSet sig), m.modelsKb kb ->
+    ∃ (fs : FactSet sig) (h : GroundTermMapping sig), fs ∈ ct.result ∧ h.isHomomorphism fs m := by
+
+  have trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger obs kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (RegularChaseNode.regularChaseNodeInstance.outgoingFacts node.node).terms -> ¬ trg.val.active (RegularChaseNode.regularChaseNodeInstance.outgoingFacts node.node) := by
+    intro node trg i lt t t_fresh t_mem_node trg_act
+    apply trg_act.right
+    apply obs.contains_trg_result_implies_cond ⟨i, by simpa using lt⟩
+    exact RegularChaseTree.result_of_trigger_introducing_functional_term_occurs_in_chase node t_mem_node t_fresh
+
+  intro m m_is_model
+
+  let derivs_with_homs := infinite_list_of_derivations_and_homomorphisms RegularChaseNode.out_sub_in ct m m_is_model trg_inactive_of_fresh_term_present
+  let deriv := (head_infinite_list_of_derivations_and_homomorphisms RegularChaseNode.out_sub_in ct m m_is_model trg_inactive_of_fresh_term_present).fst
+  let branch := ct.chaseBranch_for_branch (branch := deriv) mem_branches_fst_head_infinite_list_of_derivations_and_homomorphisms
 
   have homs_extend_each_other : ∀ n, ∀ step ∈ derivs_with_homs.get? n, ∀ step2 ∈ derivs_with_homs.drop n,
       ∀ t ∈ step.fst.head.facts.terms, step.snd t = step2.snd t := by
@@ -356,7 +421,7 @@ public theorem chaseTreeResultIsUniversal (ct : RegularChaseTree obs kb) : ∀ (
       rcases ih with ⟨head, head_mem, ih⟩
       rw [ih]
       rw [PossiblyInfiniteList.IsSuffix_iff] at suffix; rcases suffix with ⟨m, suffix⟩
-      simp only [derivs_with_homs] at suffix
+      simp only [derivs_with_homs, infinite_list_of_derivations_and_homomorphisms] at suffix
       simp only [← suffix, PossiblyInfiniteList.head_drop, PossiblyInfiniteList.get?_drop] at head_mem
       simp only [← suffix, PossiblyInfiniteList.tail_drop, PossiblyInfiniteList.head_drop, PossiblyInfiniteList.get?_drop, Nat.add_succ] at next_mem
       rw [PossiblyInfiniteList.get?_generate, Option.mem_def, Option.map_eq_some_iff] at head_mem
@@ -370,12 +435,13 @@ public theorem chaseTreeResultIsUniversal (ct : RegularChaseTree obs kb) : ∀ (
       apply FactSet.terms_subset_of_subset _ _ t_mem
       have step_mem_deriv : deriv.branch.get? n = some step.fst.head := by
         rw [← PossiblyInfiniteList.head_drop]
-        rw [deriv_eq, PossiblyInfiniteList.head_drop, PossiblyInfiniteList.get?_map, step_mem]
+        rw [fst_head_infinite_list_of_derivations_and_homomorphisms_eq_list_of_all_heads]
+        rw [PossiblyInfiniteList.head_drop, PossiblyInfiniteList.get?_map, step_mem]
         simp
       let node1 : deriv.Node := ⟨step.fst.head, by exists n⟩
       have pair_mem_deriv : deriv.branch.get? (n+m) = some pair.val.fst.node := by
-        rw [deriv_eq]
-        simp only [derivs_with_homs, PossiblyInfiniteList.get?_map, PossiblyInfiniteList.get?_generate]
+        rw [fst_head_infinite_list_of_derivations_and_homomorphisms_eq_list_of_all_heads]
+        simp only [infinite_list_of_derivations_and_homomorphisms, PossiblyInfiniteList.get?_map, PossiblyInfiniteList.get?_generate]
         rw [pair_mem]
         simp
       let node2 : deriv.Node := ⟨pair.val.fst.node, by exists (n + m)⟩
@@ -427,19 +493,21 @@ public theorem chaseTreeResultIsUniversal (ct : RegularChaseTree obs kb) : ∀ (
   have global_h_hom : ∀ node ∈ deriv, global_h.applyFactSet node.facts ⊆ m := by
     intro node node_mem
     have node_mem : node ∈ deriv.branch := node_mem
-    rw [deriv_eq, PossiblyInfiniteList.mem_map] at node_mem
+    rw [fst_head_infinite_list_of_derivations_and_homomorphisms_eq_list_of_all_heads] at node_mem
+    rw [PossiblyInfiniteList.mem_map] at node_mem
     rcases node_mem with ⟨step, step_mem, node_mem⟩
     intro f'
     rw [GroundTermMapping.mem_applyFactSet]
     intro ⟨f, f_mem, f'_eq⟩
     rw [← node_mem] at f_mem
     rw [f'_eq, global_h_eq_each_hom step step_mem f f_mem]
-    apply (derivs_with_homs_properties _ step_mem).right
+    apply (each_step_isHomomorphism_in_infinite_list_of_derivations_and_homomorphisms _ step_mem).right
     apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
     exact f_mem
 
   exists RegularChaseBranch.result branch, global_h; constructor
-  . unfold RegularChaseBranch.result RegularChaseTree.result RegularTreeDerivation.result; rw [Set.mem_map]; exists deriv
+  . unfold RegularChaseBranch.result RegularChaseTree.result RegularTreeDerivation.result; rw [Set.mem_map]
+    exists deriv; constructor; exact mem_branches_fst_head_infinite_list_of_derivations_and_homomorphisms; rfl
   constructor
   . intro c
     simp only [global_h]
@@ -447,7 +515,7 @@ public theorem chaseTreeResultIsUniversal (ct : RegularChaseTree obs kb) : ∀ (
     case isFalse _ => rfl
     case isTrue t_mem_true =>
       have ⟨step_mem, _⟩ := Classical.choose_spec t_mem_true
-      apply (derivs_with_homs_properties _ step_mem).left
+      apply (each_step_isHomomorphism_in_infinite_list_of_derivations_and_homomorphisms _ step_mem).left
   . intro f'
     rw [GroundTermMapping.mem_applyFactSet]
     intro ⟨f, ⟨node, node_mem, f_mem⟩, f'_eq⟩
@@ -455,4 +523,6 @@ public theorem chaseTreeResultIsUniversal (ct : RegularChaseTree obs kb) : ∀ (
     apply global_h_hom node node_mem
     apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
     exact f_mem
+
+end RegularChaseTree
 
