@@ -614,10 +614,15 @@ The result follows by the well foundedness of the `≺` relation.
 -/
 
 theorem prop_for_node_has_minimal_such_node
-    {cb : CoreChaseBranch kb} (prop : cb.Node -> Prop) :
-    ∀ n, prop n -> ∃ n2, prop n2 ∧ ∀ n3, n3 ≺ n2 -> ¬ prop n3 := by
+    {cd : CoreChaseBranch kb} (prop : cd.Node -> Prop) :
+    ∀ n, prop n -> ∃ n2, prop n2 ∧ n2 ≼ n ∧ ∀ n3, n3 ≺ n2 -> ¬ prop n3 := by
   intro n prop_n
-  exact minimal_element_for_property_and_relation prop n prop_n
+  rcases minimal_element_for_property_and_transitive_relation (by intro _ _ _; exact cd.strict_predecessor_trans) prop n prop_n with ⟨n2, prop_n2, prec_n2, n2_min⟩
+  exists n2; constructor; exact prop_n2; constructor
+  . cases prec_n2 with
+    | inl prec_n2 => grind
+    | inr prec_n2 => exact prec_n2.left
+  . exact n2_min
 
 end MinimalNodeWithProp
 
@@ -693,7 +698,7 @@ theorem origin_trg_remains_inactive {cb : CoreChaseBranch kb} {n1 n2 : cb.Node} 
       -- First, we obtain the first node after n1, where no equivalent trigger is loaded; call that n3.
       let target_prop (node : cb.Node) : Prop :=
         n1 ≼ node ∧ ¬ ∃ trg, orig.fst.equiv trg ∧ trg.val.loaded node.val.core
-      rcases cb.prop_for_node_has_minimal_such_node target_prop just_before_n2 ⟨just_before_n2_succ, ex_loaded_trg⟩ with ⟨n3, ⟨n3_prec, none_loaded_n3⟩, n3_minimal⟩
+      rcases cb.prop_for_node_has_minimal_such_node target_prop just_before_n2 ⟨just_before_n2_succ, ex_loaded_trg⟩ with ⟨n3, ⟨n3_prec, none_loaded_n3⟩, n3_prec_just_before_n2, n3_minimal⟩
 
       -- Now let's assume for a second that we can find a frontier term that is not part of n3's core.
       suffices ∃ v ∈ trg.val.rule.frontier, trg.val.subs v ∉ n3.val.core.terms by
@@ -731,20 +736,7 @@ theorem origin_trg_remains_inactive {cb : CoreChaseBranch kb} {n1 n2 : cb.Node} 
             exact t_mem_core_cd_where_n1_next
         -- We also know that n3 strictly occurs before n2 (because it occurs before just_before_n2).
         -- The argument is a bit more elaborate then one might think.
-        have n3_prec_n2 : n3 ≺ n2 := by
-          suffices n3 ≼ just_before_n2 by exact cb.strict_prec_of_prec_of_strict_prec this just_before_n2_prec
-          suffices ¬ just_before_n2 ≺ n3 by
-            cases cb.predecessor_total n3 just_before_n2 with
-            | inl prec => exact prec
-            | inr prec =>
-              cases cb.eq_or_strict_of_predecessor prec with
-              | inl eq => rw [eq]; grind
-              | inr prec => exfalso; apply this; exact prec
-          intro contra
-          apply n3_minimal just_before_n2 contra
-          constructor
-          . exact just_before_n2_succ
-          . exact ex_loaded_trg
+        have n3_prec_n2 : n3 ≺ n2 := cb.strict_prec_of_prec_of_strict_prec n3_prec_just_before_n2 just_before_n2_prec
         rcases (cb.predecessor_iff _ _).mp n3_prec_n2.left with ⟨cd3, suf', cd3_head, n2_mem_cd3⟩
 
         -- Since the frontier term in question occurs in just_before_n1,

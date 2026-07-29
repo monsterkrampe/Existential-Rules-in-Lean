@@ -401,7 +401,9 @@ theorem altMatch_of_some_not_reaches_self (cb : RegularChaseBranch obs kb) (fs :
   have : ∃ node, node_property node ∧ ∀ node2, node2 ≺ node -> ¬ node_property node2 := by
     rcases t_mem with ⟨f, f_mem, t_mem⟩
     rcases f_mem with ⟨node, node_mem, f_mem⟩
-    apply RegularChaseDerivation.prop_for_node_has_minimal_such_node node_property ⟨node, node_mem⟩
+    suffices node_property ⟨node, node_mem⟩ by
+      rcases RegularChaseDerivation.prop_for_node_has_minimal_such_node node_property ⟨node, node_mem⟩ this with ⟨n, prop_n, _, nex⟩
+      exact ⟨n, prop_n, nex⟩
     unfold node_property
     exists t
     constructor

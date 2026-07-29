@@ -858,9 +858,14 @@ The result follows by the well foundedness of the `≺` relation.
 
 theorem prop_for_node_has_minimal_such_node
     {cd : RegularChaseDerivation obs rules} (prop : cd.Node -> Prop) :
-    ∀ n, prop n -> ∃ n2, prop n2 ∧ ∀ n3, n3 ≺ n2 -> ¬ prop n3 := by
+    ∀ n, prop n -> ∃ n2, prop n2 ∧ n2 ≼ n ∧ ∀ n3, n3 ≺ n2 -> ¬ prop n3 := by
   intro n prop_n
-  exact minimal_element_for_property_and_relation prop n prop_n
+  rcases minimal_element_for_property_and_transitive_relation (by intro _ _ _; exact cd.strict_predecessor_trans) prop n prop_n with ⟨n2, prop_n2, prec_n2, n2_min⟩
+  exists n2; constructor; exact prop_n2; constructor
+  . cases prec_n2 with
+    | inl prec_n2 => grind
+    | inr prec_n2 => exact prec_n2.left
+  . exact n2_min
 
 end MinimalNodeWithProp
 
