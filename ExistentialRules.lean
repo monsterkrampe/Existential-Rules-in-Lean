@@ -5,34 +5,12 @@ Released under Apache 2.0 license as described in the file LICENSE.
 
 module
 
-import ExistentialRules.AlternativeMatches.Basic
-import ExistentialRules.AlternativeMatches.Chase
-import ExistentialRules.AlternativeMatches.HomomorphismExtension
+import ExistentialRules.AlternativeMatches
 import ExistentialRules.AtomsAndRules
-import ExistentialRules.ChaseSequence.ChaseNode
-import ExistentialRules.ChaseSequence.ChaseBranch
-import ExistentialRules.ChaseSequence.ChaseDerivation
-import ExistentialRules.ChaseSequence.ChaseDerivationSkeleton
-import ExistentialRules.ChaseSequence.ChaseTree
-import ExistentialRules.ChaseSequence.Universality
-import ExistentialRules.ChaseSequence.Deterministic
-import ExistentialRules.ChaseSequence.Nontermination.CondenseGenerator
-import ExistentialRules.ChaseSequence.Nontermination.RpcLike
-import ExistentialRules.ChaseSequence.Nontermination.SparseSubderivationGenerator
-import ExistentialRules.ChaseSequence.CoreChase
-import ExistentialRules.ChaseSequence.Termination.Basic
-import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts
-import ExistentialRules.ChaseSequence.Termination.ConstantMappings
-import ExistentialRules.ChaseSequence.Termination.Linear
-import ExistentialRules.ChaseSequence.Termination.MfaLike
-import ExistentialRules.ChaseSequence.Termination.ParallelDeterminizedChase
-import ExistentialRules.ChaseSequence.Termination.RenameConstantsApart
-import ExistentialRules.ChaseSequence.TreeDerivation
+import ExistentialRules.ChaseSequence
 import ExistentialRules.Models.Basic
 import ExistentialRules.Models.Cores
 import ExistentialRules.SubstitutionsAndHomomorphisms
 import ExistentialRules.Terms
-import ExistentialRules.Triggers.Basic
-import ExistentialRules.Triggers.Obsolescence
-import ExistentialRules.Triggers.RTrigger
+import ExistentialRules.Triggers
 
