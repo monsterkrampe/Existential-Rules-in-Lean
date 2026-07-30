@@ -9,7 +9,6 @@ import ExistentialRules.AlternativeMatches.Basic
 import ExistentialRules.AlternativeMatches.Chase
 import ExistentialRules.AlternativeMatches.HomomorphismExtension
 import ExistentialRules.AtomsAndFacts.Basic
-import ExistentialRules.AtomsAndFacts.SubstitutionsAndHomomorphisms
 import ExistentialRules.ChaseSequence.ChaseNode
 import ExistentialRules.ChaseSequence.ChaseBranch
 import ExistentialRules.ChaseSequence.ChaseDerivation
@@ -31,6 +30,7 @@ import ExistentialRules.ChaseSequence.Termination.RenameConstantsApart
 import ExistentialRules.ChaseSequence.TreeDerivation
 import ExistentialRules.Models.Basic
 import ExistentialRules.Models.Cores
+import ExistentialRules.SubstitutionsAndHomomorphisms
 import ExistentialRules.Terms
 import ExistentialRules.Triggers.Basic
 import ExistentialRules.Triggers.Obsolescence
