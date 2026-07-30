@@ -6,7 +6,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 import BasicLeanDatastructures.List.Basic
-public import ExistentialRules.Terms.Basic
+public import ExistentialRules.Terms.GroundTerm
 
 /-!
 # Cyclic Terms

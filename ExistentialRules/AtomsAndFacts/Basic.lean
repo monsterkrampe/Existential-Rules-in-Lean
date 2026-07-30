@@ -5,13 +5,13 @@ Released under Apache 2.0 license as described in the file LICENSE.
 
 module
 
+import BasicLeanDatastructures.List.AllListsOfLength
 import BasicLeanDatastructures.List.Basic
 import BasicLeanDatastructures.List.EraseDupsKeepRight
 public import BasicLeanDatastructures.Set.Basic
 public import BasicLeanDatastructures.Set.Finite
 
-public import ExistentialRules.Terms.Basic
-import ExistentialRules.Terms.ListsOfTerms
+public import ExistentialRules.Terms.GroundTerm
 
 /-!
 # Atoms, Facts, Rules and the like

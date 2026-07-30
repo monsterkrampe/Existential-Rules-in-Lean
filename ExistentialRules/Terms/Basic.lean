@@ -5,16 +5,12 @@ Released under Apache 2.0 license as described in the file LICENSE.
 
 module
 
-import BasicLeanDatastructures.List.Basic
-public import BasicLeanDatastructures.FiniteTree
-import BasicLeanDatastructures.Set.Basic
-import BasicLeanDatastructures.Set.Finite
-
 /-!
 # Terms
 
-In this file, we define various kinds of terms that form some of the most basic building blocks of
+We define various kinds of terms that form some of the most basic building blocks of
 other structures like atoms and rules.
+In this file we start by introducing a `Signature` and the `VarOrConst` as the most basic term type.
 -/
 
 public section
@@ -26,56 +22,13 @@ structure Signature where
   C : Type w
   arity : P -> Nat
 
-section SkolemTerms
-
-/-!
-## Skolem Terms
-
-If you are familiar with existential rules, you may have expected (labelled) nulls to be part of the `Signature`.
-These nulls would act as placeholders that are introduced during the chase to find fresh representatives for existentially quantified variables.
-However, implementing this freshness is not really nice to model since it would require is to keep global state around to know
-which nulls have already been used. Instead, we act as if the existentially quantified variables where Skolemized. By that, freshly
-introduced terms simply become Skolem terms and we can show that these are indeed fresh by design. Some works on existential rules take this view,
-first and foremost of course the ones considering the Skolem chase [SkolemChase].
--/
-
-/--  As a building block for Skolem terms, we introduce `SkolemFS` as a Skolem Function Symbol here. This structure captures the rule, disjunct, and (existential) variable for that the Skolem function was introduced. The arity corresponds to the size of the frontier of the rule, i.e. the universal variables that occur in both body and head. -/
-structure SkolemFS (sig : Signature) [DecidableEq sig.V] where
-  ruleId : Nat
-  disjunctIndex : Nat
-  var : sig.V
-  arity : Nat
-  deriving DecidableEq
-
-/-- With `SkolemTerm` we mean the Skolemized version of an existential variable. That is, a `SkolemTerm` only consists of a function symbol (`SkolemFS`) and a list of universal variables. Beyond that, we allow this inductive structure also to be a plain variable or constant. Thereby, the `SkolemTerm` can represent any term occurring in a Skolemized rule. -/
-inductive SkolemTerm (sig : Signature) [DecidableEq sig.C] [DecidableEq sig.V] where
-| var (v : sig.V) : SkolemTerm sig
-| const (c : sig.C) : SkolemTerm sig
-| func (fs : SkolemFS sig) (frontier : List sig.V) (arity_ok : frontier.length = fs.arity) : SkolemTerm sig
-deriving DecidableEq
-
-namespace SkolemTerm
-
-variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
-
-/-- We may obtain all variables from a `SkolemTerm` term as the list of all variables occurring in the functional term or, if the term is a plain variable, simply as the singleton list with this one variable. -/
-def variables : SkolemTerm sig -> List sig.V
-| .var v => List.cons v List.nil
-| .const _ => List.nil
-| .func _ vs _ => vs
-
-end SkolemTerm
-
-end SkolemTerms
-
 section VarOrConst
 
 /-!
 ## VarOrConst
 
-We introduce `VarOrConst` as yet another inductive type representing a term.
-This is a function free `SkolemTerm`, i.e. either a variable or a constant (thus the name).
-Having this is a separate type is more convenient for us than restricting the `SkolemTerm` further.
+We introduce `VarOrConst` as an inductive type representing a term.
+The term is either a variable or a constant (thus the name).
 `VarOrConst` is used to define `FunctionFreeAtom` later and is thus also the basic building block of (non-Skolemized) `Rule`s.
 -/
 
@@ -111,15 +64,6 @@ def filterConsts : List (VarOrConst sig) -> List sig.C
   | .var _ => filterConsts vocs
   | .const c => List.cons c (filterConsts vocs)
 
-/-- In the context of a rule and a disjunct (in that rule), we can turn a `VarOrConst` into a `SkolemTerm` using the frontier of the rule. This function is used for skolemizing existential variables in rules. -/
-@[expose]
-def skolemize (ruleId : Nat) (disjunctIndex : Nat) (frontier : List sig.V) : VarOrConst sig -> SkolemTerm sig
-| .var v =>
-  if (v ∈ frontier)
-  then .var v
-  else .func { ruleId, disjunctIndex, var := v, arity := frontier.length } frontier rfl
-| .const c => SkolemTerm.const c
-
 /-- Each member of `filterVars` is in the original list (when applying the `VarOrConst.var` constructor again.) -/
 @[grind ->]
 theorem filterVars_occur_in_original_list (l : List (VarOrConst sig)) (v : sig.V) : v ∈ filterVars l -> VarOrConst.var v ∈ l := by
@@ -140,278 +84,7 @@ theorem filterConsts_occur_in_original_list (l : List (VarOrConst sig)) (c : sig
 theorem mem_filterConsts_of_const (l : List (VarOrConst sig)) (c : sig.C) : VarOrConst.const c ∈ l -> c ∈ filterConsts l := by
   fun_induction filterConsts <;> grind
 
-/-- The `skolemize` function is injective. That is, if the produced `SkolemTerm`s are the same, then bey need to result from the same variable. This is important to ensure that introduced Skolem terms are indeed fresh (and unique) in the chase. -/
-@[grind ->]
-theorem skolemize_injective (ruleId : Nat) (i : Nat) (frontier : List sig.V) (s t : VarOrConst sig) :
-    s.skolemize ruleId i frontier = t.skolemize ruleId i frontier -> s = t := by
-  fun_cases s.skolemize ruleId i frontier <;> fun_cases t.skolemize ruleId i frontier <;> simp
-
 end VarOrConst
 
 end VarOrConst
 
-section GroundTerms
-
-/-!
-## Ground Terms
-
-A `GroundTerm` is a constant or a functional term with arbitrary nesting of function symbols (`SkolemFS`).
-Aiming to define `GroundTerm`, we need to define a more basic structure first, where we do not demand yet that function symbol arities are respected.
-`PreGroundTerm`s need to be able to model Skolem terms, i.e. function terms. We can represent those conveniently using inductively defined `FiniteTree`s.
-
-With `PreGroundTerm`s in place, we merely define `GroundTerm`s to be the `PreGroundTerm`s where `arity_ok` holds.
-We then define appropriate constructors and recursion principles on the `GroundTerm` to make it behave almost like an inductive type with a `GroundTerm.const` and `GroundTerm.func` constructor.
--/
-
-/-- The `PreGroundTerm` is simply a `FiniteTree (SkolemFS sig) sig.C`. That is a tree that features Skolem function symbols in its inner nodes and constants in its leaf nodes. -/
-abbrev PreGroundTerm (sig : Signature) [DecidableEq sig.C] [DecidableEq sig.V] := FiniteTree (SkolemFS sig) sig.C
-
-
-
-namespace PreGroundTerm
-
-/-- The arity of a functional term is ok if the defined arity of its function symbol matches its number of children and `arity_ok` also holds for each child. For constants, i.e. the leaf nodes, the arity is trivially ok. -/
-@[expose]
-def arity_ok {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] : FiniteTree (SkolemFS sig) sig.C -> Bool
-| .leaf _ => true
-| .inner func ts =>
-  ts.length == func.arity && ts.attach.all (fun ⟨t, _⟩ => arity_ok t)
-
-end PreGroundTerm
-
-/-- As mentioned above, a `GroundTerm` is simply a `PreGroundTerm` subtype where `arity_ok` holds. -/
-abbrev GroundTerm (sig : Signature) [DecidableEq sig.C] [DecidableEq sig.V] := { t : PreGroundTerm sig // PreGroundTerm.arity_ok t }
-
-
-namespace GroundTerm
-
-variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
-
-/-- A `GroundTerm` can be direclty constructed from a constant. -/
-@[expose]
-def const (c : sig.C) : GroundTerm sig := ⟨FiniteTree.leaf c, by simp [PreGroundTerm.arity_ok]⟩
-
-/-- The `GroundTerm.const` constructor is injective. -/
-@[grind inj]
-theorem const.inj : Function.Injective (GroundTerm.const (sig := sig)) := by intro c d; unfold const; simp
-@[simp]
-theorem const.injEq {c d : sig.C} : GroundTerm.const c = GroundTerm.const d ↔ c = d := by grind
-
-/-- Also, a `GroundTerm` can be constructed from a `SkolemFS` and a list of `GroundTerm`s as long as the length of the list matches the function symbol's arity. -/
-@[expose]
-def func (func : SkolemFS sig) (ts : List (GroundTerm sig)) (arity_ok : ts.length = func.arity) : GroundTerm sig := ⟨FiniteTree.inner func ts.unattach, by
-  unfold PreGroundTerm.arity_ok
-  rw [Bool.and_eq_true, beq_iff_eq]
-  constructor
-  . rw [List.length_unattach]; exact arity_ok
-  . rw [List.all_eq_true]
-    intro t t_mem
-    unfold List.unattach at t_mem
-    rw [List.attach_map, List.mem_map] at t_mem
-    rcases t_mem with ⟨t, t_mem, t_eq⟩
-    rw [← t_eq]
-    exact t.val.property
-⟩
-
-/-- The `GroundTerm.func` constructor is injective. -/
-@[grind ->]
-theorem func.inj
-  {func1 func2 : SkolemFS sig} {ts1 ts2 : List (GroundTerm sig)} {arity_ok1 : ts1.length = func1.arity} {arity_ok2 : ts2.length = func2.arity} :
-  GroundTerm.func func1 ts1 arity_ok1 = GroundTerm.func func2 ts2 arity_ok2 -> func1 = func2 ∧ ts1 = ts2 := by unfold func; simp
-@[simp]
-theorem func.injEq
-  {func1 func2 : SkolemFS sig} {ts1 ts2 : List (GroundTerm sig)} {arity_ok1 : ts1.length = func1.arity} {arity_ok2 : ts2.length = func2.arity} :
-  GroundTerm.func func1 ts1 arity_ok1 = GroundTerm.func func2 ts2 arity_ok2 ↔ func1 = func2 ∧ ts1 = ts2 := by grind
-
-/-- `GroundTerm.func` can never be equal to `GroundTerm.const`. -/
-theorem func_neq_const {func : SkolemFS sig} {ts : List (GroundTerm sig)} {arity_ok : ts.length = func.arity} {c : sig.C} :
-  GroundTerm.func func ts arity_ok ≠ GroundTerm.const c := by simp [GroundTerm.func, const]
-
-/-- A term cannot occur in its own child. -/
-theorem eq_while_contained_is_impossible {func : SkolemFS sig} {ts : List (GroundTerm sig)} {arity_ok : ts.length = func.arity} :
-    GroundTerm.func func ts arity_ok ∉ ts := by
-  intro mem
-  apply FiniteTree.tree_eq_while_contained_is_impossible (GroundTerm.func func ts arity_ok).val ts.unattach func
-  . rfl
-  . rw [List.mem_unattach]; exact ⟨_, mem⟩
-
-/-- We define a cases eliminator for the `GroundTerm` having a case for each constructor. This allows to use the `cases` tactic direcly on `GroundTerm`s. -/
-@[elab_as_elim, cases_eliminator]
-def cases
-    {motive : GroundTerm sig -> Sort u}
-    (t : GroundTerm sig)
-    (const : (c : sig.C) -> motive (GroundTerm.const c))
-    (func : (func : SkolemFS sig) -> (ts : List (GroundTerm sig)) -> (arity_ok : ts.length = func.arity) -> motive (GroundTerm.func func ts arity_ok)) :
-    motive t :=
-  match eq : t.val with
-  | .leaf c =>
-    have eq : t = GroundTerm.const c := Subtype.ext eq
-    eq ▸ const c
-  | .inner f ts =>
-    let ts : List (GroundTerm sig) := ts.attach.map (fun t' => ⟨t'.val, by
-      have prop := t.property
-      unfold PreGroundTerm.arity_ok at prop
-      simp only [eq, Bool.and_eq_true, beq_iff_eq] at prop
-      have prop := prop.right
-      rw [List.all_eq_true] at prop
-      apply prop ⟨t', t'.property⟩
-      apply List.mem_attach
-    ⟩)
-    have arity_ok : ts.length = f.arity := by
-      have prop := t.property
-      unfold PreGroundTerm.arity_ok at prop
-      simp only [eq, Bool.and_eq_true, beq_iff_eq] at prop
-      unfold ts
-      rw [List.length_map, List.length_attach]
-      exact prop.left
-    have eq : t = GroundTerm.func f ts arity_ok := by
-      apply Subtype.ext
-      unfold GroundTerm.func
-      simp only [eq, ts]
-      unfold List.unattach
-      rw [List.map_map, List.map_attach_eq_pmap]
-      simp
-    eq ▸ (func f ts arity_ok)
-
-/-- We define an induction eliminator for the `GroundTerm` having a case for each constructor. This allows to use the `induction` tactic direcly on `GroundTerm`s. -/
-@[elab_as_elim, induction_eliminator]
-def rec
-    {motive : GroundTerm sig -> Sort u}
-    (const : (c : sig.C) -> motive (GroundTerm.const c))
-    (func : (func : SkolemFS sig) -> (ts : List (GroundTerm sig)) -> (arity_ok : ts.length = func.arity) -> (∀ t, t ∈ ts -> motive t) -> motive (GroundTerm.func func ts arity_ok))
-    (t : GroundTerm sig) :
-    motive t :=
-  match eq_val : t.val with
-  | .leaf c =>
-    have eq : t = GroundTerm.const c := Subtype.ext eq_val
-    eq ▸ const c
-  | .inner f ts =>
-    let ts : List (GroundTerm sig) := ts.attach.map (fun t' => ⟨t'.val, by
-      have prop := t.property
-      unfold PreGroundTerm.arity_ok at prop
-      simp only [eq_val, Bool.and_eq_true, beq_iff_eq] at prop
-      have prop := prop.right
-      rw [List.all_eq_true] at prop
-      apply prop ⟨t', t'.property⟩
-      apply List.mem_attach
-    ⟩)
-    have arity_ok : ts.length = f.arity := by
-      have prop := t.property
-      unfold PreGroundTerm.arity_ok at prop
-      simp only [eq_val, Bool.and_eq_true, beq_iff_eq] at prop
-      unfold ts
-      rw [List.length_map, List.length_attach]
-      exact prop.left
-    have eq : t = GroundTerm.func f ts arity_ok := by
-      apply Subtype.ext
-      unfold GroundTerm.func
-      simp only [eq_val, ts]
-      unfold List.unattach
-      rw [List.map_map, List.map_attach_eq_pmap]
-      simp
-    eq ▸ (func f ts arity_ok (by
-      intro t' mem
-      have : t'.val.depth < t.val.depth := by
-        conv => right; unfold FiniteTree.depth
-        simp only [eq_val]
-        rw [Nat.add_comm]
-        apply Nat.lt_add_one_of_le
-        apply List.le_max?_getD_of_mem
-        apply List.mem_map_of_mem
-        rw [List.mem_map] at mem
-        rcases mem with ⟨s, s_mem, t_eq⟩
-        rw [← t_eq]
-        unfold List.attach at s_mem
-        unfold List.attachWith at s_mem
-        rw [List.mem_pmap] at s_mem
-        rcases s_mem with ⟨_, s_mem, s_eq⟩
-        rw [← s_eq]
-        exact s_mem
-      apply GroundTerm.rec const func
-    ))
-termination_by t.val.depth
-
-/-- A `GroundTerm` that has been constructed from a constant can be converted into this constants again. -/
-def toConst (t : GroundTerm sig) (isConst : ∃ c, t = GroundTerm.const c) : sig.C :=
-  match eq : t.val with
-  | .leaf c => c
-  | .inner _ _ => by
-    apply False.elim
-    rcases isConst with ⟨c, isConst⟩
-    rw [isConst] at eq
-    simp [GroundTerm.const] at eq
-
-/-- For a `GroundTerm` that has been constructed as a functional term, we can obtain the function symbol. -/
-def functionSymbol (t : GroundTerm sig) (isFunc : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok) : SkolemFS sig :=
-  match eq : t.val with
-  | .leaf _ => by apply False.elim; rcases isFunc with ⟨func, ts, arity_ok, eq2⟩; rw [eq2] at eq; simp [GroundTerm.func] at eq
-  | .inner func _ => func
-
-/-- The `depth` of a `GroundTerm` is the depth of the underlying `FiniteTree`, i.e. the deepest nesting of function symbols (+1). -/
-@[expose]
-def depth (t : GroundTerm sig) : Nat := t.val.depth
-
-/-- The `constants` occurring in a `GroundTerm` are exactly the leaves of the underlying `FiniteTree`. -/
-@[expose]
-def constants (t : GroundTerm sig) : (List sig.C) := t.val.leaves
-
-/-- The `functions` (i.e. function symbols `SkolemFS`) occurring in a `GroundTerm` are exactly the inner labels of the underlying `FiniteTree`. -/
-@[expose]
-def functions (t : GroundTerm sig) : (List (SkolemFS sig)) := t.val.innerLabels
-
-/-- Applying `toConst` to a `GroundTerm.const` yields exactly the contained constant. -/
-@[simp, grind =]
-theorem toConst_const {c : sig.C} : (GroundTerm.const c).toConst (by exists c) = c := by rfl
-
-/-- Applying `functionSymbol` to a `GroundTerm.func` yields exactly the contained function symbol. -/
-@[simp, grind =]
-theorem functionSymbol_func {func : SkolemFS sig} {ts : List (GroundTerm sig)} {arity_ok : ts.length = func.arity} :
-  (GroundTerm.func func ts arity_ok).functionSymbol (by exists func, ts, arity_ok) = func := by rfl
-
-/-- Constants have `depth` 1. -/
-@[simp, grind =]
-theorem depth_const {c : sig.C} : (GroundTerm.const c).depth = 1 := by
-  simp [GroundTerm.const, depth, FiniteTree.depth]
-
-/-- The `depth` of a function term is the maximum depth of its children + 1. -/
-@[simp, grind =]
-theorem depth_func {f : SkolemFS sig} {ts : List (GroundTerm sig)} {arity_ok : ts.length = f.arity} :
-    (GroundTerm.func f ts arity_ok).depth = 1 + (((ts.map (GroundTerm.depth)).max?).getD 1) := by
-  simp only [GroundTerm.func, depth, FiniteTree.depth]
-  have : ts.map depth = ts.unattach.map FiniteTree.depth := by rw [List.map_unattach]; rfl
-  rw [this]
-
-/-- Every term has a depth greater zero since constants already have depth 1. -/
-theorem depth_gt_zero {t : GroundTerm sig} : 0 < t.depth := by cases t <;> grind
-
-/-- The `constants` of a constant are the singleton list with the constant itself. -/
-@[simp, grind =]
-theorem constants_const {c : sig.C} : (GroundTerm.const c).constants = [c] := by
-  simp [GroundTerm.const, constants, FiniteTree.leaves]
-
-/-- The `constants` of a function term are the constants of its children. -/
-@[simp, grind =]
-theorem constants_func {f : SkolemFS sig} {ts : List (GroundTerm sig)} {arity_ok : ts.length = f.arity} :
-    (GroundTerm.func f ts arity_ok).constants = ts.flatMap GroundTerm.constants := by
-  simp only [GroundTerm.func, constants, FiniteTree.leaves]
-  rw [List.flatMap_unattach]
-  rfl
-
-/-- A constant has no `functions`. -/
-@[simp, grind =]
-theorem functions_const {c : sig.C} : (GroundTerm.const c).functions = [] := by
-  simp [GroundTerm.const, functions, FiniteTree.innerLabels]
-
-/-- The `functions` of a function term consist of the function symbol of the current term and the function symbols of all its children. -/
-@[simp, grind =]
-theorem functions_func {f : SkolemFS sig} {ts : List (GroundTerm sig)} {arity_ok : ts.length = f.arity} :
-    (GroundTerm.func f ts arity_ok).functions = f :: (ts.flatMap GroundTerm.functions) := by
-  simp only [GroundTerm.func, functions, FiniteTree.innerLabels]
-  rw [List.cons_eq_cons]
-  constructor
-  . rfl
-  . rw [List.flatMap_unattach]; rfl
-
-end GroundTerm
-
-end GroundTerms

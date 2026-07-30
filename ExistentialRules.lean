@@ -31,9 +31,7 @@ import ExistentialRules.ChaseSequence.Termination.RenameConstantsApart
 import ExistentialRules.ChaseSequence.TreeDerivation
 import ExistentialRules.Models.Basic
 import ExistentialRules.Models.Cores
-import ExistentialRules.Terms.Basic
-import ExistentialRules.Terms.Cyclic
-import ExistentialRules.Terms.ListsOfTerms
+import ExistentialRules.Terms
 import ExistentialRules.Triggers.Basic
 import ExistentialRules.Triggers.Obsolescence
 import ExistentialRules.Triggers.RTrigger
