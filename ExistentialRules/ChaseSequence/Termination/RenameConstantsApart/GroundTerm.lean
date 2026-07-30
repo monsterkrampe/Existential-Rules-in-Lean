@@ -15,7 +15,7 @@ We lift the `PreGroundTerm.rename_constants_apart` functionality to `GroundTerm`
 
 public section
 
-variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
+variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 @[expose]
 def GroundTerm.rename_constants_apart
@@ -50,31 +50,4 @@ theorem GroundTerm.rename_constants_apart_constants_fresh
   intro c c_mem
   apply PreGroundTerm.rename_constants_apart_leaves_fresh
   exact c_mem
-
-variable [DecidableEq sig.P]
-
-theorem GroundTerm.rename_constants_apart_preserves_ruleId_validity [GetFreshInhabitant sig.C] (term : GroundTerm sig) (forbidden_constants : List sig.C) :
-    ∀ rl, GroundTerm.skolem_ruleIds_valid rl term -> GroundTerm.skolem_ruleIds_valid rl (GroundTerm.rename_constants_apart term forbidden_constants) := by
-  intro rl valid
-  simp only [rename_constants_apart, skolem_ruleIds_valid] at *
-  apply PreGroundTerm.rename_constants_apart_preserves_ruleId_validity
-  exact valid
-
-theorem GroundTerm.rename_constants_apart_preserves_disjIdx_validity [GetFreshInhabitant sig.C] (term : GroundTerm sig) (forbidden_constants : List sig.C) :
-    ∀ rl, (h : GroundTerm.skolem_ruleIds_valid rl term) -> GroundTerm.skolem_disjIdx_valid rl term h ->
-    GroundTerm.skolem_disjIdx_valid rl (GroundTerm.rename_constants_apart term forbidden_constants)
-      (GroundTerm.rename_constants_apart_preserves_ruleId_validity term forbidden_constants rl h) := by
-  intro rl _ valid
-  simp only [rename_constants_apart] at *
-  apply PreGroundTerm.rename_constants_apart_preserves_disjIdx_validity
-  exact valid
-
-theorem GroundTerm.rename_constants_apart_preserves_rule_arity_validity [GetFreshInhabitant sig.C] (term : GroundTerm sig) (forbidden_constants : List sig.C) :
-    ∀ rl, (h : GroundTerm.skolem_ruleIds_valid rl term) -> GroundTerm.skolem_rule_arity_valid rl term h ->
-    GroundTerm.skolem_rule_arity_valid rl (GroundTerm.rename_constants_apart term forbidden_constants)
-      (GroundTerm.rename_constants_apart_preserves_ruleId_validity term forbidden_constants rl h) := by
-  intro rl _ valid
-  simp only [rename_constants_apart] at *
-  apply PreGroundTerm.rename_constants_apart_preserves_rule_arity_validity
-  exact valid
 

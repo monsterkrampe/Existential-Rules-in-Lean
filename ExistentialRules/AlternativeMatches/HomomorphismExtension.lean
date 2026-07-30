@@ -33,35 +33,34 @@ noncomputable def extend_hom_to_next_step_of_next_eq_some
     InductiveHomomorphismExtensionResult cd h :=
   let origin := next.origin.get (cd.isSome_origin_next next_eq)
   have origin_trg_active := cd.active_trigger_origin_next next_eq
-  let disj : Fin origin.fst.val.rule.head.length := ⟨origin.snd.val, by rw [← PreTrigger.length_mapped_head]; exact origin.snd.isLt⟩
+  let disj : Fin origin.fst.val.rule.head.length := origin.snd
   let trg' : PreTrigger sig := ⟨origin.fst.val.rule, h ∘ origin.fst.val.subs⟩
   have trg'_loaded : trg'.loaded cd.result := by
     apply Set.subset_trans _ hom.right
     apply PreTrigger.term_mapping_preserves_loadedness
     . exact hom.left
     . exact origin_trg_active.left
-  have trg'_satisfied : trg'.satisfied_for_disj cd.result ⟨disj.val, disj.isLt⟩ := by
+  have trg'_satisfied : trg'.satisfied_for_disj cd.result disj.val disj.isLt := by
     have modelsRule : cd.result.modelsRule trg'.rule := by
       exact cd.result_models_rules trg'.rule origin.fst.property
     specialize modelsRule trg'.subs trg'_loaded
-    rcases modelsRule with ⟨i, s', s'_frontier, s'_contains⟩
+    rcases modelsRule with ⟨i, lt, s', s'_frontier, s'_contains⟩
     exists s'
     constructor
     . exact s'_frontier
     . -- kb.isDeterministic is required here
-      have : i.val = disj.val := by
-        have isLt := i.isLt
+      have : i = disj.val := by
         have := det trg'.rule origin.fst.property
         unfold Rule.isDeterministic at this
         rw [decide_eq_true_iff] at this
-        simp only [this, Nat.lt_one_iff] at isLt
-        have isLt' := disj.isLt
+        simp only [this, Nat.lt_one_iff] at lt
+        have lt' := disj.isLt
         have := det origin.fst.val.rule origin.fst.property
         unfold Rule.isDeterministic at this
         rw [decide_eq_true_iff] at this
-        simp only [this, Nat.lt_one_iff] at isLt'
-        rw [isLt, isLt']
-      simp only [List.get_eq_getElem, this] at s'_contains
+        simp only [this, Nat.lt_one_iff] at lt'
+        rw [lt, lt']
+      simp only [this] at s'_contains
       exact s'_contains
 
   let subs := Classical.choose trg'_satisfied
@@ -80,12 +79,12 @@ noncomputable def extend_hom_to_next_step_of_next_eq_some
     simp only [h', this, ↓reduceDIte]
     exact hom.left
 
-  have h'_is_subs_on_head_vars : ∀ v, v ∈ (origin.fst.val.rule.head[disj.val]).vars -> (h' (origin.fst.val.subs_for_mapped_head origin.snd v)) = subs v := by
+  have h'_is_subs_on_head_vars : ∀ v, v ∈ (origin.fst.val.rule.head[disj.val]).vars -> (h' (origin.fst.val.subs_for_mapped_head origin.snd.val origin.snd.isLt v)) = subs v := by
     intro v v_mem
     simp only [PreTrigger.subs_for_mapped_head]
     cases Decidable.em (v ∈ origin.fst.val.rule.frontier) with
     | inl v_frontier =>
-      rw [origin.fst.val.apply_to_var_or_const_frontier_var _ _ v_frontier]
+      rw [origin.fst.val.apply_to_var_or_const_frontier_var _ _ _ v_frontier]
       have : ¬ origin.fst.val.subs v ∈ origin.fst.val.fresh_terms_for_head_disjunct disj.val disj.isLt := by
         apply PreTrigger.frontier_term_not_mem_fresh_terms_for_head_disjunct
         apply List.mem_map_of_mem
@@ -94,22 +93,19 @@ noncomputable def extend_hom_to_next_step_of_next_eq_some
       simp only [subs, subs_frontier _ v_frontier]
       rfl
     | inr v_frontier =>
-      rw [origin.fst.val.apply_to_var_or_const_non_frontier_var _ _ v_frontier]
       have v_exis : v ∈ origin.fst.val.rule.existential_vars_for_head_disjunct disj.val disj.isLt := by
         simp only [Rule.existential_vars_for_head_disjunct, List.mem_filter, decide_eq_true_iff]
         exact ⟨v_mem, v_frontier⟩
-      have : origin.fst.val.functional_term_for_var origin.snd.val v ∈ origin.fst.val.fresh_terms_for_head_disjunct disj.val disj.isLt := by
-        apply List.mem_map_of_mem; exact v_exis
-      simp only [h', this, ↓reduceDIte]
+      rw [origin.fst.val.apply_to_var_or_const_of_mem_existential_vars _ _ _ v_exis]
+      simp only [h', origin.fst.val.mem_fresh_terms_of_functional_for_exis_var, ↓reduceDIte]
       rw [PreTrigger.existential_var_for_fresh_term_after_functional_term_for_var]
-      exact v_exis
 
   have h'_is_h_on_terms_in_node : ∀ t ∈ cd.head.facts.terms, h' t = h t := by
     intro t t_mem
     have : ¬ t ∈ origin.fst.val.fresh_terms_for_head_disjunct disj.val disj.isLt := by
       intro contra
       apply origin_trg_active.right
-      apply obs.contains_trg_result_implies_cond origin.snd
+      apply obs.contains_trg_result_implies_cond origin.snd.val origin.snd.isLt
       apply cb.result_of_trigger_introducing_functional_term_occurs_in_chase ⟨cd.head, by apply ChaseDerivation.mem_of_mem_suffix suffix; exact cd.head_mem⟩ t_mem
       exact contra
     simp [h', this]
@@ -134,7 +130,7 @@ noncomputable def extend_hom_to_next_step_of_next_eq_some
           have : (subs.apply_function_free_conj trg'.rule.head[disj.val]).toSet = h'.applyFactSet origin.fst.val.mapped_head[disj.val].toSet := by
             simp only [TermMapping.apply_generalized_atom_set_toSet]
             apply congrArg
-            rw [← PreTrigger.apply_subs_for_mapped_head_eq, ← GroundSubstitution.apply_function_free_conj_compose]
+            rw [← PreTrigger.apply_subs_for_mapped_head_eq _ _ disj.isLt, ← GroundSubstitution.apply_function_free_conj_compose]
             . apply List.map_congr_left
               intro a a_mem
               apply TermMapping.apply_generalized_atom_congr_left

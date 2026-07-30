@@ -297,7 +297,7 @@ theorem functional_term_originates_from_some_trigger
     {t : GroundTerm sig}
     (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok)
     (t_mem : t ∈ node.val.facts.terms) :
-    t ∈ cd.head.core.terms ∨ ∃ node2, node2 ≼ node ∧ ∃ orig ∈ node2.val.origin, t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val (by rw [← PreTrigger.length_mapped_head]; exact orig.snd.isLt) := by
+    t ∈ cd.head.core.terms ∨ ∃ node2, node2 ≼ node ∧ ∃ orig ∈ node2.val.origin, t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val orig.snd.isLt := by
   apply ChaseDerivation.functional_term_originates_from_some_trigger CoreChaseNode.out_sub_in _ node t_is_func t_mem
   intro n1 n2 n3; apply predecessor_trans_of_finite; apply core_finite_of_mem_of_head_finite; rw [ChaseDerivation.head_tail']; apply cd.core_finite_of_mem_of_head_finite _ ⟨cd.next.get next_some, by apply cd.next_mem_of_mem; simp⟩; exact start_finite
 
@@ -556,7 +556,7 @@ theorem functional_term_originates_from_some_trigger
     (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok)
     (t_mem : t ∈ node.val.facts.terms) :
     ∃ node2, node2 ≼ node ∧ ∃ orig ∈ node2.val.origin,
-      t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val (by rw [← PreTrigger.length_mapped_head]; exact orig.snd.isLt) := by
+      t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val orig.snd.isLt := by
   have t_nmem_head : t ∉ cb.head.core.terms := by
     intro t_mem
     exact cb.func_term_not_mem_head t_is_func t_mem

@@ -28,21 +28,12 @@ mutual
   theorem PreGroundTerm.backtrackFacts_under_strict_constant_mapping_same_number_of_fresh_constants
       [GetFreshInhabitant sig.C]
       [Inhabited sig.C]
-      (rl : RuleList sig)
       (term : PreGroundTerm sig)
       (term_arity_ok : PreGroundTerm.arity_ok term)
-      (term_ruleIds_valid : PreGroundTerm.skolem_ruleIds_valid rl term)
-      (term_disjIdx_valid : PreGroundTerm.skolem_disjIdx_valid rl term term_ruleIds_valid)
-      (term_rule_arity_valid : PreGroundTerm.skolem_rule_arity_valid rl term term_ruleIds_valid)
       (forbidden_constants forbidden_constants_2 : List sig.C) :
       ∀ (g : StrictConstantMapping sig),
-        (PreGroundTerm.backtrackFacts rl term term_arity_ok term_ruleIds_valid term_disjIdx_valid term_rule_arity_valid forbidden_constants).snd.length =
-        (PreGroundTerm.backtrackFacts rl (g.toConstantMapping.apply_pre_ground_term term)
-          (by apply ConstantMapping.apply_pre_ground_term_arity_ok; exact term_arity_ok)
-          (by apply StrictConstantMapping.apply_pre_ground_term_preserves_ruleId_validity; exact term_ruleIds_valid)
-          (by apply StrictConstantMapping.apply_pre_ground_term_preserves_disjIdx_validity; exact term_disjIdx_valid)
-          (by apply StrictConstantMapping.apply_pre_ground_term_preserves_rule_arity_validity; exact term_rule_arity_valid)
-          forbidden_constants_2).snd.length := by
+        (PreGroundTerm.backtrackFacts term term_arity_ok forbidden_constants).snd.length =
+        (PreGroundTerm.backtrackFacts (g.toConstantMapping.apply_pre_ground_term term) (by apply ConstantMapping.apply_pre_ground_term_arity_ok; exact term_arity_ok) forbidden_constants_2).snd.length := by
     intro g
     cases term with
     | leaf c => simp only [Function.comp_apply, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, StrictConstantMapping.toConstantMapping, GroundTerm.const, backtrackFacts]
@@ -56,21 +47,12 @@ mutual
   theorem PreGroundTerm.backtrackFacts_list_under_strict_constant_mapping_same_number_of_fresh_constants
       [GetFreshInhabitant sig.C]
       [Inhabited sig.C]
-      (rl : RuleList sig)
       (terms : List (PreGroundTerm sig))
       (terms_arity_ok : ∀ t ∈ terms, PreGroundTerm.arity_ok t)
-      (terms_ruleIds_valid : ∀ t ∈ terms, PreGroundTerm.skolem_ruleIds_valid rl t)
-      (terms_disjIdx_valid : ∀ t, (t_mem : t ∈ terms) -> PreGroundTerm.skolem_disjIdx_valid rl t (terms_ruleIds_valid t t_mem))
-      (terms_rule_arity_valid : ∀ t, (t_mem : t ∈ terms) -> PreGroundTerm.skolem_rule_arity_valid rl t (terms_ruleIds_valid t t_mem))
       (forbidden_constants forbidden_constants_2 : List sig.C) :
       ∀ (g : StrictConstantMapping sig),
-        (PreGroundTerm.backtrackFacts_list rl terms terms_arity_ok terms_ruleIds_valid terms_disjIdx_valid terms_rule_arity_valid forbidden_constants).snd.length =
-        (PreGroundTerm.backtrackFacts_list rl (terms.map g.toConstantMapping.apply_pre_ground_term)
-          (by simp only [List.mem_map]; rintro t ⟨t', t'_mem, t_eq⟩; rw [← t_eq]; apply ConstantMapping.apply_pre_ground_term_arity_ok; exact terms_arity_ok _ t'_mem)
-          (by simp only [List.mem_map]; rintro t ⟨t', t'_mem, t_eq⟩; rw [← t_eq]; apply StrictConstantMapping.apply_pre_ground_term_preserves_ruleId_validity; exact terms_ruleIds_valid _ t'_mem)
-          (by simp only [List.mem_map]; rintro t ⟨t', t'_mem, t_eq⟩; simp only [← t_eq]; apply StrictConstantMapping.apply_pre_ground_term_preserves_disjIdx_validity; exact terms_disjIdx_valid _ t'_mem)
-          (by simp only [List.mem_map]; rintro t ⟨t', t'_mem, t_eq⟩; simp only [← t_eq]; apply StrictConstantMapping.apply_pre_ground_term_preserves_rule_arity_validity; exact terms_rule_arity_valid _ t'_mem)
-          forbidden_constants_2).snd.length := by
+        (PreGroundTerm.backtrackFacts_list terms terms_arity_ok forbidden_constants).snd.length =
+        (PreGroundTerm.backtrackFacts_list (terms.map g.toConstantMapping.apply_pre_ground_term) (by simp only [List.mem_map]; rintro t ⟨t', t'_mem, t_eq⟩; rw [← t_eq]; apply ConstantMapping.apply_pre_ground_term_arity_ok; exact terms_arity_ok _ t'_mem) forbidden_constants_2).snd.length := by
     intro g
     cases terms with
     | nil => simp [backtrackFacts_list]
@@ -88,32 +70,22 @@ mutual
   theorem PreGroundTerm.backtrackFacts_under_constant_mapping_subset_of_composing_with_subs
       [GetFreshInhabitant sig.C]
       [Inhabited sig.C]
-      (rl : RuleList sig)
       (term : PreGroundTerm sig)
       (term_arity_ok : PreGroundTerm.arity_ok term)
-      (term_ruleIds_valid : term.skolem_ruleIds_valid rl)
-      (term_disjIdx_valid : term.skolem_disjIdx_valid rl term_ruleIds_valid)
-      (term_rule_arity_valid : term.skolem_rule_arity_valid rl term_ruleIds_valid)
       (forbidden_constants : List sig.C)
       (forbidden_constants_subsumes_term : term.leaves ⊆ forbidden_constants)
-      (forbidden_constants_subsumes_rules : (rl.rules.flatMap Rule.constants) ⊆ forbidden_constants) :
-      let backtracking := (backtrackFacts rl term term_arity_ok term_ruleIds_valid term_disjIdx_valid term_rule_arity_valid forbidden_constants)
-      ∀ (g : StrictConstantMapping sig), (∀ d, (d ∈ rl.rules.flatMap Rule.constants) -> g d = d) ->
+      (forbidden_constants_subsumes_rules : (term.innerLabels.flatMap (Rule.constants ∘ SkolemFS.rule)) ⊆ forbidden_constants) :
+      let backtracking := (backtrackFacts term term_arity_ok forbidden_constants)
+      ∀ (g : StrictConstantMapping sig), (∀ d, (d ∈ (term.innerLabels.flatMap (Rule.constants ∘ SkolemFS.rule))) -> g d = d) ->
         ∃ (fresh_constant_remapping : StrictConstantMapping sig),
         (∀ d ∉ backtracking.snd, fresh_constant_remapping d = d) ∧
         ((StrictConstantMapping.toConstantMapping (fun c => if c ∈ backtracking.snd then fresh_constant_remapping c else g c)).apply_fact_set backtracking.fst.toSet ⊆
-        (backtrackFacts rl (g.toConstantMapping.apply_pre_ground_term term)
+        (backtrackFacts (g.toConstantMapping.apply_pre_ground_term term)
           (by apply ConstantMapping.apply_pre_ground_term_arity_ok; exact term_arity_ok)
-          (by apply StrictConstantMapping.apply_pre_ground_term_preserves_ruleId_validity; exact term_ruleIds_valid)
-          (by apply StrictConstantMapping.apply_pre_ground_term_preserves_disjIdx_validity; exact term_disjIdx_valid)
-          (by apply StrictConstantMapping.apply_pre_ground_term_preserves_rule_arity_validity; exact term_rule_arity_valid)
           (forbidden_constants.map g)
         ).fst.toSet) ∧
-        (backtracking.snd.map fresh_constant_remapping = (backtrackFacts rl (g.toConstantMapping.apply_pre_ground_term term)
+        (backtracking.snd.map fresh_constant_remapping = (backtrackFacts (g.toConstantMapping.apply_pre_ground_term term)
           (by apply ConstantMapping.apply_pre_ground_term_arity_ok; exact term_arity_ok)
-          (by apply StrictConstantMapping.apply_pre_ground_term_preserves_ruleId_validity; exact term_ruleIds_valid)
-          (by apply StrictConstantMapping.apply_pre_ground_term_preserves_disjIdx_validity; exact term_disjIdx_valid)
-          (by apply StrictConstantMapping.apply_pre_ground_term_preserves_rule_arity_validity; exact term_rule_arity_valid)
           (forbidden_constants.map g)
         ).snd) := by
     intro backtracking g g_id
@@ -132,11 +104,8 @@ mutual
         simp
     | inner func ts =>
       have term_arity_ok' : ts.length == func.arity && ts.attach.all (fun ⟨t, _⟩ => arity_ok t) := by unfold arity_ok at term_arity_ok; exact term_arity_ok
-      have term_ruleIds_valid' : func.ruleId_valid rl ∧ ∀ t ∈ ts, PreGroundTerm.skolem_ruleIds_valid rl t := by unfold skolem_ruleIds_valid at term_ruleIds_valid; exact term_ruleIds_valid
-      have term_disjIdx_valid' : func.disjunctIndex_valid rl term_ruleIds_valid'.left ∧ ∀ t, (t_mem : t ∈ ts) -> PreGroundTerm.skolem_disjIdx_valid rl t (term_ruleIds_valid'.right t t_mem) := by unfold skolem_disjIdx_valid at term_disjIdx_valid; exact term_disjIdx_valid
-      have term_rule_arity_valid' : func.arity_valid rl term_ruleIds_valid'.left ∧ ∀ t, (t_mem : t ∈ ts) -> PreGroundTerm.skolem_rule_arity_valid rl t (term_ruleIds_valid'.right t t_mem) := by unfold skolem_rule_arity_valid at term_rule_arity_valid; exact term_rule_arity_valid
 
-      let rule := rl.get_by_id func.ruleId term_ruleIds_valid'.left
+      let rule := func.rule
       let pure_body_vars := rule.pure_body_vars
       let fresh_consts_for_pure_body_vars := rule.fresh_consts_for_pure_body_vars forbidden_constants
       let fresh_consts_for_pure_body_vars_2 := rule.fresh_consts_for_pure_body_vars (forbidden_constants.map g)
@@ -153,23 +122,25 @@ mutual
           fresh_consts_for_pure_body_vars_2.val[idx]
         else g c
 
-      rcases backtrackFacts_list_under_constant_mapping_subset_of_composing_with_subs rl ts (by
+      rcases backtrackFacts_list_under_constant_mapping_subset_of_composing_with_subs ts (by
         intro t t_mem
         have := (Bool.and_eq_true_iff.mp term_arity_ok').right
         rw [List.all_eq_true] at this
         apply this ⟨t, t_mem⟩
         apply List.mem_attach
-      ) term_ruleIds_valid'.right term_disjIdx_valid'.right term_rule_arity_valid'.right (forbidden_constants ++ fresh_consts_for_pure_body_vars) (by apply List.subset_append_of_subset_left; simp only [FiniteTree.leaves] at forbidden_constants_subsumes_term; exact forbidden_constants_subsumes_term) (by apply List.subset_append_of_subset_left; exact forbidden_constants_subsumes_rules) new_g
+      ) (forbidden_constants ++ fresh_consts_for_pure_body_vars) (by apply List.subset_append_of_subset_left; simp only [FiniteTree.leaves] at forbidden_constants_subsumes_term; exact forbidden_constants_subsumes_term) (by apply List.subset_append_of_subset_left; apply Set.subset_trans _ forbidden_constants_subsumes_rules; unfold FiniteTree.innerLabels; rw [List.flatMap_cons]; apply List.subset_append_of_subset_right; apply List.Subset.refl) new_g
         (by intro d d_mem
             unfold new_g
+            have d_mem' : d ∈ List.flatMap (Rule.constants ∘ SkolemFS.rule) (FiniteTree.inner func ts).innerLabels := by
+              unfold FiniteTree.innerLabels; rw [List.flatMap_cons]; apply List.mem_append_right; exact d_mem
             have : d ∉ fresh_consts_for_pure_body_vars.val := by
               intro contra
               apply fresh_consts_for_pure_body_vars.property.right.right d contra
               apply forbidden_constants_subsumes_rules
-              exact d_mem
+              exact d_mem'
             simp only [this, ↓reduceDIte]
             apply g_id
-            exact d_mem) with ⟨g_mapped_frontier, g_mapped_frontier_h⟩
+            exact d_mem') with ⟨g_mapped_frontier, g_mapped_frontier_h⟩
 
       let combined_remapping : StrictConstantMapping sig := fun c =>
         if mem : c ∈ fresh_consts_for_pure_body_vars.val
@@ -249,14 +220,12 @@ mutual
             rw [← fresh_consts_for_pure_body_vars.property.left]
             apply Nat.le_of_not_lt; exact idx_lt
 
-      let trg_base : PreTrigger sig := PreGroundTerm.backtrackTrigger rl (.inner func ts) (by exists func, ts) term_arity_ok term_ruleIds_valid term_rule_arity_valid forbidden_constants
+      let trg_base : PreTrigger sig := PreGroundTerm.backtrackTrigger (.inner func ts) (by exists func, ts) term_arity_ok forbidden_constants
 
-      let trg1 : PreTrigger sig := PreGroundTerm.backtrackTrigger rl
+      let trg1 : PreTrigger sig := PreGroundTerm.backtrackTrigger
         (g.toConstantMapping.apply_pre_ground_term (.inner func ts))
         (by exists func, (ts.map g.toConstantMapping.apply_pre_ground_term); simp [ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves])
         (by apply ConstantMapping.apply_pre_ground_term_arity_ok; exact term_arity_ok)
-        (by apply StrictConstantMapping.apply_pre_ground_term_preserves_ruleId_validity; exact term_ruleIds_valid)
-        (by apply StrictConstantMapping.apply_pre_ground_term_preserves_rule_arity_validity; exact term_rule_arity_valid)
         (forbidden_constants.map g)
 
       have trg1_rule_eq_rule : trg1.rule = rule := by simp only [trg1, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves]; rfl
@@ -358,16 +327,12 @@ mutual
               rw [GroundSubstitution.apply_function_free_atom_compose]
               . rw [e_eq, ← f_eq]
               . intro d d_mem
-                have d_mem' : d ∈ rl.rules.flatMap Rule.constants := by
+                have d_mem' : d ∈ List.flatMap (Rule.constants ∘ SkolemFS.rule) (FiniteTree.inner func ts).innerLabels := by
+                  unfold FiniteTree.innerLabels; rw [List.flatMap_cons]; apply List.mem_append_left
+                  rw [Function.comp_apply]; apply List.mem_append_left
+                  unfold FunctionFreeConjunction.consts
                   rw [List.mem_flatMap]
-                  exists rule
-                  constructor
-                  . apply RuleList.get_by_id_mem
-                  . unfold Rule.constants
-                    apply List.mem_append_left
-                    unfold FunctionFreeConjunction.consts
-                    rw [List.mem_flatMap]
-                    exists a
+                  exists a
                 have : d ∉ backtracking.snd := by
                   intro contra
                   apply backtrackFacts_fresh_constants_not_forbidden d contra
@@ -380,9 +345,8 @@ mutual
                 exact d_mem'
           | inr f_mem =>
             apply Or.inr
-            have func_disjIdx_lt : func.disjunctIndex < rule.head.length := term_disjIdx_valid'.left
-            rw [← PreTrigger.apply_subs_for_mapped_head_eq _ ⟨func.disjunctIndex, (by rw [PreTrigger.length_mapped_head]; exact func_disjIdx_lt)⟩] at f_mem
-            rw [← PreTrigger.apply_subs_for_mapped_head_eq _ ⟨func.disjunctIndex, (by rw [PreTrigger.length_mapped_head]; exact func_disjIdx_lt)⟩]
+            rw [← PreTrigger.apply_subs_for_mapped_head_eq _ func.headIdx func.headIdx_lt] at f_mem
+            rw [← PreTrigger.apply_subs_for_mapped_head_eq _ func.headIdx func.headIdx_lt]
             simp only [GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list] at f_mem
             simp only [GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list]
             rw [List.mem_map] at f_mem
@@ -394,24 +358,20 @@ mutual
             . rw [e_eq, ← f_eq]
               rw [← GroundSubstitution.apply_function_free_atom.eq_def, ← GroundSubstitution.apply_function_free_atom.eq_def, PreTrigger.apply_subs_for_atom_eq, PreTrigger.apply_subs_for_atom_eq, ← ConstantMapping.apply_fact_eq_groundTermMapping_applyFact, ConstantMapping.apply_fact_swap_apply_to_function_free_atom]
               . apply PreTrigger.apply_to_function_free_atom_eq_of_equiv
-                apply PreTrigger.equiv_of_strong_equiv
-                simp only [trg1, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves] at strong_equiv
-                exact strong_equiv
+                . apply PreTrigger.equiv_of_strong_equiv
+                  simp only [trg1, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves] at strong_equiv
+                  exact strong_equiv
+                . exact a_mem
               . intro d d_mem
-                have d_mem' : d ∈ rl.rules.flatMap Rule.constants := by
+                have d_mem' : d ∈ List.flatMap (Rule.constants ∘ SkolemFS.rule) (FiniteTree.inner func ts).innerLabels := by
+                  unfold FiniteTree.innerLabels; rw [List.flatMap_cons]; apply List.mem_append_left
+                  rw [Function.comp_apply]; apply List.mem_append_right
                   rw [List.mem_flatMap]
-                  exists rule
-                  constructor
-                  . apply RuleList.get_by_id_mem
-                  . unfold Rule.constants
-                    apply List.mem_append_right
-                    unfold FunctionFreeConjunction.consts
+                  exists rule.head[func.headIdx]'(func.headIdx_lt); constructor
+                  . apply List.getElem_mem
+                  . unfold FunctionFreeConjunction.consts
                     rw [List.mem_flatMap]
-                    exists rule.head[func.disjunctIndex]
-                    constructor
-                    . apply List.getElem_mem
-                    . rw [List.mem_flatMap]
-                      exists a
+                    exists a
                 have : d ∉ backtracking.snd := by
                   intro contra
                   apply backtrackFacts_fresh_constants_not_forbidden d contra
@@ -438,11 +398,13 @@ mutual
             intro d d_mem
             cases PreGroundTerm.backtrackFacts_list_constants_in_rules_or_term_or_fresh f f_mem d d_mem with
             | inl d_mem =>
+              have d_mem' : d ∈ List.flatMap (Rule.constants ∘ SkolemFS.rule) (FiniteTree.inner func ts).innerLabels := by
+                unfold FiniteTree.innerLabels; rw [List.flatMap_cons]; apply List.mem_append_right; exact d_mem
               have : d ∉ backtracking.snd := by
                 intro contra
                 apply backtrackFacts_fresh_constants_not_forbidden d contra
                 apply forbidden_constants_subsumes_rules
-                exact d_mem
+                exact d_mem'
               simp only [StrictConstantMapping.toConstantMapping, Function.comp_apply, this, ↓reduceIte]
               simp only [backtracking, backtrackFacts] at this
               rw [List.mem_append] at this
@@ -510,32 +472,22 @@ mutual
   theorem PreGroundTerm.backtrackFacts_list_under_constant_mapping_subset_of_composing_with_subs
       [GetFreshInhabitant sig.C]
       [Inhabited sig.C]
-      (rl : RuleList sig)
       (terms : List (PreGroundTerm sig))
       (terms_arity_ok : ∀ t ∈ terms, PreGroundTerm.arity_ok t)
-      (terms_ruleIds_valid : ∀ t ∈ terms, PreGroundTerm.skolem_ruleIds_valid rl t)
-      (terms_disjIdx_valid : ∀ t, (t_mem : t ∈ terms) -> PreGroundTerm.skolem_disjIdx_valid rl t (terms_ruleIds_valid t t_mem))
-      (terms_rule_arity_valid : ∀ t, (t_mem : t ∈ terms) -> PreGroundTerm.skolem_rule_arity_valid rl t (terms_ruleIds_valid t t_mem))
       (forbidden_constants : List sig.C)
       (forbidden_constants_subsumes_term : terms.flatMap FiniteTree.leaves ⊆ forbidden_constants)
-      (forbidden_constants_subsumes_rules : (rl.rules.flatMap Rule.constants) ⊆ forbidden_constants) :
-      let backtracking := (backtrackFacts_list rl terms terms_arity_ok terms_ruleIds_valid terms_disjIdx_valid terms_rule_arity_valid forbidden_constants)
-      ∀ (g : StrictConstantMapping sig), (∀ d, (d ∈ rl.rules.flatMap Rule.constants) -> g d = d) ->
+      (forbidden_constants_subsumes_rules : ((terms.flatMap FiniteTree.innerLabels).flatMap (Rule.constants ∘ SkolemFS.rule)) ⊆ forbidden_constants) :
+      let backtracking := (backtrackFacts_list terms terms_arity_ok forbidden_constants)
+      ∀ (g : StrictConstantMapping sig), (∀ d, (d ∈ (terms.flatMap FiniteTree.innerLabels).flatMap (Rule.constants ∘ SkolemFS.rule)) -> g d = d) ->
         ∃ (fresh_constant_remapping : StrictConstantMapping sig),
         (∀ d ∉ backtracking.snd, fresh_constant_remapping d = d) ∧
         ((StrictConstantMapping.toConstantMapping (fun c => if c ∈ backtracking.snd then fresh_constant_remapping c else g c)).apply_fact_set backtracking.fst.toSet ⊆
-        (backtrackFacts_list rl (terms.map g.toConstantMapping.apply_pre_ground_term)
+        (backtrackFacts_list (terms.map g.toConstantMapping.apply_pre_ground_term)
           (by simp only [List.mem_map]; rintro t ⟨t', t'_mem, t_eq⟩; rw [← t_eq]; apply ConstantMapping.apply_pre_ground_term_arity_ok; exact terms_arity_ok _ t'_mem)
-          (by simp only [List.mem_map]; rintro t ⟨t', t'_mem, t_eq⟩; rw [← t_eq]; apply StrictConstantMapping.apply_pre_ground_term_preserves_ruleId_validity; exact terms_ruleIds_valid _ t'_mem)
-          (by simp only [List.mem_map]; rintro t ⟨t', t'_mem, t_eq⟩; simp only [← t_eq]; apply StrictConstantMapping.apply_pre_ground_term_preserves_disjIdx_validity; exact terms_disjIdx_valid _ t'_mem)
-          (by simp only [List.mem_map]; rintro t ⟨t', t'_mem, t_eq⟩; simp only [← t_eq]; apply StrictConstantMapping.apply_pre_ground_term_preserves_rule_arity_validity; exact terms_rule_arity_valid _ t'_mem)
           (forbidden_constants.map g)
         ).fst.toSet) ∧
-        (backtracking.snd.map fresh_constant_remapping = (backtrackFacts_list rl (terms.map g.toConstantMapping.apply_pre_ground_term)
+        (backtracking.snd.map fresh_constant_remapping = (backtrackFacts_list (terms.map g.toConstantMapping.apply_pre_ground_term)
           (by simp only [List.mem_map]; rintro t ⟨t', t'_mem, t_eq⟩; rw [← t_eq]; apply ConstantMapping.apply_pre_ground_term_arity_ok; exact terms_arity_ok _ t'_mem)
-          (by simp only [List.mem_map]; rintro t ⟨t', t'_mem, t_eq⟩; rw [← t_eq]; apply StrictConstantMapping.apply_pre_ground_term_preserves_ruleId_validity; exact terms_ruleIds_valid _ t'_mem)
-          (by simp only [List.mem_map]; rintro t ⟨t', t'_mem, t_eq⟩; simp only [← t_eq]; apply StrictConstantMapping.apply_pre_ground_term_preserves_disjIdx_validity; exact terms_disjIdx_valid _ t'_mem)
-          (by simp only [List.mem_map]; rintro t ⟨t', t'_mem, t_eq⟩; simp only [← t_eq]; apply StrictConstantMapping.apply_pre_ground_term_preserves_rule_arity_validity; exact terms_rule_arity_valid _ t'_mem)
           (forbidden_constants.map g)
         ).snd) := by
     intro backtracking g g_id
@@ -553,27 +505,26 @@ mutual
     | cons hd tl =>
       rw [List.flatMap_cons, List.append_subset] at forbidden_constants_subsumes_term
       have hd_arity_ok : PreGroundTerm.arity_ok hd := terms_arity_ok hd (by simp)
-      have hd_ruleIds_valid : hd.skolem_ruleIds_valid rl := terms_ruleIds_valid hd (by simp)
-      have hd_disjIdx_valid : hd.skolem_disjIdx_valid rl hd_ruleIds_valid := terms_disjIdx_valid hd (by simp)
-      have hd_rule_arity_valid : hd.skolem_rule_arity_valid rl hd_ruleIds_valid := terms_rule_arity_valid hd (by simp)
 
-      rcases backtrackFacts_under_constant_mapping_subset_of_composing_with_subs rl hd hd_arity_ok hd_ruleIds_valid hd_disjIdx_valid hd_rule_arity_valid forbidden_constants forbidden_constants_subsumes_term.left forbidden_constants_subsumes_rules g g_id with ⟨g_hd, g_hd_h⟩
+      rcases backtrackFacts_under_constant_mapping_subset_of_composing_with_subs hd hd_arity_ok forbidden_constants forbidden_constants_subsumes_term.left (by apply Set.subset_trans _ forbidden_constants_subsumes_rules; rw [List.flatMap_cons, List.flatMap_append]; apply List.subset_append_of_subset_left; apply List.Subset.refl) g (by intro d d_mem; apply g_id; rw [List.flatMap_cons, List.flatMap_append]; apply List.mem_append_left; exact d_mem) with ⟨g_hd, g_hd_h⟩
 
-      let t_res := PreGroundTerm.backtrackFacts rl hd hd_arity_ok hd_ruleIds_valid hd_disjIdx_valid hd_rule_arity_valid forbidden_constants
+      let t_res := PreGroundTerm.backtrackFacts hd hd_arity_ok forbidden_constants
 
       let new_inner_g : StrictConstantMapping sig := fun c => if c ∈ t_res.snd then g_hd c else g c
 
-      rcases backtrackFacts_list_under_constant_mapping_subset_of_composing_with_subs rl tl (by intro t t_mem; apply terms_arity_ok; simp [t_mem]) (by intro t t_mem; apply terms_ruleIds_valid; simp [t_mem]) (by intro t t_mem; apply terms_disjIdx_valid; simp [t_mem]) (by intro t t_mem; apply terms_rule_arity_valid; simp [t_mem]) (forbidden_constants ++ t_res.snd) (by apply List.subset_append_of_subset_left; exact forbidden_constants_subsumes_term.right) (by apply List.subset_append_of_subset_left; exact forbidden_constants_subsumes_rules) new_inner_g
+      rcases backtrackFacts_list_under_constant_mapping_subset_of_composing_with_subs tl (by intro t t_mem; apply terms_arity_ok; simp [t_mem]) (forbidden_constants ++ t_res.snd) (by apply List.subset_append_of_subset_left; exact forbidden_constants_subsumes_term.right) (by apply List.subset_append_of_subset_left; apply Set.subset_trans _ forbidden_constants_subsumes_rules; rw [List.flatMap_cons, List.flatMap_append]; apply List.subset_append_of_subset_right; apply List.Subset.refl) new_inner_g
         (by intro d d_mem
             unfold new_inner_g
+            have d_mem' : d ∈ ((hd :: tl).flatMap FiniteTree.innerLabels).flatMap (Rule.constants ∘ SkolemFS.rule) := by
+              rw [List.flatMap_cons, List.flatMap_append]; apply List.mem_append_right; exact d_mem
             have : d ∉ t_res.snd := by
               intro contra
               apply PreGroundTerm.backtrackFacts_fresh_constants_not_forbidden d contra
               apply forbidden_constants_subsumes_rules
-              exact d_mem
+              exact d_mem'
             simp only [this, ↓reduceIte]
             apply g_id
-            exact d_mem) with ⟨g_tl, g_tl_h⟩
+            exact d_mem') with ⟨g_tl, g_tl_h⟩
 
       let fresh_constant_remapping : StrictConstantMapping sig := fun c => if c ∈ t_res.snd then g_hd c else g_tl c
 
@@ -654,11 +605,13 @@ mutual
             intro d d_mem
             cases PreGroundTerm.backtrackFacts_constants_in_rules_or_term_or_fresh f f_mem d d_mem with
             | inl d_mem =>
+              have d_mem' : d ∈ ((hd :: tl).flatMap FiniteTree.innerLabels).flatMap (Rule.constants ∘ SkolemFS.rule) := by
+                rw [List.flatMap_cons, List.flatMap_append]; apply List.mem_append_left; exact d_mem
               have : d ∉ backtracking.snd := by
                 intro contra
                 apply backtrackFacts_list_fresh_constants_not_forbidden d contra
                 apply forbidden_constants_subsumes_rules
-                exact d_mem
+                exact d_mem'
               simp only [StrictConstantMapping.toConstantMapping, Function.comp_apply, this, ↓reduceIte]
               simp only [backtracking, backtrackFacts_list] at this
               rw [List.mem_append] at this
@@ -703,11 +656,13 @@ mutual
             intro d d_mem
             cases PreGroundTerm.backtrackFacts_list_constants_in_rules_or_term_or_fresh f f_mem d d_mem with
             | inl d_mem =>
+              have d_mem' : d ∈ ((hd :: tl).flatMap FiniteTree.innerLabels).flatMap (Rule.constants ∘ SkolemFS.rule) := by
+                rw [List.flatMap_cons, List.flatMap_append]; apply List.mem_append_right; exact d_mem
               have : d ∉ backtracking.snd := by
                 intro contra
                 apply backtrackFacts_list_fresh_constants_not_forbidden d contra
                 apply forbidden_constants_subsumes_rules
-                exact d_mem
+                exact d_mem'
               simp only [StrictConstantMapping.toConstantMapping, Function.comp_apply, this, ↓reduceIte]
               simp only [backtracking, backtrackFacts_list] at this
               rw [List.mem_append] at this

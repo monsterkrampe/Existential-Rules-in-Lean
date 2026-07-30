@@ -32,7 +32,7 @@ def is_alt_match_for_chase_derivation_and_fs
     (h : GroundTermMapping sig) (cd : RegularChaseDerivation obs rules) (fs : FactSet sig) : Prop :=
   ∃ (next : RegularChaseNode obs rules) (next_mem : next ∈ cd.next),
     let origin := next.origin.get (cd.isSome_origin_next next_mem)
-    h.isAlternativeMatch origin.fst.val origin.snd fs
+    h.isAlternativeMatch origin.fst.val origin.snd.val origin.snd.isLt fs
 
 end GroundTermMapping
 
@@ -346,7 +346,7 @@ theorem non_id_endomorphism_of_altMatch {cb : RegularChaseBranch obs kb} (det : 
         intro t t_mem
         have t_mem : t ∈ ((ChaseNode.origin_result next) (cd.isSome_origin_next next_mem)).flatMap GeneralizedAtom.terms := by
           rw [List.mem_toSet] at f'_mem; rw [List.mem_flatMap]; exists f'
-        simp only [ChaseNode.origin_result, PreTrigger.mem_terms_mapped_head_iff] at t_mem
+        simp only [ChaseNode.origin_result] at t_mem; rw [PreTrigger.mem_terms_mapped_head_iff _ _ (by simp)] at t_mem
         cases t_mem with
         | inl t_mem => rcases t_mem with ⟨_, _, t_mem⟩; rw [← t_mem]; unfold h; split <;> simp [altMatch.left.left]
         | inr t_mem =>
@@ -362,8 +362,9 @@ theorem non_id_endomorphism_of_altMatch {cb : RegularChaseBranch obs kb} (det : 
             intro contra; rw [eq_ts] at contra
             apply (cd.active_trigger_origin_next next_mem).right
             apply obs.contains_trg_result_implies_cond
-            let head : cb.Node := ⟨cd.head, ChaseDerivation.mem_of_mem_suffix suffix _ cd.head_mem⟩
-            exact cb.result_of_trigger_introducing_functional_term_occurs_in_chase head contra t_mem
+            . let head : cb.Node := ⟨cd.head, ChaseDerivation.mem_of_mem_suffix suffix _ cd.head_mem⟩
+              exact cb.result_of_trigger_introducing_functional_term_occurs_in_chase head contra t_mem
+            . simp
           simp [h, this]
       rw [this]; apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set; exact f'_mem
 
@@ -381,8 +382,9 @@ theorem non_id_endomorphism_of_altMatch {cb : RegularChaseBranch obs kb} (det : 
       intro contra; rw [eq_ts] at contra
       apply (cd.active_trigger_origin_next next_mem).right
       apply obs.contains_trg_result_implies_cond
-      let head : cb.Node := ⟨cd.head, ChaseDerivation.mem_of_mem_suffix suffix _ cd.head_mem⟩
-      exact cb.result_of_trigger_introducing_functional_term_occurs_in_chase head contra n_mem
+      . let head : cb.Node := ⟨cd.head, ChaseDerivation.mem_of_mem_suffix suffix _ cd.head_mem⟩
+        exact cb.result_of_trigger_introducing_functional_term_occurs_in_chase head contra n_mem
+      . simp [ChaseNode.origin]
     simp only [h, this, ↓reduceIte]
     intro contra
     apply n_not_mem_mapped
@@ -534,7 +536,7 @@ theorem altMatch_of_some_not_reaches_self (cb : RegularChaseBranch obs kb) (fs :
         | inl t_mem => apply False.elim; apply not_mem_head; exact t_mem
         | inr t_mem =>
           rw [FactSet.mem_terms_toSet] at t_mem
-          simp only [ChaseNode.origin_result, PreTrigger.mem_terms_mapped_head_iff] at t_mem
+          simp only [ChaseNode.origin_result] at t_mem; rw [PreTrigger.mem_terms_mapped_head_iff _ _ (by simp)] at t_mem
           cases t_mem with
           | inl t_mem =>
             rcases t_mem with ⟨c, c_mem, t_mem⟩
@@ -559,7 +561,7 @@ theorem altMatch_of_some_not_reaches_self (cb : RegularChaseBranch obs kb) (fs :
         apply prop_node ((k + 1) * l) _ s
         . rw [← RegularChaseNode.ingoingFacts_eq, cd2.facts_next next_eq, FactSet.terms_union]; apply Or.inr
           rw [FactSet.mem_terms_toSet]
-          simp only [ChaseNode.origin_result, PreTrigger.mem_terms_mapped_head_iff]
+          simp only [ChaseNode.origin_result]; rw [PreTrigger.mem_terms_mapped_head_iff _ _ (by simp)]
           apply Or.inr; apply Or.inr
           exact s_mem
         . exact t_eq

@@ -228,7 +228,7 @@ theorem functional_term_originates_from_some_trigger
     {t : GroundTerm sig}
     (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok)
     (t_mem : t ∈ node.node.facts.terms) :
-    t ∈ td.root.core.terms ∨ ∃ node2, node2 ≼ node ∧ ∃ orig ∈ node2.node.origin, t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val (by rw [← PreTrigger.length_mapped_head]; exact orig.snd.isLt) :=
+    t ∈ td.root.core.terms ∨ ∃ node2, node2 ≼ node ∧ ∃ orig ∈ node2.node.origin, t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val orig.snd.isLt :=
   TreeDerivation.functional_term_originates_from_some_trigger CoreChaseNode.out_sub_in child_mem node t_is_func t_mem
 
 /-- If a functional term occurs in the chase, then the trigger that introduces this term must have been used in the chase, unless the term already occurs in the initial fact set. -/
@@ -399,7 +399,7 @@ theorem functional_term_originates_from_some_trigger
     (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok)
     (t_mem : t ∈ node.node.facts.terms) :
     ∃ node2, node2 ≼ node ∧ ∃ orig ∈ node2.node.origin,
-      t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val (by rw [← PreTrigger.length_mapped_head]; exact orig.snd.isLt) := by
+      t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val orig.snd.isLt := by
   have t_nmem_root : t ∉ ct.root.core.terms := by
     intro t_mem
     exact ct.func_term_not_mem_root t_is_func t_mem

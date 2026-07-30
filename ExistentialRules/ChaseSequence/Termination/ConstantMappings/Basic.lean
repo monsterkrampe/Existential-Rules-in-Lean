@@ -158,9 +158,9 @@ theorem apply_fact_eq_groundTermMapping_applyFact (g : ConstantMapping sig) (f :
 /-- Consider a `ConstantMapping`, a `PreTrigger`, and a `FunctionFreeAtom`. If the constant mapping if the id on all constants in the atom, then applying the mapping after the trigger is the same a applying a trigger where the constant mapping is composed with the original substitution. -/
 theorem apply_fact_swap_apply_to_function_free_atom (g : ConstantMapping sig) (trg : PreTrigger sig) (a : FunctionFreeAtom sig)
     (h : ∀ d ∈ a.constants, g d = GroundTerm.const d) :
-    ∀ i, g.apply_fact (trg.apply_to_function_free_atom i a) =
-      PreTrigger.apply_to_function_free_atom { rule := trg.rule, subs := g.apply_ground_term ∘ trg.subs } i a := by
-  intro i
+    ∀ i lt, g.apply_fact (trg.apply_to_function_free_atom i lt a) =
+      PreTrigger.apply_to_function_free_atom { rule := trg.rule, subs := g.apply_ground_term ∘ trg.subs } i lt a := by
+  intro i lt
   unfold PreTrigger.apply_to_function_free_atom
   unfold ConstantMapping.apply_fact
   rw [← TermMapping.apply_generalized_atom_compose']
@@ -170,9 +170,9 @@ theorem apply_fact_swap_apply_to_function_free_atom (g : ConstantMapping sig) (t
   cases voc with
   | const d => simpa using h d (by simpa using voc_mem)
   | var v =>
-    cases Decidable.em (v ∈ trg.rule.frontier) with
-    | inl v_mem => simp [v_mem]
-    | inr v_mem => simp [v_mem, PreTrigger.functional_term_for_var]
+    cases Decidable.em (v ∈ trg.rule.existential_vars_for_head_disjunct i lt) with
+    | inl v_mem => simp [v_mem, PreTrigger.functional_term_for_var]
+    | inr v_mem => simp [v_mem]
 
 /-- Mapping the same fact using two `ConstantMapping`s yields the same fact if the mappings agree on all constants of the fact. -/
 theorem apply_fact_congr_left (g g2 : ConstantMapping sig) (f : Fact sig) : (∀ c ∈ f.constants, g c = g2 c) -> g.apply_fact f = g2.apply_fact f := by

@@ -22,7 +22,7 @@ This of course requires that only finitely many different function symbols are u
 
 namespace PreGroundTerm
 
-variable {sig : Signature} [DecidableEq sig.V]
+variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 /-- The `function_paths` of a `PreGroundTerm` are essentially all the (maximal) branches in the underlying finite tree without the terminal constant symbol. These can be used to detect cyclic terms by simply looking for repetitions along a branch. -/
 def function_paths : FiniteTree (SkolemFS sig) sig.C -> List (List (SkolemFS sig))
@@ -118,9 +118,6 @@ theorem cyclic_of_path_with_dup
         constructor
         . apply List.mem_attach
         . exact ih t t_mem path' mem (dup f_mem)
-
-
-variable [DecidableEq sig.C]
 
 /-- Consider a (deduplicated) list of possible function symbols and a term. If the depth of the term is at least the number of function symbols + 2, then the term must be cyclic.  -/
 public theorem cyclic_of_depth_too_big (t : PreGroundTerm sig)

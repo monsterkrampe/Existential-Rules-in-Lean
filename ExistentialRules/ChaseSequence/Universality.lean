@@ -85,16 +85,18 @@ noncomputable def hom_step_of_trg_ex
 
   let head_index_for_m_subs := Classical.choose trg_variant_satisfied_on_m
   let h_head_index_for_m_subs := Classical.choose_spec trg_variant_satisfied_on_m
-  let obs_for_m_subs := Classical.choose h_head_index_for_m_subs
-  let h_obs_at_head_index_for_m_subs := Classical.choose_spec h_head_index_for_m_subs
+  let head_index_lt_for_m_subs := Classical.choose h_head_index_for_m_subs
+  let h_head_index_lt_for_m_subs := Classical.choose_spec h_head_index_for_m_subs
+  let obs_for_m_subs := Classical.choose h_head_index_lt_for_m_subs
+  let h_obs_at_head_index_for_m_subs := Classical.choose_spec h_head_index_lt_for_m_subs
 
-  let result_index_for_trg : Fin trg.val.mapped_head.length := ⟨head_index_for_m_subs.val, by unfold PreTrigger.mapped_head; simp; exact head_index_for_m_subs.isLt⟩
+  have head_index_lt_for_m_subs' : head_index_for_m_subs < trg.val.mapped_head.length := by grind
 
   let next_hom : GroundTermMapping sig := fun t =>
     let t_in_node := t ∈ (CN.outgoingFacts node.node).terms
     have t_in_node_dec := Classical.propDecidable t_in_node
     if t_in_node then prev_hom t else
-      let t_fresh := t ∈ trg.val.fresh_terms_for_head_disjunct head_index_for_m_subs.val head_index_for_m_subs.isLt
+      let t_fresh := t ∈ trg.val.fresh_terms_for_head_disjunct head_index_for_m_subs head_index_lt_for_m_subs
       have t_fresh_dec := Classical.propDecidable t_fresh
       if t_fresh_true : t_fresh then
         obs_for_m_subs (trg.val.existential_var_for_fresh_term _ _ t t_fresh_true)
@@ -109,10 +111,10 @@ noncomputable def hom_step_of_trg_ex
       case isFalse _ => rfl
       case isTrue h => rcases trg.val.term_functional_of_mem_fresh_terms _ h with ⟨_, _, _, contra⟩; have contra := Eq.symm contra; simp [GroundTerm.func_neq_const] at contra
 
-  ⟨((node.childNodes[head_index_for_m_subs.val]'(by
+  ⟨((node.childNodes[head_index_for_m_subs]'(by
       have length_mapped_eq : (node.subderivation.childNodes.map CN.ingoingFacts).length = node.subderivation.childNodes.length := by simp
       rw [TreeDerivation.NodeWithAddress.length_childNodes, ← length_mapped_eq, trg_spec_facts_eq, List.length_map, PreTrigger.length_mapped_head]
-      exact head_index_for_m_subs.isLt)), next_hom), by
+      exact head_index_lt_for_m_subs)), next_hom), by
     constructor
     . exact next_hom_id_const
     intro mapped_f
@@ -131,28 +133,28 @@ noncomputable def hom_step_of_trg_ex
       have t_mem : t ∈ (CN.outgoingFacts node.node).terms := by exists f
       simp [next_hom, t_mem]
     | inr f_mem =>
-      have f_mem : f ∈ trg.val.mapped_head[result_index_for_trg.val] := by
+      have f_mem : f ∈ trg.val.mapped_head[head_index_for_m_subs] := by
         -- this is similar to the proof of ChaseNode.succ_of_mem_succ_list
-        have lt : head_index_for_m_subs.val < node.subderivation.childNodes.length := by
+        have lt : head_index_for_m_subs < node.subderivation.childNodes.length := by
           have length_mapped_eq : (node.subderivation.childNodes.map CN.ingoingFacts).length = node.subderivation.childNodes.length := by simp
           rw [← length_mapped_eq, trg_spec_facts_eq, List.length_map, PreTrigger.length_mapped_head]
-          exact head_index_for_m_subs.isLt
+          exact head_index_lt_for_m_subs
         simp only [TreeDerivation.NodeWithAddress.node_getElem_childNodes] at f_mem
-        specialize trg_spec_orig_eq (node.subderivation.childNodes[head_index_for_m_subs.val]) (by simp)
+        specialize trg_spec_orig_eq (node.subderivation.childNodes[head_index_for_m_subs]) (by simp)
         rw [Option.map_eq_some_iff] at trg_spec_orig_eq; rcases trg_spec_orig_eq with ⟨orig, orig_eq, trg_eq⟩
-        rw [List.mem_toSet, CN.origin_result_eq _ (trg := trg.val) (i := result_index_for_trg.val)] at f_mem; exact f_mem
+        rw [List.mem_toSet, CN.origin_result_eq _ (trg := trg.val) (i := head_index_for_m_subs)] at f_mem; exact f_mem
         . simp only [orig_eq, Option.get_some, trg_eq]; rfl
-        . specialize trg_spec_idx_eq (node.subderivation.childNodes[head_index_for_m_subs.val], result_index_for_trg.val) (by grind)
+        . rw [Option.get_of_eq_some _ orig_eq]
+          specialize trg_spec_idx_eq (node.subderivation.childNodes[head_index_for_m_subs], head_index_for_m_subs) (by grind)
           rw [orig_eq, Option.map_some, Option.some_inj] at trg_spec_idx_eq; simp only at trg_spec_idx_eq
-          simp only [← trg_spec_idx_eq]
-          grind
+          exact Eq.symm trg_spec_idx_eq
       apply h_obs_at_head_index_for_m_subs.right
       rw [List.mem_toSet]
       rw [GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list]
       rw [List.mem_map]
-      exists (trg.val.atom_for_result_fact result_index_for_trg f_mem); constructor
+      exists (trg.val.atom_for_result_fact head_index_for_m_subs head_index_lt_for_m_subs f_mem); constructor
       . apply PreTrigger.atom_for_result_fact_mem_head
-      conv => right; rw [← trg.val.apply_on_atom_for_result_fact_is_fact result_index_for_trg f_mem]
+      conv => right; rw [← trg.val.apply_on_atom_for_result_fact_is_fact head_index_for_m_subs head_index_lt_for_m_subs f_mem]
       rw [← PreTrigger.apply_subs_for_atom_eq]
       unfold GroundTermMapping.applyFact
       rw [← Function.comp_apply (f := TermMapping.apply_generalized_atom next_hom)]
@@ -168,7 +170,7 @@ noncomputable def hom_step_of_trg_ex
         cases Decidable.em (v ∈ trg.val.rule.frontier) with
         | inl v_front =>
           rw [h_obs_at_head_index_for_m_subs.left v v_front]
-          rw [PreTrigger.apply_to_var_or_const_frontier_var _ _ _ v_front]
+          rw [PreTrigger.apply_to_var_or_const_frontier_var _ _ _ _ v_front]
           simp only [trg_variant_for_m, next_hom]
           suffices trg.val.subs v ∈ (CN.outgoingFacts node.node).terms by simp [this]
           apply FactSet.terms_subset_of_subset trg_spec_act.left
@@ -178,21 +180,20 @@ noncomputable def hom_step_of_trg_ex
           . apply Rule.frontier_subset_vars_body; exact v_front
           . rfl
         | inr v_front =>
-          have v_exis : v ∈ trg.val.rule.existential_vars_for_head_disjunct head_index_for_m_subs.val head_index_for_m_subs.isLt := by
+          have v_exis : v ∈ trg.val.rule.existential_vars_for_head_disjunct head_index_for_m_subs head_index_lt_for_m_subs := by
             simp only [Rule.existential_vars_for_head_disjunct, List.mem_filter, decide_eq_true_eq]; constructor
             . rw [FunctionFreeConjunction.mem_vars];
-              exists (trg.val.atom_for_result_fact result_index_for_trg f_mem); constructor
+              exists (trg.val.atom_for_result_fact head_index_for_m_subs head_index_lt_for_m_subs f_mem); constructor
               . apply PreTrigger.atom_for_result_fact_mem_head
               . exact voc_mem
             . exact v_front
-          have func_term_fresh : trg.val.functional_term_for_var result_index_for_trg.val v ∈ trg.val.fresh_terms_for_head_disjunct head_index_for_m_subs.val head_index_for_m_subs.isLt := by apply List.mem_map_of_mem; exact v_exis
-          rw [PreTrigger.apply_to_var_or_const_non_frontier_var _ _ _ v_front]
+          have func_term_fresh : trg.val.functional_term_for_var head_index_for_m_subs head_index_lt_for_m_subs v v_exis ∈ trg.val.fresh_terms_for_head_disjunct head_index_for_m_subs head_index_lt_for_m_subs := by apply PreTrigger.mem_fresh_terms_of_functional_for_exis_var
+          rw [PreTrigger.apply_to_var_or_const_of_mem_existential_vars _ _ _ _ v_exis]
           simp only [next_hom]
-          suffices ¬ trg.val.functional_term_for_var result_index_for_trg.val v ∈ (CN.outgoingFacts node.node).terms by
+          suffices ¬ trg.val.functional_term_for_var head_index_for_m_subs head_index_lt_for_m_subs v v_exis ∈ (CN.outgoingFacts node.node).terms by
             simp only [this, ↓reduceIte]
             simp only [func_term_fresh, ↓reduceDIte]
             rw [PreTrigger.existential_var_for_fresh_term_after_functional_term_for_var]
-            exact v_exis
           intro contra
           apply trg_inactive_of_fresh_term_present _ _ _ _ func_term_fresh contra
           exact trg_spec_act
@@ -401,7 +402,7 @@ theorem universal_result (ct : RegularChaseTree obs kb) : ∀ (m : FactSet sig),
   have trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger obs kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (RegularChaseNode.regularChaseNodeInstance.outgoingFacts node.node).terms -> ¬ trg.val.active (RegularChaseNode.regularChaseNodeInstance.outgoingFacts node.node) := by
     intro node trg i lt t t_fresh t_mem_node trg_act
     apply trg_act.right
-    apply obs.contains_trg_result_implies_cond ⟨i, by simpa using lt⟩
+    apply obs.contains_trg_result_implies_cond i lt
     exact RegularChaseTree.result_of_trigger_introducing_functional_term_occurs_in_chase node t_mem_node t_fresh
 
   intro m m_is_model

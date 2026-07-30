@@ -23,60 +23,59 @@ namespace GroundTermMapping
 
 /-- A `GroundTermMapping` is an alternative match for a head disjunct of a trigger and a given fact set $F$ if (1) the mapping is a homomorphism from the head disjunct into $F$, (2) the mapping is the id on all frontier terms, and (3) there is a term that is freshly introduced by the trigger that does not occur in the mapped version of all fresh terms. -/
 @[expose]
-def isAlternativeMatch (h_alt : GroundTermMapping sig) (trg : PreTrigger sig) (disj_index : Fin trg.mapped_head.length) (fs : FactSet sig) : Prop :=
-  have isLt : disj_index.val < trg.rule.head.length := by rw [← PreTrigger.length_mapped_head]; exact disj_index.isLt
-  (h_alt.isHomomorphism trg.mapped_head[disj_index.val].toSet fs) ∧
+def isAlternativeMatch (h_alt : GroundTermMapping sig) (trg : PreTrigger sig) (i : Nat) (lt : i < trg.rule.head.length) (fs : FactSet sig) : Prop :=
+  have _lt' : i < trg.mapped_head.length := by grind
+  (h_alt.isHomomorphism trg.mapped_head[i].toSet fs) ∧
   (∀ t, t ∈ trg.rule.frontier.map trg.subs -> h_alt t = t) ∧
-  (∃ t, (t ∈ trg.fresh_terms_for_head_disjunct disj_index.val isLt) ∧
-        (¬ t ∈ (trg.fresh_terms_for_head_disjunct disj_index.val isLt).map h_alt))
+  (∃ t, (t ∈ trg.fresh_terms_for_head_disjunct i lt) ∧
+        (¬ t ∈ (trg.fresh_terms_for_head_disjunct i lt).map h_alt))
 
 end GroundTermMapping
 
 namespace PreTrigger
 
 /-- If there exists an alternative match for a trigger, then the trigger is satisfied. -/
-theorem satisfied_of_alternativeMatch {trg : PreTrigger sig} {fs : FactSet sig} {h_alt : GroundTermMapping sig} {disj_index : Fin trg.mapped_head.length} :
-    h_alt.isAlternativeMatch trg disj_index fs -> trg.satisfied fs := by
+theorem satisfied_of_alternativeMatch {trg : PreTrigger sig} {fs : FactSet sig} {h_alt : GroundTermMapping sig} {i : Nat} {lt : i < trg.rule.head.length} :
+    h_alt.isAlternativeMatch trg i lt fs -> trg.satisfied fs := by
   intro is_alt_match
-  exists ⟨disj_index.val, by rw [← PreTrigger.length_mapped_head]; exact disj_index.isLt⟩
-  exists (h_alt ∘ trg.apply_to_var_or_const disj_index ∘ VarOrConst.var)
+  exists i, lt, (h_alt ∘ trg.apply_to_var_or_const i lt ∘ VarOrConst.var)
   constructor
   . intro v v_in_frontier
     simp only [Function.comp_apply]
-    rw [PreTrigger.apply_to_var_or_const_frontier_var _ _ _ v_in_frontier]
+    rw [PreTrigger.apply_to_var_or_const_frontier_var _ _ _ _ v_in_frontier]
     apply is_alt_match.right.left
     apply List.mem_map_of_mem
     exact v_in_frontier
   . intro f f_mem
     apply is_alt_match.left.right
-    simp only [← PreTrigger.apply_subs_for_mapped_head_eq, TermMapping.apply_generalized_atom_set_toSet]
+    rw [← PreTrigger.apply_subs_for_mapped_head_eq _ _ lt]; simp only [TermMapping.apply_generalized_atom_set_toSet]
     rw [GroundSubstitution.apply_function_free_conj_compose_of_isIdOnConstants _ _ is_alt_match.left.left] at f_mem
     exact f_mem
 
 /-- If a trigger is satisfied for a fact set $F$ and there is a term that is freshly introduced by the trigger but does not occur in $F$, then the trigger has an alternative match. -/
 theorem alternativeMatch_of_satisfied
-    {trg : PreTrigger sig} {fs : FactSet sig} {disj_index : Fin trg.mapped_head.length} {gt : GroundTerm sig}
-    (gt_in_res_but_not_fs : gt ∈ (trg.fresh_terms_for_head_disjunct disj_index.val (by rw [← PreTrigger.length_mapped_head]; exact disj_index.isLt)) ∧ ¬ gt ∈ fs.terms) :
-    trg.satisfied_for_disj fs ⟨disj_index, by rw [← PreTrigger.length_mapped_head]; exact disj_index.isLt⟩ ->
-      ∃ (h_alt : GroundTermMapping sig), h_alt.isAlternativeMatch trg disj_index fs := by
+    {trg : PreTrigger sig} {fs : FactSet sig} {i : Nat} {lt : i < trg.rule.head.length} {gt : GroundTerm sig}
+    (gt_in_res_but_not_fs : gt ∈ (trg.fresh_terms_for_head_disjunct i lt) ∧ ¬ gt ∈ fs.terms) :
+    trg.satisfied_for_disj fs i lt ->
+      ∃ (h_alt : GroundTermMapping sig), h_alt.isAlternativeMatch trg i lt fs := by
   intro satisfied
   rcases satisfied with ⟨s, s_frontier, s_subs⟩
 
   let h_alt : GroundTermMapping sig := fun t =>
-    if t_mem : t ∈ trg.fresh_terms_for_head_disjunct disj_index.val (by rw [← PreTrigger.length_mapped_head]; exact disj_index.isLt) then
-      s (t.functionSymbol (by apply PreTrigger.term_functional_of_mem_fresh_terms; exact t_mem)).var
+    if t_mem : t ∈ trg.fresh_terms_for_head_disjunct i lt then
+      s (t.functionSymbol (by apply PreTrigger.term_functional_of_mem_fresh_terms; exact t_mem)).v
     else t
 
   have id_on_const : h_alt.isIdOnConstants := by
     intro c
-    have : ¬ .const c ∈ trg.fresh_terms_for_head_disjunct disj_index.val (by rw [← PreTrigger.length_mapped_head]; exact disj_index.isLt) := by
+    have : ¬ .const c ∈ trg.fresh_terms_for_head_disjunct i lt := by
       apply PreTrigger.constant_not_mem_fresh_terms_for_head_disjunct
     simp [h_alt, this]
 
-  have : h_alt.applyFactSet trg.mapped_head[disj_index.val].toSet ⊆ fs := by
+  have : h_alt.applyFactSet (trg.mapped_head[i]'(by grind)).toSet ⊆ fs := by
     intro f f_mem
     apply s_subs
-    simp only [TermMapping.apply_generalized_atom_set_toSet, List.mem_toSet, ← PreTrigger.apply_subs_for_mapped_head_eq] at f_mem
+    simp only [TermMapping.apply_generalized_atom_set_toSet, List.mem_toSet, ← PreTrigger.apply_subs_for_mapped_head_eq _ _ lt] at f_mem
     rw [← GroundSubstitution.apply_function_free_conj_compose _ _ _ (by intros; exact id_on_const)] at f_mem
     simp only [GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list, List.mem_map] at f_mem
     simp only [List.mem_toSet, GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list, List.mem_map]
@@ -89,27 +88,26 @@ theorem alternativeMatch_of_satisfied
     | const c => simp [GroundSubstitution.apply_var_or_const]
     | var v =>
       simp only [GroundSubstitution.apply_var_or_const, Function.comp_apply]
-      cases Decidable.em (v ∈ trg.rule.frontier) with
-      | inl v_in_frontier =>
-        simp only [PreTrigger.subs_for_mapped_head, PreTrigger.apply_to_var_or_const_frontier_var _ _ _ v_in_frontier]
+      cases Decidable.em (v ∈ trg.rule.existential_vars_for_head_disjunct i lt) with
+      | inl v_exis =>
+        simp only [PreTrigger.subs_for_mapped_head, PreTrigger.apply_to_var_or_const_of_mem_existential_vars _ _ _ _ v_exis]
+        simp only [h_alt, trg.mem_fresh_terms_of_functional_for_exis_var, ↓reduceDIte]
+        simp only [PreTrigger.functional_term_for_var]
+        rw [GroundTerm.functionSymbol_func]
+      | inr v_not_exis =>
+        have v_in_frontier : v ∈ trg.rule.frontier := by
+          unfold Rule.existential_vars_for_head_disjunct at v_not_exis
+          rw [List.mem_filter, not_and, decide_not, not_decide_eq_true, Decidable.not_not] at v_not_exis
+          apply v_not_exis
+          rw [FunctionFreeConjunction.mem_vars]; exists a
+        simp only [PreTrigger.subs_for_mapped_head, PreTrigger.apply_to_var_or_const_of_not_mem_existential_vars _ _ _ _ v_not_exis]
         rw [s_frontier _ v_in_frontier]
         simp only [h_alt]
-        have : ¬ trg.subs v ∈ trg.fresh_terms_for_head_disjunct disj_index.val (by rw [← PreTrigger.length_mapped_head]; exact disj_index.isLt) := by
+        have : ¬ trg.subs v ∈ trg.fresh_terms_for_head_disjunct i lt := by
           apply PreTrigger.frontier_term_not_mem_fresh_terms_for_head_disjunct
           apply List.mem_map_of_mem
           exact v_in_frontier
         simp [this]
-      | inr v_in_frontier =>
-        simp only [PreTrigger.subs_for_mapped_head, PreTrigger.apply_to_var_or_const_non_frontier_var _ _ _ v_in_frontier]
-        simp only [h_alt]
-        have : trg.functional_term_for_var disj_index.val v ∈ trg.fresh_terms_for_head_disjunct disj_index.val (by rw [← PreTrigger.length_mapped_head]; exact disj_index.isLt) := by
-          apply List.mem_map_of_mem
-          simp only [Rule.existential_vars_for_head_disjunct, List.mem_filter, decide_eq_true_eq]; constructor
-          . rw [FunctionFreeConjunction.mem_vars]; exists a
-          . exact v_in_frontier
-        simp only [this, ↓reduceDIte]
-        simp only [PreTrigger.functional_term_for_var]
-        rw [GroundTerm.functionSymbol_func]
 
   exists h_alt
   constructor
@@ -118,7 +116,7 @@ theorem alternativeMatch_of_satisfied
     . exact this
   constructor
   . intro t ht; simp only [h_alt]
-    have : ¬ t ∈ trg.fresh_terms_for_head_disjunct disj_index.val (by rw [← PreTrigger.length_mapped_head]; exact disj_index.isLt) := by
+    have : ¬ t ∈ trg.fresh_terms_for_head_disjunct i lt := by
       apply PreTrigger.frontier_term_not_mem_fresh_terms_for_head_disjunct; exact ht
     simp [this]
   . exists gt

@@ -6,7 +6,6 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import BasicLeanDatastructures.FiniteTree
-import BasicLeanDatastructures.List.Basic
 
 public import ExistentialRules.Terms.SkolemTerm
 
@@ -24,13 +23,13 @@ We then define appropriate constructors and recursion principles on the `GroundT
 public section
 
 /-- The `PreGroundTerm` is simply a `FiniteTree (SkolemFS sig) sig.C`. That is a tree that features Skolem function symbols in its inner nodes and constants in its leaf nodes. -/
-abbrev PreGroundTerm (sig : Signature) [DecidableEq sig.C] [DecidableEq sig.V] := FiniteTree (SkolemFS sig) sig.C
+abbrev PreGroundTerm (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] := FiniteTree (SkolemFS sig) sig.C
 
 namespace PreGroundTerm
 
 /-- The arity of a functional term is ok if the defined arity of its function symbol matches its number of children and `arity_ok` also holds for each child. For constants, i.e. the leaf nodes, the arity is trivially ok. -/
 @[expose]
-def arity_ok {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] : FiniteTree (SkolemFS sig) sig.C -> Bool
+def arity_ok {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] : FiniteTree (SkolemFS sig) sig.C -> Bool
 | .leaf _ => true
 | .inner func ts =>
   ts.length == func.arity && ts.attach.all (fun ⟨t, _⟩ => arity_ok t)
@@ -38,12 +37,12 @@ def arity_ok {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] : FiniteT
 end PreGroundTerm
 
 /-- As mentioned above, a `GroundTerm` is simply a `PreGroundTerm` subtype where `arity_ok` holds. -/
-abbrev GroundTerm (sig : Signature) [DecidableEq sig.C] [DecidableEq sig.V] := { t : PreGroundTerm sig // PreGroundTerm.arity_ok t }
+abbrev GroundTerm (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] := { t : PreGroundTerm sig // PreGroundTerm.arity_ok t }
 
 
 namespace GroundTerm
 
-variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
+variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 /-- A `GroundTerm` can be direclty constructed from a constant. -/
 @[expose]
@@ -217,6 +216,10 @@ def constants (t : GroundTerm sig) : (List sig.C) := t.val.leaves
 @[expose]
 def functions (t : GroundTerm sig) : (List (SkolemFS sig)) := t.val.innerLabels
 
+/-- The `rules` that occur in the Skolem symbols of a `GroundTerm`. -/
+@[expose]
+def rules (t : GroundTerm sig) : (List (Rule sig)) := t.functions.map SkolemFS.rule
+
 /-- Applying `toConst` to a `GroundTerm.const` yields exactly the contained constant. -/
 @[simp, grind =]
 theorem toConst_const {c : sig.C} : (GroundTerm.const c).toConst (by exists c) = c := by rfl
@@ -269,6 +272,17 @@ theorem functions_func {f : SkolemFS sig} {ts : List (GroundTerm sig)} {arity_ok
   constructor
   . rfl
   . rw [List.flatMap_unattach]; rfl
+
+/-- A constant has no `rules`. -/
+@[simp, grind =]
+theorem rules_const {c : sig.C} : (GroundTerm.const c).rules = [] := by
+  simp [rules]
+
+/-- The `rules` of a function term consist of the rules of the current term and the rules of all its children. -/
+@[simp, grind =]
+theorem rules_func {f : SkolemFS sig} {ts : List (GroundTerm sig)} {arity_ok : ts.length = f.arity} :
+    (GroundTerm.func f ts arity_ok).rules = f.rule :: (ts.flatMap GroundTerm.rules) := by
+  unfold rules; simp [List.map_flatMap]
 
 end GroundTerm
 

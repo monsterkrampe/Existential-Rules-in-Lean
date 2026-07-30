@@ -29,26 +29,25 @@ theorem SkolemObsolescence.propagates_under_constant_mapping : (SkolemObsolescen
   simp only [SkolemObsolescence] at cond
   simp only [SkolemObsolescence]
   let trg' : PreTrigger sig := { rule := trg.rule, subs := g.apply_ground_term ∘ trg.subs }
-  rcases cond with ⟨i, cond⟩
-  let i' : Fin trg'.mapped_head.length := ⟨i.val, by have isLt := i.isLt; simp only [PreTrigger.length_mapped_head] at *; exact isLt⟩
-  exists i'
+  rcases cond with ⟨i, lt, cond⟩
+  exists i, lt
   intro f f_mem
   rw [List.mem_toSet] at f_mem
   unfold PreTrigger.mapped_head at f_mem
-  simp only [List.getElem_map, List.getElem_zipIdx, List.mem_map, Nat.zero_add] at f_mem
+  simp only [List.getElem_map, List.getElem_attach, List.getElem_zipIdx, List.mem_map, Nat.zero_add] at f_mem
   rcases f_mem with ⟨a, a_mem, f_eq⟩
   rw [← ConstantMapping.apply_fact_swap_apply_to_function_free_atom] at f_eq
   . rw [← f_eq]
     apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
     apply cond
     rw [List.mem_toSet]
-    simp only [PreTrigger.mapped_head, List.getElem_map, List.getElem_zipIdx, List.mem_map, Nat.zero_add]
+    simp only [PreTrigger.mapped_head, List.getElem_map, List.getElem_attach, List.getElem_zipIdx, List.mem_map, Nat.zero_add]
     exists a
   . intro d d_mem
     apply g_id
     unfold Rule.head_constants
     rw [List.mem_flatMap]
-    exists trg.rule.head[i.val]'(by rw [← PreTrigger.length_mapped_head]; exact i.isLt)
+    exists trg.rule.head[i]
     constructor
     . apply List.getElem_mem
     . unfold FunctionFreeConjunction.consts
@@ -60,8 +59,8 @@ theorem RestrictedObsolescence.propagates_under_constant_mapping : (RestrictedOb
   simp only [RestrictedObsolescence, PreTrigger.satisfied, PreTrigger.satisfied_for_disj] at cond
   simp only [RestrictedObsolescence, PreTrigger.satisfied, PreTrigger.satisfied_for_disj]
   let trg' : PreTrigger sig := { rule := trg.rule, subs := g.apply_ground_term ∘ trg.subs }
-  rcases cond with ⟨i, cond⟩
-  exists i
+  rcases cond with ⟨i, lt, cond⟩
+  exists i, lt
   rcases cond with ⟨s, id_front, cond⟩
   exists g.apply_ground_term ∘ s
   constructor
@@ -84,7 +83,7 @@ theorem RestrictedObsolescence.propagates_under_constant_mapping : (RestrictedOb
       apply g_id
       unfold Rule.head_constants
       rw [List.mem_flatMap]
-      exists trg.rule.head[i.val]
+      exists trg.rule.head[i]
       constructor
       . apply List.getElem_mem
       . unfold FunctionFreeConjunction.consts

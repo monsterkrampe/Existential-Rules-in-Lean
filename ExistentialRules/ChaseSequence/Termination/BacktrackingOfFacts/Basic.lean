@@ -50,22 +50,3 @@ theorem fresh_consts_pure_body_vars_roundtrip
 
 end Rule
 
-namespace SkolemFS
-
-/-- The rule id of a `SkolemFS` (Skolem Function Symbol) is valid if there is a rule with this id. -/
-@[expose]
-def ruleId_valid (sfs : SkolemFS sig) (rl : RuleList sig) : Prop :=
-  ∃ r ∈ rl.rules, r.id = sfs.ruleId
-
-/-- The disjunct index of a `SkolemFS` (Skolem Function Symbol) if the rule corresponding the its rule id indeed has enough head disjuncts. -/
-@[expose]
-def disjunctIndex_valid (sfs : SkolemFS sig) (rl : RuleList sig) (ruleId_valid : sfs.ruleId_valid rl) : Prop :=
-  sfs.disjunctIndex < (rl.get_by_id sfs.ruleId ruleId_valid).head.length
-
-/-- The arity of a `SkolemFS` (Skolem Function Symbol) is valid if it matches the frontier length of the rule corresponding to its rule id. -/
-@[expose]
-def arity_valid (sfs : SkolemFS sig) (rl : RuleList sig) (ruleId_valid : sfs.ruleId_valid rl) : Prop :=
-  sfs.arity = (rl.get_by_id sfs.ruleId ruleId_valid).frontier.length
-
-end SkolemFS
-

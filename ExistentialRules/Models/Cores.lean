@@ -66,7 +66,7 @@ Here, we show some nice properties of repeated homomorphisms and endomorphisms i
 For example, we prove that a repeated endomorphisms is again an endomorphisms.
 -/
 
-variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
+variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 /-- Repeating a mapping retains the `GroundTermMapping.isIdOnConstants` property. -/
 theorem repeat_id_on_const {h : GroundTermMapping sig} (idOnConst : h.isIdOnConstants) : ∀ i, GroundTermMapping.isIdOnConstants (h.repeat_fun i) := by
@@ -74,8 +74,6 @@ theorem repeat_id_on_const {h : GroundTermMapping sig} (idOnConst : h.isIdOnCons
   fun_induction h.repeat_fun i with
   | case1 => intro c; simp
   | case2 i ih => intro c; rw [Function.comp_apply, ih, idOnConst]
-
-variable [DecidableEq sig.P]
 
 /-- Repeating a mapping retains the `GroundTermMapping.isHomomorphism` property at least for endomorphisms. -/
 theorem repeat_isHomomorphism {h : GroundTermMapping sig} {fs : FactSet sig} (hom : h.isHomomorphism fs fs) :
@@ -542,10 +540,9 @@ theorem strong_core_of_model_is_model
         . exact inv_hom.right
         . exact sc_sub
     )
-    rcases fs_models_rule with ⟨i, subs', frontier_mapping, sub_mapping⟩
+    rcases fs_models_rule with ⟨i, lt, subs', frontier_mapping, sub_mapping⟩
 
-    exists i
-    exists (h_fs_sc ∘ subs')
+    exists i, lt, (h_fs_sc ∘ subs')
     constructor
     . intro v v_mem
       rw [Function.comp_apply]

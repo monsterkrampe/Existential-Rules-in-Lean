@@ -64,10 +64,10 @@ end AtomPos
 end AtomPositions
 
 
-instance {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [Inhabited sig.C] : Inhabited (PreGroundTerm sig) where
+instance {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] [Inhabited sig.C] : Inhabited (PreGroundTerm sig) where
   default := .leaf default
 
-instance {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [Inhabited sig.C] : Inhabited (GroundTerm sig) where
+instance {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] [Inhabited sig.C] : Inhabited (GroundTerm sig) where
   default := ⟨default, by unfold PreGroundTerm.arity_ok; rfl⟩
 
 
@@ -306,15 +306,13 @@ section Rules
 
 
   -- TODO for Lukas: unify this with regular RuleSet at some point
-  structure LinearRuleSet (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] where
-    rules : Set (LinearRule sig)
-    id_unique : ∀ r1 r2, r1 ∈ rules ∧ r2 ∈ rules ∧ r1.rule.id = r2.rule.id -> r1 = r2
+  abbrev LinearRuleSet (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] := Set (LinearRule sig)
 
 end Rules
 
 section SubstitutionsAndTriggers
 
-  variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
+  variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
   /--This function modifies the Substitution s such that v ↦ c and otherwise s is the same as before-/
   def extend_Substitutution  (s: GroundSubstitution sig) (v: sig.V) (c: GroundTerm sig) : GroundSubstitution sig := fun x => if x = v then c else s x
@@ -519,7 +517,7 @@ section SubstitutionsAndTriggers
               . exact map_unzip_eq.right
               . exact subs_agrees_on_vars
 
-  variable [DecidableEq sig.P] [Inhabited sig.C]
+  variable [Inhabited sig.C]
 
   /--A ground substitution is a homomorphism from an atom to a fact. This function returns such a GroundSubstitution if there exists one. (Otherwise returns Option.none) -/
   def GroundSubstitution.from_atom_and_fact (atom : FunctionFreeAtom sig) (fact : Fact sig) : Option (GroundSubstitution sig) :=
@@ -595,7 +593,7 @@ section SubstitutionsAndTriggers
 
   --this is just a slight variation of the definition given above
   theorem PreTrigger.from_rule_and_fact_some_implies {rule : LinearRule sig} {fact : Fact sig} :
-      ∀ trg ∈ PreTrigger.from_rule_and_fact rule fact,  trg.rule = rule.rule ∧ GroundSubstitution.from_atom_and_fact rule.body fact = some trg.subs := by
+      ∀ trg ∈ PreTrigger.from_rule_and_fact rule fact, trg.rule = rule.rule ∧ GroundSubstitution.from_atom_and_fact rule.body fact = some trg.subs := by
         unfold PreTrigger.from_rule_and_fact;
         cases PreTrigger.from_rule_and_fact rule fact;
         repeat simp;
@@ -630,23 +628,15 @@ section SubstitutionsAndTriggers
   -- This allows us to take a bit of a shortcut when we try to unfold the ruleApply definition in proofs.
   -- We could also use this for the definition instead but the above should be more canonical.
   theorem ruleApply_eq {rule : LinearRule sig} {fact : Fact sig} :
-      let trg_opt := (PreTrigger.from_rule_and_fact rule fact)
-      ruleApply rule fact = trg_opt.map (fun trg => (trg.apply_to_function_free_atom 0 rule.head.fst, trg.apply_to_function_free_atom 0 rule.head.snd)) := by
-    intro tr;
-    rw[ruleApply];
-    have htr : PreTrigger.from_rule_and_fact rule fact = tr := rfl;
-    rcases tr ;
-    -- case none
-    simp;
-    rw[htr];
-    --case some
-    simp;
-    simp [PreTrigger.mapped_head];
-    simp[LinearRule.head];
-    expose_names;
-    exists val;
-    exists htr;
-    simp[And.left (PreTrigger.from_rule_and_fact_some_implies val htr)];
+      ruleApply rule fact = (PreTrigger.from_rule_and_fact rule fact).attach.map (fun ⟨trg, trg_orig⟩ =>
+        have rule_eq := (trg.from_rule_and_fact_some_implies trg_orig).left
+        (trg.apply_to_function_free_atom 0 (by rw [rule_eq]; simp [LinearRule.head_eq]) rule.head.fst, trg.apply_to_function_free_atom 0 (by rw [rule_eq]; simp [LinearRule.head_eq]) rule.head.snd)
+      ) := by
+    rw[ruleApply]
+    apply Option.map_congr
+    intro tr _
+    simp only [PreTrigger.mapped_head, LinearRule.head]
+    simp [(PreTrigger.from_rule_and_fact_some_implies _ tr.property).left];
 
   /--If `ruleApply` returns some value for a rule and a fact, then `PreTrigger.from_rule_and_fact` also returns some value for the same rule and fact-/
   theorem ruleApply.some_implies_PreTrigger_some {rule: LinearRule sig} {fact: Fact sig}:
@@ -671,7 +661,7 @@ section SubstitutionsAndTriggers
     have trg_some : (PreTrigger.from_rule_and_fact rule fact).isSome := by apply ruleApply.some_implies_PreTrigger_some; exact ruleApply_some
     rw[Option.isSome_iff_exists] at trg_some
     rcases trg_some with ⟨trg, trg_some⟩
-    simp only [ruleApply_eq, trg_some, Option.map_some, Option.get_some]
+    simp only [ruleApply_eq, Option.map_attach_eq_pmap, trg_some, Option.pmap_some, Option.get_some]
     simp only [PreTrigger.apply_to_function_free_atom]
     simp only [TermMapping.apply_generalized_atom, List.length_map]
 
@@ -681,7 +671,7 @@ section SubstitutionsAndTriggers
     have trg_some : (PreTrigger.from_rule_and_fact rule fact).isSome := by apply ruleApply.some_implies_PreTrigger_some; exact ruleApply_some
     rw[Option.isSome_iff_exists] at trg_some
     rcases trg_some with ⟨trg, trg_some⟩
-    simp only [ruleApply_eq, trg_some, Option.map_some, Option.get_some]
+    simp only [ruleApply_eq, Option.map_attach_eq_pmap, trg_some, Option.pmap_some, Option.get_some]
     simp only [PreTrigger.apply_to_function_free_atom]
     simp only [TermMapping.apply_generalized_atom, List.length_map]
 
@@ -708,11 +698,11 @@ section SubstitutionsAndTriggers
     conv => right; simp only [← sub_apply, GroundSubstitution.apply_function_free_atom]; simp only[TermMapping.apply_generalized_atom, List.getElem_map]
     rw [← h_frontier'.right]
 
-    simp only [ruleApply_eq, trg_some', Option.map_some, Option.get_some]
+    simp only [ruleApply_eq, Option.map_attach_eq_pmap, trg_some', Option.pmap_some, Option.get_some]
     simp only [PreTrigger.apply_to_function_free_atom, TermMapping.apply_generalized_atom, List.getElem_map]
     rcases h_frontier with ⟨v, v_eq, v_front⟩
     rw [v_eq]
-    rw [PreTrigger.apply_to_var_or_const_frontier_var _ _ _ (by rw [← trg_eq]; exact v_front)]
+    rw [PreTrigger.apply_to_var_or_const_frontier_var _ _ _ _ (by rw [← trg_eq]; exact v_front)]
     rw [← trg_eq]
     rfl
 
@@ -735,7 +725,7 @@ section SubstitutionsAndTriggers
 
     conv => right; simp only [← sub_apply, GroundSubstitution.apply_function_free_atom]; simp only[TermMapping.apply_generalized_atom, List.getElem_map]
     rw [← terms_eq]
-    simp only [ruleApply_eq, trg_some', Option.map_some, Option.get_some]
+    simp only [ruleApply_eq, Option.map_attach_eq_pmap, trg_some', Option.pmap_some, Option.get_some]
     simp only [PreTrigger.apply_to_function_free_atom, TermMapping.apply_generalized_atom, List.getElem_map]
     cases ter_var: rule.head.fst.terms[idxH] with
     |const c => simp[PreTrigger.apply_to_var_or_const_for_const, GroundSubstitution.apply_var_or_const];
@@ -748,7 +738,7 @@ section SubstitutionsAndTriggers
       rcases h_frontier with ⟨v, v_eq, v_front⟩
       rw[v_eq] at ter_var
       rw[← ter_var]
-      rw [PreTrigger.apply_to_var_or_const_frontier_var _ _ _ (by rw [← trg_eq]; exact v_front)]
+      rw [PreTrigger.apply_to_var_or_const_frontier_var _ _ _ _ (by rw [← trg_eq]; exact v_front)]
       rw [← trg_eq]
       rfl
 
@@ -771,7 +761,7 @@ section SubstitutionsAndTriggers
 
     conv => right; simp only [← sub_apply, GroundSubstitution.apply_function_free_atom]; simp only[TermMapping.apply_generalized_atom, List.getElem_map]
     rw [← terms_eq]
-    simp only [ruleApply_eq, trg_some', Option.map_some, Option.get_some]
+    simp only [ruleApply_eq, Option.map_attach_eq_pmap, trg_some', Option.pmap_some, Option.get_some]
     simp only [PreTrigger.apply_to_function_free_atom, TermMapping.apply_generalized_atom, List.getElem_map]
     cases ter_var: rule.head.snd.terms[idxH] with
     |const c => simp[PreTrigger.apply_to_var_or_const_for_const, GroundSubstitution.apply_var_or_const];
@@ -783,7 +773,7 @@ section SubstitutionsAndTriggers
       rcases h_frontier with ⟨v, v_eq, v_front⟩
       rw[v_eq] at ter_var
       rw[← ter_var]
-      rw [PreTrigger.apply_to_var_or_const_frontier_var _ _ _ (by rw [← trg_eq]; exact v_front)]
+      rw [PreTrigger.apply_to_var_or_const_frontier_var _ _ _ _ (by rw [← trg_eq]; exact v_front)]
       rw [← trg_eq]
       rfl
 
@@ -794,7 +784,7 @@ section SubstitutionsAndTriggers
       have trg_some : (PreTrigger.from_rule_and_fact rule fact).isSome := by apply ruleApply.some_implies_PreTrigger_some; exact ruleApplySome
       rw[Option.isSome_iff_exists] at trg_some
       rcases trg_some with ⟨trg, trg_some⟩
-      simp only [ruleApply_eq, trg_some, Option.map_some, Option.get_some]
+      simp only [ruleApply_eq, Option.map_attach_eq_pmap, trg_some, Option.pmap_some, Option.get_some]
       simp only [PreTrigger.apply_to_function_free_atom]
       simp only [TermMapping.apply_generalized_atom, List.length_map]
       exact i_valid
@@ -817,11 +807,11 @@ section SubstitutionsAndTriggers
     conv => right; simp only [← sub_apply, GroundSubstitution.apply_function_free_atom]; simp only[TermMapping.apply_generalized_atom, List.getElem_map]
     rw [← h_frontier'.right]
 
-    simp only [ruleApply_eq, trg_some', Option.map_some, Option.get_some]
+    simp only [ruleApply_eq, Option.map_attach_eq_pmap, trg_some', Option.pmap_some, Option.get_some]
     simp only [PreTrigger.apply_to_function_free_atom, TermMapping.apply_generalized_atom, List.getElem_map]
     rcases h_frontier with ⟨v, v_eq, v_front⟩
     rw [v_eq]
-    rw [PreTrigger.apply_to_var_or_const_frontier_var _ _ _ (by rw [← trg_eq]; exact v_front)]
+    rw [PreTrigger.apply_to_var_or_const_frontier_var _ _ _ _ (by rw [← trg_eq]; exact v_front)]
     rw [← trg_eq]
     rfl
 
@@ -840,18 +830,22 @@ section SubstitutionsAndTriggers
     have trg_some : (PreTrigger.from_rule_and_fact rule fact).isSome := by apply ruleApply.some_implies_PreTrigger_some; exact ruleApplySome
     rw[Option.isSome_iff_exists] at trg_some
     rcases trg_some with ⟨trg, trg_some⟩
-    simp only [trg_some, Option.get_some]
+    simp only [Option.get_attach, trg_some, Option.get_some]
     unfold PreTrigger.from_rule_and_fact at trg_some
     simp[Option.map_eq_some_iff] at trg_some
     rcases trg_some with ⟨sub, sub_def, trg_eq⟩
 
-    rw[PreTrigger.apply_to_var_or_const_non_frontier_var trg 0 v (by simp only[← trg_eq]; exact not_frontier)]
+    rw [PreTrigger.apply_to_var_or_const_of_mem_existential_vars trg 0 _ v (by
+      simp only [← trg_eq]
+      unfold Rule.existential_vars_for_head_disjunct; rw [List.mem_filter]; constructor
+      . rw [FunctionFreeConjunction.mem_vars, ← v_eq]; simp only [LinearRule.head]; exact ⟨_, List.getElem_mem _, List.getElem_mem _⟩
+      . simp [not_frontier])]
     unfold PreTrigger.functional_term_for_var
     unfold GroundTerm.func
     simp only [Subtype.mk.injEq, FiniteTree.inner.injEq, exists_and_left, exists_prop,
       exists_eq_left']
     exists (List.map trg.subs trg.rule.frontier)
-    simp
+    simp [SkolemFS.arity]
 
    /--If i is a position in the second rule head containing a non-frontier-variable (i.e. an existential variable),then `ruleApply` will map the term at this position to a functional term (a SkolemFunction)-/
    theorem ruleApply_non_frontier_var_sndHead_is_fun {rule: LinearRule sig} {fact: Fact sig} {i : Nat} (i_valid: i < rule.head.snd.terms.length):
@@ -868,18 +862,22 @@ section SubstitutionsAndTriggers
     have trg_some : (PreTrigger.from_rule_and_fact rule fact).isSome := by apply ruleApply.some_implies_PreTrigger_some; exact ruleApplySome
     rw[Option.isSome_iff_exists] at trg_some
     rcases trg_some with ⟨trg, trg_some⟩
-    simp only [trg_some, Option.get_some]
+    simp only [Option.get_attach, trg_some, Option.get_some]
     unfold PreTrigger.from_rule_and_fact at trg_some
     simp[Option.map_eq_some_iff] at trg_some
     rcases trg_some with ⟨sub, sub_def, trg_eq⟩
 
-    rw[PreTrigger.apply_to_var_or_const_non_frontier_var trg 0 v (by simp only[← trg_eq]; exact not_frontier)]
+    rw [PreTrigger.apply_to_var_or_const_of_mem_existential_vars trg 0 _ v (by
+      simp only [← trg_eq]
+      unfold Rule.existential_vars_for_head_disjunct; rw [List.mem_filter]; constructor
+      . rw [FunctionFreeConjunction.mem_vars, ← v_eq]; simp only [LinearRule.head]; exact ⟨_, List.getElem_mem _, List.getElem_mem _⟩
+      . simp [not_frontier])]
     unfold PreTrigger.functional_term_for_var
     unfold GroundTerm.func
     simp only [Subtype.mk.injEq, FiniteTree.inner.injEq, exists_and_left, exists_prop,
       exists_eq_left']
     exists (List.map trg.subs trg.rule.frontier)
-    simp
+    simp [SkolemFS.arity]
 
 end SubstitutionsAndTriggers
 
@@ -894,7 +892,7 @@ section Addresses
 
   /--This function defines the set of all possible Address symbols of a rule set -/
   def addressSymbols (rs : LinearRuleSet sig) : Set (AddressSymbol sig) :=
-    fun sym => sym.rule ∈ rs.rules
+    fun sym => sym.rule ∈ rs
 
   /--An Address consists of an initial fact from the fat set and a list of address symbols from the rule set. The paper considers them a a word wu ∈ (fact set)(addressSymbols)* which allows talking about prefixes of addresses-/
   structure Address (fs : FactSet sig) (rs : LinearRuleSet sig) where
@@ -1013,7 +1011,7 @@ section TriggersAndChaseDerivation
 
   /--A trigger consists of a Linear rule from the rule set and an address such that there exists an homomorphism from the rulebody to the labelling of the address-/
   structure LinearRuleTrigger (fs: FactSet sig) (rs: LinearRuleSet sig) where
-  rule : {r: LinearRule sig // r ∈ rs.rules}
+  rule : {r: LinearRule sig // r ∈ rs}
   addr : {u: Address fs rs // (labellingFunction u).isSome}
   hom_exists : (GroundSubstitution.from_atom_and_fact (LinearRule.body rule) (Option.get (labellingFunction addr.val) addr.property )).isSome = true
 
@@ -1033,7 +1031,7 @@ section TriggersAndChaseDerivation
       (ruleApply pi.rule.val (Option.get (labellingFunction pi.addr.val) pi.addr.property)).isSome := by
         rw[ruleApply_eq]
         unfold PreTrigger.from_rule_and_fact
-        simp only [Option.map_map, Option.isSome_map]
+        simp only [Option.map_attach_eq_pmap, Option.pmap_map, Option.isSome_pmap]
         exact pi.hom_exists
 
     /--The labelling of the addresses produced by the trigger applicstion is some-/

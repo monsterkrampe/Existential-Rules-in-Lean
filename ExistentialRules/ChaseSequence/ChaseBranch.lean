@@ -113,7 +113,7 @@ theorem functional_term_originates_from_some_trigger
     (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok)
     (t_mem : t ∈ node.val.facts.terms) :
     ∃ node2, node2 ≼ node ∧ ∃ orig ∈ node2.val.origin,
-      t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val (by rw [← PreTrigger.length_mapped_head]; exact orig.snd.isLt) := by
+      t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val orig.snd.isLt := by
   cases RegularChaseDerivation.functional_term_originates_from_some_trigger node t_is_func t_mem with
   | inl t_mem => apply False.elim; exact cb.func_term_not_mem_head t_is_func t_mem
   | inr t_mem => exact t_mem

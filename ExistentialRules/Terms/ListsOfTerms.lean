@@ -17,7 +17,7 @@ the depth of the terms do not exceed a given depth.
 This is required for MFA later since we want to argue that when a rule set is MFA, then the number of function symbols in the chase is finite.
 -/
 
-variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
+variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 /-- We recursively construct all `GroundTerm`s that have at most a given depth. For example, the terms with at most depth 1 are exactly the constants. The recursion step uses all terms that have at most the previous depth and then combines them in all possible ways using each of the available function symbols as the new root. -/
 public def all_terms_limited_by_depth (constants : List sig.C) (funcs : List (SkolemFS sig)) : Nat -> List (GroundTerm sig)
