@@ -8,7 +8,7 @@ module
 import ExistentialRules.AlternativeMatches.Basic
 import ExistentialRules.AlternativeMatches.Chase
 import ExistentialRules.AlternativeMatches.HomomorphismExtension
-import ExistentialRules.AtomsAndFacts.Basic
+import ExistentialRules.AtomsAndRules
 import ExistentialRules.ChaseSequence.ChaseNode
 import ExistentialRules.ChaseSequence.ChaseBranch
 import ExistentialRules.ChaseSequence.ChaseDerivation

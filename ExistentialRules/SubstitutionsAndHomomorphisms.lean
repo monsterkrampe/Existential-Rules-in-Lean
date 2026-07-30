@@ -5,9 +5,8 @@ Released under Apache 2.0 license as described in the file LICENSE.
 
 module
 
-import BasicLeanDatastructures.List.Basic
-
-public import ExistentialRules.AtomsAndFacts.Basic
+public import ExistentialRules.AtomsAndRules.FactSet
+public import ExistentialRules.AtomsAndRules.FunctionFreeConjunction
 
 /-!
 # Substitutions and other mappings on Terms
