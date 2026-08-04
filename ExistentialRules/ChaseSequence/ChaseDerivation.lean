@@ -351,7 +351,7 @@ theorem constants_node_subset_constants_fs_union_constants_rules
   | inl c_mem => apply Or.inl; exact c_mem
   | inr c_mem =>
     let origin := (CN.origin next).get (cd2.isSome_origin_next next_mem)
-    apply Set.subset_trans (origin.fst.val.mapped_head_constants_subset origin.snd)
+    apply Set.subset_trans (origin.fst.val.mapped_head_constants_subset origin.snd.val origin.snd.isLt)
     . intro c c_mem
       rw [List.mem_toSet, List.mem_append] at c_mem
       cases c_mem with
@@ -379,7 +379,7 @@ theorem constants_node_subset_constants_fs_union_constants_rules
             constructor
             . exact v_mem'
             . unfold PreTrigger.subs_for_mapped_head at t_mem
-              rw [PreTrigger.apply_to_var_or_const_frontier_var _ _ _ v_mem] at t_mem
+              rw [PreTrigger.apply_to_var_or_const_frontier_var _ _ _ _ v_mem] at t_mem
               exact t_mem
           . exact c_mem
       | inr c_mem =>
@@ -401,8 +401,8 @@ theorem functional_term_originates_from_some_trigger
     {t : GroundTerm sig}
     (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok)
     (t_mem : t ∈ (CN.ingoingFacts node.val).terms) :
-    t ∈ (CN.outgoingFacts cd.head).terms ∨ ∃ node2, node2 ≼ node ∧ ∃ orig ∈ (CN.origin node2.val), t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val (by rw [← PreTrigger.length_mapped_head]; exact orig.snd.isLt) := by
-  suffices ∀ cd2 : ChaseDerivation N obs rules, ∀ next ∈ cd2.next, t ∈ (CN.ingoingFacts next).terms -> t ∈ ((CN.outgoingFacts cd2.head).terms) ∨ ∃ orig ∈ (CN.origin next), t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val (by rw [← PreTrigger.length_mapped_head]; exact orig.snd.isLt) by
+    t ∈ (CN.outgoingFacts cd.head).terms ∨ ∃ node2, node2 ≼ node ∧ ∃ orig ∈ (CN.origin node2.val), t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val orig.snd.isLt := by
+  suffices ∀ cd2 : ChaseDerivation N obs rules, ∀ next ∈ cd2.next, t ∈ (CN.ingoingFacts next).terms -> t ∈ ((CN.outgoingFacts cd2.head).terms) ∨ ∃ orig ∈ (CN.origin next), t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val orig.snd.isLt by
     induction node using mem_rec with
     | head =>
       simp only [cd.head_tail']
@@ -476,7 +476,7 @@ theorem trigger_introducing_functional_term_occurs_in_chase
     rcases t_mem with ⟨node2, prec, origin, origin_eq, t_mem⟩
     exists node2; simp only [prec, true_and]
     exists origin; simp only [origin_eq, true_and]
-    exact RTrigger.equiv_of_term_mem_fresh_terms_for_head_disjunct t_mem t_mem_trg
+    exact PreTrigger.equiv_of_term_mem_fresh_terms_for_head_disjunct t_mem t_mem_trg
 
 end TermsInChase
 
@@ -518,8 +518,9 @@ theorem head_not_mem_tail {cd : RegularChaseDerivation obs rules} : ∀ h, ¬ cd
   rw [cd.mem_tail_iff] at contra
   rcases contra with ⟨cd2, suffix, contra⟩
   apply (cd2.active_trigger_origin_next contra).right
-  apply obs.contains_trg_result_implies_cond
-  apply Set.subset_trans (cd.head.facts_contain_origin_result (cd.head.origin.get (cd2.isSome_origin_next contra)) (by simp))
+  let orig := cd.head.origin.get (cd2.isSome_origin_next contra)
+  apply obs.contains_trg_result_implies_cond _ orig.snd.isLt
+  apply Set.subset_trans (cd.head.facts_contain_origin_result orig (by simp [orig]))
   apply cd.facts_node_subset_every_mem
   apply cd2.mem_of_mem_suffix suffix
   exact cd2.head_mem
@@ -644,7 +645,7 @@ theorem facts_not_subset_of_strict_predecessor {cd : RegularChaseDerivation obs 
     rw [Option.isSome_iff_exists] at next_some
     rcases next_some with ⟨next, next_some⟩
     apply (d.active_trigger_origin_next next_some).right
-    apply ObsolescenceCondition.contains_trg_result_implies_cond
+    apply ObsolescenceCondition.contains_trg_result_implies_cond _ _ (next.origin.get (d.isSome_origin_next next_some)).snd.isLt
     have : next.facts ⊆ d.head.facts := by
       have : ⟨next, d.next_mem_of_mem _ next_some⟩ ≼ ⟨n2.val, by apply ChaseDerivation.mem_of_mem_suffix (d2.branch.IsSuffix_trans suf3 d.branch.IsSuffix_tail); rw [← head2]; exact d2.head_mem⟩ := by
         rw [d.predecessor_iff]
@@ -789,7 +790,7 @@ theorem functional_term_originates_from_some_trigger
     {t : GroundTerm sig}
     (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok)
     (t_mem : t ∈ node.val.facts.terms) :
-    t ∈ cd.head.facts.terms ∨ ∃ node2, node2 ≼ node ∧ ∃ orig ∈ node2.val.origin, t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val (by rw [← PreTrigger.length_mapped_head]; exact orig.snd.isLt) := by
+    t ∈ cd.head.facts.terms ∨ ∃ node2, node2 ≼ node ∧ ∃ orig ∈ node2.val.origin, t ∈ orig.fst.val.fresh_terms_for_head_disjunct orig.snd.val orig.snd.isLt := by
   cases cd.mem_iff_eq_head_or_mem_tail.mp node.property with
   | inl node_mem => apply Or.inl; rw [← node_mem]; exact t_mem
   | inr node_mem =>

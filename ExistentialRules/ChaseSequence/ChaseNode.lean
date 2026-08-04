@@ -25,7 +25,7 @@ public section
 class ChaseNode (N : Type u) (obs : ObsolescenceCondition sig) (rules : RuleSet sig) where
   ingoingFacts : N -> FactSet sig
   outgoingFacts : N -> FactSet sig
-  origin : N -> Option ((trg : RTrigger (obs : LaxObsolescenceCondition sig) rules) × Fin trg.val.mapped_head.length)
+  origin : N -> Option ((trg : RTrigger (obs : LaxObsolescenceCondition sig) rules) × Fin trg.val.rule.head.length)
   facts_contain_origin_result : (node : N) -> ∀ orig ∈ (origin node), orig.fst.val.mapped_head[orig.snd.val].toSet ⊆ ingoingFacts node
 
 namespace ChaseNode
@@ -41,7 +41,7 @@ def origin_result (node : N) (isSome : (CN.origin node).isSome) : List (Fact sig
 /-- An auxiliary theorem showing that the origin result equals the i-th mapped head of a trigger if the trigger and i match the origin. -/
 theorem origin_result_eq {node : N} (isSome : (CN.origin node).isSome)
     {trg : PreTrigger sig} {i : Nat} (trg_eq : trg = ((CN.origin node).get isSome).fst.val) (i_eq : i = ((CN.origin node).get isSome).snd.val) :
-    CN.origin_result node isSome = trg.mapped_head[i]'(by rw [trg_eq, i_eq]; exact ((CN.origin node).get isSome).snd.isLt) := by
+    CN.origin_result node isSome = trg.mapped_head[i]'(by grind) := by
   simp only [trg_eq, i_eq]; rfl
 
 /-- Two `ChaseNode`s are in a successor relation if the second one could be created from the first one by adding the origin result of the second one to the outgoign facts of the first one. We do not enforce trigger activeness here since we can easily enforce this in the `ChaseDerivation` later on. -/
@@ -88,7 +88,7 @@ end ChaseNode
 /-- The `RegularChaseNode` is the one we use for most chases (except the core chase). Here ingoingFacts and outgoingFacts are always the same. -/
 structure RegularChaseNode (obs : ObsolescenceCondition sig) (rules : RuleSet sig) where
   facts : FactSet sig
-  origin : Option ((trg : RTrigger (obs : LaxObsolescenceCondition sig) rules) × Fin trg.val.mapped_head.length)
+  origin : Option ((trg : RTrigger (obs : LaxObsolescenceCondition sig) rules) × Fin trg.val.rule.head.length)
   facts_contain_origin_result : ∀ orig ∈ origin, orig.fst.val.mapped_head[orig.snd.val].toSet ⊆ facts
 
 namespace RegularChaseNode

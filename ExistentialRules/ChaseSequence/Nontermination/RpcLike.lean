@@ -40,11 +40,12 @@ end BasicDefinitions
 def Trigger.unblockable
     {obs : ObsolescenceCondition sig}
     (trg : Trigger obs.toLaxObsolescenceCondition)
-    (disjIdx : Fin trg.mapped_head.length)
+    (i : Nat)
+    (lt : i < trg.rule.head.length)
     (rules : RuleSet sig) : Prop :=
   ∀ td : RegularTreeDerivation obs rules, ∀ node : td.NodeWithAddress, trg.loaded node.node.facts ->
   ∃ node2 : td.NodeWithAddress, node ≼ node2 ∧
-  trg.mapped_head[disjIdx.val].toSet ⊆ node2.node.facts
+  (trg.mapped_head[i]'(by grind)).toSet ⊆ node2.node.facts
 
 /-- A `CyclicityDerivation` is an infinite list of `ChaseNode`s. We demand only that triggers are loaded, new terms keep being added (growing) and that triggers are unblockable. This is much different from a `ChaseDerivation` but intuitively, we can view a `CyclicityDerivation` as a very special non-continuous subderivation of a suitable `ChaseDerivation`. -/
 structure CyclicityDerivation (obs : ObsolescenceCondition sig) (rules : RuleSet sig)
@@ -52,7 +53,7 @@ structure CyclicityDerivation (obs : ObsolescenceCondition sig) (rules : RuleSet
   triggers_loaded : ∀ n : Nat, ∀ before ∈ (branch.drop n).head,
     ∀ after ∈ (branch.drop n).tail.head, ∃ orig ∈ after.origin, orig.fst.val.loaded before.facts
   growing : ∀ n, ∃ m, ∃ t, (∀ node ∈ (branch.drop n).head, ¬ t ∈ node.facts.terms) ∧ (∃ node ∈ (branch.drop (n+m)).head, t ∈ node.facts.terms)
-  unblockable : ∀ node ∈ branch, ∀ orig ∈ node.origin, (orig.fst.val.unblockable orig.snd rules)
+  unblockable : ∀ node ∈ branch, ∀ orig ∈ node.origin, (orig.fst.val.unblockable orig.snd.val orig.snd.isLt rules)
 
 namespace CyclicityDerivation
 

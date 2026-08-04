@@ -43,11 +43,21 @@ theorem mem_vars {conj : FunctionFreeConjunction sig} {v : sig.V} :
     v ∈ conj.vars ↔ ∃ f, f ∈ conj ∧ (VarOrConst.var v) ∈ f.terms := by
   unfold vars; simp
 
-/-- Different from the definition, we can also say that a constant is in `constants` iff there is a `FunctionFreeAtom` in the conjunction that features the constant as a term. -/
+/-- Different from the definition, we can also say that a variable is in `variables` iff it occurs as a term. -/
+theorem mem_vars' {conj : FunctionFreeConjunction sig} {v : sig.V} :
+    v ∈ conj.vars ↔ (VarOrConst.var v) ∈ conj.terms := by
+  unfold vars terms; simp
+
+/-- Different from the definition, we can also say that a constant is in `consts` iff there is a `FunctionFreeAtom` in the conjunction that features the constant as a term. -/
 @[simp, grind =]
 theorem mem_consts {conj : FunctionFreeConjunction sig} {c : sig.C} :
     c ∈ conj.consts ↔ ∃ f, f ∈ conj ∧ (VarOrConst.const c) ∈ f.terms := by
   unfold consts; simp
+
+/-- Different from the definition, we can also say that a constant is in `consts` iff it occurs as a term. -/
+theorem mem_consts' {conj : FunctionFreeConjunction sig} {c : sig.C} :
+    c ∈ conj.consts ↔ (VarOrConst.const c) ∈ conj.terms := by
+  unfold consts terms; simp
 
 end FunctionFreeConjunction
 

@@ -31,14 +31,14 @@ def modelsDb (fs : FactSet sig) (db : Database sig) : Prop :=
 def modelsRule (fs : FactSet sig) (rule : Rule sig) : Prop :=
   ∀ (s : GroundSubstitution sig),
     ((s.apply_function_free_conj rule.body).toSet ⊆ fs) ->
-      ∃ (i : Fin rule.head.length) (s' : GroundSubstitution sig),
+      ∃ (i : Nat) (lt : i < rule.head.length) (s' : GroundSubstitution sig),
         (∀ v, v ∈ rule.frontier → s' v = s v) ∧
-        ((s'.apply_function_free_conj (rule.head.get i)).toSet ⊆ fs)
+        ((s'.apply_function_free_conj (rule.head[i])).toSet ⊆ fs)
 
 /-- A `FactSet` models a `RuleSet` if it models each rule. -/
 @[expose]
 def modelsRules (fs : FactSet sig) (rules : RuleSet sig) : Prop :=
-  ∀ r, r ∈ rules.rules -> fs.modelsRule r
+  ∀ r, r ∈ rules -> fs.modelsRule r
 
 /-- A `FactSet` models a `KnowledgeBase` if it models both the database and the rule set. -/
 @[expose]

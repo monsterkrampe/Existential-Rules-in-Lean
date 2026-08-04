@@ -88,7 +88,7 @@ theorem RuleSet.mfaConstantMapping_id_on_rs_constants (rs : RuleSet sig) (specia
   simp [mfaConstantMapping, c_mem]
 
 /-- The `mfaConstantMapping` is even the id on all rule atoms. (Constant mappings leave variables untouched.) -/
-theorem RuleSet.mfaConstantMapping_id_on_atom_from_rule (rs : RuleSet sig) (special_const : sig.C) (r : Rule sig) (r_mem : r ∈ rs.rules) : ∀ a, a ∈ r.body ++ r.head.flatten -> (rs.mfaConstantMapping special_const).apply_function_free_atom a = a := by
+theorem RuleSet.mfaConstantMapping_id_on_atom_from_rule (rs : RuleSet sig) (special_const : sig.C) (r : Rule sig) (r_mem : r ∈ rs) : ∀ a, a ∈ r.body ++ r.head.flatten -> (rs.mfaConstantMapping special_const).apply_function_free_atom a = a := by
   intro a a_mem
   apply TermMapping.apply_generalized_atom_eq_self_of_id_on_terms
   intro voc voc_mem
@@ -145,29 +145,29 @@ The necessesity for doing this comes from `DeterministicSkolemObsolescence.block
 -/
 def MfaObsolescenceCondition.blocks_obs (mfa_obs : MfaObsolescenceCondition sig) (obs : ObsolescenceCondition sig) (rs : RuleSet sig) (special_const : sig.C) : Prop :=
   ∀ {db : Database sig} (cb : RegularChaseBranch obs ⟨db, rs⟩) (node : cb.Node) (trg : RTrigger obs rs) (fs : FactSet sig),
-  (∃ (i : Fin trg.val.mapped_head.length), ¬ ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact_set trg.val.mapped_head[i.val].toSet) ⊆ fs) ->
+  (∃ (i : Nat) (lt : i < trg.val.rule.head.length), ¬ ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact_set (trg.val.mapped_head[i]'(by grind)).toSet) ⊆ fs) ->
   (mfa_obs.cond { rule := trg.val.rule, subs := (rs.mfaConstantMapping special_const).toConstantMapping.apply_ground_term ∘ trg.val.subs } fs) ->
   trg.val.loaded node.val.facts -> obs.cond trg.val node.val.facts
 
 /-- A trigger fulfills `DeterministicSkolemObsolescence` if each of its derived heads is already in the fact set in question. Note that this captures the idea of replacing disjunctions with conjunctions, which is part of MFA. We do this nowhere explicitely, so disjunctions always remain in rules, but we implicitly treat them like conjunctions when necessary (like here). -/
 def DeterministicSkolemObsolescence (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] : MfaObsolescenceCondition sig := {
-  cond := fun (trg : PreTrigger sig) (F : FactSet sig) => trg.mapped_head.length > 0 ∧ ∀ i : Fin trg.mapped_head.length, trg.mapped_head[i.val].toSet ⊆ F
+  cond := fun (trg : PreTrigger sig) (fs : FactSet sig) => trg.rule.head.length > 0 ∧ ∀ (i : Nat) (lt : i < trg.rule.head.length), (trg.mapped_head[i]'(by grind)).toSet ⊆ fs
   monotone := by
     intro trg A B A_sub_B
     simp only [and_imp]
     intro length_gt head_sub_A
     constructor
     . exact length_gt
-    . intro i
+    . intro i lt
       apply Set.subset_trans
-      . apply head_sub_A
+      . apply head_sub_A; exact lt
       . apply A_sub_B
 }
 
 /-- `DeterministicSkolemObsolescence` has the `blocks_obs` property for each `ObsolescenceCondition`. -/
 theorem DeterministicSkolemObsolescence.blocks_each_obs (obs : ObsolescenceCondition sig) (special_const : sig.C) : ∀ rs, (DeterministicSkolemObsolescence sig).blocks_obs obs rs special_const := by
   intro rs _ _ _ trg fs f_not_in_prev cond
-  rcases f_not_in_prev with ⟨disj_index, f_not_in_prev⟩
+  rcases f_not_in_prev with ⟨i, lt, f_not_in_prev⟩
   apply False.elim
   apply f_not_in_prev
 
@@ -176,22 +176,16 @@ theorem DeterministicSkolemObsolescence.blocks_each_obs (obs : ObsolescenceCondi
   rcases f'_mem with ⟨f, f_mem, f'_mem⟩
 
   unfold DeterministicSkolemObsolescence at cond
-  apply cond.right ⟨disj_index.val, by
-    have isLt := disj_index.isLt
-    unfold PreTrigger.mapped_head
-    simp only [List.length_map, List.length_zipIdx]
-    simp only [PreTrigger.length_mapped_head] at isLt
-    exact isLt
-  ⟩
+  apply cond.right i lt
 
   rw [List.mem_toSet]
   unfold PreTrigger.mapped_head
   simp
   unfold PreTrigger.mapped_head at f_mem
-  rw [List.mem_toSet, List.getElem_map, List.mem_map] at f_mem
+  rw [List.mem_toSet, List.getElem_map, List.getElem_attach, List.mem_map] at f_mem
   rcases f_mem with ⟨a, a_mem, f_eq⟩
-  rw [List.getElem_zipIdx] at a_mem
-  rw [List.getElem_zipIdx] at f_eq
+  simp only [List.getElem_zipIdx] at a_mem
+  simp only [List.getElem_zipIdx] at f_eq
   exists (rs.mfaConstantMapping special_const).apply_function_free_atom a
   constructor
   . rw [rs.mfaConstantMapping_id_on_atom_from_rule _ trg.val.rule trg.property]
@@ -210,9 +204,9 @@ theorem DeterministicSkolemObsolescence.blocks_each_obs (obs : ObsolescenceCondi
     cases voc with
     | var v =>
       simp only [Function.comp_apply, StrictConstantMapping.apply_var_or_const]
-      cases Decidable.em (v ∈ trg.val.rule.frontier) with
-      | inl v_mem => simp [v_mem]
-      | inr v_mem => simp [v_mem, PreTrigger.functional_term_for_var]
+      cases Decidable.em (v ∈ trg.val.rule.existential_vars_for_head_disjunct i lt) with
+      | inl v_mem => simp [v_mem, PreTrigger.functional_term_for_var]
+      | inr v_mem => simp [v_mem]
     | const c => simp [StrictConstantMapping.apply_var_or_const, PreTrigger.apply_to_var_or_const_for_const, ConstantMapping.apply_ground_term_constant, StrictConstantMapping.toConstantMapping]
 
 /-- A trigger is blocked for its own backtracking if it is obsolete for its own backtracking. Note that the backtracking always requires us to prove that Skolem function terms are well-formed, which is what the additional conditions are for. -/
@@ -220,103 +214,61 @@ def Trigger.blocked_for_backtracking
     [GetFreshInhabitant sig.C]
     [Inhabited sig.C]
     {obs : LaxObsolescenceCondition sig}
-    (trg : Trigger obs)
-    (rl : RuleList sig) : Prop :=
-  (trg_ruleIds_valid : trg.skolem_ruleIds_valid rl)
-  -> (trg_disjIdx_valid : trg.skolem_disjIdx_valid rl trg_ruleIds_valid)
-  -> (trg_rule_arity_valid : trg.skolem_rule_arity_valid rl trg_ruleIds_valid)
-  -> (obs.cond trg (trg.backtrackFacts rl trg_ruleIds_valid trg_disjIdx_valid trg_rule_arity_valid).fst.toSet)
+    (trg : Trigger obs) : Prop :=
+  (obs.cond trg trg.backtrackFacts.fst.toSet)
 
 /-- A trigger fulfills `BlockingObsolescence` if the trigger with renamed-apart constants is blocked for its own backtracking. Note that `BlockingObsolescence` only depends on the trigger. The passed fact set is ignored. -/
-def BlockingObsolescence [GetFreshInhabitant sig.C] [Inhabited sig.C] (obs : ObsolescenceCondition sig) (rs : RuleSet sig) : MfaObsolescenceCondition sig := {
+def BlockingObsolescence [GetFreshInhabitant sig.C] [Inhabited sig.C] (obs : ObsolescenceCondition sig) : MfaObsolescenceCondition sig := {
   cond := fun (trg : PreTrigger sig) _ =>
-    ∀ (rl : RuleList sig), (∀ r, r ∈ rl.rules ↔ r ∈ rs.rules) ->
-      let trg' := trg.rename_constants_apart (rl.rules.flatMap Rule.constants)
-      let trg'' : Trigger obs := { rule := trg'.rule, subs := trg'.subs }
-      trg''.blocked_for_backtracking rl
+    let trg' := trg.rename_constants_apart (trg.affected_rules_for_backtracking.flatMap Rule.constants)
+    let trg'' : Trigger obs := { rule := trg'.rule, subs := trg'.subs }
+    trg''.blocked_for_backtracking
   monotone := by intro _ _ _ _ h; exact h -- trivial since the condition does not depend on the passed fact set
 }
 
 /-- `BlockingObsolescence` has the `blocks_obs` condition for the `ObsolescenceCondition` it was defined for. -/
 theorem BlockingObsolescence.blocks_corresponding_obs [GetFreshInhabitant sig.C] [Inhabited sig.C]
     (obs : ObsolescenceCondition sig) (obs_propagates_under_const_mapping : obs.propagates_under_constant_mapping)
-    (rs : RuleSet sig) (rs_finite : rs.rules.finite) (special_const : sig.C) :
-    (BlockingObsolescence obs rs).blocks_obs obs rs special_const := by
+    (special_const : sig.C) :
+    (BlockingObsolescence obs).blocks_obs obs rs special_const := by
   intro db cb node trg _ _ blocked loaded
   simp only [BlockingObsolescence] at blocked
 
-  rcases rs_finite with ⟨rl, rl_nodup, rl_rs_eq⟩
-  let rl : RuleList sig := ⟨rl, by intro r1 r2 h; apply rs.id_unique; rw [← rl_rs_eq]; rw [← rl_rs_eq]; exact h⟩
-
-  have blocked : trg.val.blocked_for_backtracking rl := by
-    -- should follow from original blocked and should be its own result
-    -- it also relates to one theorem/lemma from the DMFA paper if I remember correctly
-    -- not sure what to do about the rule adjustment though, maybe it just works?
-    intro trg_ruleIds_valid trg_disjIdx_valid trg_rule_arity_valid
-
+  have blocked : trg.val.blocked_for_backtracking := by
     let trg_with_constant_mapping_applied_but_not_renamed_apart : PreTrigger sig := { rule := trg.val.rule, subs := (rs.mfaConstantMapping special_const).toConstantMapping.apply_ground_term ∘ trg.val.subs }
-
-    specialize blocked rl rl_rs_eq
-    specialize blocked (by
-      apply PreTrigger.rename_constants_apart_preserves_ruleId_validity
-      apply PreTrigger.compose_strict_constant_mapping_preserves_ruleId_validity
-      exact trg_ruleIds_valid
-    )
-    specialize blocked (by
-      apply PreTrigger.rename_constants_apart_preserves_disjIdx_validity
-      apply PreTrigger.compose_strict_constant_mapping_preserves_disjIdx_validity
-      exact trg_disjIdx_valid
-    )
-    specialize blocked (by
-      apply PreTrigger.rename_constants_apart_preserves_rule_arity_validity
-      apply PreTrigger.compose_strict_constant_mapping_preserves_rule_arity_validity
-      exact trg_rule_arity_valid
-    )
-    simp only at blocked
+    have affected_rules_eq : trg.val.affected_rules_for_backtracking = trg_with_constant_mapping_applied_but_not_renamed_apart.affected_rules_for_backtracking := trg.val.affected_rules_eq_of_composing_with_subs _
 
     have exists_strict_constant_mapping_reversing_renaming :=
       trg_with_constant_mapping_applied_but_not_renamed_apart.exists_strict_constant_mapping_to_reverse_renaming
         trg.val.toPreTrigger
         (by apply PreTrigger.same_skeleton_symm; apply PreTrigger.same_skeleton_under_strict_constant_mapping)
-        (rl.rules.flatMap Rule.constants)
+        (trg.val.affected_rules_for_backtracking.flatMap Rule.constants)
     rcases exists_strict_constant_mapping_reversing_renaming with ⟨reverse_renaming_mapping, reverse_renaming_mapping_properties⟩
 
+    unfold Trigger.blocked_for_backtracking
     rw [← obs.preserved_under_equiv (PreTrigger.equiv_of_strong_equiv reverse_renaming_mapping_properties.left)]
-    rw [PreTrigger.backtrackFacts_eq_of_strong_equiv _ _ _ _ _ _ (PreTrigger.strong_equiv_symm reverse_renaming_mapping_properties.left)]
+    rw [PreTrigger.backtrackFacts_eq_of_strong_equiv _ _ (PreTrigger.strong_equiv_symm reverse_renaming_mapping_properties.left)]
 
     have exists_fresh_constant_remapping_such_that_backtrackings_subsume_each_other := PreTrigger.backtracking_under_constant_mapping_subset_of_composing_with_subs
-      rl
-      (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (rl.rules.flatMap Rule.constants))
-      (by
-        apply PreTrigger.rename_constants_apart_preserves_ruleId_validity
-        apply PreTrigger.compose_strict_constant_mapping_preserves_ruleId_validity
-        exact trg_ruleIds_valid
-      )
-      (by
-        apply PreTrigger.rename_constants_apart_preserves_disjIdx_validity
-        apply PreTrigger.compose_strict_constant_mapping_preserves_disjIdx_validity
-        exact trg_disjIdx_valid
-      )
-      (by
-        apply PreTrigger.rename_constants_apart_preserves_rule_arity_validity
-        apply PreTrigger.compose_strict_constant_mapping_preserves_rule_arity_validity
-        exact trg_rule_arity_valid
-      )
-      (by rw [rl_rs_eq]; exact trg.property)
+      (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (trg.val.affected_rules_for_backtracking.flatMap Rule.constants))
       reverse_renaming_mapping
       (by
         intro d d_mem
         apply reverse_renaming_mapping_properties.right
         intro contra
-        apply trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart_constants_fresh (rl.rules.flatMap Rule.constants) d contra
-        exact d_mem
+        apply trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart_constants_fresh _ d contra
+        rw [affected_rules_eq]
+        suffices (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (trg.val.affected_rules_for_backtracking.flatMap Rule.constants)).affected_rules_for_backtracking = trg_with_constant_mapping_applied_but_not_renamed_apart.affected_rules_for_backtracking by
+          rw [← this]; exact d_mem
+        apply PreTrigger.affected_rules_eq_of_same_skeleton
+        apply PreTrigger.same_skeleton_of_rename_constants_apart
       )
 
     rcases exists_fresh_constant_remapping_such_that_backtrackings_subsume_each_other with ⟨fresh_constant_remapping, fresh_constant_remapping_id, fresh_constant_remapping_subsumes, _⟩
 
     apply obs.monotone fresh_constant_remapping_subsumes
 
-    have equiv : { rule := trg_with_constant_mapping_applied_but_not_renamed_apart.rule, subs := reverse_renaming_mapping.toConstantMapping.apply_ground_term ∘ (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (rl.rules.flatMap Rule.constants)).subs : PreTrigger sig }.equiv { rule := trg_with_constant_mapping_applied_but_not_renamed_apart.rule, subs := (StrictConstantMapping.toConstantMapping (fun c => if c ∈ (PreTrigger.backtrackFacts rl (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (rl.rules.flatMap Rule.constants)) (by apply PreTrigger.rename_constants_apart_preserves_ruleId_validity; apply PreTrigger.compose_strict_constant_mapping_preserves_ruleId_validity; exact trg_ruleIds_valid) (by apply PreTrigger.rename_constants_apart_preserves_disjIdx_validity; apply PreTrigger.compose_strict_constant_mapping_preserves_disjIdx_validity; exact trg_disjIdx_valid) (by apply PreTrigger.rename_constants_apart_preserves_rule_arity_validity; apply PreTrigger.compose_strict_constant_mapping_preserves_rule_arity_validity; exact trg_rule_arity_valid)).snd then fresh_constant_remapping c else reverse_renaming_mapping c)).apply_ground_term ∘ (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (rl.rules.flatMap Rule.constants)).subs : PreTrigger sig } := by
+    have equiv : { rule := trg_with_constant_mapping_applied_but_not_renamed_apart.rule, subs := reverse_renaming_mapping.toConstantMapping.apply_ground_term ∘ (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (trg.val.affected_rules_for_backtracking.flatMap Rule.constants)).subs : PreTrigger sig }.equiv { rule := trg_with_constant_mapping_applied_but_not_renamed_apart.rule, subs := (StrictConstantMapping.toConstantMapping (fun c => if c ∈ (PreTrigger.backtrackFacts (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (trg.val.affected_rules_for_backtracking.flatMap Rule.constants))).snd then fresh_constant_remapping c else reverse_renaming_mapping c)).apply_ground_term ∘ (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (trg.val.affected_rules_for_backtracking.flatMap Rule.constants)).subs : PreTrigger sig } := by
       simp only [PreTrigger.equiv, true_and]
       intro v v_mem
       simp only [Function.comp_apply]
@@ -328,18 +280,17 @@ theorem BlockingObsolescence.blocks_corresponding_obs [GetFreshInhabitant sig.C]
       case isTrue heq =>
         apply False.elim
         apply GroundTerm.backtrackFacts_list_fresh_constants_not_forbidden d heq
-        rw [List.mem_append]
-        apply Or.inl
+        apply List.mem_append_left
         rcases FunctionFreeConjunction.mem_vars.mp (Rule.frontier_subset_vars_body v_mem) with ⟨a, a_mem, v_mem⟩
         rw [List.mem_flatMap]
-        exists (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (rl.rules.flatMap Rule.constants)).subs.apply_function_free_atom a
+        exists (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (trg.val.affected_rules_for_backtracking.flatMap Rule.constants)).subs.apply_function_free_atom a
         constructor
         . simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list]
           rw [List.mem_map]
           exists a
         . unfold Fact.constants
           rw [List.mem_flatMap]
-          exists (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (rl.rules.flatMap Rule.constants)).subs.apply_var_or_const (.var v)
+          exists (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (trg.val.affected_rules_for_backtracking.flatMap Rule.constants)).subs.apply_var_or_const (.var v)
           simp only [GroundSubstitution.apply_function_free_atom, TermMapping.apply_generalized_atom, GroundSubstitution.apply_var_or_const]
           constructor
           . rw [List.mem_map]
@@ -348,7 +299,7 @@ theorem BlockingObsolescence.blocks_corresponding_obs [GetFreshInhabitant sig.C]
 
     rw [obs.preserved_under_equiv equiv]
 
-    apply obs_propagates_under_const_mapping (trg := trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (rl.rules.flatMap Rule.constants))
+    apply obs_propagates_under_const_mapping (trg := trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (trg.val.affected_rules_for_backtracking.flatMap Rule.constants))
     . intro c c_mem
       simp only [StrictConstantMapping.toConstantMapping, Function.comp_apply, GroundTerm.const, Subtype.mk.injEq, FiniteTree.leaf.injEq]
       rw [fresh_constant_remapping_id]
@@ -357,47 +308,39 @@ theorem BlockingObsolescence.blocks_corresponding_obs [GetFreshInhabitant sig.C]
         case a.isFalse heq =>
           apply reverse_renaming_mapping_properties.right
           intro contra
-          apply trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart_constants_fresh (rl.rules.flatMap Rule.constants) c
+          apply trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart_constants_fresh (trg.val.affected_rules_for_backtracking.flatMap Rule.constants) c
           . exact contra
           . rw [List.mem_flatMap]
-            exists (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (rl.rules.flatMap Rule.constants)).rule
+            exists (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (trg.val.affected_rules_for_backtracking.flatMap Rule.constants)).rule
             constructor
-            . rw [rl_rs_eq]
-              exact trg.property
+            . apply List.mem_cons_self
             . apply Rule.head_constants_subset_constants
               exact c_mem
       . intro contra
         simp only [PreTrigger.backtrackFacts] at contra
         apply GroundTerm.backtrackFacts_list_fresh_constants_not_forbidden c contra
-        rw [List.mem_append]
-        apply Or.inr
-        rw [List.mem_flatMap]
-        exists trg.val.rule
-        constructor
-        . rw [rl_rs_eq]; exact trg.property
-        . apply Rule.head_constants_subset_constants
-          exact c_mem
-    . exact blocked
+        apply List.mem_append_right
+        unfold PreTrigger.affected_rules_for_backtracking
+        rw [List.flatMap_cons]
+        apply List.mem_append_left
+        apply Rule.head_constants_subset_constants
+        exact c_mem
+    . rw [affected_rules_eq]
+      exact blocked
 
   simp only [Trigger.blocked_for_backtracking] at blocked
 
-  specialize blocked (by apply cb.trigger_ruleIds_valid_of_loaded node.property rl rl_rs_eq; exact loaded)
-  specialize blocked (by apply cb.trigger_disjIdx_valid_of_loaded node.property rl rl_rs_eq; exact loaded)
-  specialize blocked (by apply cb.trigger_rule_arity_valid_of_loaded node.property rl rl_rs_eq; exact loaded)
-
-  rcases ChaseBranch.backtracking_of_loaded_trigger_in_node node.property rl rl_rs_eq trg.val loaded with ⟨g, g_h⟩
+  rcases ChaseBranch.backtracking_of_loaded_trigger_in_node node.property trg.val loaded with ⟨g, g_h⟩
 
   have blocked := obs_propagates_under_const_mapping
     (g := g)
     (by
       intro c c_mem
       apply g_h.right
-      apply Or.inr
-      apply RuleSet.head_constants_subset_constants
-      exists trg.val.rule
-      constructor
-      . exact trg.property
-      . exact c_mem
+      apply List.mem_append_right
+      unfold PreTrigger.affected_rules_for_backtracking; rw [List.flatMap_cons]; apply List.mem_append_left
+      apply Rule.head_constants_subset_constants
+      exact c_mem
     )
     blocked
 
@@ -411,9 +354,9 @@ theorem BlockingObsolescence.blocks_corresponding_obs [GetFreshInhabitant sig.C]
       apply ConstantMapping.apply_ground_term_eq_self_of_id_on_constants
       intro d d_mem
       rw [g_h.right]
-      apply Or.inl
+      apply List.mem_append_left
       rcases FunctionFreeConjunction.mem_vars.mp (Rule.frontier_subset_vars_body v_mem) with ⟨a, a_mem, v_mem'⟩
-      rw [List.mem_toSet, List.mem_flatMap]
+      rw [List.mem_flatMap]
       exists trg.val.subs.apply_function_free_atom a
       constructor
       . simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj]
@@ -518,9 +461,9 @@ theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
               exact (cd.active_trigger_origin_next next_mem).left
             . intro contra
               apply not_mem
-              apply contra.right origin.snd
+              apply contra.right origin.snd.val origin.snd.isLt
               exact f_mem
-          . exists origin.snd; rw [List.mem_toSet] at f_mem; exact f_mem
+          . exists origin.snd.val, origin.snd.isLt; rw [List.mem_toSet] at f_mem; exact f_mem
   . have goal : ∀ elem : (parallelDeterminizedChase kb (DeterministicSkolemObsolescence sig)).Element, elem.val ⊆ cb.result := by
       intro elem
       induction elem using parallelDeterminizedDerivation_mem_rec with
@@ -571,15 +514,13 @@ theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
           have fair := RegularChaseDerivation.fairness_prec (cd := cb.toChaseDerivation) ⟨{ rule := trg.val.rule, subs:= trg.val.subs }, trg.property⟩
           rcases fair with ⟨fairness_node, fair⟩
 
-          rcases f_mem with ⟨i, f_mem⟩
-          have i_zero : i.val = 0 := by
-            have isLt := i.isLt
-            simp only [PreTrigger.length_mapped_head] at isLt
+          rcases f_mem with ⟨i, lt, f_mem⟩
+          have i_zero : i = 0 := by
             specialize det _ trg.property
             unfold Rule.isDeterministic at det
             rw [decide_eq_true_iff] at det
-            rw [det, Nat.lt_one_iff] at isLt
-            exact isLt
+            rw [det, Nat.lt_one_iff] at lt
+            exact lt
           simp only [i_zero] at f_mem
 
           cases cb.predecessor_total ⟨node, node_mem⟩ fairness_node with
@@ -594,16 +535,14 @@ theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
               apply trg_loaded
               exact f_mem
             specialize fair trg_loaded
-            rcases fair with ⟨disj_index, fair⟩
+            rcases fair with ⟨j, lt2, fair⟩
             apply fair
-            have disj_index_zero : disj_index.val = 0 := by
-              have isLt := disj_index.isLt
-              simp only [PreTrigger.length_mapped_head] at isLt
+            have disj_index_zero : j = 0 := by
               specialize det _ trg.property
               unfold Rule.isDeterministic at det
               rw [decide_eq_true_iff] at det
-              rw [det, Nat.lt_one_iff] at isLt
-              exact isLt
+              rw [det, Nat.lt_one_iff] at lt2
+              exact lt2
             simp only [List.mem_toSet, disj_index_zero]
             exact f_mem
           | inr prec =>
@@ -612,16 +551,14 @@ theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
             unfold Trigger.active at fair
             simp only [not_and, Classical.not_not] at fair
             specialize fair trg_loaded
-            rcases fair with ⟨disj_index, fair⟩
+            rcases fair with ⟨j, lt2, fair⟩
             apply fair
-            have disj_index_zero : disj_index.val = 0 := by
-              have isLt := disj_index.isLt
-              simp only [PreTrigger.length_mapped_head] at isLt
+            have disj_index_zero : j = 0 := by
               specialize det _ trg.property
               unfold Rule.isDeterministic at det
               rw [decide_eq_true_iff] at det
-              rw [det, Nat.lt_one_iff] at isLt
-              exact isLt
+              rw [det, Nat.lt_one_iff] at lt2
+              exact lt2
             simp only [List.mem_toSet, disj_index_zero]
             exact f_mem
     rintro ⟨fs, fs_mem, h⟩
@@ -633,7 +570,7 @@ end KnowledgeBase
 namespace RuleSet
 
 /-- The MFA-like conditions all start on a special database, called the "critical instance". We define this here. It consists of all facts that can be build from predicates in the rule set and constants from the ruleset plus a "special constant". Intuitively, this generalizes all possible databases. -/
-def criticalInstance (rs : RuleSet sig) (finite : rs.rules.finite) (special_const : sig.C) : Database sig :=
+def criticalInstance (rs : RuleSet sig) (finite : rs.finite) (special_const : sig.C) : Database sig :=
   ⟨fun f => f.predicate ∈ rs.predicates ∧ ∀ t, t ∈ f.terms -> (t = special_const ∨ t ∈ rs.constants), by
     -- TODO: this is very close to part of the proof of FactSet.finite_of_preds_finite_of_terms_finite
     -- but we cannot use it since our set is not Set (Fact sig) but Set (FunctionFreeFact sig)...
@@ -687,13 +624,13 @@ def criticalInstance (rs : RuleSet sig) (finite : rs.rules.finite) (special_cons
   ⟩
 
 /-- The `KnowledgeBase` for the MFA-like checks consists of the rule set in question and the `criticalInstance`. -/
-def mfaKb (rs : RuleSet sig) (finite : rs.rules.finite) (special_const : sig.C) : KnowledgeBase sig := {
+def mfaKb (rs : RuleSet sig) (finite : rs.finite) (special_const : sig.C) : KnowledgeBase sig := {
   rules := rs
   db := criticalInstance rs finite special_const
 }
 
 /-- Constants in the `mfaKb` are either the special constants or they come from the rule set. -/
-theorem mfaKb_db_constants (rs : RuleSet sig) (finite : rs.rules.finite) (special_const : sig.C) :
+theorem mfaKb_db_constants (rs : RuleSet sig) (finite : rs.finite) (special_const : sig.C) :
     ∀ c, c ∈ (rs.mfaKb finite special_const).db.constants.val -> (c = special_const ∨ c ∈ rs.constants) := by
   intro c c_mem
   unfold mfaKb at c_mem
@@ -705,12 +642,12 @@ theorem mfaKb_db_constants (rs : RuleSet sig) (finite : rs.rules.finite) (specia
   exact c_mem
 
 /-- The fact set computed in the MFA-like checks is the parallel determinized chase result (defined in a separete file) for the `mfaKb`. -/
-def mfaSet (rs : RuleSet sig) (finite : rs.rules.finite) (special_const : sig.C) (obs : MfaObsolescenceCondition sig) : FactSet sig :=
+def mfaSet (rs : RuleSet sig) (finite : rs.finite) (special_const : sig.C) (obs : MfaObsolescenceCondition sig) : FactSet sig :=
   parallelDeterminizedChase_result (rs.mfaKb finite special_const) obs
 
 /-- We can map every possible `ChaseBranch` into the `mfaSet` by replacing all (non-ruleset) constants by the special constant. At least this is the intuition for this behemoth of a theorem statement. -/
 theorem mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_predicates_not_from_rs
-    (rs : RuleSet sig) (finite : rs.rules.finite)
+    (rs : RuleSet sig) (finite : rs.finite)
     (special_const : sig.C) (mfa_obs : MfaObsolescenceCondition sig) :
     ∀ {db : Database sig} {obs : ObsolescenceCondition sig}, (mfa_obs.blocks_obs obs rs special_const) ->
     ∀ (cb : RegularChaseBranch obs { rules := rs, db := db }) (node : cb.Node),
@@ -907,7 +844,7 @@ theorem mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_pred
             . exact f'_mem
         . intro contra
           have contra := blocks cb ⟨cd.head, cd.mem_of_mem_suffix suffix _ cd.head_mem⟩ trg _ (by
-            exists disj_index
+            exists disj_index.val, disj_index.isLt
             intro contra
             apply f_not_in_prev
             apply contra
@@ -923,16 +860,9 @@ theorem mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_pred
         simp at f_mem
         rcases f_mem with ⟨a, a_mem, f_eq⟩
 
-        let adjusted_disj_index : Fin adjusted_trg.val.mapped_head.length := ⟨disj_index.val, by
-          have isLt := disj_index.isLt
-          simp only [PreTrigger.length_mapped_head]
-          unfold adjusted_trg
-          simp only [PreTrigger.length_mapped_head] at isLt
-          exact isLt
-        ⟩
-        exists adjusted_disj_index
+        exists disj_index.val, disj_index.isLt
         unfold PreTrigger.mapped_head
-        simp
+        simp only [List.getElem_map, List.getElem_attach, List.getElem_zipIdx, Nat.zero_add, List.mem_map]
 
         exists (rs.mfaConstantMapping special_const).apply_function_free_atom a
         constructor
@@ -954,7 +884,7 @@ theorem mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_pred
             rw [List.mem_flatMap]
             constructor
             . exact trg.property
-            . exists trg.val.rule.head[disj_index.val]'(by rw [← PreTrigger.length_mapped_head]; exact disj_index.isLt)
+            . exists trg.val.rule.head[disj_index.val]
               constructor
               . apply List.getElem_mem
               . unfold FunctionFreeConjunction.consts
@@ -966,7 +896,7 @@ theorem mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_pred
             apply List.getElem_mem
 
 /-- We can extend the result above to the whole result of the `ChaseBranch`. -/
-theorem filtered_cb_result_subset_mfaSet (rs : RuleSet sig) (finite : rs.rules.finite) (special_const : sig.C) (mfa_obs : MfaObsolescenceCondition sig) :
+theorem filtered_cb_result_subset_mfaSet (rs : RuleSet sig) (finite : rs.finite) (special_const : sig.C) (mfa_obs : MfaObsolescenceCondition sig) :
     ∀ {db : Database sig} {obs : ObsolescenceCondition sig}, (mfa_obs.blocks_obs obs rs special_const) ->
     ∀ (cb : RegularChaseBranch obs { rules := rs, db := db }), ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact_set (fun f => f.predicate ∈ rs.predicates ∧ f ∈ cb.result)) ⊆ (rs.mfaSet finite special_const mfa_obs) := by
   intro db obs blocks cb f f_mem
@@ -980,7 +910,7 @@ theorem filtered_cb_result_subset_mfaSet (rs : RuleSet sig) (finite : rs.rules.f
   . exact f'_mem
 
 /-- If the `mfaSet` is finite, then the rule set terminates. The argument is that if the `mfaSet` is finite and every `ChaseBranch` can be embedded into this set, then each of these `ChaseBranch`es also needs to be finite. This is still a bit involved since we need to show that only finitely many terms can collapse to the same on in the `mfaSet`. -/
-theorem terminates_of_mfaSet_finite [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.rules.finite) (mfa_obs : MfaObsolescenceCondition sig) :
+theorem terminates_of_mfaSet_finite [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.finite) (mfa_obs : MfaObsolescenceCondition sig) :
     ∀ {obs : ObsolescenceCondition sig}, (mfa_obs.blocks_obs obs rs Inhabited.default) -> (rs.mfaSet rs_finite Inhabited.default mfa_obs).finite -> rs.terminates obs (RegularChaseNode obs rs) := by
   intro obs blocks mfa_finite
   unfold RuleSet.terminates
@@ -1077,7 +1007,7 @@ theorem terminates_of_mfaSet_finite [Inhabited sig.C] (rs : RuleSet sig) (rs_fin
               rw [List.mem_append]
               apply Or.inr
               rw [List.mem_flatMap]
-              exists origin.fst.val.rule.head[origin.snd.val]'(by rw [← PreTrigger.length_mapped_head]; exact origin.snd.isLt)
+              exists origin.fst.val.rule.head[origin.snd.val]
               simp only [List.getElem_mem, true_and]
               unfold FunctionFreeConjunction.predicates
               rw [List.mem_map]
@@ -1099,11 +1029,11 @@ theorem terminates_of_mfaSet_finite [Inhabited sig.C] (rs : RuleSet sig) (rs_fin
   . exact res_filtered_finite
 
 /-- A rule set `isMfa` if its `mfaSet` does not contain a cyclic term. -/
-def isMfa [Inhabited sig.C] (rs : RuleSet sig) (finite : rs.rules.finite) (mfa_obs : MfaObsolescenceCondition sig) : Prop :=
+def isMfa [Inhabited sig.C] (rs : RuleSet sig) (finite : rs.finite) (mfa_obs : MfaObsolescenceCondition sig) : Prop :=
   ∀ t, t ∈ (rs.mfaSet finite default mfa_obs).terms -> ¬ PreGroundTerm.cyclic t.val
 
 /-- A rule set terminates if it `isMfa`. What mainly remains to be shown here is that only finitely many terms are non-cyclic. -/
-theorem terminates_of_isMfa [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.rules.finite) (mfa_obs : MfaObsolescenceCondition sig) :
+theorem terminates_of_isMfa [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.finite) (mfa_obs : MfaObsolescenceCondition sig) :
     ∀ {obs : ObsolescenceCondition sig}, (mfa_obs.blocks_obs obs rs Inhabited.default) ->
       rs.isMfa rs_finite mfa_obs -> rs.terminates obs (RegularChaseNode obs rs) := by
   intro obs blocks isMfa
@@ -1208,16 +1138,16 @@ theorem terminates_of_isMfa [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs
     . exact this
 
 /-- MFA correctness - If a rule set is MFA (`isMfa` with `DeterministicSkolemObsolescence`), then it terminates. -/
-theorem terminates_of_isMfa_with_DeterministicSkolemObsolescence [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.rules.finite) :
+theorem terminates_of_isMfa_with_DeterministicSkolemObsolescence [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.finite) :
     rs.isMfa rs_finite (DeterministicSkolemObsolescence sig) -> ∀ obs, rs.terminates obs (RegularChaseNode obs rs) := by
   intro isMfa obs
   apply rs.terminates_of_isMfa rs_finite (DeterministicSkolemObsolescence sig) (DeterministicSkolemObsolescence.blocks_each_obs obs default rs)
   exact isMfa
 
 /-- DMFA/RMFA correctness - If a rule set is DMFA/RMFA or anything in between (`isMfa` with `BlockingObsolescence`), then it terminates for the respective `ObsolescenceCondition`. -/
-theorem terminates_of_isMfa_with_BlockingObsolescence [GetFreshInhabitant sig.C] [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.rules.finite) (obs : ObsolescenceCondition sig) (obs_propagates_under_const_mapping : obs.propagates_under_constant_mapping) :
-    rs.isMfa rs_finite (BlockingObsolescence obs rs) -> rs.terminates obs (RegularChaseNode obs rs) :=
-  rs.terminates_of_isMfa rs_finite (BlockingObsolescence obs rs) (BlockingObsolescence.blocks_corresponding_obs obs obs_propagates_under_const_mapping rs rs_finite default)
+theorem terminates_of_isMfa_with_BlockingObsolescence [GetFreshInhabitant sig.C] [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.finite) (obs : ObsolescenceCondition sig) (obs_propagates_under_const_mapping : obs.propagates_under_constant_mapping) :
+    rs.isMfa rs_finite (BlockingObsolescence obs) -> rs.terminates obs (RegularChaseNode obs rs) :=
+  rs.terminates_of_isMfa rs_finite (BlockingObsolescence obs) (BlockingObsolescence.blocks_corresponding_obs obs obs_propagates_under_const_mapping default)
 
 end RuleSet
 

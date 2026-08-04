@@ -5,7 +5,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 
 module
 
-public import ExistentialRules.ChaseSequence.Termination.ConstantMappings.SkolemTermValidityPreserved
+public import ExistentialRules.ChaseSequence.Termination.ConstantMappings.StrictConstantMapping
 public import ExistentialRules.ChaseSequence.Termination.RenameConstantsApart
 
 /-!
@@ -14,15 +14,17 @@ public import ExistentialRules.ChaseSequence.Termination.RenameConstantsApart
 For `PreGroundTerm`, `GroundTerm`, `GroundSubstitution`, and `PreTrigger`, we do the following things:
 
 1. We define what it means for them to have the `same_skeleton`, which is the case if their only difference is the naming of constants in terms (but their structure is the same),
-2. we show that applying a `StrictConstantMapping` yields something that has the same skeleton,
-3. we show that for two things with the same skeleton, we can find a `StrictConstantMapping` that maps the renamed apart version of the first thing to the second one while mapping each constant to itself that does not occur in the renamed apart version.
+2. we show a few obvious implications of the definition in 1,
+3. we show that applying a `StrictConstantMapping` yields something that has the same skeleton,
+4. we show that for two things with the same skeleton, we can find a `StrictConstantMapping` that maps the renamed apart version of the first thing to the second one while mapping each constant to itself that does not occur in the renamed apart version,
+5. we show that renaming constants apart does not change the skeleton.
 -/
 
 public section
 
 namespace PreGroundTerm
 
-variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
+variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 -- TODO maybe replace mutual recursion by demanding equal length and then equality on each index? this does not sound much nicer though...
 
@@ -68,7 +70,43 @@ mutual
 
 end
 
-variable [DecidableEq sig.P]
+mutual
+
+  theorem same_skeleton_trans (term term2 term3 : PreGroundTerm sig) : same_skeleton term term2 -> same_skeleton term2 term3 -> same_skeleton term term3 := by
+    cases term with
+    | leaf => cases term2 <;> simp [same_skeleton]
+    | inner func ts => cases term2; simp [same_skeleton]; cases term3; simp [same_skeleton]; simp only [same_skeleton]; intro h h'; constructor; rw [h.left, h'.left]; apply same_skeleton_list_trans; exact h.right; exact h'.right
+
+  theorem same_skeleton_list_trans (terms terms2 terms3 : List (PreGroundTerm sig)) : same_skeleton_list terms terms2 -> same_skeleton_list terms2 terms3 -> same_skeleton_list terms terms3 := by
+    cases terms with
+    | nil => cases terms2 <;> simp [same_skeleton_list]
+    | cons hd tl => cases terms2; simp [same_skeleton_list]; cases terms3; simp [same_skeleton_list]; simp only [same_skeleton_list]; intro h h'; constructor; apply same_skeleton_trans; exact h.left; exact h'.left; apply same_skeleton_list_trans; exact h.right; exact h'.right
+
+end
+
+mutual
+
+  theorem innerLabels_eq_of_same_skeleton {term term2 : PreGroundTerm sig} (same_skel : term.same_skeleton term2) : term.innerLabels = term2.innerLabels := by
+    cases term with
+    | leaf => cases term2; simp [FiniteTree.innerLabels]; simp [same_skeleton] at same_skel
+    | inner func ts =>
+      cases term2; simp [same_skeleton] at same_skel
+      simp only [same_skeleton] at same_skel
+      simp only [FiniteTree.innerLabels]; rw [List.cons_eq_cons]; constructor; exact same_skel.left
+      exact innerLabels_eq_of_same_skeleton_list same_skel.right
+
+  theorem innerLabels_eq_of_same_skeleton_list {terms terms2 : List (PreGroundTerm sig)} (same_skel : same_skeleton_list terms terms2) : terms.flatMap FiniteTree.innerLabels = terms2.flatMap FiniteTree.innerLabels := by
+    cases terms with
+    | nil => cases terms2; rfl; simp [same_skeleton_list] at same_skel
+    | cons hd tl =>
+      cases terms2; simp [same_skeleton_list] at same_skel
+      simp only [same_skeleton_list] at same_skel
+      rw [List.flatMap_cons]
+      apply List.append_eq_append_of_parts_eq
+      . exact innerLabels_eq_of_same_skeleton same_skel.left
+      . exact innerLabels_eq_of_same_skeleton_list same_skel.right
+
+end
 
 mutual
 
@@ -175,19 +213,52 @@ mutual
 
 end
 
+mutual
+
+  theorem same_skeleton_of_rename_constants_apart [GetFreshInhabitant sig.C]
+      {term : PreGroundTerm sig} {forbidden_constants : List sig.C} :
+      (term.rename_constants_apart forbidden_constants).same_skeleton term := by
+    cases term with
+    | leaf => simp [rename_constants_apart, same_skeleton]
+    | inner func ts =>
+      simp only [rename_constants_apart, same_skeleton, true_and]
+      exact same_skeleton_of_rename_constants_apart_list
+
+  theorem same_skeleton_of_rename_constants_apart_list [GetFreshInhabitant sig.C]
+      {terms : List (PreGroundTerm sig)} {forbidden_constants : List sig.C} :
+      same_skeleton_list (rename_constants_apart.foldl_list terms forbidden_constants) terms := by
+    cases terms with
+    | nil => simp [rename_constants_apart.foldl_list, rename_constants_apart.foldl_list_with_init, same_skeleton_list]
+    | cons hd tl =>
+      simp only [rename_constants_apart.foldl_list_cons, same_skeleton_list]; constructor
+      . exact same_skeleton_of_rename_constants_apart
+      . exact same_skeleton_of_rename_constants_apart_list
+
+end
+
 end PreGroundTerm
 
 namespace GroundTerm
 
-variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
+variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 def same_skeleton (term term2 : GroundTerm sig) : Prop := PreGroundTerm.same_skeleton term.val term2.val
+
+theorem same_skeleton_const {c d : sig.C} : (GroundTerm.const c).same_skeleton (.const d) := by
+  simp [same_skeleton, const, PreGroundTerm.same_skeleton]
 
 theorem same_skeleton_refl (term : GroundTerm sig) : term.same_skeleton term := by unfold same_skeleton; apply PreGroundTerm.same_skeleton_refl
 
 theorem same_skeleton_symm (term term2 : GroundTerm sig) : term.same_skeleton term2 -> term2.same_skeleton term := by unfold same_skeleton; apply PreGroundTerm.same_skeleton_symm
 
-variable [DecidableEq sig.P]
+theorem same_skeleton_trans (term term2 term3 : GroundTerm sig) : term.same_skeleton term2 -> term2.same_skeleton term3 -> term.same_skeleton term3 := by unfold same_skeleton; apply PreGroundTerm.same_skeleton_trans
+
+theorem functions_eq_of_same_skeleton {term term2 : GroundTerm sig} (same_skel : term.same_skeleton term2) : term.functions = term2.functions :=
+  PreGroundTerm.innerLabels_eq_of_same_skeleton same_skel
+
+theorem rules_eq_of_same_skeleton {term term2 : GroundTerm sig} (same_skel : term.same_skeleton term2) : term.rules = term2.rules := by
+  unfold GroundTerm.rules
+  rw [functions_eq_of_same_skeleton same_skel]
 
 theorem same_skeleton_under_strict_constant_mapping (term : GroundTerm sig) (g : StrictConstantMapping sig) :
   term.same_skeleton (g.toConstantMapping.apply_ground_term term) := by unfold same_skeleton; apply PreGroundTerm.same_skeleton_under_strict_constant_mapping
@@ -204,11 +275,14 @@ theorem exists_strict_constant_mapping_to_reverse_renaming [GetFreshInhabitant s
   rw [Subtype.mk.injEq]
   exact g_eq
 
+theorem same_skeleton_of_rename_constants_apart [GetFreshInhabitant sig.C] {term : GroundTerm sig} {forbidden_constants : List sig.C} :
+  (term.rename_constants_apart forbidden_constants).same_skeleton term := PreGroundTerm.same_skeleton_of_rename_constants_apart
+
 end GroundTerm
 
 namespace GroundSubstitution
 
-variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
+variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 def same_skeleton_for_vars (subs subs2 : GroundSubstitution sig) : List sig.V -> Prop
 | .nil => True
@@ -224,7 +298,14 @@ theorem same_skeleton_for_vars_symm (subs subs2 : GroundSubstitution sig) (vars 
   | nil => simp [same_skeleton_for_vars]
   | cons hd tl ih => unfold same_skeleton_for_vars; intro h; constructor; apply GroundTerm.same_skeleton_symm; exact h.left; apply ih; exact h.right
 
-variable [DecidableEq sig.P]
+theorem same_skeleton_for_vars_trans (subs subs2 subs3 : GroundSubstitution sig) (vars : List sig.V) : subs.same_skeleton_for_vars subs2 vars -> subs2.same_skeleton_for_vars subs3 vars -> subs.same_skeleton_for_vars subs3 vars := by
+  induction vars with
+  | nil => simp [same_skeleton_for_vars]
+  | cons hd tl ih => unfold same_skeleton_for_vars; intro h h'; constructor; apply GroundTerm.same_skeleton_trans; exact h.left; exact h'.left; apply ih; exact h.right; exact h'.right
+
+theorem same_skeleton_of_mem_vars {subs subs2 : GroundSubstitution sig} {vars : List sig.V} (same_skel : subs.same_skeleton_for_vars subs2 vars)
+    {v : sig.V} (v_mem : v ∈ vars) : (subs v).same_skeleton (subs2 v) := by
+  induction vars; simp at v_mem; simp only [same_skeleton_for_vars] at same_skel; grind
 
 theorem same_skeleton_for_vars_under_strict_constant_mapping (subs : GroundSubstitution sig) (vars : List sig.V) (g : StrictConstantMapping sig) : subs.same_skeleton_for_vars (g.toConstantMapping.apply_ground_term ∘ subs) vars := by
   induction vars with
@@ -325,12 +406,36 @@ theorem exists_strict_constant_mapping_to_reverse_renaming_for_vars [GetFreshInh
           rw [← t_eq]
       . exact d_mem
 
+theorem same_skeleton_of_rename_constants_apart_for_each_var [GetFreshInhabitant sig.C]
+    {subs : GroundSubstitution sig} {forbidden_constants : List sig.C} {vars : List sig.V} {v : sig.V} (v_mem : v ∈ vars) :
+    (subs.rename_constants_apart_for_vars forbidden_constants vars v).same_skeleton (subs v) := by
+  induction vars generalizing forbidden_constants with
+  | nil => simp at v_mem
+  | cons hd tl ih =>
+    simp only [rename_constants_apart_for_vars]
+    cases Decidable.em (v = hd) with
+    | inl eq => simpa [eq] using GroundTerm.same_skeleton_of_rename_constants_apart
+    | inr ne => simp only [ne, ↓reduceIte]; apply ih; grind
+
+theorem same_skeleton_of_rename_constants_apart [GetFreshInhabitant sig.C]
+    {subs : GroundSubstitution sig} {forbidden_constants : List sig.C} {vars : List sig.V} :
+    (subs.rename_constants_apart_for_vars forbidden_constants vars).same_skeleton_for_vars subs vars := by
+  suffices ∀ vars2, vars ⊆ vars2 -> (subs.rename_constants_apart_for_vars forbidden_constants vars2).same_skeleton_for_vars subs vars by apply this; simp
+  intro vars2 vars_sub
+  induction vars generalizing vars2 forbidden_constants with
+  | nil => simp [same_skeleton_for_vars]
+  | cons hd tl ih =>
+    simp only [same_skeleton_for_vars]; constructor
+    . apply same_skeleton_of_rename_constants_apart_for_each_var; grind
+    . apply ih; grind
+
 end GroundSubstitution
 
 namespace PreTrigger
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
+@[expose]
 def same_skeleton (trg trg2 : PreTrigger sig) : Prop :=
   trg.rule = trg2.rule ∧
   trg.subs.same_skeleton_for_vars trg2.subs trg.rule.body.vars.eraseDupsKeepRight
@@ -346,7 +451,15 @@ theorem same_skeleton_symm (trg trg2 : PreTrigger sig) : trg.same_skeleton trg2 
     rw [← h.left]
     exact h.right
 
--- TODO: also show transitivity (but I think as of now we do not need it)
+theorem same_skeleton_trans (trg trg2 trg3 : PreTrigger sig) : trg.same_skeleton trg2 -> trg2.same_skeleton trg3 -> trg.same_skeleton trg3 := by
+  unfold same_skeleton
+  intro h h'
+  constructor
+  . rw [h.left, h'.left]
+  . apply GroundSubstitution.same_skeleton_for_vars_trans
+    . exact h.right
+    . rw [h.left]
+      exact h'.right
 
 theorem same_skeleton_under_strict_constant_mapping (trg : PreTrigger sig) (g : StrictConstantMapping sig) : trg.same_skeleton {rule := trg.rule, subs := g.toConstantMapping.apply_ground_term ∘ trg.subs} := by
   unfold same_skeleton
@@ -369,6 +482,12 @@ theorem exists_strict_constant_mapping_to_reverse_renaming [GetFreshInhabitant s
   . intro d d_nmem
     apply g_h.right
     exact d_nmem
+
+theorem same_skeleton_of_rename_constants_apart [GetFreshInhabitant sig.C]
+    {trg : PreTrigger sig} {forbidden_constants : List sig.C} :
+    (trg.rename_constants_apart forbidden_constants).same_skeleton trg := by
+  constructor; rfl
+  apply trg.subs.same_skeleton_of_rename_constants_apart
 
 end PreTrigger
 

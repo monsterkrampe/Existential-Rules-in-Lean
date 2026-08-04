@@ -72,8 +72,8 @@ theorem trg_remains_obsolete_of_isWeakCore_of_homSubset_of_finite
     ∀ (trg : PreTrigger sig), trg.satisfied fs -> (trg.rule.frontier.map trg.subs).toSet ⊆ core.terms -> trg.satisfied core := by
   intro trg trg_sat frontier_in_core
 
-  rcases trg_sat with ⟨idx, trg_sat⟩
-  exists idx
+  rcases trg_sat with ⟨idx, lt, trg_sat⟩
+  exists idx, lt
 
   -- the first trigger is satisfied
   rcases trg_sat with ⟨subs, trg_sat⟩
@@ -125,7 +125,7 @@ some basic properties also relying on the results above.
 /-- The CoreChaseNode add a couple of fields on top of the RegularChaseNode but the `facts` field has a different meaning. This is why we duplicate the structure and not jsut extend it. We want to prevent that the `CoreChaseNode` is accidentally treated as a `RegularChaseNode`. -/
 structure CoreChaseNode (rules : RuleSet sig) where
   facts : FactSet sig
-  origin : Option ((trg : RTrigger (RestrictedObsolescence sig) rules) × Fin trg.val.mapped_head.length)
+  origin : Option ((trg : RTrigger (RestrictedObsolescence sig) rules) × Fin trg.val.rule.head.length)
   facts_contain_origin_result : ∀ orig ∈ origin, orig.fst.val.mapped_head[orig.snd.val].toSet ⊆ facts
   core : FactSet sig
   isWeakCore : core.isWeakCore
@@ -157,8 +157,7 @@ theorem equiv_origin_trg_inactive_of_isWeakCore_of_homSubset_of_finite
   intro orig orig_mem trg equiv ⟨loaded, contra⟩
   apply contra
   apply equiv_trg_obsolete_of_isWeakCore_of_homSubset_of_finite wc homSub fin _ _ _ equiv loaded
-  let idx : Fin orig.fst.val.rule.head.length := ⟨orig.snd.val, by rw [← PreTrigger.length_mapped_head]; exact orig.snd.isLt⟩
-  exists idx
+  exists orig.snd.val, orig.snd.isLt
   apply PreTrigger.satisfied_for_disj_of_mapped_head_contained
   apply node.facts_contain_origin_result
   exact orig_mem

@@ -21,7 +21,7 @@ we also prove that the renaming does not mess with term validity as required for
 
 public section
 
-variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
+variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 /-- We rename constants apart by introducing a fresh constant for each leaf position in the term. -/
 @[expose]
@@ -127,63 +127,4 @@ theorem PreGroundTerm.rename_constants_apart_leaves_fresh
     intro contra
     apply ih t' t'_mem e_mem
     simp [contra]
-
-variable [DecidableEq sig.P]
-
-theorem PreGroundTerm.rename_constants_apart_preserves_ruleId_validity
-    [GetFreshInhabitant sig.C]
-    {term : FiniteTree (SkolemFS sig) sig.C}
-    {forbidden_constants : List sig.C} :
-    ∀ {rl}, PreGroundTerm.skolem_ruleIds_valid rl term -> PreGroundTerm.skolem_ruleIds_valid rl (PreGroundTerm.rename_constants_apart term forbidden_constants) := by
-  intro rl valid
-  induction term generalizing forbidden_constants with
-  | leaf _ => simp [rename_constants_apart, skolem_ruleIds_valid]
-  | inner func ts ih =>
-    simp only [rename_constants_apart, skolem_ruleIds_valid] at *
-    constructor
-    . exact valid.left
-    . intro t t_mem
-      rcases rename_constants_apart.mem_foldl_list_implies t_mem with ⟨t', new_consts, t'_mem, t_eq⟩
-      rw [t_eq]
-      apply ih
-      . exact t'_mem
-      . apply valid.right; exact t'_mem
-
-theorem PreGroundTerm.rename_constants_apart_preserves_disjIdx_validity
-    [GetFreshInhabitant sig.C]
-    {term : FiniteTree (SkolemFS sig) sig.C}
-    {forbidden_constants : List sig.C} :
-    ∀ {rl}, (h : PreGroundTerm.skolem_ruleIds_valid rl term) -> PreGroundTerm.skolem_disjIdx_valid rl term h -> PreGroundTerm.skolem_disjIdx_valid rl (PreGroundTerm.rename_constants_apart term forbidden_constants) (PreGroundTerm.rename_constants_apart_preserves_ruleId_validity h) := by
-  intro rl _ valid
-  induction term generalizing forbidden_constants with
-  | leaf _ => simp [rename_constants_apart, skolem_disjIdx_valid]
-  | inner func ts ih =>
-    simp only [rename_constants_apart, skolem_disjIdx_valid] at *
-    constructor
-    . exact valid.left
-    . intro t t_mem
-      rcases rename_constants_apart.mem_foldl_list_implies t_mem with ⟨t', new_consts, t'_mem, t_eq⟩
-      simp only [t_eq]
-      apply ih
-      . exact t'_mem
-      . apply valid.right; exact t'_mem
-
-theorem PreGroundTerm.rename_constants_apart_preserves_rule_arity_validity
-    [GetFreshInhabitant sig.C]
-    {term : FiniteTree (SkolemFS sig) sig.C}
-    {forbidden_constants : List sig.C} :
-    ∀ {rl}, (h : PreGroundTerm.skolem_ruleIds_valid rl term) -> PreGroundTerm.skolem_rule_arity_valid rl term h -> PreGroundTerm.skolem_rule_arity_valid rl (PreGroundTerm.rename_constants_apart term forbidden_constants) (PreGroundTerm.rename_constants_apart_preserves_ruleId_validity h) := by
-  intro rl _ valid
-  induction term generalizing forbidden_constants with
-  | leaf _ => simp [rename_constants_apart, skolem_rule_arity_valid]
-  | inner func ts ih =>
-    simp only [rename_constants_apart, skolem_rule_arity_valid] at *
-    constructor
-    . exact valid.left
-    . intro t t_mem
-      rcases rename_constants_apart.mem_foldl_list_implies t_mem with ⟨t', new_consts, t'_mem, t_eq⟩
-      simp only [t_eq]
-      apply ih
-      . exact t'_mem
-      . apply valid.right; exact t'_mem
 

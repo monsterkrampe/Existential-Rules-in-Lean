@@ -5,6 +5,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 
 module
 
+public import ExistentialRules.AtomsAndRules.Atom
 public import ExistentialRules.AtomsAndRules.FactSet
 public import ExistentialRules.AtomsAndRules.FunctionFreeConjunction
 
@@ -171,11 +172,11 @@ This is a key ingredient of `PreTrigger`s that model "rule applications" in the 
 -/
 
 /-- A `GroundSubstitution` is merely a `TermMapping` from variables to `GroundTerm`s. -/
-abbrev GroundSubstitution (sig : Signature) [DecidableEq sig.C] [DecidableEq sig.V] := TermMapping sig.V (GroundTerm sig)
+abbrev GroundSubstitution (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] := TermMapping sig.V (GroundTerm sig)
 
 namespace GroundSubstitution
 
-variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
+variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 /-- We lift `GroundSubstitution`s to mappings from `VarOrConst` to `GroundTerm` in the obvious way. -/
 @[expose]
@@ -202,8 +203,6 @@ theorem apply_skolem_term_injective_on_func_of_frontier_eq
     subs.apply_skolem_term s = subs.apply_skolem_term t -> s = t := by
   rw [hs, ht]; simp [apply_skolem_term]
 
-variable [DecidableEq sig.P]
-
 /-- Using the standard functionality of `TermMapping`, we can apply `GroundSubstitution`s directly to an `Atom` yielding a `Fact`. -/
 abbrev apply_atom (σ : GroundSubstitution sig) : Atom sig -> Fact sig :=
   σ.apply_skolem_term.apply_generalized_atom
@@ -229,17 +228,15 @@ A `GroundTermMapping` maps `GroundTerm`s to `GroundTerm`s and is used to define 
 -/
 
 /-- A `GroundTermMapping` is merely a `TermMapping` over `GroundTerm`s. -/
-abbrev GroundTermMapping (sig : Signature) [DecidableEq sig.C] [DecidableEq sig.V] := TermMapping (GroundTerm sig) (GroundTerm sig)
+abbrev GroundTermMapping (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] := TermMapping (GroundTerm sig) (GroundTerm sig)
 
 namespace GroundTermMapping
 
-variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
+variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 /-- Every constant is mapped to itself. -/
 @[expose]
 def isIdOnConstants (h : GroundTermMapping sig) : Prop := ∀ {c}, h (.const c) = .const c
-
-variable [DecidableEq sig.P]
 
 /-- Using the standard functionality of `TermMapping`, we can list `GroundTermMapping`s to `Fact`s. -/
 abbrev applyFact (h : GroundTermMapping sig) : Fact sig -> Fact sig := h.apply_generalized_atom
@@ -310,7 +307,7 @@ Sometimes, a `GroundSubstitution` and `GroundTermMapping` might be composed into
 In such a case, it can be useful to be able to split them apart. But this is generally only possible if the `GroundTermMapping` leaves the relevant constants untouched.
 -/
 
-variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V]
+variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 /-- The application of a composed substitution on a `VarOrConst` can be split if the involved `GroundTermMapping` maps the `VarOrConst` to itself, in the case where it is a constant. -/
 theorem GroundSubstitution.apply_var_or_const_compose (s : GroundSubstitution sig) (h : GroundTermMapping sig) :
@@ -330,8 +327,6 @@ theorem GroundSubstitution.apply_var_or_const_compose_of_isIdOnConstants (s : Gr
   apply apply_var_or_const_compose
   intros
   exact id_on_const
-
-variable [DecidableEq sig.P]
 
 /-- The application of a composed substitution on a `FunctionFreeAtom` can be split if the involved `GroundTermMapping` maps all constants from the atom to themselves. -/
 theorem GroundSubstitution.apply_function_free_atom_compose (s : GroundSubstitution sig) (h : GroundTermMapping sig) :

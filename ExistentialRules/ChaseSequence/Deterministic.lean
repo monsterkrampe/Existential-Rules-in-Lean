@@ -226,6 +226,7 @@ def intoTree (cd : ChaseDerivation N obs rules) (deterministic : rules.isDetermi
               exact this
             have snd_zero : ((CN.origin after).get orig_isSome).snd.val = 0 := by
               have lt := ((CN.origin after).get orig_isSome).snd.isLt
+              rw [PreTrigger.length_mapped_head] at mapped_head_length
               simp only [mapped_head_length, Nat.lt_one_iff] at lt
               exact lt
             simp only [this]; constructor

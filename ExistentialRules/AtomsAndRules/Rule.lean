@@ -17,7 +17,7 @@ and $x$, $y$, and all $z_i$ are disjoint lists of variables. $y$ is called *fron
 We call a rule *determinstic* if $k = 1$ so if the head is merely a conjunction.
 For an overview on such rules (without disjunction) consider for example [ExistentialRules].
 
-To represent this formal definition in Lean, we use a structure with a `FunctionFreeConjunction` for the body and a list of `FunctionFreeConjunction`s for the disjunction in the head. For bookkeeping each rule also gets an id. That's it!
+To represent this formal definition in Lean, we use a structure with a `FunctionFreeConjunction` for the body and a list of `FunctionFreeConjunction`s for the disjunction in the head. That's it!
 The frontier variables can simply be defined as the variables occurring both in body and head and the existential variables can be indentified as the variables that occur only in the head, without the need for explicit quantification.
 -/
 
@@ -25,7 +25,6 @@ public section
 
 /-- The definition of a `Rule` as discussed above. -/
 structure Rule (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] where
-  id : Nat
   body : FunctionFreeConjunction sig
   head : List (FunctionFreeConjunction sig)
 deriving DecidableEq
@@ -74,12 +73,6 @@ def head_constants (r : Rule sig) : List sig.C := r.head.flatMap (fun conj => co
 def existential_vars_for_head_disjunct (r : Rule sig) (i : Nat) (lt : i < r.head.length) : List sig.V :=
   r.head[i].vars.filter (fun v => v ∉ r.frontier)
 
-/-- The Skolem function symbols of a rule are all `SkolemFS` with the rule id, all possible head indices and the respective existential variables. -/
-@[expose]
-def skolem_functions (r : Rule sig) : List (SkolemFS sig) := r.head.zipIdx.flatMap (fun (head, i) =>
-  (head.vars.filter (fun v => v ∉ r.frontier)).map (fun v => { ruleId := r.id, disjunctIndex := i, var := v, arity := r.frontier.length })
-)
-
 /-- A variable is a frontier variable if and only if it is a frontier variable in some head disjunct. -/
 theorem mem_frontier_iff_mem_frontier_for_head {r : Rule sig} {v : sig.V} :
     v ∈ r.frontier ↔ ∃ i lt, v ∈ r.frontier_for_head i lt := by
@@ -113,6 +106,18 @@ theorem frontier_for_head_subset_vars_head {r : Rule sig} {i : Nat} (lt : i < r.
 /-- The head constants of the rule are also constants of the whole rule. -/
 @[grind <-]
 theorem head_constants_subset_constants (r : Rule sig) : r.head_constants ⊆ r.constants := by apply List.subset_append_right
+
+/-- Each existential variable is in the head. -/
+@[grind ->]
+theorem mem_head_vars_of_mem_existential_vars_for_head_disjunct {r : Rule sig} {i : Nat} {lt : i < r.head.length} :
+    ∀ v ∈ r.existential_vars_for_head_disjunct i lt, v ∈ r.head[i].vars := by
+  grind [existential_vars_for_head_disjunct]
+
+/-- Each existential variable is not in the frontier. -/
+@[grind ->]
+theorem not_mem_frontier_of_mem_existential_vars_for_head_disjunct {r : Rule sig} {i : Nat} {lt : i < r.head.length} :
+    ∀ v ∈ r.existential_vars_for_head_disjunct i lt, v ∉ r.frontier := by
+  grind [existential_vars_for_head_disjunct]
 
 end Rule
 

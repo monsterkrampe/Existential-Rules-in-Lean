@@ -40,8 +40,8 @@ structure LaxObsolescenceCondition (sig : Signature) [DecidableEq sig.P] [Decida
 /-- An `ObsolescenceCondition` is a function from `PreTrigger` and `FactSet` into `Prop` with the 4 conditions mentioned above. -/
 structure ObsolescenceCondition (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] extends LaxObsolescenceCondition sig where
   cond_implies_trg_is_satisfied : cond trg fs -> trg.satisfied fs
-  contains_trg_result_implies_cond : ∀ {trg : PreTrigger sig} {fs} (disj_index : Fin trg.mapped_head.length),
-    ((trg.mapped_head[disj_index.val]).toSet ⊆ fs) -> cond trg fs
+  contains_trg_result_implies_cond : ∀ {trg : PreTrigger sig} {fs} (i : Nat) (lt : i < trg.rule.head.length),
+    ((trg.mapped_head[i]'(by grind)).toSet ⊆ fs) -> cond trg fs
   preserved_under_equiv : ∀ {trg trg2 : PreTrigger sig} {fs}, trg.equiv trg2 -> (cond trg fs ↔ cond trg2 fs)
 
 instance {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] :
@@ -59,34 +59,34 @@ We briefly define the `ObsolescenceCondition`s for Skolem and restricted chase t
 /-- Obsolescence for the Skolem chase is indeed a `ObsolescenceCondition`, i.e. it has all 4 properties. According to this condition, a trigger is obsolete if its exact result, for one of the head disjuncts, already occurs in the fact set. -/
 @[expose]
 def SkolemObsolescence (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] : ObsolescenceCondition sig := {
-  cond := fun (trg : PreTrigger sig) (fs : FactSet sig) => ∃ i : Fin trg.mapped_head.length, (trg.mapped_head[i.val]).toSet ⊆ fs
+  cond := fun (trg : PreTrigger sig) (fs : FactSet sig) => ∃ (i : Nat) (lt : i < trg.rule.head.length), (trg.mapped_head[i]'(by grind)).toSet ⊆ fs
   monotone := by
     intro trg A B A_sub_B
     simp
-    intro i head_sub_A
-    exists i
+    intro i lt head_sub_A
+    exists i, lt
     apply Set.subset_trans
     . exact head_sub_A
     . exact A_sub_B
   cond_implies_trg_is_satisfied := by
     intro trg fs h
-    rcases h with ⟨i, h⟩
-    exists ⟨i, by rw [← PreTrigger.length_mapped_head]; exact i.isLt⟩
+    rcases h with ⟨i, lt, h⟩
+    exists i, lt
     apply trg.satisfied_for_disj_of_mapped_head_contained
     exact h
   contains_trg_result_implies_cond := by
-    intro trg F i result_in_F
-    exists i
+    intro trg fs i lt result_in_fs
+    exists i, lt
   preserved_under_equiv := by
     intro trg trg2 fs equiv
     have := PreTrigger.result_eq_of_equiv equiv
     constructor
-    . rintro ⟨i, h⟩
-      exists ⟨i.val, by rw [← this]; exact i.isLt⟩
+    . intro ⟨i, lt, h⟩
+      exists i, (by rw [← equiv.left]; exact lt)
       simp only [← this]
       exact h
-    . rintro ⟨i, h⟩
-      exists ⟨i.val, by rw [this]; exact i.isLt⟩
+    . intro ⟨i, lt, h⟩
+      exists i, (by rw [equiv.left]; exact lt)
       simp only [this]
       exact h
 }
@@ -98,8 +98,8 @@ def RestrictedObsolescence (sig : Signature) [DecidableEq sig.P] [DecidableEq si
   monotone := PreTrigger.satisfied_of_satisfied_subset
   cond_implies_trg_is_satisfied := by intro _ _ h; exact h
   contains_trg_result_implies_cond := by
-    intro trg fs i result_in_fs
-    exists ⟨i.val, by rw [← PreTrigger.length_mapped_head]; exact i.isLt⟩
+    intro trg fs i lt result_in_fs
+    exists i, lt
     apply trg.satisfied_for_disj_of_mapped_head_contained
     exact result_in_fs
   preserved_under_equiv := by

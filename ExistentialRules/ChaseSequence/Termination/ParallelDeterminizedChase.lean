@@ -29,7 +29,7 @@ def parallelDeterminizedDerivation_step (rs : RuleSet sig) (obs : LaxObsolescenc
   fs ∪ fun f =>
     (∃ (trg : RTrigger obs rs),
       trg.val.active fs ∧
-      ∃ (i : Fin trg.val.mapped_head.length), f ∈ trg.val.mapped_head[i.val])
+      ∃ (i : Nat) (lt : i < trg.val.rule.head.length), f ∈ trg.val.mapped_head[i]'(by grind))
 
 /-- The `parallelDeterminizedDerivation` simply iterates the `parallelDeterminizedDerivation_step` on an initial `FactSet` using the `InfiniteList.iterate` function. -/
 def parallelDeterminizedDerivation (rs : RuleSet sig) (obs : LaxObsolescenceCondition sig) (fs : FactSet sig) : InfiniteList (FactSet sig) :=
@@ -144,10 +144,10 @@ theorem parallelDeterminizedDerivation_predicates :
     | inr f_mem =>
       rcases f_mem with ⟨trg, trg_act, f_mem⟩
       unfold PreTrigger.mapped_head at f_mem
-      rcases f_mem with ⟨i, f_mem⟩
-      rw [List.getElem_map, List.mem_map] at f_mem
+      rcases f_mem with ⟨i, lt, f_mem⟩
+      rw [List.getElem_map, List.getElem_attach, List.mem_map] at f_mem
       rcases f_mem with ⟨a, a_mem, f_mem⟩
-      rw [List.getElem_zipIdx] at a_mem
+      simp only [List.getElem_zipIdx] at a_mem
       apply Or.inl
       exists trg.val.rule
       constructor
@@ -181,9 +181,10 @@ theorem parallelDeterminizedDerivation_constants :
     rintro c c_mem; cases c_mem with
     | inl c_mem => apply ih; exact c_mem
     | inr c_mem =>
-      rcases c_mem with ⟨f, ⟨trg, trg_act, ⟨i, f_mem⟩⟩, c_mem⟩
-      have c_mem : c ∈ FactSet.constants (trg.val.mapped_head[i.val]).toSet := by rw [FactSet.mem_constants_toSet]; exact List.mem_flatMap_of_mem f_mem c_mem
-      apply Set.subset_trans (trg.val.mapped_head_constants_subset i)
+      rcases c_mem with ⟨f, ⟨trg, trg_act, ⟨i, lt, f_mem⟩⟩, c_mem⟩
+      have c_mem : c ∈ FactSet.constants (trg.val.mapped_head[i]'(by grind)).toSet := by
+        rw [FactSet.mem_constants_toSet]; exact List.mem_flatMap_of_mem f_mem c_mem
+      apply Set.subset_trans (trg.val.mapped_head_constants_subset i lt)
       . intro c c_mem
         rw [List.mem_toSet, List.mem_append] at c_mem
         cases c_mem with
@@ -224,7 +225,7 @@ theorem parallelDeterminizedDerivation_constants :
           . exact trg.property
           . unfold Rule.head_constants
             rw [List.mem_flatMap]
-            exists trg.val.rule.head[i.val]'(by rw [← PreTrigger.length_mapped_head]; exact i.isLt)
+            exists trg.val.rule.head[i]
             constructor
             . apply List.get_mem
             . exact c_mem
@@ -250,12 +251,12 @@ theorem parallelDeterminizedDerivation_functions :
     cases f_mem with
     | inl f_mem => apply ih; exists f
     | inr f_mem =>
-      rcases f_mem with ⟨trg, trg_act, ⟨i, f_mem⟩⟩
+      rcases f_mem with ⟨trg, trg_act, ⟨i, lt, f_mem⟩⟩
       unfold Fact.function_symbols at func_mem
       rw [List.mem_flatMap] at func_mem
       rcases func_mem with ⟨t, t_mem, func_mem⟩
 
-      have t_mem : t ∈ trg.val.mapped_head[i.val].flatMap GeneralizedAtom.terms := by rw [List.mem_flatMap]; exists f
+      have t_mem : t ∈ (trg.val.mapped_head[i]'(by grind)).flatMap GeneralizedAtom.terms := by rw [List.mem_flatMap]; exists f
       rw [PreTrigger.mem_terms_mapped_head_iff] at t_mem
       cases t_mem with
       | inl t_mem =>
@@ -295,12 +296,11 @@ theorem parallelDeterminizedDerivation_functions :
           . exact trg.property
           . unfold Rule.skolem_functions
             rw [List.mem_flatMap]
-            exists (trg.val.rule.head[i.val]'(by rw [← PreTrigger.length_mapped_head]; exact i.isLt), i)
+            exists ⟨(trg.val.rule.head[i], i), by rw [List.mk_mem_zipIdx_iff_getElem?]; simp⟩
             constructor
-            . rw [List.mem_zipIdx_iff_getElem?]
-              simp
-            . rw [func_mem]
-              apply List.mem_map_of_mem
+            . simp
+            . rw [func_mem, List.map_attach_eq_pmap]
+              apply List.mem_pmap_of_mem
               exact v_mem
         | inr func_mem =>
           apply ih
