@@ -372,12 +372,12 @@ def root (td : TreeDerivation N obs rules) : NodeWithAddress td where
 
 /-- The child nodes of a given `NodeWithAddress`. -/
 @[expose]
-def childNodes {td : TreeDerivation N obs rules} (node : NodeWithAddress td) : List (NodeWithAddress td) := node.subderivation.childNodes.zipIdx_with_lt.attach.map (fun ⟨⟨c, idx⟩, prop⟩ => {
+def childNodes {td : TreeDerivation N obs rules} (node : NodeWithAddress td) : List (NodeWithAddress td) := node.subderivation.childNodes.zipIdx.attach.map (fun ⟨⟨c, idx⟩, prop⟩ => {
   node := c
-  address := node.address ++ [idx.val]
+  address := node.address ++ [idx]
   eq := by
     unfold TreeDerivation.childNodes at prop
-    rw [List.mem_zipIdx_with_lt_iff_mem_zipIdx, List.mem_zipIdx_iff_getElem?, FiniteDegreeTree.get?_childNodes] at prop
+    rw [List.mem_zipIdx_iff_getElem?, FiniteDegreeTree.get?_childNodes] at prop
     unfold subderivation derivation_for_suffix at prop
     grind
 })
@@ -442,7 +442,7 @@ theorem childNodes_eq_childNodes {td : TreeDerivation N obs rules} {node : NodeW
     node.subderivation.childNodes = node.childNodes.map NodeWithAddress.node := by
   apply List.ext_getElem
   . rw [List.length_map, length_childNodes]
-  . intro i lt _; simp [childNodes, lt]
+  . intro i lt _; simp [childNodes]
 
 /-- Membership for `NodeWithAddress.childNodes` and `TreeDerivation.childNodes` is (almost) the same. -/
 @[grind ->]
@@ -469,11 +469,10 @@ theorem cast_for_new_root_node_mem_chilNodes_cast_for_new_root_node_of_mem_child
   intro n2_mem
   simp only [NodeWithAddress.childNodes, List.mem_map, List.mem_attach] at n2_mem
   rcases n2_mem with ⟨⟨⟨n2_node, n2_index⟩, mem_zipIdx⟩, _, n2_mem⟩
-  rw [List.mem_zipIdx_with_lt_iff_mem_zipIdx] at mem_zipIdx
   rw [← n2_mem]
   simp only [NodeWithAddress.childNodes, List.mem_map, List.mem_attach]
   suffices n1.subderivation = (new_root.cast_for_new_root_node n1).subderivation by
-    exists ⟨⟨n2_node, ⟨n2_index, by rw [← this]; exact n2_index.isLt⟩⟩, by simp only [List.mem_zipIdx_with_lt_iff_mem_zipIdx, ← this]; exact mem_zipIdx⟩
+    exists ⟨⟨n2_node, n2_index⟩, by rw [← this]; exact mem_zipIdx⟩
     simp [NodeWithAddress.cast_for_new_root_node]
   simp [NodeWithAddress.subderivation, NodeWithAddress.cast_for_new_root_node, TreeDerivation.derivation_for_suffix]
 
@@ -485,11 +484,10 @@ theorem subderivation_mem_childTrees_of_mem_childNodes
   intro node2_mem
   simp only [childNodes, List.mem_map, List.mem_attach, true_and] at node2_mem
   rcases node2_mem with ⟨⟨node2_with_idx, node2_mem⟩, node2_eq⟩
-  rw [List.mem_zipIdx_with_lt_iff_mem_zipIdx] at node2_mem
   have node2_mem := List.mem_zipIdx' node2_mem
-  have : node2.subderivation = node.subderivation.childTrees[node2_with_idx.snd.val]'(by have lt := node2_with_idx.snd.isLt; simp only [childNodes_eq, List.length_map] at lt; exact lt) := by
+  have : node2.subderivation = node.subderivation.childTrees[node2_with_idx.snd]'(by have lt := node2_mem.left; simp only [childNodes_eq, List.length_map] at lt; exact lt) := by
     simp only [childTrees, subderivation, derivation_for_suffix]
-    suffices node2.address = node.address ++ [node2_with_idx.snd.val] by simp [this]
+    suffices node2.address = node.address ++ [node2_with_idx.snd] by simp [this]
     grind
   rw [this]
   apply List.getElem_mem
@@ -580,8 +578,7 @@ theorem mem_rec_address
         let new_root : td.NodeWithAddress := { node := m, address := tl.reverse, eq := eq }
         specialize step new_root (ih m eq) _ (by
           simp only [NodeWithAddress.childNodes, List.mem_map]
-          exists ⟨⟨n, ⟨hd, by simp only [NodeWithAddress.subderivation, derivation_for_suffix, childNodes, new_root]; grind⟩⟩, by
-            rw [List.mem_zipIdx_with_lt_iff_mem_zipIdx]; simp only [NodeWithAddress.subderivation, derivation_for_suffix, childNodes]; grind⟩
+          exists ⟨⟨n, hd⟩, by simp only [NodeWithAddress.subderivation, derivation_for_suffix, childNodes]; grind⟩
           constructor; simp; rfl)
         simp only [new_root] at step
         simp only [List.reverse_cons]
