@@ -14,7 +14,7 @@ public import ExistentialRules.Terms.SkolemTerm
 
 
 /-!
-# RuleSet and RuleList
+# RuleSet
 -/
 
 public section
@@ -22,16 +22,7 @@ public section
 /-- A `RuleSet` is a `Set (Rule sig)`. -/
 abbrev RuleSet (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] := Set (Rule sig)
 
-/-- A `RuleList` is a `List (Rule sig)`. -/
-abbrev RuleList (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] := List (Rule sig)
-
 namespace RuleSet
-
-/-!
-## RuleSet
-
-For the `RuleSet` we introduce auxiliary definitions and theorems. For the `RuleList` we just use List functions directly.
--/
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
