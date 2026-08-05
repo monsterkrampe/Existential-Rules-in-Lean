@@ -18,6 +18,9 @@ Instead, we get a generator that will always yield a node that occurs somewhere 
 We can then "fill in the gaps" to get the full branch. We do this by adjusting the generator function to fill in the blanks for us.
 This is a bit technical but hopefully abstracted away enough so that the internals are irrelevant outside of this file.
 
+LOOKS LIKE WITH HEAD CHOICES INVOLVED, WE ACTUALLY DO NOT NEED THIS ANYMORE.
+MAYBE THIS IS STILL USEFUL AS GENERAL MACHINERY BUT THEN IT SHOULD MOVED TO SOME OTHER PLACE EVENTUALLY.
+
 -/
 
 namespace TreeDerivation

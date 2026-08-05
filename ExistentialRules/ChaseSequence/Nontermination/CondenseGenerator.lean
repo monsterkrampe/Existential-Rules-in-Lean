@@ -15,6 +15,9 @@ import BasicLeanDatastructures.WellFounded
 Here we introduce functionality that allows to condense repeated function calls according to a certain mapper.
 By that, we mean that if the generator produces a new value that is the same as the previous one under the mapper function, then the value is skipped.
 
+LOOKS LIKE WITH HEAD CHOICES INVOLVED, WE ACTUALLY DO NOT NEED THIS ANYMORE.
+MAYBE THIS IS STILL USEFUL AS GENERAL MACHINERY BUT THEN IT SHOULD MOVED TO SOME OTHER PLACE EVENTUALLY.
+
 -/
 
 namespace Function
