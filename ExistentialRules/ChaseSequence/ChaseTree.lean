@@ -27,10 +27,10 @@ variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq 
 structure ChaseTree (N : Type u) (obs : ObsolescenceCondition sig) (kb : KnowledgeBase sig) [CN : ChaseNode N obs kb.rules] extends TreeDerivation N obs kb.rules where
   -- We do not need to demand existence here since the TreeDerivation already ensures that the root exists.
   -- The ∀ quantifier makes this condition more convenient to use.
-  database_first : ∀ root ∈ tree.root,
-    CN.ingoingFacts root = kb.db.toFactSet ∧
-    CN.outgoingFacts root = kb.db.toFactSet ∧
-    CN.origin root = none
+  database_first :
+    CN.ingoingFacts toTreeDerivation.root = kb.db.toFactSet ∧
+    CN.outgoingFacts toTreeDerivation.root = kb.db.toFactSet ∧
+    CN.origin toTreeDerivation.root = none
 
 namespace ChaseTree
 
@@ -55,24 +55,16 @@ def chaseBranch_for_branch {ct : ChaseTree N obs kb} {branch : ChaseDerivation N
   database_first := by
     rw [TreeDerivation.branches_eq] at branch_mem
     have head_eq := branch_mem.left
-    unfold TreeDerivation.root ChaseDerivationSkeleton.head at head_eq; rw [Option.get_inj] at head_eq
-    intro head; rw [head_eq]
-    exact ct.database_first head
+    rw [head_eq]
+    exact ct.database_first
 }
-
-/-- We restate the `database_first` condition in terms of the `TreeDerivation` vocabulary. -/
-theorem database_first' {ct : ChaseTree N obs kb} :
-    CN.ingoingFacts ct.root = kb.db.toFactSet ∧
-    CN.outgoingFacts ct.root = kb.db.toFactSet ∧
-    CN.origin ct.root = none := by
-  apply ct.database_first; simp [TreeDerivation.root]
 
 /-- The root of the `ChaseTree` does not contain any function terms. -/
 theorem func_term_not_mem_root {ct : ChaseTree N obs kb}
     {t : GroundTerm sig} (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok) :
     ¬ t ∈ (CN.outgoingFacts ct.root).terms := by
   intro t_mem
-  simp only [database_first'] at t_mem
+  simp only [database_first] at t_mem
   rcases t_mem with ⟨f, f_mem, t_mem⟩
   rcases kb.db.toFactSet.property.right f f_mem t t_mem with ⟨c, t_eq⟩
   rcases t_is_func with ⟨_, _, _, t_eq'⟩
@@ -83,7 +75,7 @@ theorem func_term_not_mem_root {ct : ChaseTree N obs kb}
 theorem mem_childTrees_of_isSome_origin {ct : ChaseTree N obs kb} {n : N} (n_mem : n ∈ ct) : (CN.origin n).isSome -> ∃ c ∈ ct.childTrees, n ∈ c := by
   intro isSome_origin
   cases ct.mem_iff_eq_root_or_mem_child.mp n_mem with
-  | inl mem => exfalso; rw [Option.isSome_iff_ne_none] at isSome_origin; apply isSome_origin; rw [mem]; exact ct.database_first'.right.right
+  | inl mem => exfalso; rw [Option.isSome_iff_ne_none] at isSome_origin; apply isSome_origin; rw [mem]; exact ct.database_first.right.right
   | inr mem => exact mem
 
 /-- Each node that has an origin must be a child node of some other node in the tree. -/
@@ -91,7 +83,7 @@ theorem mem_childNodes_of_some_member_of_isSome_origin {ct : ChaseTree N obs kb}
     (CN.origin n.node).isSome -> ∃ n2 : ct.NodeWithAddress, n ∈ n2.childNodes := by
   intro isSome_origin
   cases n.eq_root_or_mem_child with
-  | inl mem => exfalso; rw [Option.isSome_iff_ne_none] at isSome_origin; apply isSome_origin; rw [mem]; exact ct.database_first'.right.right
+  | inl mem => exfalso; rw [Option.isSome_iff_ne_none] at isSome_origin; apply isSome_origin; rw [mem]; exact ct.database_first.right.right
   | inr mem =>
     rw [TreeDerivation.mem_subderivation_childNodes_iff] at mem
     exact mem
@@ -115,7 +107,7 @@ theorem facts_finite_of_mem {ct : RegularChaseTree obs kb} {node : RegularChaseN
     node.facts.finite := by
   rw [RegularTreeDerivation.facts_node_eq_union_initial_and_generated node_mem]
   apply Set.union_finite_of_both_finite
-  . rw [← ct.root.outgoingFacts_eq, ct.database_first'.right.left]; exact kb.db.toFactSet.property.left
+  . rw [← ct.root.outgoingFacts_eq, ct.database_first.right.left]; exact kb.db.toFactSet.property.left
   . exact RegularTreeDerivation.generatedFacts_finite_of_mem node_mem
 
 /-- We define a shortcut for `RegularTreeDerivation.result`. -/
@@ -135,7 +127,7 @@ theorem constants_node_subset_constants_db_union_constants_rules {ct : RegularCh
     {node : RegularChaseNode obs kb.rules} (node_mem : node ∈ ct) :
     node.facts.constants ⊆ (kb.db.constants.val ∪ kb.rules.head_constants) := by
   have := RegularTreeDerivation.constants_node_subset_constants_fs_union_constants_rules node_mem
-  rw [← ct.root.outgoingFacts_eq, ct.database_first'.right.left, Database.toFactSet_constants_same] at this
+  rw [← ct.root.outgoingFacts_eq, ct.database_first.right.left, Database.toFactSet_constants_same] at this
   exact this
 
 /-- Each functional term in the chase originates as a fresh term from a trigger. -/

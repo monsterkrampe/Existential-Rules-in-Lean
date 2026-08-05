@@ -394,7 +394,7 @@ theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
     induction node using cb.toChaseDerivation.mem_rec with
     | head =>
       intro f f_mem
-      simp only [← cb.head.outgoingFacts_eq, cb.database_first'] at f_mem
+      simp only [← cb.head.outgoingFacts_eq, cb.database_first] at f_mem
       exists (parallelDeterminizedChase kb (DeterministicSkolemObsolescence sig)).head
       simp only [parallelDeterminizedChase, InfiniteList.head_mem]
       simp [f_mem]
@@ -470,7 +470,7 @@ theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
       | head =>
         simp only [parallelDeterminizedDerivation_head]
         apply Set.subset_trans _ (RegularChaseDerivationSkeleton.facts_node_subset_result _ cb.head_mem)
-        rw [← cb.head.outgoingFacts_eq, cb.database_first'.right.left]
+        rw [← cb.head.outgoingFacts_eq, cb.database_first.right.left]
         apply Set.subset_refl
       | step _ ih =>
         intro f f_mem; cases f_mem with
@@ -657,7 +657,7 @@ theorem mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_pred
   induction node using cb.mem_rec with
   | head =>
     intro f f_predicate f_mem
-    simp only [← cb.head.outgoingFacts_eq, cb.database_first'] at f_mem
+    simp only [← cb.head.outgoingFacts_eq, cb.database_first] at f_mem
     exists (parallelDeterminizedChase (rs.mfaKb finite special_const) mfa_obs).head
     simp only [parallelDeterminizedChase, InfiniteList.head_mem, true_and]
     rw [parallelDeterminizedDerivation_head]
@@ -983,7 +983,7 @@ theorem terminates_of_mfaSet_finite [Inhabited sig.C] (rs : RuleSet sig) (rs_fin
     have each_step_sub_db_and_filtered : ∀ node : cb.Node, node.val.facts ⊆ db.toFactSet.val ∪ res_filtered := by
       intro node
       induction node using cb.mem_rec with
-      | head => simp only [← cb.head.outgoingFacts_eq, cb.database_first']; intro f f_mem; apply Or.inl; exact f_mem
+      | head => simp only [← cb.head.outgoingFacts_eq, cb.database_first]; intro f f_mem; apply Or.inl; exact f_mem
       | step cd suffix ih next next_mem =>
         simp only [← next.ingoingFacts_eq, cd.facts_next next_mem]
         intro f f_mem

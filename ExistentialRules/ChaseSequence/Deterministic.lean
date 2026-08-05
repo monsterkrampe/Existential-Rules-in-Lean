@@ -60,7 +60,7 @@ theorem branches_start_eq_firstBranch_from_start
   | zero =>
     rw [branches_eq] at deriv_mem
     rw [← PossiblyInfiniteList.head_eq, ← PossiblyInfiniteList.head_eq]
-    simp only [firstBranch_from_start, generate_subderivation, derivation_for_branch]
+    simp only [firstBranch_from_start, generate_subderivation, derivation_for_branch, derivationSkeleton_for_branch]
     simp only [generate_branch, toFiniteDegreeTreeWithRoot]
     rw [FiniteDegreeTree.head_generate_branch, Option.map_some]
     simp only [Option.some_get]
@@ -192,13 +192,15 @@ def intoTree (cd : ChaseDerivation N obs rules) (deterministic : rules.isDetermi
     tree := FiniteDegreeTree.from_branch cd.branch
     isSome_root := (by simpa using cd.isSome_head)
     triggers_exist := by
-      intro ns node eq
-      rw [FiniteDegreeTree.root_drop, Option.mem_def] at eq
+      intro t2 t2_suf node eq
+      rw [FiniteDegreeTree.IsSuffix_iff] at t2_suf; rcases t2_suf with ⟨ns, t2_suf⟩
+      rw [← t2_suf]
+      rw [← t2_suf, FiniteDegreeTree.root_drop, Option.mem_def] at eq
       cases all_zero : ns.all (fun e => e = 0) with
       | false => rw [FiniteDegreeTree.get?_from_branch_of_some_ne_zero] at eq; simp at eq; grind
       | true =>
         rw [FiniteDegreeTree.get?_from_branch_of_all_zero (by grind)] at eq
-        have trg_ex := cd.triggers_exist ns.length
+        have trg_ex := cd.triggers_exist (cd.branch.drop ns.length) (PossiblyInfiniteList.IsSuffix_drop _)
         simp only [PossiblyInfiniteList.head_drop] at trg_ex
         specialize trg_ex _ eq
         cases after_eq : (cd.branch.drop ns.length).tail.head with
@@ -253,7 +255,8 @@ def intoTree (cd : ChaseDerivation N obs rules) (deterministic : rules.isDetermi
       | false => rw [FiniteDegreeTree.get?_from_branch_of_some_ne_zero] at node_eq; simp at node_eq; grind
       | true =>
         rw [FiniteDegreeTree.get?_from_branch_of_all_zero (by grind)] at node_eq
-        rcases cd.fairness trg with ⟨fairness_step, fairness⟩
+        rcases cd.fairness trg with ⟨cd2, cd2_suf, fairness⟩
+        rw [ChaseDerivationSkeleton.IsSuffix_iff] at cd2_suf; rcases cd2_suf with ⟨fairness_step, cd2_suf⟩
         have : fairness_step ≤ node.length := by
           rw [← List.head?_eq_none_iff, List.head?_eq_getElem?, FiniteDegreeTree.get?_childNodes, FiniteDegreeTree.get?_childTrees, FiniteDegreeTree.FiniteDegreeTreeWithRoot.opt_to_tree_after_tree_to_opt, FiniteDegreeTree.drop_drop, FiniteDegreeTree.root_drop] at node_children
           rw [FiniteDegreeTree.get?_from_branch_of_all_zero (by grind)] at node_children
@@ -261,38 +264,25 @@ def intoTree (cd : ChaseDerivation N obs rules) (deterministic : rules.isDetermi
           apply Decidable.byContradiction
           intro lt; have le := Nat.succ_le_of_lt (Nat.lt_of_not_le lt)
           have := cd.branch.get?_eq_none_of_le_of_eq_none node_children _ le
-          rw [PossiblyInfiniteList.head_drop] at fairness
-          rw [this] at fairness
-          simp at fairness
-        cases Nat.lt_or_eq_of_le this with
-        | inr eq =>
-          have fairness := fairness.left
-          rw [eq, PossiblyInfiniteList.head_drop] at fairness; simp only [node_eq] at fairness
-          rcases fairness with ⟨_, eq, fairness⟩
-          rw [Option.mem_def, Option.some_inj] at eq; rw [eq]
-          exact fairness
-        | inl lt =>
-          have fairness := fairness.right (node.length - fairness_step - 1)
-          rw [PossiblyInfiniteList.get?_tail, PossiblyInfiniteList.get?_drop] at fairness
-          have : fairness_step + (node.length - fairness_step - 1).succ = node.length := by omega
-          rw [this] at fairness
-          simp only [node_eq] at fairness
-          apply fairness
-          simp
+          rw [← PossiblyInfiniteList.head_drop, cd2_suf, ← Option.not_isSome_iff_eq_none] at this
+          apply this; exact cd2.isSome_head
+        apply fairness; rw [ChaseDerivationSkeleton.mem_iff]
+        exists node.length - fairness_step
+        rw [← cd2_suf, PossiblyInfiniteList.get?_drop, Nat.add_sub_of_le this]; exact node_eq
     fairness_infinite_branches := by
       intro trg
-      rcases cd.fairness trg with ⟨fairness_step, fairness⟩
-      exists fairness_step + 1
+      rcases cd.fairness trg with ⟨cd2, cd2_suf, fairness⟩
+      rw [ChaseDerivationSkeleton.IsSuffix_iff] at cd2_suf; rcases cd2_suf with ⟨fairness_step, cd2_suf⟩
+      exists fairness_step
       intro ns ns_length
       cases eq : ns.all (fun e => e = 0) with
       | false => simp [FiniteDegreeTree.get?_from_branch_of_some_ne_zero (ns := ns) (by grind)]
       | true =>
         rw [FiniteDegreeTree.get?_from_branch_of_all_zero (by grind)]
-        have fairness := fairness.right (ns.length - fairness_step - 1)
-        rw [PossiblyInfiniteList.get?_tail, PossiblyInfiniteList.get?_drop] at fairness
-        have : fairness_step + (ns.length - fairness_step - 1).succ = ns.length := by omega
-        rw [this] at fairness
-        exact fairness
+        intro node node_mem; apply fairness; rw [cd2.mem_iff]
+        exists (ns.length - fairness_step)
+        rw [← cd2_suf, PossiblyInfiniteList.get?_drop, Nat.add_sub_of_le ns_length]
+        exact node_mem
   }
 
 /-- The root of intoTree is the original head. -/
@@ -402,7 +392,7 @@ def intoTree {N : Type u} [CN : ChaseNode N obs kb.rules] (cb : ChaseBranch N ob
     triggers_exist := td.triggers_exist
     fairness_leaves := td.fairness_leaves
     fairness_infinite_branches := td.fairness_infinite_branches
-    database_first := by unfold td ChaseDerivation.intoTree; rw [FiniteDegreeTree.root_from_branch]; exact cb.database_first
+    database_first := by unfold td ChaseDerivation.intoTree; simp only [TreeDerivation.root, FiniteDegreeTree.root_from_branch]; exact cb.database_first
   }
 
 end ChaseBranch

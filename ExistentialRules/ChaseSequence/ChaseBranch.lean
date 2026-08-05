@@ -27,29 +27,22 @@ variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq 
 structure ChaseBranch (N : Type u) (obs : ObsolescenceCondition sig) (kb : KnowledgeBase sig) [CN : ChaseNode N obs kb.rules] extends ChaseDerivation N obs kb.rules where
   -- We do not need to demand existence here since the ChaseDerivation(Skeleton) already ensures that the head exists.
   -- The ∀ quantifier makes this condition more convenient to use.
-  database_first : ∀ head ∈ branch.head,
-    CN.ingoingFacts head = kb.db.toFactSet ∧
-    CN.outgoingFacts head = kb.db.toFactSet ∧
-    CN.origin head = none
+  database_first :
+    CN.ingoingFacts toChaseDerivation.head = kb.db.toFactSet ∧
+    CN.outgoingFacts toChaseDerivation.head = kb.db.toFactSet ∧
+    CN.origin toChaseDerivation.head = none
 
 namespace ChaseBranch
 
 variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
 variable {N : Type u} [CN : ChaseNode N obs kb.rules]
 
-/-- We restate the `database_first` condition in terms of the `ChaseDerivation` vocabulary. -/
-theorem database_first' {cb : ChaseBranch N obs kb} :
-    CN.ingoingFacts cb.head = kb.db.toFactSet ∧
-    CN.outgoingFacts cb.head = kb.db.toFactSet ∧
-    CN.origin cb.head = none := by
-  apply cb.database_first; simp [ChaseDerivationSkeleton.head]
-
 /-- The head of the `ChaseBranch` does not contain any function terms. -/
 theorem func_term_not_mem_head {cb : ChaseBranch N obs kb} {t : GroundTerm sig} (t_is_func : ∃ func ts arity_ok, t = GroundTerm.func func ts arity_ok) :
     -- This is also true for the ingoingFacts but I think that we will only need this for the outgoingFacts.
     ¬ t ∈ (CN.outgoingFacts cb.head).terms := by
   intro t_mem
-  simp only [database_first'] at t_mem
+  simp only [database_first] at t_mem
   rcases t_mem with ⟨f, f_mem, t_mem⟩
   rcases kb.db.toFactSet.property.right f f_mem t t_mem with ⟨c, t_eq⟩
   rcases t_is_func with ⟨_, _, _, t_eq'⟩
@@ -60,7 +53,7 @@ theorem func_term_not_mem_head {cb : ChaseBranch N obs kb} {t : GroundTerm sig} 
 theorem mem_tail_of_isSome_origin {cb : ChaseBranch N obs kb} {n : N} (n_mem : n ∈ cb.toChaseDerivation) : (CN.origin n).isSome -> ∃ next_some, n ∈ cb.tail next_some := by
   intro isSome_origin
   cases cb.mem_iff_eq_head_or_mem_tail.mp n_mem with
-  | inl mem => exfalso; rw [Option.isSome_iff_ne_none] at isSome_origin; apply isSome_origin; rw [mem]; exact cb.database_first'.right.right
+  | inl mem => exfalso; rw [Option.isSome_iff_ne_none] at isSome_origin; apply isSome_origin; rw [mem]; exact cb.database_first.right.right
   | inr mem => exact mem
 
 end ChaseBranch
@@ -82,7 +75,7 @@ variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
 theorem facts_finite_of_mem {cb : RegularChaseBranch obs kb} (node : cb.Node) : node.val.facts.finite := by
   rw [RegularChaseDerivationSkeleton.facts_node_eq_union_initial_and_generated node.property]
   apply Set.union_finite_of_both_finite
-  . rw [← cb.head.outgoingFacts_eq, cb.database_first'.right.left]; exact kb.db.toFactSet.property.left
+  . rw [← cb.head.outgoingFacts_eq, cb.database_first.right.left]; exact kb.db.toFactSet.property.left
   . exact RegularChaseDerivationSkeleton.generatedFacts_finite_of_mem node.property
 
 /-- We define a shortcut for `RegularChaseDerivationSkeleton.result`. -/
@@ -95,14 +88,14 @@ theorem result_models_kb {cb : RegularChaseBranch obs kb} : cb.result.modelsKb k
   . intro f h
     apply RegularChaseDerivationSkeleton.facts_node_subset_result cb.head
     . apply cb.head_mem
-    . rw [← cb.head.outgoingFacts_eq, cb.database_first'.right.left]; exact h
+    . rw [← cb.head.outgoingFacts_eq, cb.database_first.right.left]; exact h
   . exact RegularChaseDerivation.result_models_rules
 
 /-- Constants in the chase must be in the database or in some rule. -/
 theorem constants_node_subset_constants_db_union_constants_rules {cb : RegularChaseBranch obs kb} {node : cb.Node} :
     node.val.facts.constants ⊆ (kb.db.constants.val ∪ kb.rules.head_constants) := by
   have := RegularChaseDerivation.constants_node_subset_constants_fs_union_constants_rules node.property
-  rw [← cb.head.outgoingFacts_eq, cb.database_first'.right.left, Database.toFactSet_constants_same] at this
+  rw [← cb.head.outgoingFacts_eq, cb.database_first.right.left, Database.toFactSet_constants_same] at this
   exact this
 
 /-- Each functional term in the chase originates as a fresh term from a trigger. -/

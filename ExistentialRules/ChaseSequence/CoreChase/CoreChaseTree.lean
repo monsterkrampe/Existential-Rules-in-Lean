@@ -300,7 +300,7 @@ Just as in a regular `ChaseTree`, every fact set (and every core) that occurs in
 /- Each fact set in the chase is finite. -/
 theorem facts_finite_of_mem {ct : CoreChaseTree kb} (node : ct.NodeWithAddress) : node.node.facts.finite := by
   apply CoreTreeDerivation.facts_finite_of_mem_of_root_finite
-  rw [← ct.root.ingoingFacts_eq, ct.database_first'.left]; exact kb.db.toFactSet.property.left
+  rw [← ct.root.ingoingFacts_eq, ct.database_first.left]; exact kb.db.toFactSet.property.left
 
 /- Each core in the chase is finite. -/
 theorem core_finite_of_mem {ct : CoreChaseTree kb} (node : ct.NodeWithAddress) : node.node.core.finite := by
@@ -324,7 +324,7 @@ theorem db_mem_of_mem {ct : CoreChaseTree kb} : ∀ (node : ct.NodeWithAddress),
   rcases CoreTreeDerivation.exists_homomorphism_from_root_of_mem _ node.mem with ⟨h, hom⟩
   intro f f_mem
   apply hom.right
-  rw [← CoreChaseNode.outgoingFacts_eq, ct.database_first'.right.left]
+  rw [← CoreChaseNode.outgoingFacts_eq, ct.database_first.right.left]
   rw [GroundTermMapping.mem_applyFactSet]; exists f; constructor; exact f_mem
   apply Eq.symm; apply h.applyFact_eq_self_of_isIdOnConstants_of_isFunctionFree
   . exact hom.left
@@ -385,10 +385,10 @@ theorem constants_node_subset_constants_db_union_constants_rules
     {node : CoreChaseNode kb.rules} (node_mem : node ∈ ct) :
     node.facts.constants ⊆ (kb.db.constants.val ∪ kb.rules.head_constants) := by
   cases ct.mem_iff_eq_root_or_mem_child.mp node_mem with
-  | inl node_mem => apply Set.subset_union_of_subset_left; rw [node_mem, ← ct.root.ingoingFacts_eq, ct.database_first'.left, Database.toFactSet_constants_same]; exact Set.subset_refl
+  | inl node_mem => apply Set.subset_union_of_subset_left; rw [node_mem, ← ct.root.ingoingFacts_eq, ct.database_first.left, Database.toFactSet_constants_same]; exact Set.subset_refl
   | inr node_mem =>
     rcases node_mem with ⟨_, node_mem⟩
-    rw [← Database.toFactSet_constants_same, ← ct.database_first'.right.left, ct.root.outgoingFacts_eq]
+    rw [← Database.toFactSet_constants_same, ← ct.database_first.right.left, ct.root.outgoingFacts_eq]
     exact CoreTreeDerivation.constants_node_subset_constants_fs_union_constants_rules node_mem.left node_mem.right
 
 /-- Each functional term in the chase originates as a fresh term from a trigger. -/
@@ -406,7 +406,7 @@ theorem functional_term_originates_from_some_trigger
   cases node.eq_root_or_mem_child with
   | inl node_mem =>
     simp only [TreeDerivation.NodeWithAddress.root] at node_mem
-    rw [node_mem, ← ct.root.ingoingFacts_eq, ct.database_first'.left, ← ct.database_first'.right.left] at t_mem
+    rw [node_mem, ← ct.root.ingoingFacts_eq, ct.database_first.left, ← ct.database_first.right.left] at t_mem
     apply False.elim; apply t_nmem_root; exact t_mem
   | inr node_mem =>
     rcases node_mem with ⟨child, child_mem, node', node_eq⟩
@@ -435,7 +435,7 @@ theorem trigger_introducing_functional_term_occurs_in_chase
   cases node.eq_root_or_mem_child with
   | inl node_mem =>
     simp only [TreeDerivation.NodeWithAddress.root] at node_mem
-    rw [node_mem, ← ct.root.ingoingFacts_eq, ct.database_first'.left, ← ct.database_first'.right.left] at t_mem_node
+    rw [node_mem, ← ct.root.ingoingFacts_eq, ct.database_first.left, ← ct.database_first.right.left] at t_mem_node
     apply False.elim; apply t_nmem_root; exact t_mem_node
   | inr node_mem =>
     rcases node_mem with ⟨child, child_mem, node', node_eq⟩

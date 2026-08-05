@@ -35,8 +35,8 @@ The backbone of the `ChaseDerivationSkeleton` is a `PossiblyInfiniteList` of `Ch
 structure ChaseDerivationSkeleton (N : Type u) (obs : ObsolescenceCondition sig) (rules : RuleSet sig) [CN : ChaseNode N obs rules] where
   branch : PossiblyInfiniteList N
   isSome_head : branch.head.isSome
-  triggers_exist : ∀ n : Nat, ∀ before ∈ (branch.drop n).head,
-    ∀ after ∈ (branch.drop n).tail.head, CN.succ before after
+  triggers_exist : ∀ b2, b2 <:+ branch -> ∀ before ∈ b2.head,
+    ∀ after ∈ b2.tail.head, CN.succ before after
 
 namespace ChaseDerivationSkeleton
 
@@ -69,14 +69,7 @@ def derivation_for_branch_suffix
     ChaseDerivationSkeleton N obs rules where
   branch := l2
   isSome_head := l2_head_some
-  triggers_exist := by
-    rw [PossiblyInfiniteList.IsSuffix_iff] at suffix
-    rcases suffix with ⟨m, suffix⟩
-    rw [← suffix]
-    intro n
-    have := cd.triggers_exist (m + n)
-    simp only [PossiblyInfiniteList.head_drop, PossiblyInfiniteList.get?_drop, PossiblyInfiniteList.tail_drop] at *
-    exact this
+  triggers_exist := by intro b2 suffix2; apply cd.triggers_exist; exact PossiblyInfiniteList.IsSuffix_trans suffix2 suffix
 
 /-- The head of the `ChaseDerivationSkeleton` is the initial `ChaseNode`. We know that this is never none. -/
 @[expose]
@@ -106,16 +99,14 @@ theorem next_mem_of_mem {cd : ChaseDerivationSkeleton N obs rules} : ∀ next �
 /-- The origin of the `next` `ChaseNode` needs to be set. -/
 @[grind ->]
 theorem isSome_origin_next {cd : ChaseDerivationSkeleton N obs rules} {next : N} (eq : cd.next = some next) : (CN.origin next).isSome := by
-  have trg_ex := cd.triggers_exist 0 cd.head (by simp [PossiblyInfiniteList.drop_zero, head])
-  rw [PossiblyInfiniteList.drop_zero] at trg_ex
+  have trg_ex := cd.triggers_exist _ (PossiblyInfiniteList.IsSuffix_refl) cd.head (by simp [head])
   specialize trg_ex _ eq
   rcases trg_ex with ⟨isSome, _⟩; exact isSome
 
 /-- The fact set of the `next` `ChaseNode` consists exactly of the facts from `head` and the result of the trigger that introduces `next`. -/
 theorem facts_next {cd : ChaseDerivationSkeleton N obs rules} {next : N} (eq : cd.next = some next) :
     CN.ingoingFacts next = CN.outgoingFacts cd.head ∪ (CN.origin_result next (cd.isSome_origin_next eq)).toSet := by
-  have trg_ex := cd.triggers_exist 0 cd.head (by simp [PossiblyInfiniteList.drop_zero, head])
-  rw [PossiblyInfiniteList.drop_zero] at trg_ex
+  have trg_ex := cd.triggers_exist _ (PossiblyInfiniteList.IsSuffix_refl) cd.head (by simp [head])
   specialize trg_ex _ eq
   rcases trg_ex with ⟨_, facts_eq⟩; rw [facts_eq]
 

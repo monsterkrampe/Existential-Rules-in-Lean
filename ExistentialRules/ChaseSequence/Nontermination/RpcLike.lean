@@ -50,10 +50,9 @@ def Trigger.unblockable
 /-- A `CyclicityDerivation` is an infinite list of `ChaseNode`s. We demand only that triggers are loaded, new terms keep being added (growing) and that triggers are unblockable. This is much different from a `ChaseDerivation` but intuitively, we can view a `CyclicityDerivation` as a very special non-continuous subderivation of a suitable `ChaseDerivation`. -/
 structure CyclicityDerivation (obs : ObsolescenceCondition sig) (rules : RuleSet sig)
     extends RegularChaseDerivationSkeleton obs rules where
-  triggers_loaded : ∀ n : Nat, ∀ before ∈ (branch.drop n).head,
-    ∀ after ∈ (branch.drop n).tail.head, ∃ orig ∈ after.origin, orig.fst.val.loaded before.facts
-  growing : ∀ n, ∃ m, ∃ t, (∀ node ∈ (branch.drop n).head, ¬ t ∈ node.facts.terms) ∧ (∃ node ∈ (branch.drop (n+m)).head, t ∈ node.facts.terms)
-  unblockable : ∀ node ∈ branch, ∀ orig ∈ node.origin, (orig.fst.val.unblockable orig.snd.val orig.snd.isLt rules)
+  triggers_loaded : ∀ cd2, cd2 <:+ toChaseDerivationSkeleton -> ∀ next ∈ cd2.next, ∃ orig ∈ next.origin, orig.fst.val.loaded cd2.head.facts
+  growing : ∀ cd2, cd2 <:+ toChaseDerivationSkeleton -> ∃ node ∈ cd2, ∃ t, ¬ t ∈ cd2.head.facts.terms ∧ t ∈ node.facts.terms
+  unblockable : ∀ node ∈ toChaseDerivationSkeleton, ∀ orig ∈ node.origin, (orig.fst.val.unblockable orig.snd.val orig.snd.isLt rules)
 
 namespace CyclicityDerivation
 
@@ -61,6 +60,9 @@ variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 
 instance : Membership (RegularChaseNode obs rules) (CyclicityDerivation obs rules) where
   mem cd node := node ∈ cd.toChaseDerivationSkeleton
+
+/-- An element is a member of the derivation iff it occurs at some index in the underlying branch. -/
+theorem mem_iff {cd : CyclicityDerivation obs rules} : ∀ {e}, e ∈ cd ↔ ∃ n, cd.branch.get? n = some e := ChaseDerivationSkeleton.mem_iff
 
 /-- Each suffix of the underlying `ChaseDerivationSkeleton` is itself a `CyclicityDerivation`. -/
 def derivation_for_skeleton
@@ -71,63 +73,37 @@ def derivation_for_skeleton
   branch := l2.branch
   isSome_head := l2.isSome_head
   triggers_exist := l2.triggers_exist
-  triggers_loaded := by
-    rw [ChaseDerivationSkeleton.IsSuffix_iff] at suffix
-    rcases suffix with ⟨m, suffix⟩
-    rw [← suffix]
-    intro n
-    have := cd.triggers_loaded (m + n)
-    simp only [PossiblyInfiniteList.head_drop, PossiblyInfiniteList.get?_drop, PossiblyInfiniteList.tail_drop] at *
-    exact this
-  growing := by
-    rw [ChaseDerivationSkeleton.IsSuffix_iff] at suffix
-    rcases suffix with ⟨m, suffix⟩
-    rw [← suffix]
-    intro n
-    have := cd.growing (m + n)
-    simp only [PossiblyInfiniteList.head_drop, PossiblyInfiniteList.get?_drop, Nat.add_assoc] at *
-    exact this
+  triggers_loaded := by intro cd2 suffix2; apply cd.triggers_loaded; exact PossiblyInfiniteList.IsSuffix_trans suffix2 suffix
+  growing := by intro cd2 suffix2; apply cd.growing; exact PossiblyInfiniteList.IsSuffix_trans suffix2 suffix
   unblockable := by
     intro node node_mem
     apply cd.unblockable
     exact ChaseDerivationSkeleton.mem_of_mem_suffix suffix _ node_mem
 
-/-- We restate the `growing` property using suffix vocabulary available for `ChaseDerivationSkeleton`s. -/
-theorem growing' {cd : CyclicityDerivation obs rules} : ∃ cd2 : CyclicityDerivation obs rules, cd2.toChaseDerivationSkeleton <:+ cd.toChaseDerivationSkeleton ∧
-    ∃ t, t ∉ cd.head.facts.terms ∧ t ∈ cd2.head.facts.terms := by
-  rcases cd.growing 0 with ⟨m, t, t_not_mem, ⟨node, node_mem, t_mem⟩⟩
-  rw [Nat.zero_add] at node_mem
-  specialize t_not_mem cd.head (by simp [ChaseDerivationSkeleton.head])
-  let cd2 : RegularChaseDerivationSkeleton obs rules :=
-    cd.derivation_for_branch_suffix _ (cd.branch.IsSuffix_drop m) (by rw [node_mem]; simp)
-  have cd2_suffix : cd2 <:+ cd.toChaseDerivationSkeleton := cd.branch.IsSuffix_drop m
-  exists cd.derivation_for_skeleton cd2 cd2_suffix
-  constructor; exact cd2_suffix
-  exists t; constructor; exact t_not_mem
-  suffices cd2.head = node by simp only [derivation_for_skeleton, this]; exact t_mem
-  simp only [cd2, ChaseDerivationSkeleton.derivation_for_branch_suffix, ChaseDerivationSkeleton.head]
-  rw [Option.mem_def] at node_mem
-  simp [node_mem]
+/-- We state a simplified version of the `growing` property. -/
+theorem growing' {cd : CyclicityDerivation obs rules} : ∃ node ∈ cd, ∃ t, t ∉ cd.head.facts.terms ∧ t ∈ node.facts.terms :=
+  cd.growing _ (cd.branch.IsSuffix_refl)
 
 /-- Given a list of terms, we can find a suffix that contains a term that is not part of this list because of the growing property. This result is closest to the `growing'` statement. -/
-theorem growing'_for_list (cd : CyclicityDerivation obs rules) (l : List (GroundTerm sig)) : ∃ cd2 : CyclicityDerivation obs rules,
-    cd2.toChaseDerivationSkeleton <:+ cd.toChaseDerivationSkeleton ∧ ∃ t, t ∉ cd.head.facts.terms ∧ t ∈ cd2.head.facts.terms ∧ t ∉ l := by
+theorem growing'_for_list (cd : CyclicityDerivation obs rules) (l : List (GroundTerm sig)) :
+    ∃ node ∈ cd, ∃ t, t ∉ cd.head.facts.terms ∧ t ∈ node.facts.terms ∧ t ∉ l := by
   induction l generalizing cd with
-  | nil => rcases cd.growing' with ⟨cd2, suf, t, t_not_mem, t_mem⟩; exact ⟨cd2, suf, t, t_not_mem, t_mem, by simp⟩
+  | nil => rcases cd.growing' with ⟨node, node_mem, t, t_not_mem, t_mem⟩; exact ⟨node, node_mem, t, t_not_mem, t_mem, by simp⟩
   | cons hd tl ih =>
-    rcases ih cd with ⟨cd2, suf, t, t_not_mem, t_mem, t_not_mem_l⟩
-    rcases ih cd2 with ⟨cd3, suf2, s, s_not_mem, s_mem, s_not_mem_l⟩
+    rcases ih cd with ⟨node, node_mem, t, t_not_mem, t_mem, t_not_mem_l⟩
+    rcases cd.subderivation_of_node_mem node_mem with ⟨cd2, head_eq, suf⟩
+    rcases ih (cd.derivation_for_skeleton cd2 suf) with ⟨node2, node2_mem, s, s_not_mem, s_mem, s_not_mem_l⟩
     cases Decidable.em (hd = t) with
-    | inr ne => exists cd2; constructor; exact suf; exists t; grind
+    | inr ne => exists node; constructor; exact node_mem; exists t; grind
     | inl eq =>
-      exists cd3; constructor; exact PossiblyInfiniteList.IsSuffix_trans suf2 suf
+      exists node2; constructor; exact cd2.mem_of_mem_suffix suf _ node2_mem
       exists s
       constructor
       . intro contra; apply s_not_mem; apply FactSet.terms_subset_of_subset (RegularChaseDerivationSkeleton.facts_node_subset_every_mem _ (ChaseDerivationSkeleton.mem_of_mem_suffix suf _ cd2.head_mem)); exact contra
       constructor; exact s_mem
       . intro contra; rw [List.mem_cons] at contra; cases contra with
         | inr contra => apply s_not_mem_l; exact contra
-        | inl contra => apply s_not_mem; rw [contra, eq]; exact t_mem
+        | inl contra => apply s_not_mem; rw [contra, eq]; simp only [derivation_for_skeleton, head_eq]; exact t_mem
 
 /-- We restate the `growing` property using predecessor vocabulary available for `ChaseDerivationSkeleton`s. -/
 theorem growing'' {cd : CyclicityDerivation obs rules} : ∀ node : cd.Node,
@@ -140,11 +116,11 @@ theorem growing'' {cd : CyclicityDerivation obs rules} : ∀ node : cd.Node,
   have cd2_suffix : cd2 <:+ cd.toChaseDerivationSkeleton := cd.branch.IsSuffix_drop n
   have node_head : node = cd2.head := by simp only [cd2, ChaseDerivationSkeleton.derivation_for_branch_suffix, ChaseDerivationSkeleton.head]; rcases Option.eq_some_iff_get_eq.mp node_eq with ⟨_, node_eq⟩; simp [← node_eq]
 
-  rcases (cd.derivation_for_skeleton cd2 cd2_suffix).growing' with ⟨cd3, suffix, t, t_not_mem, t_mem⟩
-  simp only [derivation_for_skeleton] at suffix
+  rcases (cd.derivation_for_skeleton cd2 cd2_suffix).growing' with ⟨node2, node2_mem, t, t_not_mem, t_mem⟩
+  simp only [derivation_for_skeleton] at node2_mem
   simp only [derivation_for_skeleton] at t_not_mem
   let node_cd2 : cd2.Node := ⟨node, by rw [node_head]; exact cd2.head_mem⟩
-  let node2_cd2 : cd2.Node := ⟨cd3.head, by apply cd3.mem_of_mem_suffix suffix; exact cd3.head_mem⟩
+  let node2_cd2 : cd2.Node := ⟨node2, node2_mem⟩
   have prec : node_cd2 ≺ node2_cd2 := by
     constructor
     . exists cd2; constructor; exact PossiblyInfiniteList.IsSuffix_refl; constructor; rw [← node_head]; exact node2_cd2.property
@@ -186,7 +162,7 @@ theorem facts_next {cd : CyclicityDerivation obs rules} :
 @[grind <-]
 theorem loaded_trigger_origin_next {cd : CyclicityDerivation obs rules} :
     (cd.next.origin.get cd.isSome_origin_next).fst.val.loaded cd.head.facts := by
-  have trg_loaded := cd.triggers_loaded 0 cd.head (by simp [ChaseDerivationSkeleton.head]) cd.next (by simp [next, ChaseDerivationSkeleton.next])
+  have trg_loaded := cd.triggers_loaded _ (cd.branch.IsSuffix_refl) cd.next (by simp [next, ChaseDerivationSkeleton.next])
   rcases trg_loaded with ⟨orig, orig_mem, trg_loaded⟩
   rw [Option.mem_def] at orig_mem
   simp only [orig_mem, Option.get_some]
@@ -281,13 +257,13 @@ theorem corresponding_tree_branch_exists {cd : CyclicityDerivation obs rules}
       . exact (generator.repeat_fun n b).property.left _ f_mem.left
       . exact f_mem.right
     intro l
-    rcases b.val.fst.growing'_for_list l with ⟨cd2, suf, t, t_not_mem, t_mem, t_not_mem_l⟩
-    rw [ChaseDerivationSkeleton.IsSuffix_iff] at suf; rcases suf with ⟨n, suf⟩
+    rcases b.val.fst.growing'_for_list l with ⟨node, node_mem, t, t_not_mem, t_mem, t_not_mem_l⟩
+    rw [mem_iff] at node_mem; rcases node_mem with ⟨n, node_mem⟩
     exists n, t; simp only [t_not_mem_l, not_false_iff, and_true]
-    simp only [ChaseDerivationSkeleton.head, ← suf, firstComponent_branch_eq, InfiniteList.get_iterate] at t_mem
+    rw [← PossiblyInfiniteList.head_drop, firstComponent_branch_eq, InfiniteList.get_iterate] at node_mem
     simp only [ChaseDerivationSkeleton.head]
     rcases t_mem with ⟨f, f_mem, t_mem⟩
-    exists f; simp only [t_mem, and_true]; constructor; exact f_mem
+    exists f; simp only [t_mem, and_true]; constructor; simp only [node_mem, Option.get_some]; exact f_mem
     rw [td.root.outgoingFacts_eq, ← same_start]
     intro contra; apply t_not_mem
     exists f; simp only [t_mem, and_true]
@@ -383,23 +359,18 @@ end CyclicityDerivation
 
 /-- This is the CyclicitySequence from the RPC paper. For us, it is a `CyclicityDerivation` that starts on a database.  -/
 structure CyclicityBranch (obs : ObsolescenceCondition sig) (kb : KnowledgeBase sig) extends CyclicityDerivation obs kb.rules where
-  database_first : ∀ head ∈ branch.head,
-    head.facts = kb.db.toFactSet ∧
-    head.origin = none
+  database_first :
+    toChaseDerivationSkeleton.head.facts = kb.db.toFactSet ∧
+    toChaseDerivationSkeleton.head.origin = none
 
 namespace CyclicityBranch
 
 variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
 
-/-- We restate the `database_first` condition in terms of the `CyclicityDerivation` vocabulary. -/
-theorem database_first' {cb : CyclicityBranch obs kb} :
-    cb.head.facts = kb.db.toFactSet ∧
-    cb.head.origin = none := by apply cb.database_first; simp [ChaseDerivationSkeleton.head]
-
 /-- In every `ChaseTree`, there exists a branch that corresponds to the `CyclicityBranch`, meaning that it has the same result. -/
 theorem corresponding_tree_branch_exists {cb : CyclicityBranch obs kb} (ct : RegularChaseTree obs kb) :
     ∃ branch : RegularChaseBranch obs kb, branch.toChaseDerivation ∈ ct.branches ∧ cb.result ⊆ branch.result := by
-  rcases cb.toCyclicityDerivation.corresponding_tree_branch_exists ct.toTreeDerivation (by rw [cb.database_first'.left, ← RegularChaseNode.outgoingFacts_eq, ct.database_first'.right.left]) with ⟨cd, cd_mem, res_sub⟩
+  rcases cb.toCyclicityDerivation.corresponding_tree_branch_exists ct.toTreeDerivation (by rw [cb.database_first.left, ← RegularChaseNode.outgoingFacts_eq, ct.database_first.right.left]) with ⟨cd, cd_mem, res_sub⟩
   exists ct.chaseBranch_for_branch cd_mem
 
 /-- If a KB admist a `CyclicityBranch`, then its rule set `neverTerminates`. -/

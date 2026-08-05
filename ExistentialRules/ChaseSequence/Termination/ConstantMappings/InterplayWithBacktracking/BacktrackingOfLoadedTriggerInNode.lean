@@ -48,7 +48,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
   induction node using ChaseDerivation.mem_rec with
   | head =>
     intro term term_mem forbidden_constants forbidden_constants_subsumes_term forbidden_constants_subsumes_rules
-    simp only [← cb.head.outgoingFacts_eq, cb.database_first'] at term_mem
+    simp only [← cb.head.outgoingFacts_eq, cb.database_first] at term_mem
     rcases term_mem with ⟨f, f_mem, term_mem⟩
     rcases kb.db.toFactSet.property.right f f_mem term term_mem with ⟨_, t_eq⟩
     exists GroundTerm.const

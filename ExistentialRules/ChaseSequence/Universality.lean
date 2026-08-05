@@ -287,7 +287,7 @@ noncomputable def start_for_infinite_list_of_derivations_and_homomorphisms
     (m_is_model : m.modelsKb kb) :
     InductiveHomomorphismResult ct m :=
   let start : InductiveHomomorphismResult ct m := ⟨(TreeDerivation.NodeWithAddress.root ct.toTreeDerivation, id), by
-    simp only [TreeDerivation.NodeWithAddress.root]; rw [ct.database_first'.right.left]
+    simp only [TreeDerivation.NodeWithAddress.root]; rw [ct.database_first.right.left]
     constructor
     . unfold GroundTermMapping.isIdOnConstants; simp
     . intro e
@@ -379,7 +379,7 @@ theorem fst_head_infinite_list_of_derivations_and_homomorphisms_eq_list_of_all_h
   rw [PossiblyInfiniteList.get?_map]
   simp only [pairs, head_infinite_list_of_derivations_and_homomorphisms, infinite_list_of_derivations_and_homomorphisms]
   simp only [PossiblyInfiniteList.head_generate, Option.map_some, Option.get_some]
-  simp only [TreeDerivation.generate_subderivation, TreeDerivation.generate_branch, TreeDerivation.derivation_for_branch, FiniteDegreeTree.get?_generate_branch]
+  simp only [TreeDerivation.generate_subderivation, TreeDerivation.generate_branch, TreeDerivation.derivation_for_branch, TreeDerivation.derivationSkeleton_for_branch, FiniteDegreeTree.get?_generate_branch]
   simp only [PossiblyInfiniteList.get?_generate, Option.map_map]
   apply Option.map_congr
   intro _ _

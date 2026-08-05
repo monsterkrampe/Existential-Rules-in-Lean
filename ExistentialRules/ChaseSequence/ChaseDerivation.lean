@@ -38,16 +38,11 @@ The backbone of the `ChaseDerivation` is a `ChaseDerivationSkeleton` with additi
 
 1. Each trigger used in the derivation must be active for the previous fact set.
 2. The derivation needs to be fair. That is, for each trigger, there exists a step in the derivation from which on the trigger is not active.
-
-Expressing the conditions in terms of the machinery available form the `PossiblyInfiniteList` is admittedly quite convoluted.
-As part of the framework built around the `ChaseDerivation`, we will also restate these conditions in a more accessible way. See e.g. `ChaseDerivation.fairness'`.
 -/
 
 structure ChaseDerivation (N : Type u) (obs : ObsolescenceCondition sig) (rules : RuleSet sig) [CN : ChaseNode N obs rules] extends ChaseDerivationSkeleton N obs rules where
-  triggers_active : ∀ n : Nat, ∀ before ∈ (branch.drop n).head,
-    ∀ after ∈ (branch.drop n).tail.head, ∃ orig ∈ CN.origin after, orig.fst.val.active (CN.outgoingFacts before)
-  fairness : ∀ trg : (RTrigger obs rules), ∃ i : Nat, (∃ node ∈ (branch.drop i).head, ¬ trg.val.active (CN.outgoingFacts node))
-    ∧ (∀ j : Nat, ∀ node2 ∈ (branch.drop i).tail.get? j, ¬ trg.val.active (CN.outgoingFacts node2))
+  triggers_active : ∀ cd2, cd2 <:+ toChaseDerivationSkeleton -> ∀ next ∈ cd2.next, ∃ orig ∈ CN.origin next, orig.fst.val.active (CN.outgoingFacts cd2.head)
+  fairness : ∀ (trg : RTrigger obs rules), ∃ (cd2 : ChaseDerivationSkeleton N obs rules), cd2 <:+ toChaseDerivationSkeleton ∧ ∀ node ∈ cd2, ¬ trg.val.active (CN.outgoingFacts node)
 
 namespace ChaseDerivation
 
@@ -83,44 +78,28 @@ def derivation_for_skeleton
   branch := l2.branch
   isSome_head := l2.isSome_head
   triggers_exist := l2.triggers_exist
-  triggers_active := by
-    rw [ChaseDerivationSkeleton.IsSuffix_iff] at suffix
-    rcases suffix with ⟨m, suffix⟩
-    rw [← suffix]
-    intro n
-    have := cd.triggers_active (m + n)
-    simp only [PossiblyInfiniteList.head_drop, PossiblyInfiniteList.get?_drop, PossiblyInfiniteList.tail_drop] at *
-    exact this
+  triggers_active := by intro cd2 suffix2; apply cd.triggers_active; exact PossiblyInfiniteList.IsSuffix_trans suffix2 suffix
   fairness := by
-    have l2_head_some := l2.isSome_head
-    rw [Option.isSome_iff_exists] at l2_head_some; rcases l2_head_some with ⟨l2_head, l2_head_eq⟩
     rw [ChaseDerivationSkeleton.IsSuffix_iff] at suffix
     rcases suffix with ⟨m, suffix⟩
-    rw [← suffix]
     intro trg
-    rcases cd.fairness trg with ⟨i, fairness⟩
+    rcases cd.fairness trg with ⟨cd2, suffix2, fairness⟩
+    rw [ChaseDerivationSkeleton.IsSuffix_iff] at suffix2
+    rcases suffix2 with ⟨i, suffix2⟩
     cases Decidable.em (i < m) with
     | inl lt =>
       rcases Nat.exists_eq_add_of_lt lt with ⟨diff, lt⟩
-      exists 0
-      constructor
-      . exists l2_head
-        constructor
-        . grind
-        . apply (fairness.right diff)
-          grind
-      . intro j
-        have fairness := fairness.right (diff.succ + j)
-        simp only [PossiblyInfiniteList.drop_zero, PossiblyInfiniteList.get?_tail, PossiblyInfiniteList.get?_drop] at *
-        have : (i + diff + 1 + j.succ) = (i + (diff.succ + j).succ) := by omega
-        rw [lt, this]
-        exact fairness
+      have suffix3 : l2 <:+ cd2 := by rw [ChaseDerivationSkeleton.IsSuffix_iff]; exists diff + 1; grind
+      exists l2; constructor; exact PossiblyInfiniteList.IsSuffix_refl
+      intro node node_mem
+      apply fairness
+      exact l2.mem_of_mem_suffix suffix3 _ node_mem
     | inr le =>
       have le := Nat.le_of_not_lt le
-      simp only [PossiblyInfiniteList.tail_drop, PossiblyInfiniteList.head_drop, PossiblyInfiniteList.get?_drop, Nat.succ_add] at *
-      exists (i - m)
-      simp only [← Nat.add_succ, ← Nat.add_assoc, Nat.add_sub_of_le le] at *
-      exact fairness
+      rcases Nat.exists_eq_add_of_le le with ⟨diff, le⟩
+      exists cd2; constructor
+      . rw [ChaseDerivationSkeleton.IsSuffix_iff]; exists diff; grind
+      . exact fairness
 
 section Next
 
@@ -134,7 +113,7 @@ Compared to the `ChaseDerivationSkeleton` we can show some additional results fo
 @[grind ->]
 theorem active_trigger_origin_next {cd : ChaseDerivation N obs rules} {next : N} (eq : cd.next = some next) :
     ((CN.origin next).get (cd.isSome_origin_next eq)).fst.val.active (CN.outgoingFacts cd.head) := by
-  have trg_act := cd.triggers_active 0 cd.head (by simp [ChaseDerivationSkeleton.head]) next (by simp [← eq, ChaseDerivationSkeleton.next])
+  have trg_act := cd.triggers_active  _ (PossiblyInfiniteList.IsSuffix_refl) next (by simp [← eq, ChaseDerivationSkeleton.next])
   rcases trg_act with ⟨orig, orig_mem, trg_act⟩
   rw [Option.mem_def] at orig_mem
   simp only [orig_mem, Option.get_some]
@@ -151,18 +130,13 @@ theorem isSome_next_iff_trg_ex {cd : ChaseDerivation N obs rules} : cd.next.isSo
     apply Decidable.byContradiction
     rw [Option.not_isSome_iff_eq_none]
     intro eq_none
-    have fair := cd.fairness trg
-    rcases cd.fairness trg with ⟨i, ⟨node, node_mem, not_active⟩, fair⟩
-    cases i with
-    | zero =>
-      apply not_active
-      have eq : cd.head = node := by unfold ChaseDerivationSkeleton.head; rw [Option.mem_def] at node_mem; grind
-      rw [← eq]
-      exact active
-    | succ i =>
-      simp only [ChaseDerivationSkeleton.next, ← PossiblyInfiniteList.empty_iff_head_none] at eq_none
-      rw [PossiblyInfiniteList.head_drop, ← PossiblyInfiniteList.get?_tail, eq_none] at node_mem
-      simp at node_mem
+    rcases cd.fairness trg with ⟨cd2, suf, fair⟩
+    rw [cd2.suffix_iff_eq_or_suffix_tail] at suf
+    cases suf with
+    | inl eq => apply fair cd.head; rw [eq]; exact cd.head_mem; exact active
+    | inr mem_tail =>
+      rcases mem_tail with ⟨contra, _⟩
+      rw [eq_none] at contra; simp at contra
 
 end Next
 
@@ -171,7 +145,7 @@ section Suffixes
 /-!
 ### ChaseDerivation Suffixes
 
-Suffixes on `ChaseDerivation`s allow us to state the fairness condition more nicely.
+We lift suffixes from the `ChaseDerivationSkeleton` to the `ChaseDerivation`.
 -/
 
 @[expose]
@@ -189,23 +163,11 @@ theorem subderivation_of_node_mem {cd : ChaseDerivation N obs rules} {node : N} 
   rcases cd.toChaseDerivationSkeleton.subderivation_of_node_mem node_mem with ⟨cds2, head_eq, suffix⟩
   exists cd.derivation_for_skeleton cds2 suffix
 
-/-- Fairness can be stated as: For each trigger, there exists a subderivation such that the trigger is not active for all nodes in the subderivation. -/
+/-- We repeat fairness lifted from an expression over `ChaseDerivationSkeleton` to an expression over `ChaseDerivation`. -/
 theorem fairness' {cd : ChaseDerivation N obs rules} :
     ∀ (trg : RTrigger obs rules), ∃ (cd2 : ChaseDerivation N obs rules), cd2 <:+ cd ∧ ∀ node ∈ cd2, ¬ trg.val.active (CN.outgoingFacts node) := by
-  intro trg
-  rcases cd.fairness trg with ⟨n, ⟨node, node_mem, fairness_head⟩, fairness_tail⟩
-  let cds2 := cd.derivation_for_branch_suffix (cd.branch.drop n) (cd.branch.IsSuffix_drop n) (by rw [node_mem]; simp)
-  let cd2 := cd.derivation_for_skeleton cds2 (cd.branch.IsSuffix_drop n)
-  exists cd2
-  constructor
-  . exact cd.branch.IsSuffix_drop n
-  . intro node2 node2_mem
-    rw [mem_iff] at node2_mem
-    rcases node2_mem with ⟨m, node2_mem⟩
-    simp only [cd2, derivation_for_skeleton, cds2, ChaseDerivationSkeleton.derivation_for_branch_suffix] at node2_mem
-    cases m with
-    | zero => grind
-    | succ m => apply fairness_tail m; grind
+  intro trg; rcases cd.fairness trg with ⟨cd2, suf, fair⟩
+  exists cd.derivation_for_skeleton cd2 suf
 
 end Suffixes
 

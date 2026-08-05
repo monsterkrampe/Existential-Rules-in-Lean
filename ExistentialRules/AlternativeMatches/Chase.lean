@@ -91,7 +91,7 @@ theorem result_isWeakCore_of_noAltMatch {cb : RegularChaseBranch obs kb} (det : 
         . intro t t_mem
           simp at t_mem
           rcases t_mem with ⟨f, f_mem, t_mem⟩
-          rw [← RegularChaseNode.outgoingFacts_eq, cb.database_first'.right.left] at f_mem
+          rw [← RegularChaseNode.outgoingFacts_eq, cb.database_first.right.left] at f_mem
 
           have isFunctionFree := kb.db.toFactSet.property.right
           specialize isFunctionFree _ f_mem
@@ -423,7 +423,7 @@ theorem altMatch_of_some_not_reaches_self (cb : RegularChaseBranch obs kb) (fs :
     | const c => apply prop_t; exact hom_fs.left
     | func func ts arity_ok =>
       have isFunctionFree := kb.db.toFactSet.property.right
-      simp only [eq_head, ← RegularChaseNode.outgoingFacts_eq, cb.database_first'.right.left] at t_mem
+      simp only [eq_head, ← RegularChaseNode.outgoingFacts_eq, cb.database_first.right.left] at t_mem
       rcases t_mem with ⟨f, f_mem, t_mem⟩
       specialize isFunctionFree _ f_mem _ t_mem
       rcases isFunctionFree with ⟨_, contra⟩

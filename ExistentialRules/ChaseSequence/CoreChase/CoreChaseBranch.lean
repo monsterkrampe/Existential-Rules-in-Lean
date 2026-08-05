@@ -365,7 +365,7 @@ Just as in a regular `ChaseBranch`, every fact set (and every core) that occurs 
 /- Each fact set in the chase is finite. -/
 theorem facts_finite_of_mem {cb : CoreChaseBranch kb} (node : cb.Node) : node.val.facts.finite := by
   apply CoreChaseDerivation.facts_finite_of_mem_of_head_finite
-  rw [← cb.head.ingoingFacts_eq, cb.database_first'.left]; exact kb.db.toFactSet.property.left
+  rw [← cb.head.ingoingFacts_eq, cb.database_first.left]; exact kb.db.toFactSet.property.left
 
 /- Each core in the chase is finite. -/
 theorem core_finite_of_mem {cb : CoreChaseBranch kb} (node : cb.Node) : node.val.core.finite := by
@@ -389,7 +389,7 @@ theorem db_mem_of_mem {cb : CoreChaseBranch kb} : ∀ (node : cb.Node), kb.db.to
   rcases CoreChaseDerivation.exists_homomorphism_from_head_of_mem _ node.property with ⟨h, hom⟩
   intro f f_mem
   apply hom.right
-  rw [← CoreChaseNode.outgoingFacts_eq, cb.database_first'.right.left]
+  rw [← CoreChaseNode.outgoingFacts_eq, cb.database_first.right.left]
   rw [GroundTermMapping.mem_applyFactSet]; exists f; constructor; exact f_mem
   apply Eq.symm; apply h.applyFact_eq_self_of_isIdOnConstants_of_isFunctionFree
   . exact hom.left
@@ -474,7 +474,7 @@ theorem wellFounded_pred {cb : CoreChaseBranch kb} : WellFounded cb.strict_prede
     constructor; intro node prec
     exfalso
     apply cb.core_not_subset_of_strict_predecessor prec
-    rw [← cb.head.outgoingFacts_eq, cb.database_first'.right.left]
+    rw [← cb.head.outgoingFacts_eq, cb.database_first.right.left]
     apply cb.db_mem_of_mem
   | step cd2 suf ih next next_mem =>
     constructor
@@ -542,10 +542,10 @@ that the trigger that introduces this term must have been applied in some `Chase
 theorem constants_node_subset_constants_db_union_constants_rules {cb : CoreChaseBranch kb} {node : cb.Node} :
     node.val.facts.constants ⊆ (kb.db.constants.val ∪ kb.rules.head_constants) := by
   cases ChaseDerivation.mem_iff_eq_head_or_mem_tail.mp node.property with
-  | inl node_mem => apply Set.subset_union_of_subset_left; rw [node_mem, ← cb.head.ingoingFacts_eq, cb.database_first'.left, Database.toFactSet_constants_same]; exact Set.subset_refl
+  | inl node_mem => apply Set.subset_union_of_subset_left; rw [node_mem, ← cb.head.ingoingFacts_eq, cb.database_first.left, Database.toFactSet_constants_same]; exact Set.subset_refl
   | inr node_mem =>
     rcases node_mem with ⟨_, node_mem⟩
-    rw [← Database.toFactSet_constants_same, ← cb.database_first'.right.left, cb.head.outgoingFacts_eq]
+    rw [← Database.toFactSet_constants_same, ← cb.database_first.right.left, cb.head.outgoingFacts_eq]
     exact CoreChaseDerivation.constants_node_subset_constants_fs_union_constants_rules node_mem
 
 /-- Each functional term in the chase originates as a fresh term from a trigger. -/
@@ -562,7 +562,7 @@ theorem functional_term_originates_from_some_trigger
     exact cb.func_term_not_mem_head t_is_func t_mem
   cases ChaseDerivation.mem_iff_eq_head_or_mem_tail.mp node.property with
   | inl node_mem =>
-    rw [node_mem, ← cb.head.ingoingFacts_eq, cb.database_first'.left, ← cb.database_first'.right.left] at t_mem
+    rw [node_mem, ← cb.head.ingoingFacts_eq, cb.database_first.left, ← cb.database_first.right.left] at t_mem
     apply False.elim; apply t_nmem_head; exact t_mem
   | inr node_mem =>
     have start_finite := (cb.core_finite_of_mem ⟨_, cb.head_mem⟩)
@@ -590,7 +590,7 @@ theorem trigger_introducing_functional_term_occurs_in_chase
     exact cb.func_term_not_mem_head (PreTrigger.term_functional_of_mem_fresh_terms _ t_mem_trg) t_mem
   cases ChaseDerivation.mem_iff_eq_head_or_mem_tail.mp node.property with
   | inl node_mem =>
-    rw [node_mem, ← cb.head.ingoingFacts_eq, cb.database_first'.left, ← cb.database_first'.right.left] at t_mem_node
+    rw [node_mem, ← cb.head.ingoingFacts_eq, cb.database_first.left, ← cb.database_first.right.left] at t_mem_node
     apply False.elim; apply t_nmem_head; exact t_mem_node
   | inr node_mem =>
     have start_finite := (cb.core_finite_of_mem ⟨_, cb.head_mem⟩)
