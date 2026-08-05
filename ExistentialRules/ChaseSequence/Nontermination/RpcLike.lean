@@ -8,6 +8,7 @@ module
 public import ExistentialRules.ChaseSequence.Termination.Basic
 import ExistentialRules.ChaseSequence.Nontermination.CondenseGenerator
 import ExistentialRules.ChaseSequence.Nontermination.SparseSubderivationGenerator
+public import ExistentialRules.ChaseSequence.Nontermination.Unblockability
 
 /-!
 # RPC-like Non-Termination
@@ -34,18 +35,6 @@ def RuleSet.neverTerminates (rs : RuleSet sig) (obs : ObsolescenceCondition sig)
   ∃ (db : Database sig), { rules := rs, db := db : KnowledgeBase sig }.neverTerminates obs N
 
 end BasicDefinitions
-
-
-/-- A trigger is unblockable if its result necessarily occurs in every derivation where the trigger is loaded. In the introducing paper this is called g-unblockable. -/
-def Trigger.unblockable
-    {obs : ObsolescenceCondition sig}
-    (trg : Trigger obs.toLaxObsolescenceCondition)
-    (i : Nat)
-    (lt : i < trg.rule.head.length)
-    (rules : RuleSet sig) : Prop :=
-  ∀ td : RegularTreeDerivation obs rules, ∀ node : td.NodeWithAddress, trg.loaded node.node.facts ->
-  ∃ node2 : td.NodeWithAddress, node ≼ node2 ∧
-  (trg.mapped_head[i]'(by grind)).toSet ⊆ node2.node.facts
 
 /-- A `CyclicityDerivation` is an infinite list of `ChaseNode`s. We demand only that triggers are loaded, new terms keep being added (growing) and that triggers are unblockable. This is much different from a `ChaseDerivation` but intuitively, we can view a `CyclicityDerivation` as a very special non-continuous subderivation of a suitable `ChaseDerivation`. -/
 structure CyclicityDerivation (obs : ObsolescenceCondition sig) (rules : RuleSet sig)

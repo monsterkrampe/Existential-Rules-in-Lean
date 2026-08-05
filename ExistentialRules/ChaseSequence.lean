@@ -16,6 +16,7 @@ import ExistentialRules.ChaseSequence.Deterministic
 import ExistentialRules.ChaseSequence.Nontermination.CondenseGenerator
 import ExistentialRules.ChaseSequence.Nontermination.RpcLike
 import ExistentialRules.ChaseSequence.Nontermination.SparseSubderivationGenerator
+import ExistentialRules.ChaseSequence.Nontermination.Unblockability
 import ExistentialRules.ChaseSequence.Termination
 import ExistentialRules.ChaseSequence.TreeDerivation
 
