@@ -194,19 +194,22 @@ theorem infinite {cd : CyclicityDerivation obs rules hc} : ¬ cd.terminates := b
 
 /-- For each node in the `CyclicityDerivation`, there is a node in the `subderivation_for_headChoice` for every `TreeDerivation` subsumes the facts. -/
 theorem mem_subderivation_for_headChoice_of_mem {cd : CyclicityDerivation obs rules hc}
-    (td : RegularTreeDerivation obs rules) (same_start : cd.head.facts = td.root.facts) :
-    ∀ node ∈ cd, ∃ node' ∈ td.subderivation_for_headChoice hc, node.facts ⊆ node'.facts := by
-  intro node node_mem; let node : cd.Node := ⟨node, node_mem⟩; show ∃ node' ∈ td.subderivation_for_headChoice hc, node.val.facts ⊆ node'.facts
+    (kb : KnowledgeBase sig) (rules_eq : kb.rules = rules)
+    (ct : RegularChaseTree obs kb) (same_start : cd.head.facts = ct.root.facts) :
+    ∀ node ∈ cd, ∃ node' ∈ (ct.subderivation_for_headChoice hc).toChaseDerivation, node.facts ⊆ node'.facts := by
+  intro node node_mem; let node : cd.Node := ⟨node, node_mem⟩
+  show ∃ node' ∈ (ct.subderivation_for_headChoice hc).toChaseDerivation, node.val.facts ⊆ node'.facts
   induction node using cd.mem_rec with
   | head =>
-    exists (td.subderivation_for_headChoice hc).head; constructor; exact ChaseDerivationSkeleton.head_mem
-    rw [td.head_subderivation_for_headChoice, same_start]; exact Set.subset_refl
+    exists (ct.subderivation_for_headChoice hc).head; constructor; exact ChaseDerivationSkeleton.head_mem
+    simp only [ChaseTree.subderivation_for_headChoice]
+    rw [TreeDerivation.head_subderivation_for_headChoice, same_start]; exact Set.subset_refl
   | step cd2 suf ih next next_mem =>
     rcases ih with ⟨node', node'_mem, sub⟩
     let cd2' : CyclicityDerivation obs rules hc := cd.derivation_for_skeleton cd2 suf
     have next_eq : next = cd2'.next := by simp only [CyclicityDerivation.next, cd2', derivation_for_skeleton]; rw [Option.mem_def] at next_mem; simp [next_mem]
     let orig := next.origin.get (cd2.isSome_origin_next next_mem)
-    rcases cd2'.unblockable next (cd2'.next_mem_of_mem _ next_mem) orig (by simp [orig]) td ⟨node', node'_mem⟩ (by apply Set.subset_trans _ sub; simp only [orig, next_eq]; exact cd2'.loaded_trigger_origin_next) with ⟨node2, node2_succ, next_result_sub⟩
+    rcases cd2'.unblockable next (cd2'.next_mem_of_mem _ next_mem) orig (by simp [orig]) kb rules_eq ct ⟨node', node'_mem⟩ (by apply Set.subset_trans _ sub; simp only [orig, next_eq]; exact cd2'.loaded_trigger_origin_next) with ⟨node2, node2_succ, next_result_sub⟩
     exists node2.val; constructor; exact node2.property
     have := cd2.facts_next next_mem
     rw [← next.ingoingFacts_eq, cd2.facts_next next_mem]
@@ -218,10 +221,11 @@ theorem mem_subderivation_for_headChoice_of_mem {cd : CyclicityDerivation obs ru
 
 /-- The result of a `CyclicityDerivation` is a subset of the result of the `subderivation_for_headChoice` for every `TreeDerivation`. -/
 theorem result_subset_result_subderivation_for_headChoice {cd : CyclicityDerivation obs rules hc}
-    (td : RegularTreeDerivation obs rules) (same_start : cd.head.facts = td.root.facts) :
-    cd.result ⊆ RegularChaseDerivation.result (td.subderivation_for_headChoice hc) := by
+    (kb : KnowledgeBase sig) (rules_eq : kb.rules = rules)
+    (ct : RegularChaseTree obs kb) (same_start : cd.head.facts = ct.root.facts) :
+    cd.result ⊆ RegularChaseBranch.result (ct.subderivation_for_headChoice hc) := by
   intro f ⟨node, node_mem, f_mem⟩
-  rcases cd.mem_subderivation_for_headChoice_of_mem td same_start node node_mem with ⟨node', node'_mem, sub⟩
+  rcases cd.mem_subderivation_for_headChoice_of_mem kb rules_eq ct same_start node node_mem with ⟨node', node'_mem, sub⟩
   exists node'; constructor; exact node'_mem; apply sub; exact f_mem
 
 end CyclicityDerivation
@@ -240,7 +244,7 @@ variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig} {hc : HeadCh
 /-- The result of a `CyclicityBranch` is a subset of the result of the `subderivation_for_headChoice` for every `ChaseTree`. -/
 theorem result_subset_result_subderivation_for_headChoice {cb : CyclicityBranch obs kb hc} (ct : RegularChaseTree obs kb) :
     cb.result ⊆ RegularChaseBranch.result (ct.subderivation_for_headChoice hc) := by
-  apply CyclicityDerivation.result_subset_result_subderivation_for_headChoice
+  apply CyclicityDerivation.result_subset_result_subderivation_for_headChoice _ rfl
   rw [cb.database_first.left, ← RegularChaseNode.outgoingFacts_eq, ct.database_first.right.left]
 
 /-- If a KB admist a `CyclicityBranch`, then its rule set `neverTerminates`. -/
