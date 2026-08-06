@@ -119,5 +119,17 @@ theorem not_mem_frontier_of_mem_existential_vars_for_head_disjunct {r : Rule sig
     ∀ v ∈ r.existential_vars_for_head_disjunct i lt, v ∉ r.frontier := by
   grind [existential_vars_for_head_disjunct]
 
+/-- A variable that is in a head but not existential must be in the frontier. -/
+@[grind ->]
+theorem mem_frontier_of_mem_head_disjunct_of_not_mem_existential_vars {r : Rule sig} {i : Nat} {lt : i < r.head.length} :
+    ∀ v ∈ r.head[i].vars, v ∉ r.existential_vars_for_head_disjunct i lt -> v ∈ r.frontier := by
+  grind [existential_vars_for_head_disjunct]
+
+/-- A variable that is in a head but not in the frontier must be existential. -/
+@[grind ->]
+theorem mem_existential_vars_of_mem_head_disjunct_of_not_mem_frontier {r : Rule sig} {i : Nat} {lt : i < r.head.length} :
+    ∀ v ∈ r.head[i].vars, v ∉ r.frontier -> v ∈ r.existential_vars_for_head_disjunct i lt := by
+  grind [existential_vars_for_head_disjunct]
+
 end Rule
 

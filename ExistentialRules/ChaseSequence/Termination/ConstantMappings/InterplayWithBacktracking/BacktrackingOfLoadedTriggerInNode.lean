@@ -116,9 +116,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
 
         rcases PreTrigger.mem_fresh_terms _ term_mem with ⟨v, v_mem, term_functional⟩
 
-        let mapped_frontier := origin.fst.val.rule.frontier.map origin.fst.val.subs
-
-        have : ∀ sublist, (sub : sublist ⊆ mapped_frontier) -> ∀ forbidden_constants, (sublist.flatMap GroundTerm.constants ⊆ forbidden_constants) -> ((sublist.flatMap GroundTerm.rules).flatMap Rule.constants ⊆ forbidden_constants) -> ∃ (g : ConstantMapping sig),
+        have : ∀ sublist, (sub : sublist ⊆ origin.fst.val.mapped_frontier) -> ∀ forbidden_constants, (sublist.flatMap GroundTerm.constants ⊆ forbidden_constants) -> ((sublist.flatMap GroundTerm.rules).flatMap Rule.constants ⊆ forbidden_constants) -> ∃ (g : ConstantMapping sig),
             (g.apply_fact_set (PreGroundTerm.backtrackFacts_list sublist.unattach
               (by simp only [List.mem_unattach]; rintro _ ⟨h, _⟩; exact h)
               forbidden_constants).fst.toSet ⊆ next.facts) ∧
@@ -139,15 +137,9 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
 
             rcases ih hd (by
               rw [List.cons_subset] at sub
-              unfold mapped_frontier at sub
-              rw [List.mem_map] at sub
-              rcases sub.left with ⟨v, v_mem, hd_eq⟩
               apply FactSet.terms_subset_of_subset origin_active.left
-              rw [FactSet.mem_terms_toSet, PreTrigger.mem_terms_mapped_body_iff]
-              apply Or.inr
-              exists v; constructor
-              . apply Rule.frontier_subset_vars_body; exact v_mem
-              . exact hd_eq
+              rw [FactSet.mem_terms_toSet]
+              exact PreTrigger.mem_terms_mapped_body_of_mem_mapped_frontier _ sub.left
             ) forbidden_constants forbidden_constants_subsumes_term.left (by
               apply Set.subset_trans _ forbidden_constants_subsumes_rules
               rw [List.flatMap_cons, List.flatMap_append]; apply List.subset_append_of_subset_left
@@ -249,7 +241,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
           origin.fst.val.backtrackTrigger_for_functional_term forbidden_constants origin.snd.val origin.snd.isLt v v_mem
 
         have triggers_equiv : backtrack_trigger.equiv origin.fst.val := by apply origin.fst.val.backtrackTrigger_for_functional_term_equiv
-        rcases this mapped_frontier (by simp) (forbidden_constants ++ fresh_consts_for_pure_body_vars)
+        rcases this origin.fst.val.mapped_frontier (by simp) (forbidden_constants ++ fresh_consts_for_pure_body_vars)
           (by apply List.subset_append_of_subset_left
               intro d d_mem
               apply forbidden_constants_subsumes_term
@@ -425,11 +417,11 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
                 cases this with
                 | inl d_mem'' =>
                   apply d_not_forbidden; apply forbidden_constants_subsumes_rules;
-                  suffices d ∈ (mapped_frontier.flatMap GroundTerm.rules).flatMap Rule.constants by
+                  suffices d ∈ (origin.fst.val.mapped_frontier.flatMap GroundTerm.rules).flatMap Rule.constants by
                     rw [term_functional, GroundTerm.rules_func]
                     rw [List.flatMap_cons]; apply List.mem_append_right
                     exact this
-                  have : mapped_frontier.flatMap GroundTerm.rules = (mapped_frontier.unattach.flatMap FiniteTree.innerLabels).map SkolemFS.rule := by rw [List.flatMap_unattach, List.map_flatMap]; rfl
+                  have : origin.fst.val.mapped_frontier.flatMap GroundTerm.rules = (origin.fst.val.mapped_frontier.unattach.flatMap FiniteTree.innerLabels).map SkolemFS.rule := by rw [List.flatMap_unattach, List.map_flatMap]; rfl
                   rw [this, List.flatMap_map]
                   exact d_mem''
                 | inr d_mem'' =>
