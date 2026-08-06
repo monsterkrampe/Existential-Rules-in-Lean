@@ -21,12 +21,31 @@ abbrev HeadChoice (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [Dec
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
-/-- A `ChaseDerivationSkeleton` adheres to a `HeadChoice` if every origin uses the index that is the head choice of its trigger. -/
+/-- A shortcut for the trigger output dictaded by a head choice. -/
+def PreTrigger.output_for_headChoice (trg : PreTrigger sig) (hc : HeadChoice sig) : List (Fact sig) :=
+  trg.mapped_head[(hc trg).val]
+
+namespace ChaseNode
+
+variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N obs rules]
+
+/-- A `ChaseNode` adheres to a `HeadChoice` if its origin uses the index that is the head choice of its trigger. -/
+def adheres_to_headChoice (node : N) (hc : HeadChoice sig) : Prop :=
+  ∀ orig ∈ (CN.origin node), orig.snd.val = (hc orig.fst.val).val
+
+theorem origin_result_eq_of_adheres_to_headChoice {node : N} (isSome : (CN.origin node).isSome)
+    {hc : HeadChoice sig} (adheres : CN.adheres_to_headChoice node hc) :
+    CN.origin_result node isSome = ((CN.origin node).get isSome).fst.val.output_for_headChoice hc := by
+  rw [CN.origin_result_eq isSome rfl (by apply Eq.symm; apply adheres; simp)]; rfl
+
+end ChaseNode
+
+/-- A `ChaseDerivationSkeleton` adheres to a `HeadChoice` if every node adheres to the `HeadChoice`. -/
 @[expose]
 def ChaseDerivationSkeleton.adheres_to_headChoice
     {obs : ObsolescenceCondition sig} {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N obs rules]
     (cd : ChaseDerivationSkeleton N obs rules) (hc : HeadChoice sig) : Prop :=
-  ∀ n ∈ cd, ∀ orig ∈ (CN.origin n), orig.snd = hc orig.fst.val
+  ∀ n ∈ cd, CN.adheres_to_headChoice n hc
 
 namespace TreeDerivation
 

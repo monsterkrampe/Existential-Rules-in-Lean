@@ -28,5 +28,5 @@ def Trigger.unblockable
     (hc : HeadChoice sig) : Prop :=
   ∀ td : RegularTreeDerivation obs rules, ∀ node : (td.subderivation_for_headChoice hc).Node, trg.loaded node.val.facts ->
   ∃ node2 : (td.subderivation_for_headChoice hc).Node, node ≼ node2 ∧
-  (trg.mapped_head[(hc trg).val]'(by grind)).toSet ⊆ node2.val.facts
+  (trg.output_for_headChoice hc).toSet ⊆ node2.val.facts
 
