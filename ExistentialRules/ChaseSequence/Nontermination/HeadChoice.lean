@@ -22,6 +22,7 @@ abbrev HeadChoice (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [Dec
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 /-- A shortcut for the trigger output dictaded by a head choice. -/
+@[expose]
 def PreTrigger.output_for_headChoice (trg : PreTrigger sig) (hc : HeadChoice sig) : List (Fact sig) :=
   trg.mapped_head[(hc trg).val]
 
@@ -30,6 +31,7 @@ namespace ChaseNode
 variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N obs rules]
 
 /-- A `ChaseNode` adheres to a `HeadChoice` if its origin uses the index that is the head choice of its trigger. -/
+@[expose]
 def adheres_to_headChoice (node : N) (hc : HeadChoice sig) : Prop :=
   ∀ orig ∈ (CN.origin node), orig.snd.val = (hc orig.fst.val).val
 
