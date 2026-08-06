@@ -213,9 +213,7 @@ theorem mem_subderivation_for_headChoice_of_mem {cd : CyclicityDerivation obs ru
     rw [Set.union_subset_iff_both_subset]; constructor
     . rw [cd2.head.outgoingFacts_eq]; apply Set.subset_trans sub
       exact RegularChaseDerivationSkeleton.facts_node_subset_of_prec node2_succ
-    . have index_eq : (hc orig.fst.val).val = orig.snd.val := by
-        rw [cd2'.adheres_to_headChoice _ (cd2'.next_mem_of_mem _ next_mem) orig (by simp [orig, ChaseNode.origin])]
-      rw [ChaseNode.origin_result_eq (cd2.isSome_origin_next next_mem) (trg := orig.fst.val) rfl index_eq]
+    . rw [ChaseNode.origin_result_eq_of_adheres_to_headChoice _ (cd2'.adheres_to_headChoice _ (cd2'.next_mem_of_mem _ next_mem))]
       exact next_result_sub
 
 /-- The result of a `CyclicityDerivation` is a subset of the result of the `subderivation_for_headChoice` for every `TreeDerivation`. -/
