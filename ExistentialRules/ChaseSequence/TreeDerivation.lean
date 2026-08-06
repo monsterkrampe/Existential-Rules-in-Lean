@@ -1232,31 +1232,10 @@ theorem constants_node_subset_constants_fs_union_constants_rules
       apply Or.inl
       rw [List.mem_flatMap] at d_mem
       rcases d_mem with ⟨t, t_mem, d_mem⟩
-      rw [List.mem_map] at t_mem
-      rcases t_mem with ⟨v, v_mem, t_mem⟩
-      rcases FunctionFreeConjunction.mem_vars.mp (origin.fst.val.rule.frontier_subset_vars_body v_mem) with ⟨a, a_mem, v_mem'⟩
-      exists origin.fst.val.subs.apply_function_free_atom a
-      constructor
-      . have := active_trigger_origin_of_mem_childNodes next_mem
-        apply this.left
-        unfold PreTrigger.mapped_body
-        rw [List.mem_toSet]
-        apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_list
-        exact a_mem
-      . unfold Fact.constants
-        rw [List.mem_flatMap]
-        exists t
-        constructor
-        . unfold GroundSubstitution.apply_function_free_atom
-          unfold TermMapping.apply_generalized_atom
-          rw [List.mem_map]
-          exists VarOrConst.var v
-          constructor
-          . exact v_mem'
-          . unfold PreTrigger.subs_for_mapped_head at t_mem
-            rw [PreTrigger.apply_to_var_or_const_frontier_var _ _ _ _ v_mem] at t_mem
-            exact t_mem
-        . exact d_mem
+      apply FactSet.constants_subset_of_subset (active_trigger_origin_of_mem_childNodes next_mem).left
+      rw [FactSet.mem_constants_iff_mem_terms]; exists t; constructor
+      . rw [FactSet.mem_terms_toSet]; apply PreTrigger.mem_terms_mapped_body_of_mem_mapped_frontier; exact t_mem
+      . exact d_mem
     | inr d_mem =>
       apply Or.inr
       exists origin.fst.val.rule

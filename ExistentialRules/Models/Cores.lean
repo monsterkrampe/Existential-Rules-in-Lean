@@ -549,22 +549,13 @@ theorem strong_core_of_model_is_model
       rw [frontier_mapping v v_mem]
       rw [Function.comp_apply]
       rw [inv_id _ (by
-        unfold Rule.frontier at v_mem
-        rw [List.mem_filter] at v_mem
-        have v_mem := v_mem.left
-        rw [FunctionFreeConjunction.mem_vars] at v_mem
-        rcases v_mem with ⟨a, a_mem, v_mem⟩
-        exists subs.apply_function_free_atom a
-        constructor
-        . apply loaded
-          unfold GroundSubstitution.apply_function_free_conj
-          unfold TermMapping.apply_generalized_atom_list
-          rw [List.mem_toSet, List.mem_map]
-          exists a
-        . unfold GroundSubstitution.apply_function_free_atom
-          unfold TermMapping.apply_generalized_atom
-          rw [List.mem_map]
-          exists VarOrConst.var v
+        have v_mem_body := r.frontier_subset_vars_body v_mem
+        rw [FunctionFreeConjunction.mem_vars] at v_mem_body; rcases v_mem_body with ⟨a, a_mem, v_mem_body⟩
+        apply FactSet.terms_subset_of_subset loaded
+        rw [FactSet.mem_terms_toSet]
+        apply List.mem_flatMap_of_mem (TermMapping.apply_generalized_atom_mem_apply_generalized_atom_list _ _ _ a_mem)
+        simp [TermMapping.apply_generalized_atom]
+        exists .var v
       )]
     . apply Set.subset_trans (b := h_fs_sc.applyFactSet fs)
       . intro f f_mem

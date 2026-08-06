@@ -26,7 +26,7 @@ namespace GroundTermMapping
 def isAlternativeMatch (h_alt : GroundTermMapping sig) (trg : PreTrigger sig) (i : Nat) (lt : i < trg.rule.head.length) (fs : FactSet sig) : Prop :=
   have _lt' : i < trg.mapped_head.length := by grind
   (h_alt.isHomomorphism trg.mapped_head[i].toSet fs) ∧
-  (∀ t, t ∈ trg.rule.frontier.map trg.subs -> h_alt t = t) ∧
+  (∀ t, t ∈ trg.mapped_frontier -> h_alt t = t) ∧
   (∃ t, (t ∈ trg.fresh_terms_for_head_disjunct i lt) ∧
         (¬ t ∈ (trg.fresh_terms_for_head_disjunct i lt).map h_alt))
 
@@ -96,9 +96,7 @@ theorem alternativeMatch_of_satisfied
         rw [GroundTerm.functionSymbol_func]
       | inr v_not_exis =>
         have v_in_frontier : v ∈ trg.rule.frontier := by
-          unfold Rule.existential_vars_for_head_disjunct at v_not_exis
-          rw [List.mem_filter, not_and, decide_not, not_decide_eq_true, Decidable.not_not] at v_not_exis
-          apply v_not_exis
+          apply Rule.mem_frontier_of_mem_head_disjunct_of_not_mem_existential_vars _ _ v_not_exis
           rw [FunctionFreeConjunction.mem_vars]; exists a
         simp only [PreTrigger.subs_for_mapped_head, PreTrigger.apply_to_var_or_const_of_not_mem_existential_vars _ _ _ _ v_not_exis]
         rw [s_frontier _ v_in_frontier]

@@ -192,32 +192,10 @@ theorem parallelDeterminizedDerivation_constants :
           apply ih
           rw [List.mem_flatMap] at c_mem
           rcases c_mem with ⟨t, t_mem, c_mem⟩
-          rw [List.mem_map] at t_mem
-          rcases t_mem with ⟨v, v_mem, t_mem⟩
-          rcases FunctionFreeConjunction.mem_vars.mp (trg.val.rule.frontier_subset_vars_body v_mem) with ⟨a, a_mem, v_mem'⟩
-          exists trg.val.subs.apply_function_free_atom a
-          constructor
-          . apply trg_act.left
-            rw [List.mem_toSet]
-            unfold PreTrigger.mapped_body
-            unfold GroundSubstitution.apply_function_free_conj
-            apply List.mem_map_of_mem
-            exact a_mem
-          . unfold Fact.constants
-            rw [List.mem_flatMap]
-            exists t
-            constructor
-            . unfold GroundSubstitution.apply_function_free_atom
-              unfold TermMapping.apply_generalized_atom
-              rw [List.mem_map]
-              exists VarOrConst.var v
-              constructor
-              . exact v_mem'
-              . unfold PreTrigger.subs_for_mapped_head at t_mem
-                rw [PreTrigger.apply_to_var_or_const_frontier_var] at t_mem
-                . exact t_mem
-                . exact v_mem
-            . exact c_mem
+          apply FactSet.constants_subset_of_subset trg_act.left
+          rw [FactSet.mem_constants_iff_mem_terms]; exists t; constructor
+          . rw [FactSet.mem_terms_toSet]; apply PreTrigger.mem_terms_mapped_body_of_mem_mapped_frontier; exact t_mem
+          . exact c_mem
         | inr c_mem =>
           apply Or.inl
           exists trg.val.rule
@@ -304,25 +282,13 @@ theorem parallelDeterminizedDerivation_functions :
               exact v_mem
         | inr func_mem =>
           apply ih
-          simp only [List.mem_flatMap, List.mem_map] at func_mem; rcases func_mem with ⟨t, ⟨v, v_mem, t_mem⟩, func_mem⟩
-          rcases FunctionFreeConjunction.mem_vars.mp (Rule.frontier_subset_vars_body v_mem) with ⟨body_atom, body_atom_mem, frontier_var_mem⟩
-          exists (trg.val.subs.apply_function_free_atom body_atom)
+          simp only [List.mem_flatMap] at func_mem; rcases func_mem with ⟨t, t_mem, func_mem⟩
+          have t_mem_body := trg.val.mem_terms_mapped_body_of_mem_mapped_frontier _ t_mem
+          rw [List.mem_flatMap] at t_mem_body; rcases t_mem_body with ⟨f, f_mem, t_mem⟩
+          exists f
           constructor
-          . apply trg_act.left
-            rw [List.mem_toSet]
-            simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list]
-            rw [List.mem_map]
-            exists body_atom
-          . unfold Fact.function_symbols
-            rw [List.mem_flatMap]
-            exists (trg.val.subs v)
-            constructor
-            . unfold GroundSubstitution.apply_function_free_atom
-              unfold TermMapping.apply_generalized_atom
-              rw [List.mem_map]
-              exists VarOrConst.var v
-            . rw [← t_mem] at func_mem
-              exact func_mem
+          . apply trg_act.left; rw [List.mem_toSet]; exact f_mem
+          . exact List.mem_flatMap_of_mem t_mem func_mem
 
 /-- All predicates in the derivation result come from the rules or the starting fact set. -/
 theorem parallelDeterminizedDerivation_result_predicates :

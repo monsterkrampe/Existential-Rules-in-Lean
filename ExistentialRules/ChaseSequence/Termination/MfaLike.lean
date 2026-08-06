@@ -205,7 +205,7 @@ theorem DeterministicSkolemObsolescence.blocks_each_obs (obs : ObsolescenceCondi
     | var v =>
       simp only [Function.comp_apply, StrictConstantMapping.apply_var_or_const]
       cases Decidable.em (v ∈ trg.val.rule.existential_vars_for_head_disjunct i lt) with
-      | inl v_mem => simp [v_mem, PreTrigger.functional_term_for_var]
+      | inl v_mem => simp [v_mem, PreTrigger.functional_term_for_var, PreTrigger.apply_mapping_after_mapped_frontier]
       | inr v_mem => simp [v_mem]
     | const c => simp [StrictConstantMapping.apply_var_or_const, PreTrigger.apply_to_var_or_const_for_const, ConstantMapping.apply_ground_term_constant, StrictConstantMapping.toConstantMapping]
 

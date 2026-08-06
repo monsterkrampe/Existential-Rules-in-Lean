@@ -844,7 +844,7 @@ section SubstitutionsAndTriggers
     unfold GroundTerm.func
     simp only [Subtype.mk.injEq, FiniteTree.inner.injEq, exists_and_left, exists_prop,
       exists_eq_left']
-    exists (List.map trg.subs trg.rule.frontier)
+    exists trg.mapped_frontier
     simp [SkolemFS.arity]
 
    /--If i is a position in the second rule head containing a non-frontier-variable (i.e. an existential variable),then `ruleApply` will map the term at this position to a functional term (a SkolemFunction)-/
@@ -876,7 +876,7 @@ section SubstitutionsAndTriggers
     unfold GroundTerm.func
     simp only [Subtype.mk.injEq, FiniteTree.inner.injEq, exists_and_left, exists_prop,
       exists_eq_left']
-    exists (List.map trg.subs trg.rule.frontier)
+    exists trg.mapped_frontier
     simp [SkolemFS.arity]
 
 end SubstitutionsAndTriggers

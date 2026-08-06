@@ -33,6 +33,19 @@ namespace PreTrigger
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
+/-- The `mapped_frontier` results from applying the triggers substitution to all frontier variables. -/
+@[expose]
+def mapped_frontier (trg : PreTrigger sig) : List (GroundTerm sig) := trg.rule.frontier.map trg.subs
+
+/-- The lenth of the `mapped_frontier` is exactly the length of the frontier. -/
+@[simp, grind =]
+theorem length_mapped_frontier {trg : PreTrigger sig} : trg.mapped_frontier.length = trg.rule.frontier.length := by simp [mapped_frontier]
+
+/-- Applying a term mapping after the trigger can be combined with the substitution without affecting the `mapped_frontier`. -/
+theorem apply_mapping_after_mapped_frontier {trg : PreTrigger sig} {mapping : TermMapping (GroundTerm sig) (GroundTerm sig)} :
+    trg.mapped_frontier.map mapping = {rule := trg.rule, subs := mapping ∘ trg.subs : PreTrigger sig}.mapped_frontier := by
+  simp [mapped_frontier]
+
 /-- In the context of a trigger, we Skolemize a `VarOrConst` by passing the rule in the trigger. -/
 def skolemize_var_or_const (trg : PreTrigger sig) (i : Nat) (lt : i < trg.rule.head.length) (var_or_const : VarOrConst sig) : SkolemTerm sig :=
   var_or_const.skolemize trg.rule i lt
@@ -72,8 +85,8 @@ def functional_term_for_var
     GroundTerm sig :=
   GroundTerm.func
     { rule := trg.rule, headIdx := i, headIdx_lt := lt, v, v_mem }
-    (trg.rule.frontier.map trg.subs)
-    (by rw [List.length_map]; rfl)
+    trg.mapped_frontier
+    (by rw [length_mapped_frontier]; rfl)
 
 /-- The `functional_term_for_var` function is injective for a fixed trigger. -/
 @[grind ->]
@@ -100,8 +113,7 @@ theorem functional_term_for_var.injEq
 theorem apply_to_var_or_const_of_mem_existential_vars (trg : PreTrigger sig) (i : Nat) (lt : i < trg.rule.head.length) :
     ∀ v, (mem : v ∈ trg.rule.existential_vars_for_head_disjunct i lt) ->
     trg.apply_to_var_or_const i lt (.var v) = trg.functional_term_for_var i lt v mem := by
-  intro v v_mem
-  simp [functional_term_for_var, apply_to_var_or_const, skolemize_var_or_const, VarOrConst.skolemize, v_mem, GroundSubstitution.apply_skolem_term]
+  intro v v_mem; simp [functional_term_for_var, apply_to_var_or_const, skolemize_var_or_const, VarOrConst.skolemize, v_mem, GroundSubstitution.apply_skolem_term, mapped_frontier]
 
 /-- For existential variables, applying the trigger is injective. -/
 theorem apply_to_var_or_const_injective_of_mem_existential_vars {v : sig.V}
@@ -118,24 +130,22 @@ theorem apply_to_var_or_const_injective_of_mem_existential_vars {v : sig.V}
       rw [apply_to_var_or_const_of_mem_existential_vars _ _ _ _ v_mem, apply_to_var_or_const_of_not_mem_existential_vars _ _ _ _ u_mem] at apply_eq
       unfold functional_term_for_var at apply_eq
       have u_front : u ∈ trg.rule.frontier := by
-        unfold Rule.existential_vars_for_head_disjunct at u_mem; rw [List.mem_filter, not_and, decide_not, not_decide_eq_true, Decidable.not_not] at u_mem
-        apply u_mem
-        rw [FunctionFreeConjunction.mem_vars']
-        exact voc_mem
-      have : trg.subs u ∈ trg.rule.frontier.map trg.subs := List.mem_map_of_mem u_front
+        apply trg.rule.mem_frontier_of_mem_head_disjunct_of_not_mem_existential_vars _ _ u_mem
+        rw [FunctionFreeConjunction.mem_vars']; exact voc_mem
+      have : trg.subs u ∈ trg.mapped_frontier := List.mem_map_of_mem u_front
       rw [← apply_eq] at this
       exact GroundTerm.eq_while_contained_is_impossible this
 
 /-- Applying the trigger to non-frontier variables yields a term that cannot possibly be in the mapped frontier. In other words, terms for existential variables are fresh (although freshness entails more than that). -/
 theorem result_term_not_in_frontier_image_of_var_existential (trg : PreTrigger sig) (i : Nat) (lt : i < trg.rule.head.length)
     (v : sig.V) (v_existential : v ∈ trg.rule.existential_vars_for_head_disjunct i lt) :
-    ¬ trg.apply_to_var_or_const i lt (VarOrConst.var v) ∈ (trg.rule.frontier).map trg.subs := by
+    ¬ trg.apply_to_var_or_const i lt (VarOrConst.var v) ∈ trg.mapped_frontier := by
   intro contra
-  rw [List.mem_map] at contra
+  simp only [mapped_frontier, List.mem_map] at contra
   rcases contra with ⟨u, u_in_frontier, u_eq⟩
   rw [apply_to_var_or_const_of_mem_existential_vars _ _ _ _ v_existential] at u_eq
   unfold functional_term_for_var at u_eq
-  have : trg.subs u ∈ trg.rule.frontier.map trg.subs := List.mem_map_of_mem u_in_frontier
+  have : trg.subs u ∈ trg.mapped_frontier := List.mem_map_of_mem u_in_frontier
   rw [u_eq] at this
   exact GroundTerm.eq_while_contained_is_impossible this
 
@@ -200,6 +210,12 @@ theorem mem_terms_mapped_body_iff (trg : PreTrigger sig) :
       . simp only [TermMapping.apply_generalized_atom]
         rw [List.mem_map]
         exists VarOrConst.var v
+
+/-- If a term is in `the mapped_frontier`, then it is also in the `mapped_body`. -/
+theorem mem_terms_mapped_body_of_mem_mapped_frontier {trg : PreTrigger sig} :
+    ∀ t ∈ trg.mapped_frontier, t ∈ trg.mapped_body.flatMap GeneralizedAtom.terms := by
+  simp only [mapped_frontier, List.mem_map]; intro t ⟨v, v_mem, t_mem⟩
+  rw [mem_terms_mapped_body_iff]; apply Or.inr; exact ⟨v, trg.rule.frontier_subset_vars_body v_mem, t_mem⟩
 
 /-- The mapped head is the result of the trigger and is simply the application to all head atoms. This result has a list of result facts for each of the head disjuncts. Note again that existential variables are Skolemized before the trigger's substitution is applied but this is hidden within the previously defined functions. -/
 @[expose]
@@ -267,7 +283,7 @@ theorem mem_fresh_terms_of_functional_for_exis_var {trg : PreTrigger sig} {i : N
 /-- This theorem unfolds some of the internal definitions of `fresh_terms_for_head_disjunct`. -/
 theorem mem_fresh_terms {trg : PreTrigger sig} {i : Nat} {lt : i < trg.rule.head.length} :
     ∀ t ∈ trg.fresh_terms_for_head_disjunct i lt, ∃ (v : sig.V) (v_mem : v ∈ trg.rule.existential_vars_for_head_disjunct i lt),
-    t = GroundTerm.func { rule := trg.rule, headIdx := i, headIdx_lt := lt, v, v_mem } (trg.rule.frontier.map trg.subs) (by rw [List.length_map]; rfl) := by
+    t = GroundTerm.func { rule := trg.rule, headIdx := i, headIdx_lt := lt, v, v_mem } trg.mapped_frontier (by rw [length_mapped_frontier]; rfl) := by
   intro t t_mem
   simp only [fresh_terms_for_head_disjunct, List.mem_map, functional_term_for_var, List.mem_attach] at t_mem
   rcases t_mem with ⟨⟨v, v_mem⟩, _, t_mem⟩
@@ -289,7 +305,7 @@ theorem constant_not_mem_fresh_terms_for_head_disjunct {trg : PreTrigger sig} {i
 
 /-- Mappings of frontier variables can never be fresh. -/
 theorem frontier_term_not_mem_fresh_terms_for_head_disjunct {trg : PreTrigger sig} {i : Nat} {lt : i < trg.rule.head.length} :
-    ∀ {t}, t ∈ trg.rule.frontier.map trg.subs -> ¬ t ∈ trg.fresh_terms_for_head_disjunct i lt := by
+    ∀ {t}, t ∈ trg.mapped_frontier -> ¬ t ∈ trg.fresh_terms_for_head_disjunct i lt := by
   intro t t_frontier t_fresh
   simp only [fresh_terms_for_head_disjunct, List.mem_map, List.mem_attach] at t_fresh
   rcases t_fresh with ⟨⟨v, v_mem⟩, _, t_fresh⟩
@@ -442,10 +458,7 @@ theorem mem_terms_mapped_head_iff (trg : PreTrigger sig) (i : Nat) (lt : i < trg
             rw [FunctionFreeConjunction.mem_vars', ← eq]
             apply var_or_const_for_result_term_mem_terms_head
           apply trg.rule.mem_frontier_for_head_of_mem_frontier_of_mem_head_terms _ _ (by rw [← FunctionFreeConjunction.mem_vars']; exact v_mem_head)
-          unfold Rule.existential_vars_for_head_disjunct at v_not_exis
-          rw [List.mem_filter, not_and, decide_not, not_decide_eq_true, Decidable.not_not] at v_not_exis
-          apply v_not_exis
-          exact v_mem_head
+          exact trg.rule.mem_frontier_of_mem_head_disjunct_of_not_mem_existential_vars _ v_mem_head v_not_exis
         . rw [apply_to_var_or_const_of_not_mem_existential_vars _ _ _ _ v_not_exis]
   . intro h
     cases h with
@@ -490,7 +503,7 @@ theorem mem_terms_mapped_head_iff (trg : PreTrigger sig) (i : Nat) (lt : i < trg
 
 /-- The constants in the trigger result are a subset of the constants from the mapped frontier terms and the constants that occur directly in the rule head. -/
 theorem mapped_head_constants_subset (trg : PreTrigger sig) (i : Nat) (lt : i < trg.rule.head.length) :
-    FactSet.constants (trg.mapped_head[i]'(by grind)).toSet ⊆ (((trg.rule.frontier.map (trg.subs_for_mapped_head i lt)).flatMap GroundTerm.constants) ++ trg.rule.head[i].consts).toSet := by
+    FactSet.constants (trg.mapped_head[i]'(by grind)).toSet ⊆ ((trg.mapped_frontier.flatMap GroundTerm.constants) ++ trg.rule.head[i].consts).toSet := by
   intro c c_mem
   rw [List.mem_toSet, List.mem_append]
   rw [FactSet.mem_constants_toSet, List.mem_flatMap] at c_mem
@@ -514,21 +527,15 @@ theorem mapped_head_constants_subset (trg : PreTrigger sig) (i : Nat) (lt : i < 
     rw [List.mem_flatMap]; exists t; constructor
     . have v_mem : v ∈ trg.rule.frontier := by
         apply Rule.mem_frontier_iff_mem_frontier_for_head.mpr; exact ⟨_, ⟨_, v_mem⟩⟩
-      rw [List.mem_map]; exists v; constructor;
-      . exact v_mem
-      . unfold subs_for_mapped_head; rw [apply_to_var_or_const_frontier_var]; exact t_mem; exact v_mem
+      rw [← t_mem]; apply List.mem_map_of_mem; exact v_mem
     . exact c_mem
   | inr t_mem =>
     apply Or.inl
     simp only [fresh_terms_for_head_disjunct, List.mem_map] at t_mem; rcases t_mem with ⟨v, v_mem, t_mem⟩
     rw [← t_mem] at c_mem
-    simp only [functional_term_for_var, GroundTerm.constants_func, List.mem_flatMap, List.mem_map] at c_mem
-    rcases c_mem with ⟨t, ⟨v, v_mem, t_eq⟩, t_mem⟩
-    simp only [List.mem_flatMap, List.mem_map]
-    exists t; constructor; exists v; constructor
-    . exact v_mem
-    . unfold subs_for_mapped_head; rw [apply_to_var_or_const_frontier_var]; exact t_eq; exact v_mem
-    . exact t_mem
+    simp only [functional_term_for_var, GroundTerm.constants_func, List.mem_flatMap] at c_mem
+    rcases c_mem with ⟨t, t_mem, c_mem⟩
+    simp only [List.mem_flatMap]; exists t
 
 /-- The trigger is loaded for a `FactSet` if its mapped body occurs in the fact set. -/
 @[expose]
@@ -605,6 +612,19 @@ theorem equiv_symm {trg1 trg2 : PreTrigger sig} : trg1.equiv trg2 -> trg2.equiv 
 @[grind ->]
 theorem equiv_trans {trg1 trg2 trg3 : PreTrigger sig} : trg1.equiv trg2 -> trg2.equiv trg3 -> trg1.equiv trg3 := by unfold equiv; grind
 
+/-- Equivalent triggers have the same `mapped_frontier`. -/
+theorem mapped_frontier_eq_of_equiv {trg1 trg2 : PreTrigger sig} (equiv : trg1.equiv trg2) : trg1.mapped_frontier = trg2.mapped_frontier := by
+  unfold mapped_frontier
+  rw [← equiv.left, List.map_inj_left]
+  exact equiv.right
+
+/-- Two triggers with same rule and same mapped_frontier are equivalent. -/
+theorem equiv_of_rule_eq_of_mapped_frontier_equiv {trg1 trg2 : PreTrigger sig}
+    (rule_eq : trg1.rule = trg2.rule) (mapped_front_eq : trg1.mapped_frontier = trg2.mapped_frontier) : trg1.equiv trg2 := by
+  constructor; exact rule_eq
+  unfold mapped_frontier at mapped_front_eq; rw [← rule_eq, List.map_inj_left] at mapped_front_eq
+  exact mapped_front_eq
+
 /-- We consider two trigger to be strongly equivalent if they share the same rule and their substitutions agree not only on the frontier variables but on all body variables. -/
 @[expose]
 def strong_equiv (trg1 trg2 : PreTrigger sig) : Prop :=
@@ -675,19 +695,12 @@ theorem apply_to_function_free_atom_eq_of_equiv {trg1 trg2 : PreTrigger sig} (eq
       simp only [equiv.left] at v_exis
       rw [trg2.apply_to_var_or_const_of_mem_existential_vars _ _ _ v_exis]
       unfold PreTrigger.functional_term_for_var
-      simp only [← equiv.left]
-      have : trg1.rule.frontier.map trg1.subs = trg1.rule.frontier.map trg2.subs := by
-        rw [List.map_inj_left]
-        exact equiv.right
-      simp only [this]
+      simp only [← equiv.left, mapped_frontier_eq_of_equiv equiv]
     | inr v_not_exis =>
       have v_front : v ∈ trg2.rule.frontier := by
         rw [← equiv.left]
-        unfold Rule.existential_vars_for_head_disjunct at v_not_exis
-        rw [List.mem_filter, not_and, decide_not, not_decide_eq_true, Decidable.not_not] at v_not_exis
-        apply v_not_exis
-        rw [FunctionFreeConjunction.mem_vars]
-        exists a
+        apply trg1.rule.mem_frontier_of_mem_head_disjunct_of_not_mem_existential_vars _ _ v_not_exis
+        rw [FunctionFreeConjunction.mem_vars]; exists a
       rw [trg2.apply_to_var_or_const_frontier_var _ _ _ v_front]
       simp only [← equiv.left] at v_front
       rw [trg1.apply_to_var_or_const_frontier_var _ _ _ v_front]
@@ -749,16 +762,7 @@ theorem equiv_of_term_mem_fresh_terms_for_head_disjunct
   rw [GroundTerm.func.injEq, SkolemFS.mk.injEq] at t_eq
   have rules_eq : trg1.rule = trg2.rule := t_eq.left.left
   constructor
-  . unfold equiv
-    constructor
-    . exact rules_eq
-    . have right := t_eq.right
-      have : trg1.rule.frontier = trg2.rule.frontier := by rw [rules_eq]
-      rw [← this] at right
-      rw [List.map_eq_map_iff] at right
-      intro v v_mem
-      apply right
-      exact v_mem
+  . exact equiv_of_rule_eq_of_mapped_frontier_equiv rules_eq t_eq.right
   . exact t_eq.left.right.left
 
 end PreTrigger

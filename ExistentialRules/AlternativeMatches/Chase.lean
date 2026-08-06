@@ -109,17 +109,12 @@ theorem result_isWeakCore_of_noAltMatch {cb : RegularChaseBranch obs kb} (det : 
 
       let trg_res_terms := (FactSet.terms ((RegularChaseNode.regularChaseNodeInstance.origin_result next) origin_isSome).toSet)
 
-      have identity_frontier : ∀ t ∈ List.map (next.origin.get origin_isSome).fst.val.subs (next.origin.get origin_isSome).fst.val.rule.frontier, h_k t = t := by
+      have identity_frontier : ∀ t ∈ (next.origin.get origin_isSome).fst.val.mapped_frontier, h_k t = t := by
         intro t t_mem
         apply identity
-        rw [List.mem_map] at t_mem
-        rcases t_mem with ⟨v, v_mem, v_eq⟩
         apply FactSet.terms_subset_of_subset origin_trg_active.left
-        rw [FactSet.mem_terms_toSet, PreTrigger.mem_terms_mapped_body_iff]
-        apply Or.inr
-        exists v; constructor
-        . exact Rule.frontier_subset_vars_body v_mem
-        . exact v_eq
+        rw [FactSet.mem_terms_toSet]
+        exact PreTrigger.mem_terms_mapped_body_of_mem_mapped_frontier _ t_mem
 
       have h_surj_on_trg_res : h_k.surjectiveSet trg_res_terms trg_res_terms := by
         apply Classical.byContradiction
@@ -156,6 +151,7 @@ theorem result_isWeakCore_of_noAltMatch {cb : RegularChaseBranch obs kb} (det : 
             apply False.elim; apply no_arg_for_t_with_t
             apply identity_frontier
             rw [List.mem_map] at t_mem
+            unfold PreTrigger.mapped_frontier
             rw [List.mem_map]
             rcases t_mem with ⟨v, v_mem, t_mem⟩
             exists v; constructor
@@ -352,8 +348,8 @@ theorem non_id_endomorphism_of_altMatch {cb : RegularChaseBranch obs kb} (det : 
         | inr t_mem =>
         cases t_mem with
         | inl t_mem =>
-          have t_mem : t ∈ (next.origin.get (cd.isSome_origin_next next_mem)).fst.val.rule.frontier.map (next.origin.get (cd.isSome_origin_next next_mem)).fst.val.subs := by
-            rw [List.mem_map] at t_mem; rw [List.mem_map]; rcases t_mem with ⟨v, v_mem, t_mem⟩; exists v; constructor
+          have t_mem : t ∈ (next.origin.get (cd.isSome_origin_next next_mem)).fst.val.mapped_frontier := by
+            rw [List.mem_map] at t_mem; unfold PreTrigger.mapped_frontier; rw [List.mem_map]; rcases t_mem with ⟨v, v_mem, t_mem⟩; exists v; constructor
             . rw [Rule.mem_frontier_iff_mem_frontier_for_head]; exact ⟨_, ⟨_, v_mem⟩⟩
             . exact t_mem
           unfold h; split <;> simp [altMatch.right.left _ t_mem]
@@ -514,13 +510,8 @@ theorem altMatch_of_some_not_reaches_self (cb : RegularChaseBranch obs kb) (fs :
       apply h.repeat_cycle_mul
       apply hom_id
       apply FactSet.terms_subset_of_subset (cd2.active_trigger_origin_next next_eq).left
-      rw [FactSet.mem_terms_toSet, PreTrigger.mem_terms_mapped_body_iff]
-      apply Or.inr
-      rw [List.mem_map] at t_mem
-      rcases t_mem with ⟨v, v_mem, t_mem⟩
-      exists v; constructor
-      . apply Rule.frontier_subset_vars_body; exact v_mem
-      . exact t_mem
+      rw [FactSet.mem_terms_toSet]
+      exact PreTrigger.mem_terms_mapped_body_of_mem_mapped_frontier _ t_mem
     . exists t
       constructor
       . have t_mem' := t_mem

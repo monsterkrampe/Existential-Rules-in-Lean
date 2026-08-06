@@ -69,7 +69,7 @@ This is helpful for the `CoreChaseNode` later on as each node features a `homSub
 /-- If a trigger is satisfied for fs and all of its frontier terms still occur in a finite core homSubset of fs, then the trigger is also satisfied in this homSubset. -/
 theorem trg_remains_obsolete_of_isWeakCore_of_homSubset_of_finite
     {fs core : FactSet sig} (wc : core.isWeakCore) (homSub : core.homSubset fs) (fin : core.finite) :
-    ∀ (trg : PreTrigger sig), trg.satisfied fs -> (trg.rule.frontier.map trg.subs).toSet ⊆ core.terms -> trg.satisfied core := by
+    ∀ (trg : PreTrigger sig), trg.satisfied fs -> trg.mapped_frontier.toSet ⊆ core.terms -> trg.satisfied core := by
   intro trg trg_sat frontier_in_core
 
   rcases trg_sat with ⟨idx, lt, trg_sat⟩
@@ -104,12 +104,10 @@ theorem equiv_trg_obsolete_of_isWeakCore_of_homSubset_of_finite
   intro trg trg_sat trg2 equiv trg2_loaded
   rw [← PreTrigger.satisfied_preserved_of_equiv equiv]
   apply trg_remains_obsolete_of_isWeakCore_of_homSubset_of_finite wc homSub fin trg trg_sat
-  rw [equiv.left]
-  intro t t_mem; apply FactSet.terms_subset_of_subset trg2_loaded
-  rw [FactSet.mem_terms_toSet, PreTrigger.mem_terms_mapped_body_iff]
-  apply Or.inr; rw [List.mem_toSet, List.mem_map] at t_mem; rcases t_mem with ⟨v, v_mem, t_eq⟩
-  exists v; constructor; apply Rule.frontier_subset_vars_body; exact v_mem
-  rw [← equiv.left] at v_mem; rw [← equiv.right _ v_mem]; exact t_eq
+  rw [trg.mapped_frontier_eq_of_equiv equiv]
+  apply Set.subset_trans _ (FactSet.terms_subset_of_subset trg2_loaded)
+  intro t t_mem; rw [List.mem_toSet] at t_mem; rw [FactSet.mem_terms_toSet]
+  exact trg2.mem_terms_mapped_body_of_mem_mapped_frontier _ t_mem
 
 end AuxiliaryResultsForTriggerSatisfaction
 
