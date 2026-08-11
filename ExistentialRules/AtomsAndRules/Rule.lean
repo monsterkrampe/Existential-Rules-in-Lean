@@ -107,6 +107,20 @@ theorem frontier_for_head_subset_vars_head {r : Rule sig} {i : Nat} (lt : i < r.
 @[grind <-]
 theorem head_constants_subset_constants (r : Rule sig) : r.head_constants ⊆ r.constants := by apply List.subset_append_right
 
+/-- For a Datalog rule, a variable occurs in a head if and only if it occurs in the frontier of this head. -/
+theorem mem_frontier_for_head_of_mem_head_vars_of_isDatalog {r : Rule sig} (isDatalog : r.isDatalog) {i : Nat} {lt : i < r.head.length} :
+    ∀ v, v ∈ r.head[i].vars ↔ v ∈ r.frontier_for_head i lt := by
+  intro v
+  unfold frontier_for_head
+  rw [List.mem_filter]
+  unfold Rule.isDatalog at isDatalog
+  grind
+
+/-- For a Datalog rule, if a variable occurs in a head, then it occurs in the frontier. -/
+theorem mem_frontier_of_mem_head_vars_of_isDatalog {r : Rule sig} (isDatalog : r.isDatalog) {i : Nat} {lt : i < r.head.length} :
+    ∀ v ∈ r.head[i].vars, v ∈ r.frontier := by
+  intro v v_mem; rw [mem_frontier_iff_mem_frontier_for_head]; exact ⟨_, _, (mem_frontier_for_head_of_mem_head_vars_of_isDatalog isDatalog v).mp v_mem⟩
+
 /-- Each existential variable is in the head. -/
 @[grind ->]
 theorem mem_head_vars_of_mem_existential_vars_for_head_disjunct {r : Rule sig} {i : Nat} {lt : i < r.head.length} :
