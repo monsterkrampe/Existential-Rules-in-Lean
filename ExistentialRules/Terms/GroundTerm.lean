@@ -63,6 +63,7 @@ def func (func : SkolemFS sig) (ts : List (GroundTerm sig)) (arity_ok : ts.lengt
   . rw [List.length_unattach]; exact arity_ok
   . rw [List.all_eq_true]
     intro t t_mem
+    unfold List.unattach at t
     unfold List.unattach at t_mem
     rw [List.attach_map, List.mem_map] at t_mem
     rcases t_mem with ⟨t, t_mem, t_eq⟩

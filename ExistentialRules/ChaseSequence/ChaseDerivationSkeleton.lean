@@ -120,7 +120,7 @@ section Suffixes
 We define a suffix relation on `ChaseDerivationSkeleton` simply as the suffix relation of the underlying `PossiblyInfiniteList`.
 -/
 
-@[expose]
+@[expose, implicit_reducible]
 def IsSuffix (cd1 cd2 : ChaseDerivationSkeleton N obs rules) : Prop := cd1.branch <:+ cd2.branch
 infixl:50 " <:+ " => IsSuffix
 

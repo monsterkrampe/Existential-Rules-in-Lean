@@ -84,7 +84,7 @@ theorem functional_term_for_var.inj
     {v2 : sig.V}
     {v2_mem : v2 ∈ trg.rule.existential_vars_for_head_disjunct i2 lt2} :
     trg.functional_term_for_var i1 lt1 v1 v1_mem = trg.functional_term_for_var i2 lt2 v2 v2_mem -> i1 = i2 ∧ v1 = v2 := by
-  unfold functional_term_for_var; grind
+  unfold functional_term_for_var; rw [GroundTerm.func.injEq]; grind
 @[simp, grind =]
 theorem functional_term_for_var.injEq
     {trg : PreTrigger sig} {i1 i2 : Nat} {lt1 : i1 < trg.rule.head.length} {lt2 : i2 < trg.rule.head.length}
@@ -93,7 +93,7 @@ theorem functional_term_for_var.injEq
     {v2 : sig.V}
     {v2_mem : v2 ∈ trg.rule.existential_vars_for_head_disjunct i2 lt2} :
     trg.functional_term_for_var i1 lt1 v1 v1_mem = trg.functional_term_for_var i2 lt2 v2 v2_mem ↔ i1 = i2 ∧ v1 = v2 := by
-  unfold functional_term_for_var; grind
+  unfold functional_term_for_var; rw [GroundTerm.func.injEq]; grind
 
 /-- Applying a trigger to an existential variable, yields exactly the Skolem function term from the shortcup definition `functional_term_for_var`. -/
 @[simp, grind =]
@@ -144,7 +144,7 @@ abbrev apply_to_function_free_atom (trg : PreTrigger sig) (i : Nat) (lt : i < tr
   (trg.apply_to_var_or_const i lt).apply_generalized_atom atom
 
 /-- The body does not feature any existential variables. Therefore, we mapped body merely results from applying the trigger's substitution to the body of its rule. -/
-@[expose]
+@[expose, implicit_reducible]
 def mapped_body (trg : PreTrigger sig) : List (Fact sig) := trg.subs.apply_function_free_conj trg.rule.body
 
 /-- The length of the `mapped_body` is the same as the length of the rule body. -/
@@ -202,7 +202,7 @@ theorem mem_terms_mapped_body_iff (trg : PreTrigger sig) :
         exists VarOrConst.var v
 
 /-- The mapped head is the result of the trigger and is simply the application to all head atoms. This result has a list of result facts for each of the head disjuncts. Note again that existential variables are Skolemized before the trigger's substitution is applied but this is hidden within the previously defined functions. -/
-@[expose]
+@[expose, implicit_reducible]
 def mapped_head (trg : PreTrigger sig) : List (List (Fact sig)) :=
   trg.rule.head.zipIdx.attach.map (fun pair => pair.val.fst.map (trg.apply_to_function_free_atom pair.val.snd (List.snd_lt_of_mem_zipIdx pair.property)))
 
@@ -356,9 +356,8 @@ theorem apply_on_atom_for_result_fact_is_fact (trg : PreTrigger sig) {f : Fact s
     trg.apply_to_function_free_atom i lt (trg.atom_for_result_fact i lt f_mem) = f := by
   have lt' : i < trg.mapped_head.length := by rw [length_mapped_head]; exact lt
   have : f = trg.mapped_head[i][trg.mapped_head[i].idxOf f]'(List.idxOf_lt_length_of_mem f_mem) := by rw [List.getElem_idxOf_of_mem]; exact f_mem
-  conv => right; rw [this]
+  conv => right; rw [this]; arg 1; unfold mapped_head
   unfold atom_for_result_fact
-  unfold mapped_head
   simp
 
 /-- The atom from `atom_for_result_fact` occurs in the correct rule head disjunct. -/

@@ -276,7 +276,7 @@ mutual
             rw [List.mem_map] at t_mem
             rcases t_mem with ⟨v, v_mem, t_eq⟩
             unfold PreTrigger.subs_for_mapped_head at t_eq
-            rw [PreTrigger.apply_to_var_or_const_frontier_var _ _ _ v v_mem] at t_eq
+            rw [PreTrigger.apply_to_var_or_const_frontier_var _ _ func.headIdx_lt v v_mem] at t_eq
             simp only [trg, backtrackTrigger] at v_mem
             simp only [trg, backtrackTrigger, v_mem, ↓reduceDIte] at t_eq
             rw [← t_eq] at c_mem

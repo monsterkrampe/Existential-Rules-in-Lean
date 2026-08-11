@@ -22,7 +22,7 @@ variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq 
 section Definitions
 
 /-- A `ChaseDerivationSkeleton` terminates if the underlying `PossiblyInfiniteList` is finite. -/
-@[expose]
+@[expose, implicit_reducible]
 def ChaseDerivationSkeleton.terminates {obs : ObsolescenceCondition sig} {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N obs rules]
   (cds : ChaseDerivationSkeleton N obs rules) : Prop := cds.branch.finite
 
@@ -42,22 +42,22 @@ theorem ChaseDerivationSkeleton.terminates_iff_terminates_suffix
     rw [← PossiblyInfiniteList.get?_drop, suf]; exact eq_none
 
 /-- A `ChaseDerivation` terminates if the underlying `ChaseDerivationSkeleton` is finite. -/
-@[expose]
+@[expose, implicit_reducible]
 def ChaseDerivation.terminates {obs : ObsolescenceCondition sig} {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N obs rules]
   (cd : ChaseDerivation N obs rules) : Prop := cd.toChaseDerivationSkeleton.terminates
 
 /-- A `TreeDerivation` terminates if all of its branches terminate. -/
-@[expose]
+@[expose, implicit_reducible]
 def TreeDerivation.terminates {obs : ObsolescenceCondition sig} {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N obs rules]
   (td : TreeDerivation N obs rules) : Prop := ∀ branch, branch ∈ td.branches -> branch.terminates
 
 /-- A `KnowledgeBase` terminates if all of its `ChaseTree`s terminate. -/
-@[expose]
+@[expose, implicit_reducible]
 def KnowledgeBase.terminates (kb : KnowledgeBase sig) (obs : ObsolescenceCondition sig) (N : Type u) [CN : ChaseNode N obs kb.rules] : Prop :=
   ∀ (ct : ChaseTree N obs kb), ct.terminates
 
 /-- A `RuleSet` terminates if all knowledge bases featuring this rule set terminate. -/
-@[expose]
+@[expose, implicit_reducible]
 def RuleSet.terminates (rs : RuleSet sig) (obs : ObsolescenceCondition sig) (N : Type u) [CN : ChaseNode N obs rs] : Prop :=
   ∀ (db : Database sig), { rules := rs, db := db : KnowledgeBase sig }.terminates obs N
 

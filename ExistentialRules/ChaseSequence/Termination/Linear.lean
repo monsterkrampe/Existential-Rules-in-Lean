@@ -1510,8 +1510,7 @@ section TriggersAndChaseDerivation
                       |var v => -- term is non-frontier-variable; should lead to contradiction
                         simp only[cond.b1_label_eq]
                         have list_elem_eq: pi.val.labelling_of_apply.fst.terms[i] =
-                          pi.val.labelling_of_apply.fst.terms[List.idxOf pi.val.labelling_of_apply.fst.terms[i] pi.val.labelling_of_apply.fst.terms]'(by simp only[← t_eq] at listIdx_lt_rule_head; rw[← trg_apply_labelling_fst_terms_len]; exact listIdx_lt_rule_head) := by
-                           simp[List.getElem_idxOf_of_mem]
+                          pi.val.labelling_of_apply.fst.terms[List.idxOf pi.val.labelling_of_apply.fst.terms[i] pi.val.labelling_of_apply.fst.terms]'(by simp only[← t_eq] at listIdx_lt_rule_head; rw[← trg_apply_labelling_fst_terms_len]; exact listIdx_lt_rule_head) := by simp
                         unfold is_frontier_position_fst at inFrontier
                         rw[not_exists] at inFrontier
                         simp only [const_var, VarOrConst.var.injEq, not_and, forall_eq'] at inFrontier
@@ -1548,8 +1547,7 @@ section TriggersAndChaseDerivation
                     |var v =>
                       simp only[cond.b2_label_eq]
                       have list_elem_eq: pi.val.labelling_of_apply.snd.terms[i] =
-                        pi.val.labelling_of_apply.snd.terms[List.idxOf pi.val.labelling_of_apply.snd.terms[i] pi.val.labelling_of_apply.snd.terms]'(by simp only[← t_eq] at listIdx_lt_rule_head; rw[← trg_apply_labelling_snd_terms_len]; exact listIdx_lt_rule_head) := by
-                          simp[List.getElem_idxOf_of_mem]
+                        pi.val.labelling_of_apply.snd.terms[List.idxOf pi.val.labelling_of_apply.snd.terms[i] pi.val.labelling_of_apply.snd.terms]'(by simp only[← t_eq] at listIdx_lt_rule_head; rw[← trg_apply_labelling_snd_terms_len]; exact listIdx_lt_rule_head) := by simp
                       unfold is_frontier_position_snd at inFrontier
                       rw[not_exists] at inFrontier
                       simp only [const_var, VarOrConst.var.injEq, not_and, forall_eq'] at inFrontier

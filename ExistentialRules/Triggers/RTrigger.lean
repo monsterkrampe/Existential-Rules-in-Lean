@@ -22,8 +22,7 @@ variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq 
 variable {obs : LaxObsolescenceCondition sig}
 
 /-- An `RTrigger` for a `RuleSet` $R$ is a `Trigger` with a rule in $R$. -/
-@[expose]
-def RTrigger (obs : LaxObsolescenceCondition sig) (rs : RuleSet sig) := { trg : Trigger obs // trg.rule ∈ rs}
+abbrev RTrigger (obs : LaxObsolescenceCondition sig) (rs : RuleSet sig) := { trg : Trigger obs // trg.rule ∈ rs}
 
 namespace RTrigger
 

@@ -189,6 +189,7 @@ section Suffixes
 We define a suffix/subtree relation on `TreeDerivation` simply as the subtree relation of the underlying `FiniteDegreeTree`.
 -/
 
+@[expose, implicit_reducible]
 def IsSuffix (td1 td2 : TreeDerivation N obs rules) : Prop := td1.tree <:+ td2.tree
 infixl:50 " <:+ " => IsSuffix
 

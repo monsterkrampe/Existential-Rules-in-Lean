@@ -33,7 +33,7 @@ deriving DecidableEq
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 /-- The arity corresponds to the size of the frontier of the rule, i.e. the universal variables that occur in both body and head. -/
-@[expose]
+@[expose, implicit_reducible]
 def SkolemFS.arity (sfs : SkolemFS sig) : Nat := sfs.rule.frontier.length
 
 /-- The Skolem function symbols of a rule are all `SkolemFS` with the rule id, all possible head indices and the respective existential variables. -/

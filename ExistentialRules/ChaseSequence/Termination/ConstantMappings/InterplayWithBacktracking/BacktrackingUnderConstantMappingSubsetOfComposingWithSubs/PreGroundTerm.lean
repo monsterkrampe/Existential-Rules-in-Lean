@@ -356,7 +356,7 @@ mutual
             constructor
             . exact a_mem
             . rw [e_eq, ← f_eq]
-              rw [← GroundSubstitution.apply_function_free_atom.eq_def, ← GroundSubstitution.apply_function_free_atom.eq_def, PreTrigger.apply_subs_for_atom_eq, PreTrigger.apply_subs_for_atom_eq, ← ConstantMapping.apply_fact_eq_groundTermMapping_applyFact, ConstantMapping.apply_fact_swap_apply_to_function_free_atom]
+              rw [← GroundSubstitution.apply_function_free_atom.eq_def, ← GroundSubstitution.apply_function_free_atom.eq_def, PreTrigger.apply_subs_for_atom_eq _ _ func.headIdx_lt, PreTrigger.apply_subs_for_atom_eq _ _ func.headIdx_lt, ← ConstantMapping.apply_fact_eq_groundTermMapping_applyFact, ConstantMapping.apply_fact_swap_apply_to_function_free_atom _ _ _ _ _ func.headIdx_lt]
               . apply PreTrigger.apply_to_function_free_atom_eq_of_equiv
                 . apply PreTrigger.equiv_of_strong_equiv
                   simp only [trg1, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves] at strong_equiv

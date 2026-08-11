@@ -274,7 +274,7 @@ theorem BlockingObsolescence.blocks_corresponding_obs [GetFreshInhabitant sig.C]
       simp only [Function.comp_apply]
       apply ConstantMapping.apply_ground_term_congr_left
       intro d d_mem
-      simp only [StrictConstantMapping.toConstantMapping, Function.comp_apply, PreTrigger.backtrackFacts]
+      simp only [StrictConstantMapping.toConstantMapping, Function.comp_apply]
       split
       case isFalse heq => rfl
       case isTrue heq =>

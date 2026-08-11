@@ -148,7 +148,7 @@ section Suffixes
 We lift suffixes from the `ChaseDerivationSkeleton` to the `ChaseDerivation`.
 -/
 
-@[expose]
+@[expose, implicit_reducible]
 def IsSuffix (cd1 cd2 : ChaseDerivation N obs rules) : Prop := ChaseDerivationSkeleton.IsSuffix cd1.toChaseDerivationSkeleton cd2.toChaseDerivationSkeleton
 infixl:50 " <:+ " => IsSuffix
 

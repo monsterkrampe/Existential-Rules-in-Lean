@@ -35,7 +35,7 @@ namespace TermMapping
 variable {sig : Signature} [DecidableEq sig.P]
 
 /-- A `TermMapping` is applied to a `GeneralizedAtom` by simply applying it to each term. -/
-@[expose]
+@[expose, implicit_reducible]
 def apply_generalized_atom (h : TermMapping S T) (a : GeneralizedAtom sig S) : GeneralizedAtom sig T := {
   predicate := a.predicate
   terms := a.terms.map h
