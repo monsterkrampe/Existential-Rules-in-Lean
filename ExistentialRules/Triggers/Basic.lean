@@ -270,6 +270,31 @@ theorem apply_subs_for_mapped_head_eq (trg : PreTrigger sig) (i : Nat) (lt : i <
   intros
   apply apply_subs_for_atom_eq trg i lt
 
+/-- For a trigger with a Datalog rule, the mapped head element simply results from applying the substitution. -/
+theorem each_mapped_head_eq_of_isDatalog {trg : PreTrigger sig} (isDatalog : trg.rule.isDatalog) :
+    ∀ (i : Nat) (lt : i < trg.rule.head.length), trg.mapped_head[i]'(by grind) = trg.subs.apply_function_free_conj trg.rule.head[i] := by
+  intro i lt
+  rw [← apply_subs_for_mapped_head_eq _ _ lt]
+  apply List.map_congr_left
+  intro a a_mem
+  apply TermMapping.apply_generalized_atom_congr_left
+  intro t t_mem
+  cases t with
+  | const c => simp [GroundSubstitution.apply_var_or_const]
+  | var v =>
+    rw [apply_subs_for_var_or_const_eq]
+    simp only [GroundSubstitution.apply_var_or_const]
+    rw [apply_to_var_or_const_frontier_var]
+    apply trg.rule.mem_frontier_of_mem_head_vars_of_isDatalog isDatalog
+    rw [FunctionFreeConjunction.mem_vars]
+    exists a
+
+/-- For a trigger with a Datalog rule, the mapped head simply results from applying the substitution. -/
+theorem mapped_head_eq_of_isDatalog {trg : PreTrigger sig} (isDatalog : trg.rule.isDatalog) :
+    trg.mapped_head = trg.rule.head.map trg.subs.apply_function_free_conj := by
+  apply List.ext_getElem; simp
+  intro i _ _; rw [List.getElem_map]; apply each_mapped_head_eq_of_isDatalog isDatalog
+
 /-- The list of fresh terms are the function terms introduced for the existential variables. -/
 @[expose]
 def fresh_terms_for_head_disjunct (trg : PreTrigger sig) (i : Nat) (lt : i < trg.rule.head.length) : List (GroundTerm sig) :=
