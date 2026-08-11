@@ -97,6 +97,15 @@ theorem mem_constants_toSet {l : List (Fact sig)} : ∀ c, c ∈ FactSet.constan
   intro t; rw [List.mem_flatMap]
   constructor <;> (rintro ⟨f, f_mem, t_mem⟩; exists f; grind)
 
+/-- A constant occurs in the fact set iff it occurs as a constant in one of its terms. -/
+theorem mem_constants_iff_mem_terms {fs : FactSet sig} : ∀ {c}, c ∈ fs.constants ↔ ∃ t ∈ fs.terms, c ∈ t.constants := by
+  unfold constants terms Fact.constants
+  simp only [List.mem_flatMap]
+  intro c
+  constructor
+  . intro ⟨f, f_mem, ⟨t, t_mem, c_mem⟩⟩; exists t; constructor; exists f; exact c_mem
+  . intro ⟨t, ⟨f, f_mem, t_mem⟩, c_mem⟩; exists f; constructor; exact f_mem; exists t
+
 /-- The a `FactSet` is a subset of another, then their constants share this subset relation. -/
 @[grind ->]
 theorem constants_subset_of_subset {fs1 fs2 : FactSet sig} : fs1 ⊆ fs2 -> fs1.constants ⊆ fs2.constants := by

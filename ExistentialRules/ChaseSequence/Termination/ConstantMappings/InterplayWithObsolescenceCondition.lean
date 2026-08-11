@@ -65,28 +65,10 @@ theorem RestrictedObsolescence.propagates_under_constant_mapping : (RestrictedOb
   exists g.apply_ground_term ∘ s
   constructor
   . intro v v_mem; simp only [Function.comp_apply]; rw [id_front v v_mem]
-  . unfold GroundSubstitution.apply_function_free_conj
-    unfold TermMapping.apply_generalized_atom_list
-    intro f f_mem
-    rw [List.mem_toSet, List.mem_map] at f_mem
-    rcases f_mem with ⟨a, a_mem, f_eq⟩
-    rw [← GroundSubstitution.apply_function_free_atom.eq_def, GroundSubstitution.apply_function_free_atom_compose] at f_eq
-    . rw [← f_eq]
-      rw [← ConstantMapping.apply_fact_eq_groundTermMapping_applyFact]
-      apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
-      apply cond
-      rw [List.mem_toSet]
-      apply List.mem_map_of_mem
-      exact a_mem
-    . intro d d_mem
-      conv => left; simp only [ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, GroundTerm.const, FiniteTree.mapLeaves]
-      apply g_id
-      unfold Rule.head_constants
-      rw [List.mem_flatMap]
-      exists trg.rule.head[i]
-      constructor
-      . apply List.getElem_mem
-      . unfold FunctionFreeConjunction.consts
-        rw [List.mem_flatMap]
-        exists a
+  . rw [GroundSubstitution.apply_function_free_conj_compose]
+    . rw [← TermMapping.apply_generalized_atom_set_toSet]
+      apply TermMapping.apply_generalized_atom_set_subset_of_subset
+      exact cond
+    . intro d d_mem; rw [ConstantMapping.apply_ground_term_constant]; apply g_id
+      simp only [Rule.head_constants, List.mem_flatMap]; exists trg.rule.head[i]; constructor; exact List.getElem_mem _; exact d_mem
 

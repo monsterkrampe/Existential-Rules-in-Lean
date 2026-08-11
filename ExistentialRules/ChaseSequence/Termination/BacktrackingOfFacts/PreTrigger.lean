@@ -45,7 +45,7 @@ theorem backtrackTrigger_for_functional_term_equiv
   simp only [backtrackTrigger_for_functional_term, PreTrigger.functional_term_for_var, GroundTerm.backtrackTrigger, GroundTerm.func, PreGroundTerm.backtrackTrigger]
   simp only [PreTrigger.equiv, true_and]
   intro u u_mem
-  simp only [u_mem, ↓reduceDIte]
+  simp only [u_mem, ↓reduceDIte, PreTrigger.mapped_frontier]
   rw [Subtype.mk.injEq]
   rw [List.getElem_unattach, List.getElem_map]
   rw [List.getElem_idxOf_of_mem]

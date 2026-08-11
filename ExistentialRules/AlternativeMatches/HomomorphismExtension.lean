@@ -93,9 +93,7 @@ noncomputable def extend_hom_to_next_step_of_next_eq_some
       simp only [subs, subs_frontier _ v_frontier]
       rfl
     | inr v_frontier =>
-      have v_exis : v ∈ origin.fst.val.rule.existential_vars_for_head_disjunct disj.val disj.isLt := by
-        simp only [Rule.existential_vars_for_head_disjunct, List.mem_filter, decide_eq_true_iff]
-        exact ⟨v_mem, v_frontier⟩
+      have v_exis := Rule.mem_existential_vars_of_mem_head_disjunct_of_not_mem_frontier _ v_mem v_frontier
       rw [origin.fst.val.apply_to_var_or_const_of_mem_existential_vars _ _ _ v_exis]
       simp only [h', origin.fst.val.mem_fresh_terms_of_functional_for_exis_var, ↓reduceDIte]
       rw [PreTrigger.existential_var_for_fresh_term_after_functional_term_for_var]

@@ -171,7 +171,7 @@ theorem apply_fact_swap_apply_to_function_free_atom (g : ConstantMapping sig) (t
   | const d => simpa using h d (by simpa using voc_mem)
   | var v =>
     cases Decidable.em (v ∈ trg.rule.existential_vars_for_head_disjunct i lt) with
-    | inl v_mem => simp [v_mem, PreTrigger.functional_term_for_var]
+    | inl v_mem => simp [v_mem, PreTrigger.functional_term_for_var, PreTrigger.apply_mapping_after_mapped_frontier]
     | inr v_mem => simp [v_mem]
 
 /-- Mapping the same fact using two `ConstantMapping`s yields the same fact if the mappings agree on all constants of the fact. -/
