@@ -117,6 +117,30 @@ def Trigger.unblockable
   ∃ node2 : (ct.subderivation_for_headChoice hc).Node, node ≼ node2 ∧
   (trg.output_for_headChoice hc).toSet ⊆ node2.val.facts
 
+/-- Every deterministic Datalog trigger is unblockable. -/
+theorem Trigger.unblockable_of_isDatalog_of_isDeterministic {rules : RuleSet sig} {hc : HeadChoice sig} {trg : RTrigger obs rules}
+    (isDatalog : trg.val.rule.isDatalog)
+    (isDet : trg.val.rule.isDeterministic) :
+    trg.val.unblockable rules hc := by
+  intro kb rules_eq ct node loaded
+  let trg_kb : RTrigger obs kb.rules := ⟨trg.val, by rw [rules_eq]; exact trg.property⟩
+  suffices ∃ node2, node ≼ node2 ∧ ¬ trg.val.active node2.val.facts by
+    rcases this with ⟨node2, prec, not_active⟩
+    exists node2, prec
+    unfold Trigger.active at not_active; rw [not_and, Classical.not_not] at not_active
+    specialize not_active (Set.subset_trans loaded (RegularChaseDerivationSkeleton.facts_node_subset_of_prec prec))
+    rcases obs.cond_implies_contained_of_isDatalog isDatalog not_active with ⟨i, lt, contained⟩
+    suffices (hc trg.val).val = i by unfold PreTrigger.output_for_headChoice; simp only [this]; exact contained
+    have isLt := (hc trg.val).isLt
+    simp only [Rule.isDeterministic, decide_eq_true_iff] at isDet
+    simp only [isDet, Nat.lt_one_iff] at isLt
+    simp only [isDet, Nat.lt_one_iff] at lt
+    rw [isLt, lt]
+  rcases RegularChaseDerivation.fairness_prec (cd := (ct.subderivation_for_headChoice hc).toChaseDerivation) trg_kb with ⟨fairness_node, fair⟩
+  cases ChaseDerivationSkeleton.predecessor_total node fairness_node with
+  | inl prec => exists fairness_node; constructor; exact prec; apply fair; grind
+  | inr prec => exists node; constructor; grind; apply fair; exact prec
+
 /-- This is Definition 7 from the [RPC] paper. -/
 def FactSet.is_rpc_overapproximation
     (rules : RuleSet sig)
@@ -129,7 +153,7 @@ def FactSet.is_rpc_overapproximation
       (¬ (trg.output_for_headChoice hc).toSet ⊆ node.facts) -> h.applyFactSet node.facts ⊆ fs
 
 /-- This is Lemma 1 from the [RPC] paper. -/
-theorem PreTrigger.unblockable_of_not_obsolete_for_overapproximation
+theorem RTrigger.unblockable_of_not_obsolete_for_overapproximation
     (obs_propagates : obs.propagates_under_term_mapping_of_no_fresh_term_occurs)
     {rules : RuleSet sig} {hc : HeadChoice sig}
     (hc_consistent : hc.consistent_for_equivalent_triggers)
