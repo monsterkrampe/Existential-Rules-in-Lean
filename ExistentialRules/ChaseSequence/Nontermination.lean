@@ -7,6 +7,7 @@ module
 
 import ExistentialRules.ChaseSequence.Nontermination.BirthFacts
 import ExistentialRules.ChaseSequence.Nontermination.CondenseGenerator
+import ExistentialRules.ChaseSequence.Nontermination.CyclicityPrefix
 import ExistentialRules.ChaseSequence.Nontermination.CyclicitySequence
 import ExistentialRules.ChaseSequence.Nontermination.HeadChoice
 import ExistentialRules.ChaseSequence.Nontermination.RepeatableUnblockability
