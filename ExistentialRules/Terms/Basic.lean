@@ -15,12 +15,19 @@ In this file we start by introducing a `Signature` and the `VarOrConst` as the m
 
 public section
 
-/-- First of all, almost all of our definitions consider a fixed but arbitrary `Signature` of predicate symbols `P`, variables `V`, and constants `C`. Also every predicate has a fixed `arity`. Note that `P`, `V`, and `C` can be arbitrary types so there are no requirements in terms of countability or finiteness. However, intuitively you can consider them to be countably infinite sets. This would allow to pick fresh elements for example. In places where we need this property, we express this through the `GetFreshInhabitant` type class. -/
+/-- A structure capturing only a predicate signature where we have a type for all predicate symbols and a function mapping them to their arity. -/
+structure Preds where
+  symbol : Type u
+  arity : symbol -> Nat
+
+/-- Almost all of our definitions consider a fixed but arbitrary `Signature` of predicates `P`, variables `V`, and constants `C` where each predicate has a fixed `arity`. Note that `P` and `arity` are not direclty part of the signature but part of a substructure. Having the `Preds` structure available on its own is useful for `GeneralizedAtom`s and `TermMapping`s later. Furthermore, note that `P`, `V`, and `C` can be arbitrary types so there are no requirements in terms of countability or finiteness. However, intuitively you can consider them to be countably infinite sets. This would allow to pick fresh elements for example. In places where we need this property, we sometimes express this through the `GetFreshInhabitant` type class. As an alternative, one can extend the signature with fresh values directly for example by using a Sum type. -/
 structure Signature where
-  P : Type u
+  Preds : Preds.{u}
   V : Type v
   C : Type w
-  arity : P -> Nat
+
+abbrev Signature.P (sig : Signature) := sig.Preds.symbol
+abbrev Signature.arity (sig : Signature) := sig.Preds.arity
 
 section VarOrConst
 
