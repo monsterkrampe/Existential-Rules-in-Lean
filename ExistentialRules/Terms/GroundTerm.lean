@@ -211,15 +211,31 @@ def depth (t : GroundTerm sig) : Nat := t.val.depth
 
 /-- The `constants` occurring in a `GroundTerm` are exactly the leaves of the underlying `FiniteTree`. -/
 @[expose]
-def constants (t : GroundTerm sig) : (List sig.C) := t.val.leaves
+def constants (t : GroundTerm sig) : List sig.C := t.val.leaves
 
 /-- The `functions` (i.e. function symbols `SkolemFS`) occurring in a `GroundTerm` are exactly the inner labels of the underlying `FiniteTree`. -/
 @[expose]
-def functions (t : GroundTerm sig) : (List (SkolemFS sig)) := t.val.innerLabels
+def functions (t : GroundTerm sig) : List (SkolemFS sig) := t.val.innerLabels
 
 /-- The `rules` that occur in the Skolem symbols of a `GroundTerm`. -/
 @[expose]
-def rules (t : GroundTerm sig) : (List (Rule sig)) := t.functions.map SkolemFS.rule
+def rules (t : GroundTerm sig) : List (Rule sig) := t.functions.map SkolemFS.rule
+
+/-- The `subterms` consist of the term itself and all subterms of all children. -/
+@[expose]
+def subterms (t : GroundTerm sig) : List (GroundTerm sig) :=
+  have arity_ok : ∀ s ∈ t.val.subtrees, PreGroundTerm.arity_ok s := by
+    induction t with
+    | const => simp [const, FiniteTree.subtrees, PreGroundTerm.arity_ok]
+    | func f ts arity_ok ih =>
+      intro s s_mem; simp only [func, FiniteTree.subtrees, List.mem_cons] at s_mem
+      cases s_mem with
+      | inl s_mem => rw [s_mem]; simp only [PreGroundTerm.arity_ok]; simp; grind
+      | inr s_mem =>
+        simp only [List.mem_flatMap, List.mem_unattach] at s_mem; rcases s_mem with ⟨u, ⟨_, u_mem⟩, s_mem⟩
+        apply ih _ u_mem
+        exact s_mem
+  t.val.subtrees.attach.map (fun pair => ⟨pair.val, arity_ok _ pair.property⟩)
 
 /-- Applying `toConst` to a `GroundTerm.const` yields exactly the contained constant. -/
 @[simp, grind =]
@@ -284,6 +300,28 @@ theorem rules_const {c : sig.C} : (GroundTerm.const c).rules = [] := by
 theorem rules_func {f : SkolemFS sig} {ts : List (GroundTerm sig)} {arity_ok : ts.length = f.arity} :
     (GroundTerm.func f ts arity_ok).rules = f.rule :: (ts.flatMap GroundTerm.rules) := by
   unfold rules; simp [List.map_flatMap]
+
+/-- A constant has exactly itself as a subterm. -/
+@[simp, grind =]
+theorem subterms_const {c : sig.C} : (GroundTerm.const c).subterms = [.const c] := by
+  simp only [const, subterms]; rw [List.map_attach_eq_pmap]; simp [FiniteTree.subtrees]
+
+/-- The `subterms` of a function term consist of the term itself and the subterms of all children. -/
+@[simp, grind =]
+theorem subterms_func {f : SkolemFS sig} {ts : List (GroundTerm sig)} {arity_ok : ts.length = f.arity} :
+    (GroundTerm.func f ts arity_ok).subterms = (.func f ts arity_ok) :: (ts.flatMap GroundTerm.subterms) := by
+  simp only [func, subterms]; rw [List.map_attach_eq_pmap]; simp only [FiniteTree.subtrees]
+  rw [List.pmap_cons, List.cons_eq_cons]; constructor; rfl
+  suffices (ts.flatMap subterms).unattach = (ts.unattach.flatMap FiniteTree.subtrees) by
+    simp only [← this]; unfold List.unattach; rw [List.pmap_map, List.pmap_eq_self]; simp
+  simp only [List.flatMap_def, List.unattach_flatten]
+  apply List.flatten_eq_of_eq
+  apply List.ext_getElem; simp
+  intro i _ _
+  simp only [List.getElem_map, List.getElem_unattach, subterms]
+  apply List.ext_getElem; simp
+  intro j _ _
+  simp
 
 end GroundTerm
 
