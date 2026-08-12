@@ -11,13 +11,10 @@ import ExistentialRules.ChaseSequence.Nontermination.SparseSubderivationGenerato
 public import ExistentialRules.ChaseSequence.Nontermination.Unblockability
 
 /-!
-# RPC-like Non-Termination
+# Cyclicity Derivations and Branches
 
-We are going to formalize sufficient conditions for chase non-termination.
-Mainly, we will introduce the necessary machinery from Restricted Prefix Cyclicity (RPC) [RPC]
-but we also aim to generalize this to capture (Disjunctive) Model-Faithful Cyclicity ((D)MFC) [DMFA] [RMFA] at the same time.
-
-SO FAR, WE ONLY HAVE A FEW VERY BASIC DEFINITIONS. THERE IS A LONG WAY TO GO.
+This file formalizes what is called "cyclicity sequences" in the [RPC] paper (Section 3) including the main result
+that the existence of a `CyclicityBranch` implies that the given rule set `RuleSet.neverTerminates` (see `CyclicityBranch.neverTerminates_of_cyclicityBranch`).
 -/
 
 public section
