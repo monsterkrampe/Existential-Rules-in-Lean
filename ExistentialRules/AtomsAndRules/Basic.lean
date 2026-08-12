@@ -20,15 +20,15 @@ The atom-like datastructures are all expressed in terms of a `GeneralizedAtom`. 
 public section
 
 /-- A `GeneralizedAtom` consists of a predicate symbol and a list of terms of an arbitrary type such that the number of terms matches the predicate's arity. -/
-structure GeneralizedAtom (sig : Signature) (T : Type u) [DecidableEq sig.P] where
-  predicate : sig.P
+structure GeneralizedAtom (P : Preds) (T : Type u) [DecidableEq P.symbol] where
+  predicate : P.symbol
   terms : List T
-  arity_ok : terms.length = sig.arity predicate
+  arity_ok : terms.length = P.arity predicate
 deriving DecidableEq
 
 /-- If two atoms have the same predicate, then they thave an equal number of terms-/
 theorem GeneralizedAtom.length_terms_eq_of_predicate_eq
-    {sig: Signature} {T : Type u} [DecidableEq sig.P] {a b : GeneralizedAtom sig T} :
+    {P : Preds} {T : Type u} [DecidableEq P.symbol] {a b : GeneralizedAtom P T} :
     a.predicate = b.predicate -> a.terms.length = b.terms.length := by
-  intro pred_eq;rw [GeneralizedAtom.arity_ok, pred_eq, GeneralizedAtom.arity_ok]
+  intro pred_eq; rw [GeneralizedAtom.arity_ok, pred_eq, GeneralizedAtom.arity_ok]
 
