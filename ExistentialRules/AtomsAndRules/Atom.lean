@@ -16,7 +16,7 @@ An `Atom` is simply a `GeneralizedAtom` using `SkolemTerm`s.
 
 public section
 
-abbrev Atom (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] := GeneralizedAtom sig (SkolemTerm sig)
+abbrev Atom (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] := GeneralizedAtom sig.Preds (SkolemTerm sig)
 
 namespace FunctionFreeAtom
 

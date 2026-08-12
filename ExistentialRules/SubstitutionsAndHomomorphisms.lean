@@ -32,11 +32,11 @@ abbrev TermMapping (S : Type u) (T : Type v) := S -> T
 
 namespace TermMapping
 
-variable {sig : Signature} [DecidableEq sig.P]
+variable {P : Preds} [DecidableEq P.symbol]
 
 /-- A `TermMapping` is applied to a `GeneralizedAtom` by simply applying it to each term. -/
 @[expose, implicit_reducible]
-def apply_generalized_atom (h : TermMapping S T) (a : GeneralizedAtom sig S) : GeneralizedAtom sig T := {
+def apply_generalized_atom (h : TermMapping S T) (a : GeneralizedAtom P S) : GeneralizedAtom P T := {
   predicate := a.predicate
   terms := a.terms.map h
   arity_ok := by rw [List.length_map, a.arity_ok]
@@ -44,33 +44,33 @@ def apply_generalized_atom (h : TermMapping S T) (a : GeneralizedAtom sig S) : G
 
 /-- A `TermMapping` is applied to a list of `GeneralizedAtom`s by applying it to each atom. -/
 @[expose]
-def apply_generalized_atom_list (h : TermMapping S T) (l : List (GeneralizedAtom sig S)) : List (GeneralizedAtom sig T) :=
+def apply_generalized_atom_list (h : TermMapping S T) (l : List (GeneralizedAtom P S)) : List (GeneralizedAtom P T) :=
   l.map h.apply_generalized_atom
 
 /-- A `TermMapping` is applied to a set of `GeneralizedAtom`s by applying it to each atom. -/
-def apply_generalized_atom_set (h : TermMapping S T) (s : Set (GeneralizedAtom sig S)) : Set (GeneralizedAtom sig T) :=
+def apply_generalized_atom_set (h : TermMapping S T) (s : Set (GeneralizedAtom P S)) : Set (GeneralizedAtom P T) :=
   s.map h.apply_generalized_atom
 
 /-- Applying a `TermMapping` to a `GeneralizedAtom` does not change the number of terms.-/
 @[simp, grind =]
-theorem length_terms_apply_generalized_atom (h : TermMapping S T) (a : GeneralizedAtom sig S) :
+theorem length_terms_apply_generalized_atom (h : TermMapping S T) (a : GeneralizedAtom P S) :
     (h.apply_generalized_atom a).terms.length = a.terms.length := by
   simp [apply_generalized_atom]
 
 /-- We can split the application of a composed `TermMapping` on an atom. -/
 theorem apply_generalized_atom_compose (g : TermMapping S T) (h : TermMapping T U) :
-    apply_generalized_atom (sig := sig) (h ∘ g) = (apply_generalized_atom h) ∘ (apply_generalized_atom g) := by
+    apply_generalized_atom (P := P) (h ∘ g) = (apply_generalized_atom h) ∘ (apply_generalized_atom g) := by
   ext a; simp [apply_generalized_atom]
 
 /-- We can split the application of a composed `TermMapping` on an atom. -/
 @[simp, grind =]
-theorem apply_generalized_atom_compose' (g : TermMapping S T) (h : TermMapping T U) : ∀ (a : GeneralizedAtom sig S), apply_generalized_atom (h ∘ g) a = (apply_generalized_atom h) (apply_generalized_atom g a) := by
+theorem apply_generalized_atom_compose' (g : TermMapping S T) (h : TermMapping T U) : ∀ (a : GeneralizedAtom P S), apply_generalized_atom (h ∘ g) a = (apply_generalized_atom h) (apply_generalized_atom g a) := by
   intro a
   rw [← Function.comp_apply (f := h.apply_generalized_atom)]
   rw [← apply_generalized_atom_compose]
 
 /-- To show that applying two `TermMapping`s on the same atom yields the same result, it is enough to show that the mappings behave identical on each term. -/
-theorem apply_generalized_atom_congr_left (g h : TermMapping S T) (a : GeneralizedAtom sig S) :
+theorem apply_generalized_atom_congr_left (g h : TermMapping S T) (a : GeneralizedAtom P S) :
     (∀ t ∈ a.terms, g t = h t) -> g.apply_generalized_atom a = h.apply_generalized_atom a := by
   intro same
   rw [GeneralizedAtom.mk.injEq]
@@ -79,7 +79,7 @@ theorem apply_generalized_atom_congr_left (g h : TermMapping S T) (a : Generaliz
   . apply List.map_congr_left; exact same
 
 /-- Applying a `TermMapping` on a `GeneralizedAtom` is the identity if the mapping is the identity on each term. -/
-theorem apply_generalized_atom_eq_self_of_id_on_terms (h : TermMapping T T) (a : GeneralizedAtom sig T) (id_on_terms : ∀ t ∈ a.terms, h t = t) :
+theorem apply_generalized_atom_eq_self_of_id_on_terms (h : TermMapping T T) (a : GeneralizedAtom P T) (id_on_terms : ∀ t ∈ a.terms, h t = t) :
     h.apply_generalized_atom a = a := by
   rw [GeneralizedAtom.mk.injEq]
   constructor
@@ -88,14 +88,14 @@ theorem apply_generalized_atom_eq_self_of_id_on_terms (h : TermMapping T T) (a :
 
 /-- Unfold the defintiion of apply_generalized_atom_list for membership. -/
 @[simp, grind =]
-theorem mem_apply_generalized_atom_list {h : TermMapping S T} {l : List (GeneralizedAtom sig S)} {a : GeneralizedAtom sig T} :
+theorem mem_apply_generalized_atom_list {h : TermMapping S T} {l : List (GeneralizedAtom P S)} {a : GeneralizedAtom P T} :
     a ∈ apply_generalized_atom_list h l ↔ ∃ b ∈ l, a = h.apply_generalized_atom b := by
   unfold apply_generalized_atom_list
   grind
 
 /-- We can split the application of a composed `TermMapping` on a list of atoms. -/
 theorem apply_generalized_atom_list_compose (g : TermMapping S T) (h : TermMapping T U) :
-    apply_generalized_atom_list (sig := sig) (h ∘ g) = (apply_generalized_atom_list h) ∘ (apply_generalized_atom_list g) := by
+    apply_generalized_atom_list (P := P) (h ∘ g) = (apply_generalized_atom_list h) ∘ (apply_generalized_atom_list g) := by
   ext l
   unfold apply_generalized_atom_list
   rw [Function.comp_apply, List.map_map]
@@ -104,7 +104,7 @@ theorem apply_generalized_atom_list_compose (g : TermMapping S T) (h : TermMappi
 /-- We can split the application of a composed `TermMapping` on a list of atoms. -/
 @[simp, grind =]
 theorem apply_generalized_atom_list_compose' (g : TermMapping S T) (h : TermMapping T U) :
-    ∀ l : List (GeneralizedAtom sig S), apply_generalized_atom_list (h ∘ g) l = (apply_generalized_atom_list h) (apply_generalized_atom_list g l) := by
+    ∀ l : List (GeneralizedAtom P S), apply_generalized_atom_list (h ∘ g) l = (apply_generalized_atom_list h) (apply_generalized_atom_list g l) := by
   intro l
   rw [← Function.comp_apply (f := h.apply_generalized_atom_list)]
   rw [← apply_generalized_atom_list_compose]
@@ -112,7 +112,7 @@ theorem apply_generalized_atom_list_compose' (g : TermMapping S T) (h : TermMapp
 /-- Applying a `TermMapping` to both an atom and a set of atoms retains membership of the atom in the set. -/
 @[grind =>]
 theorem apply_generalized_atom_mem_apply_generalized_atom_list
-    (h : TermMapping S T) (a : GeneralizedAtom sig S) (as : List (GeneralizedAtom sig S)) :
+    (h : TermMapping S T) (a : GeneralizedAtom P S) (as : List (GeneralizedAtom P S)) :
     a ∈ as -> h.apply_generalized_atom a ∈ h.apply_generalized_atom_list as := by
   intro a_mem
   simp only [apply_generalized_atom_list, List.mem_map]
@@ -120,7 +120,7 @@ theorem apply_generalized_atom_mem_apply_generalized_atom_list
 
 /-- Unfold the defintiion of apply_generalized_atom_set for membership. -/
 @[simp, grind =]
-theorem mem_apply_generalized_atom_set {h : TermMapping S T} {s : Set (GeneralizedAtom sig S)} {a : GeneralizedAtom sig T} :
+theorem mem_apply_generalized_atom_set {h : TermMapping S T} {s : Set (GeneralizedAtom P S)} {a : GeneralizedAtom P T} :
     a ∈ apply_generalized_atom_set h s ↔ ∃ b ∈ s, a = h.apply_generalized_atom b := by
   unfold apply_generalized_atom_set
   rw [Set.mem_map]
@@ -128,17 +128,17 @@ theorem mem_apply_generalized_atom_set {h : TermMapping S T} {s : Set (Generaliz
 
 /-- We can split the application of a composed `TermMapping` on a set of atoms. -/
 theorem apply_generalized_atom_set_compose (g : TermMapping S T) (h : TermMapping T U) :
-  apply_generalized_atom_set (sig := sig) (h ∘ g) = (apply_generalized_atom_set h) ∘ (apply_generalized_atom_set g) := by grind
+  apply_generalized_atom_set (P := P) (h ∘ g) = (apply_generalized_atom_set h) ∘ (apply_generalized_atom_set g) := by grind
 
 /-- We can split the application of a composed `TermMapping` on a set of atoms. -/
 @[simp, grind =]
 theorem apply_generalized_atom_set_compose' (g : TermMapping S T) (h : TermMapping T U) :
-  ∀ s : Set (GeneralizedAtom sig S), apply_generalized_atom_set (h ∘ g) s = (apply_generalized_atom_set h) (apply_generalized_atom_set g s) := by grind
+  ∀ s : Set (GeneralizedAtom P S), apply_generalized_atom_set (h ∘ g) s = (apply_generalized_atom_set h) (apply_generalized_atom_set g s) := by grind
 
 /-- Applying a `TermMapping` to both an atom and a set of atoms retains membership of the atom in the set. -/
 @[grind =>]
 theorem apply_generalized_atom_mem_apply_generalized_atom_set
-    (h : TermMapping S T) (a : GeneralizedAtom sig S) (as : Set (GeneralizedAtom sig S)) :
+    (h : TermMapping S T) (a : GeneralizedAtom P S) (as : Set (GeneralizedAtom P S)) :
     a ∈ as -> h.apply_generalized_atom a ∈ h.apply_generalized_atom_set as := by
   intro a_mem
   simp only [apply_generalized_atom_set, Set.mem_map]
@@ -146,7 +146,7 @@ theorem apply_generalized_atom_mem_apply_generalized_atom_set
 
 /-- Applying the same `TermMapping` to two sets of atoms retains their subset relation. -/
 @[grind =>]
-theorem apply_generalized_atom_set_subset_of_subset (h : TermMapping S T) (as bs : Set (GeneralizedAtom sig S)) :
+theorem apply_generalized_atom_set_subset_of_subset (h : TermMapping S T) (as bs : Set (GeneralizedAtom P S)) :
     as ⊆ bs -> h.apply_generalized_atom_set as ⊆ h.apply_generalized_atom_set bs := by
   intro subset
   intro a a_mem
@@ -155,7 +155,7 @@ theorem apply_generalized_atom_set_subset_of_subset (h : TermMapping S T) (as bs
 
 /-- When mapping a set of atoms that results from the list, we can instead map on the list and then convert to the set. -/
 theorem apply_generalized_atom_set_toSet {g : TermMapping S T} :
-    ∀ l : List (GeneralizedAtom sig S), g.apply_generalized_atom_set l.toSet = (g.apply_generalized_atom_list l).toSet := by
+    ∀ l : List (GeneralizedAtom P S), g.apply_generalized_atom_set l.toSet = (g.apply_generalized_atom_list l).toSet := by
   intro l; exact List.map_toSet_eq_toSet_map
 
 end TermMapping

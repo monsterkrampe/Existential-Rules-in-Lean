@@ -15,7 +15,7 @@ A `FunctionFreeFact` is a `GeneralizedAtom` with constants.
 
 public section
 
-abbrev FunctionFreeFact (sig : Signature) [DecidableEq sig.P] := GeneralizedAtom sig sig.C
+abbrev FunctionFreeFact (sig : Signature) [DecidableEq sig.P] := GeneralizedAtom sig.Preds sig.C
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 

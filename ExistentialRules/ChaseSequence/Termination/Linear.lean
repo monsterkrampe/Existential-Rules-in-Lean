@@ -28,36 +28,36 @@ but could hopefully make some definitions and proofs for linear chase terminatio
 -/
 
 /--An `AtomPos` consists of a `GeneralizedAtom` and a Number i that refers to the term at Position i in that Atom-/
-structure AtomPos (sig : Signature) (T : Type u) [DecidableEq sig.P] where
-  a: GeneralizedAtom sig T
+structure AtomPos (P : Preds) (T : Type u) [DecidableEq P.symbol] where
+  a: GeneralizedAtom P T
   i: Fin a.terms.length
 
 namespace AtomPos
 
-  variable {sig : Signature} {T: Type u} [DecidableEq sig.P]
+variable {P : Preds} {T: Type u} [DecidableEq P.symbol]
 
-  /--Returns the term at the position referred by `AtomPos`-/
-  def term (pos: AtomPos sig T) : T := pos.a.terms[pos.i]
+/--Returns the term at the position referred by `AtomPos`-/
+def term (pos : AtomPos P T) : T := pos.a.terms[pos.i]
 
-  /--i is a valid index for a `GeneralizedAtom` a if it refers to an actual term of the atom a-/
-  def idx_valid (a: GeneralizedAtom sig T)(i: Nat) : Bool :=
-    if i < a.terms.length then true else false
+/--i is a valid index for a `GeneralizedAtom` a if it refers to an actual term of the atom a-/
+def idx_valid (a : GeneralizedAtom P T) (i : Nat) : Bool :=
+  if i < a.terms.length then true else false
 
-  /--We apply a `TermMapping` to an `AtomPos` by applying the Mapping to the Atom and keeping the same positional Number-/
-  def mapping (h: TermMapping T S)(pos: AtomPos sig T) :  AtomPos sig S where
-    a:= TermMapping.apply_generalized_atom h pos.a
-    i:= Fin.cast (by rw[TermMapping.length_terms_apply_generalized_atom]) pos.i
+/--We apply a `TermMapping` to an `AtomPos` by applying the Mapping to the Atom and keeping the same positional Number-/
+def mapping (h : TermMapping T S) (pos : AtomPos P T) : AtomPos P S where
+  a := TermMapping.apply_generalized_atom h pos.a
+  i := Fin.cast (by simp) pos.i
 
-  /--It doesn't matter if we first get the term from a `AtomPos` and then apply a `TermMapping` or if we first apply the mapping on the `AtomPos` and the retrieve the Term-/
-  theorem term_map_eq (pos: AtomPos sig T) (h: TermMapping T S): h pos.term = term (mapping h pos) := by
-    unfold term mapping TermMapping.apply_generalized_atom
-    simp
+/--It doesn't matter if we first get the term from a `AtomPos` and then apply a `TermMapping` or if we first apply the mapping on the `AtomPos` and the retrieve the Term-/
+theorem term_map_eq (pos : AtomPos P T) (h : TermMapping T S) : h pos.term = term (mapping h pos) := by
+  unfold term mapping TermMapping.apply_generalized_atom
+  simp
 
-  /--We get the same result if we first apply a `TermMapping` to an atom and then build an `AtomPos` from the result or vice versa-/
-  theorem termMapping_AtomPos_eq (h: TermMapping T S) (a : GeneralizedAtom sig T) (i : Fin a.terms.length) :
-      {a:= TermMapping.apply_generalized_atom h a, i:= Fin.cast (by rw[TermMapping.length_terms_apply_generalized_atom]) i} = mapping h {a:=a, i:= i} := by
-    unfold mapping TermMapping.apply_generalized_atom
-    simp
+/--We get the same result if we first apply a `TermMapping` to an atom and then build an `AtomPos` from the result or vice versa-/
+theorem termMapping_AtomPos_eq (h : TermMapping T S) (a : GeneralizedAtom P T) (i : Fin a.terms.length) :
+    {a := TermMapping.apply_generalized_atom h a, i := Fin.cast (by simp) i} = mapping h { a := a, i:= i } := by
+  unfold mapping TermMapping.apply_generalized_atom
+  simp
 
 end AtomPos
 

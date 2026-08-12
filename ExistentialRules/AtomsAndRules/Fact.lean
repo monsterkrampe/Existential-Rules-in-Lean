@@ -16,7 +16,7 @@ A `Fact` is a `GeneralizedAtom` with `GroundTerm`s.
 
 public section
 
-abbrev Fact (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] := GeneralizedAtom sig (GroundTerm sig)
+abbrev Fact (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] := GeneralizedAtom sig.Preds (GroundTerm sig)
 
 namespace Fact
 
