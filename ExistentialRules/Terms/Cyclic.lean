@@ -39,7 +39,20 @@ def contains_func (func : SkolemFS sig) : FiniteTree (SkolemFS sig) sig.C -> Boo
 /-- A `PreGroundTerm` is `cyclic` if one of its children `contains_func` the function symbol of the term or if one of its children is already `cyclic`. Constants are never cyclic. -/
 public def cyclic : FiniteTree (SkolemFS sig) sig.C -> Bool
 | .leaf _ => false
-| .inner func ts => ts.any (contains_func func) || ts.attach.any (fun ⟨t, _⟩ => PreGroundTerm.cyclic t)
+| .inner func ts => ts.any (contains_func func) || ts.attach.any (fun ⟨t, _⟩ => cyclic t)
+
+/-- A `PreGroundTerm` is `ruleCyclic` essentially if it has a cyclic term with the rule in question. -/
+public def ruleCyclic (r : Rule sig) : FiniteTree (SkolemFS sig) sig.C -> Bool
+| .leaf _ => false
+| .inner func ts => (func.rule = r && ts.any (contains_func func)) || ts.attach.any (fun ⟨t, _⟩ => ruleCyclic r t)
+
+/-- Each `ruleCyclic` term is also `cyclic` (as one would expect). -/
+public theorem cyclic_of_ruleCyclic {t : PreGroundTerm sig} :
+    ∀ {r}, ruleCyclic r t -> cyclic t := by
+  intro r
+  induction t using FiniteTree.rec'
+  <;> (unfold cyclic ruleCyclic; simp)
+  grind
 
 /-- All elements of the `function_paths` paths are inner labels of the finite tree. -/
 theorem function_path_elements_are_inner_labels (t : FiniteTree (SkolemFS sig) sig.C) :
