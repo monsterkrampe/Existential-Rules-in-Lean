@@ -21,12 +21,46 @@ To be able to use `ChaseNode`s also for the core chase, we develop a general int
 
 public section
 
+/-- A `ChaseNode` may originate from the head disjunct of a trigger. Consequently, this datastructure captures a trigger and one of its head disjunct indices. -/
+abbrev ChaseNodeOrigin (obs : ObsolescenceCondition sig) (rules : RuleSet sig) :=
+  (trg : RTrigger (obs : LaxObsolescenceCondition sig) rules) × Fin trg.val.rule.head.length
+
+namespace ChaseNodeOrigin
+
+variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
+
+/-- The result of the origin is the trigger head disjunct indicated by the index in second position. -/
+@[expose]
+def result (orig : ChaseNodeOrigin obs rules) : List (Fact sig) := orig.fst.val.mapped_head[orig.snd.val]
+
+/-- Two origins are equivalent if their triggers are equivalent and they have the same disjunct index. -/
+@[expose]
+def equiv (orig1 orig2 : ChaseNodeOrigin obs rules) : Prop :=
+  orig1.fst.equiv orig2.fst ∧ orig1.snd.val = orig2.snd.val
+
+/-- Two origins are strongly equivalent if their triggers are strongly equivalent and they have the same disjunct index. -/
+@[expose]
+def strong_equiv (orig1 orig2 : ChaseNodeOrigin obs rules) : Prop :=
+  orig1.fst.strong_equiv orig2.fst ∧ orig1.snd.val = orig2.snd.val
+
+/-- If two origins are strongly equivalent, then they are also equivalent. -/
+theorem equiv_of_strong_equiv {orig1 orig2 : ChaseNodeOrigin obs rules} :
+    orig1.strong_equiv orig2 -> orig1.equiv orig2 := by
+  intro ⟨h, h2⟩; constructor; exact PreTrigger.equiv_of_strong_equiv h; exact h2
+
+/-- Equivalent origins have the same result. -/
+theorem result_eq_of_equiv {orig1 orig2 : ChaseNodeOrigin obs rules} :
+    orig1.equiv orig2 -> orig1.result = orig2.result := by
+  unfold result; intro ⟨h, h2⟩; simp only [h2, PreTrigger.result_eq_of_equiv h]
+
+end ChaseNodeOrigin
+
 /-- A `ChaseNode` corresponds to a chase step. It must contain two `FactSet`s of ingoingFacts and outgoingFacts and optionally an `RTrigger` and a head disjunct index indicating that the current `ChaseNode` was obtained by applying the specified trigger and picking the indicated head disjunct. It is optional since the initial fact set does not result from a trigger but on all following nodes, this value will be set (and we will prove that it is). For convenience, the chase node also directly includes a proof that the result of its origin is indeed contained in its fact set. -/
 class ChaseNode (N : Type u) (obs : ObsolescenceCondition sig) (rules : RuleSet sig) where
   ingoingFacts : N -> FactSet sig
   outgoingFacts : N -> FactSet sig
-  origin : N -> Option ((trg : RTrigger (obs : LaxObsolescenceCondition sig) rules) × Fin trg.val.rule.head.length)
-  facts_contain_origin_result : (node : N) -> ∀ orig ∈ (origin node), orig.fst.val.mapped_head[orig.snd.val].toSet ⊆ ingoingFacts node
+  origin : N -> Option (ChaseNodeOrigin obs rules)
+  facts_contain_origin_result : (node : N) -> ∀ orig ∈ (origin node), orig.result.toSet ⊆ ingoingFacts node
 
 namespace ChaseNode
 
@@ -35,8 +69,7 @@ variable {N : Type u} {obs : ObsolescenceCondition sig} {rules : RuleSet sig} [C
 /-- The `origin_result` denotes the facts that have been introduced for the chase node. That is, the mapped head index for the trigger stored in the origin field of the `ChaseNode`. -/
 @[expose]
 def origin_result (node : N) (isSome : (CN.origin node).isSome) : List (Fact sig) :=
-  let origin := (CN.origin node).get isSome
-  origin.fst.val.mapped_head[origin.snd.val]
+  ((CN.origin node).get isSome).result
 
 /-- An auxiliary theorem showing that the origin result equals the i-th mapped head of a trigger if the trigger and i match the origin. -/
 theorem origin_result_eq {node : N} (isSome : (CN.origin node).isSome)
@@ -88,8 +121,8 @@ end ChaseNode
 /-- The `RegularChaseNode` is the one we use for most chases (except the core chase). Here ingoingFacts and outgoingFacts are always the same. -/
 structure RegularChaseNode (obs : ObsolescenceCondition sig) (rules : RuleSet sig) where
   facts : FactSet sig
-  origin : Option ((trg : RTrigger (obs : LaxObsolescenceCondition sig) rules) × Fin trg.val.rule.head.length)
-  facts_contain_origin_result : ∀ orig ∈ origin, orig.fst.val.mapped_head[orig.snd.val].toSet ⊆ facts
+  origin : Option (ChaseNodeOrigin obs rules)
+  facts_contain_origin_result : ∀ orig ∈ origin, orig.result.toSet ⊆ facts
 
 namespace RegularChaseNode
 

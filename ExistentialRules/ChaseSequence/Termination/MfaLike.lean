@@ -856,7 +856,7 @@ theorem mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_pred
           apply (cd.active_trigger_origin_next next_mem).right
           exact contra
       . rw [List.mem_toSet] at f_mem
-        unfold ChaseNode.origin_result at f_mem
+        unfold ChaseNode.origin_result ChaseNodeOrigin.result at f_mem
         unfold PreTrigger.mapped_head at f_mem
         simp at f_mem
         rcases f_mem with ⟨a, a_mem, f_eq⟩
@@ -996,7 +996,7 @@ theorem terminates_of_mfaSet_finite [Inhabited sig.C] (rs : RuleSet sig) (rs_fin
           . -- since f occur in the trigger result, its predicate occurs in the rule and must therefore occur in the ruleset
             let origin := next.origin.get (cd.isSome_origin_next next_mem)
             rw [List.mem_toSet] at f_mem
-            simp only [ChaseNode.origin_result, PreTrigger.mapped_head] at f_mem
+            simp only [ChaseNode.origin_result, ChaseNodeOrigin.result, PreTrigger.mapped_head] at f_mem
             simp at f_mem
             rcases f_mem with ⟨a, a_mem, f_eq⟩
             rw [← f_eq]

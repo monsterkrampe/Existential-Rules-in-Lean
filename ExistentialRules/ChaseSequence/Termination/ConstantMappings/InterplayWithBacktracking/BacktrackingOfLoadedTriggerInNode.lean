@@ -75,7 +75,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
         exact g_h.left
       . exact g_h.right
     | inr term_mem =>
-      simp only [FactSet.mem_terms_toSet, ChaseNode.origin_result] at term_mem
+      simp only [FactSet.mem_terms_toSet, ChaseNode.origin_result, ChaseNodeOrigin.result] at term_mem
       rw [PreTrigger.mem_terms_mapped_head_iff _ _ (by simp)] at term_mem
       cases term_mem with
       | inl term_mem =>
@@ -311,7 +311,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
               exact v_mem''
 
         have mapped_body_eq := PreTrigger.mapped_body_eq_of_strong_equiv triggers_strong_equiv
-        have mapped_head_eq : origin.fst.val.mapped_head[origin.snd.val] = (backtrack_trigger.extend_with_groundTermMapping g.apply_ground_term).mapped_head[origin.snd.val]'(by rw [← PreTrigger.result_eq_of_equiv (PreTrigger.equiv_of_strong_equiv triggers_strong_equiv), PreTrigger.length_mapped_head]; exact origin.snd.isLt) := by simp only [PreTrigger.result_eq_of_equiv (PreTrigger.equiv_of_strong_equiv triggers_strong_equiv)]
+        have mapped_head_eq : origin.result = (backtrack_trigger.extend_with_groundTermMapping g.apply_ground_term).mapped_head[origin.snd.val]'(by rw [← PreTrigger.result_eq_of_equiv (PreTrigger.equiv_of_strong_equiv triggers_strong_equiv), PreTrigger.length_mapped_head]; exact origin.snd.isLt) := by simp only [ChaseNodeOrigin.result, PreTrigger.result_eq_of_equiv (PreTrigger.equiv_of_strong_equiv triggers_strong_equiv)]
 
         have g_id_on_rule_constants : ∀ c, c ∈ backtrack_trigger.rule.constants -> g c = .const c := by
           intro d d_mem

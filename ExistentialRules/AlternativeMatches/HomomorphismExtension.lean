@@ -34,29 +34,29 @@ noncomputable def extend_hom_to_next_step_of_next_eq_some
   let origin := next.origin.get (cd.isSome_origin_next next_eq)
   have origin_trg_active := cd.active_trigger_origin_next next_eq
   let disj : Fin origin.fst.val.rule.head.length := origin.snd
-  let trg' : PreTrigger sig := origin.fst.val.extend_with_groundTermMapping h
-  have disj_lt : disj.val < trg'.rule.head.length := by grind
-  have trg'_loaded : trg'.loaded cd.result := by
+  let trg' : RTrigger obs kb.rules := origin.fst.extend_with_groundTermMapping h
+  have disj_lt : disj.val < trg'.val.rule.head.length := by grind
+  have trg'_loaded : trg'.val.loaded cd.result := by
     apply Set.subset_trans _ hom.right
     apply PreTrigger.extend_with_groundTermMapping_loaded_of_loaded_of_isIdOnConstants
     . exact hom.left
     . exact origin_trg_active.left
-  have trg'_satisfied : trg'.satisfied_for_disj cd.result disj.val disj_lt := by
-    have modelsRule : cd.result.modelsRule trg'.rule := by
-      exact cd.result_models_rules trg'.rule origin.fst.property
-    specialize modelsRule trg'.subs trg'_loaded
+  have trg'_satisfied : trg'.val.satisfied_for_disj cd.result disj.val disj_lt := by
+    have modelsRule : cd.result.modelsRule trg'.val.rule := by
+      exact cd.result_models_rules trg'.val.rule trg'.property
+    specialize modelsRule trg'.val.subs trg'_loaded
     rcases modelsRule with ⟨i, lt, s', s'_frontier, s'_contains⟩
     exists s'
     constructor
     . exact s'_frontier
     . -- kb.isDeterministic is required here
       have : i = disj.val := by
-        have := det trg'.rule origin.fst.property
+        have := det trg'.val.rule trg'.property
         unfold Rule.isDeterministic at this
         rw [decide_eq_true_iff] at this
         simp only [this, Nat.lt_one_iff] at lt
         have lt' := disj.isLt
-        have := det origin.fst.val.rule origin.fst.property
+        have := det origin.fst.val.rule trg'.property
         unfold Rule.isDeterministic at this
         rw [decide_eq_true_iff] at this
         simp only [this, Nat.lt_one_iff] at lt'
@@ -126,8 +126,8 @@ noncomputable def extend_hom_to_next_step_of_next_eq_some
         | inl f_mem => apply hom.right; rw [GroundTermMapping.mem_applyFactSet]; exists f; constructor; exact f_mem; apply TermMapping.apply_generalized_atom_congr_left; intro t t_mem; apply h'_is_h_on_terms_in_node; exists f
         | inr f_mem =>
           apply subs_contained
-          have : (subs.apply_function_free_conj trg'.rule.head[disj.val]).toSet = h'.applyFactSet origin.fst.val.mapped_head[disj.val].toSet := by
-            simp only [TermMapping.apply_generalized_atom_set_toSet]
+          have : (subs.apply_function_free_conj trg'.val.rule.head[disj.val]).toSet = h'.applyFactSet origin.result.toSet := by
+            simp only [TermMapping.apply_generalized_atom_set_toSet, ChaseNodeOrigin.result]
             apply congrArg
             rw [← PreTrigger.apply_subs_for_mapped_head_eq _ _ disj.isLt, ← GroundSubstitution.apply_function_free_conj_compose]
             . apply List.map_congr_left

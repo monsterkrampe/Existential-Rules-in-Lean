@@ -29,6 +29,9 @@ namespace RTrigger
 /-- Two `RTrigger`s are equivalent if the underlying `PreTrigger`s are. -/
 abbrev equiv {rs : RuleSet sig} (trg1 trg2 : RTrigger obs rs) : Prop := trg1.val.equiv trg2.val
 
+/-- Two `RTrigger`s are strongly equivalent if the underlying `PreTrigger`s are. -/
+abbrev strong_equiv {rs : RuleSet sig} (trg1 trg2 : RTrigger obs rs) : Prop := trg1.val.strong_equiv trg2.val
+
 /-- Lifting the definition from `PreTrigger`. -/
 abbrev extend_with_groundTermMapping {rs : RuleSet sig} (trg : RTrigger obs rs) (h : GroundTermMapping sig) : RTrigger obs rs :=
   ⟨trg.val.extend_with_groundTermMapping h, trg.property⟩

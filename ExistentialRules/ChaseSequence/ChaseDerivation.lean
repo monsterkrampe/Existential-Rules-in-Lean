@@ -371,7 +371,7 @@ theorem functional_term_originates_from_some_trigger
   cases t_mem with
   | inl t_mem => apply Or.inl; exact t_mem
   | inr t_mem =>
-    unfold ChaseNode.origin_result at t_mem
+    unfold ChaseNode.origin_result ChaseNodeOrigin.result at t_mem
     rw [FactSet.mem_terms_toSet, PreTrigger.mem_terms_mapped_head_iff] at t_mem
     cases t_mem with
     | inl t_mem => rcases t_is_func with ⟨func, ts, arity, t_is_func⟩; rcases t_mem with ⟨c, _, t_mem⟩; rw [← t_mem] at t_is_func; apply False.elim; exact GroundTerm.func_neq_const (Eq.symm t_is_func)
