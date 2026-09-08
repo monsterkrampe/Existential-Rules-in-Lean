@@ -41,11 +41,6 @@ def mapped_frontier (trg : PreTrigger sig) : List (GroundTerm sig) := trg.rule.f
 @[simp, grind =]
 theorem length_mapped_frontier {trg : PreTrigger sig} : trg.mapped_frontier.length = trg.rule.frontier.length := by simp [mapped_frontier]
 
-/-- Applying a term mapping after the trigger can be combined with the substitution without affecting the `mapped_frontier`. -/
-theorem apply_mapping_after_mapped_frontier {trg : PreTrigger sig} {mapping : TermMapping (GroundTerm sig) (GroundTerm sig)} :
-    trg.mapped_frontier.map mapping = {rule := trg.rule, subs := mapping ∘ trg.subs : PreTrigger sig}.mapped_frontier := by
-  simp [mapped_frontier]
-
 /-- In the context of a trigger, we Skolemize a `VarOrConst` by passing the rule in the trigger. -/
 def skolemize_var_or_const (trg : PreTrigger sig) (i : Nat) (lt : i < trg.rule.head.length) (var_or_const : VarOrConst sig) : SkolemTerm sig :=
   var_or_const.skolemize trg.rule i lt
@@ -566,24 +561,6 @@ theorem mapped_head_constants_subset (trg : PreTrigger sig) (i : Nat) (lt : i < 
 def loaded (trg : PreTrigger sig) (fs : FactSet sig) : Prop :=
   trg.mapped_body.toSet ⊆ fs
 
-/-- Applying a `GroundTermMapping` that is the id on constants after the trigger substitution and on the fact set preserves loadedness. -/
-theorem term_mapping_preserves_loadedness (trg : PreTrigger sig) (fs : FactSet sig) (h : GroundTermMapping sig) (h_id : h.isIdOnConstants) :
-    trg.loaded fs -> { rule := trg.rule, subs := h ∘ trg.subs : PreTrigger sig }.loaded (h.applyFactSet fs) := by
-  unfold loaded
-  unfold mapped_body
-  intro loaded
-  intro f f_mem
-  rw [List.mem_toSet] at f_mem
-  simp only [GroundSubstitution.apply_function_free_conj, TermMapping.mem_apply_generalized_atom_list] at f_mem
-  rcases f_mem with ⟨a, a_mem, f_mem⟩
-  rw [← GroundSubstitution.apply_function_free_atom.eq_def, GroundSubstitution.apply_function_free_atom_compose_of_isIdOnConstants _ _ h_id] at f_mem
-  rw [f_mem]
-  apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
-  apply loaded
-  unfold GroundSubstitution.apply_function_free_conj
-  rw [List.mem_toSet, TermMapping.apply_generalized_atom_list.eq_def, List.mem_map]
-  exists a
-
 /-- A trigger head is satisfied for a `FactSet` if there exists a substitution that agrees with the trigger substitution on all frontier variable such that the mapping of the head occurs in the fact set. This corresponds to FOL semantics. It is **important** to note here that a trigger being satisfied in this sense does not necessarily mean that it is obsolete! Obsolescence might be defined almost arbitrarily and for example in the Skolem chase, a satisfied trigger is often not obsolete. However, for the restricted (aka. standard) chase, obsolescence is defined via satisfaction. -/
 @[expose]
 def satisfied_for_disj (trg : PreTrigger sig) (fs : FactSet sig) (i : Nat) (lt : i < trg.rule.head.length) : Prop :=
@@ -788,6 +765,68 @@ theorem equiv_of_term_mem_fresh_terms_for_head_disjunct
   constructor
   . exact equiv_of_rule_eq_of_mapped_frontier_equiv rules_eq t_eq.right
   . exact t_eq.left.right.left
+
+/-- We can build a trigger from a trigger and a GroundTermMapping by applying the mapping after the substitution. -/
+@[expose]
+def extend_with_groundTermMapping (trg : PreTrigger sig) (h : GroundTermMapping sig) : PreTrigger sig where
+  rule := trg.rule
+  subs := h ∘ trg.subs
+
+/-- Using `extend_with_groundTermMapping` does not change the rule. -/
+@[simp, grind =]
+theorem rule_extend_with_groundTermMapping {trg : PreTrigger sig} {h : GroundTermMapping sig} :
+  (trg.extend_with_groundTermMapping h).rule = trg.rule := rfl
+
+/-- Applying a term mapping after the trigger can be combined with the substitution without affecting the `mapped_frontier`. -/
+theorem apply_mapping_after_mapped_frontier {trg : PreTrigger sig} {h : GroundTermMapping sig} :
+    trg.mapped_frontier.map h = (trg.extend_with_groundTermMapping h).mapped_frontier := by
+  simp [mapped_frontier, extend_with_groundTermMapping]
+
+/-- Just like for any trigger, applying to a constant does not change anything. This theorem is useful to have even though `apply_to_var_or_const_for_const` is in place because `apply_to_var_or_const_for_const` can sometimes not be used for rewriting as the type for lt might not match. -/
+@[simp, grind =]
+theorem apply_to_var_or_const_extend_with_groundTermMapping_for_const
+    {trg : PreTrigger sig} {h : GroundTermMapping sig} {i : Nat} {lt : i < trg.rule.head.length} :
+    ∀ c, (trg.extend_with_groundTermMapping h).apply_to_var_or_const i lt (.const c) = .const c := by
+  intro c; apply apply_to_var_or_const_for_const
+
+/-- Applying a trigger to an non-existential variable after extending the trigger just applies the original trigger and then the term mapping. -/
+@[simp, grind =]
+theorem apply_to_var_or_const_extend_with_groundTermMapping_of_not_mem_existential_vars
+    {trg : PreTrigger sig} {h : GroundTermMapping sig} {i : Nat} {lt : i < trg.rule.head.length} :
+    ∀ v, v ∉ trg.rule.existential_vars_for_head_disjunct i lt ->
+    (trg.extend_with_groundTermMapping h).apply_to_var_or_const i lt (.var v) = h (trg.subs v) := by
+  intro v v_mem
+  apply apply_to_var_or_const_of_not_mem_existential_vars
+  exact v_mem
+
+/-- Applying a trigger to an existential variable after extending the trigger yields exactly the Skolem function term from the shortcup definition `functional_term_for_var` for the extended trigger. Even though we have `apply_to_var_or_const_of_mem_existential_vars`, this is useful as for rewrites the existing theorem might not match because of the lt type. -/
+@[simp, grind =]
+theorem apply_to_var_or_const_extend_with_groundTermMapping_of_mem_existential_vars
+    {trg : PreTrigger sig} {h : GroundTermMapping sig} {i : Nat} {lt : i < trg.rule.head.length} :
+    ∀ v, (mem : v ∈ trg.rule.existential_vars_for_head_disjunct i lt) ->
+    (trg.extend_with_groundTermMapping h).apply_to_var_or_const i lt (.var v) = (trg.extend_with_groundTermMapping h).functional_term_for_var i lt v mem := by
+  intro v v_mem; apply apply_to_var_or_const_of_mem_existential_vars
+
+/-- When extending a trigger with a mapping that is the indentity on all constants, then the mapping can simply be applied after the original mapped_body instead. -/
+theorem mapped_body_extend_with_groundTermMapping_eq_of_isIdOnConstants {trg : PreTrigger sig} {h : GroundTermMapping sig} (h_id : h.isIdOnConstants) :
+    (trg.extend_with_groundTermMapping h).mapped_body = trg.mapped_body.map h.applyFact := by
+  simp only [mapped_body, extend_with_groundTermMapping]
+  rw [GroundSubstitution.apply_function_free_conj_compose_of_isIdOnConstants _ _ h_id]
+  rfl
+
+/-- Applying a `GroundTermMapping` that is the id on constants after the trigger substitution and on the fact set preserves loadedness. -/
+theorem extend_with_groundTermMapping_loaded_of_loaded_of_isIdOnConstants
+    {trg : PreTrigger sig} {fs : FactSet sig} {h : GroundTermMapping sig} (h_id : h.isIdOnConstants) :
+    trg.loaded fs -> (trg.extend_with_groundTermMapping h).loaded (h.applyFactSet fs) := by
+  unfold loaded
+  intro loaded
+  rw [mapped_body_extend_with_groundTermMapping_eq_of_isIdOnConstants h_id]
+  suffices h.applyFactSet trg.mapped_body.toSet ⊆ h.applyFactSet fs by
+    unfold GroundTermMapping.applyFactSet at this
+    rw [TermMapping.apply_generalized_atom_set_toSet] at this
+    exact this
+  apply TermMapping.apply_generalized_atom_set_subset_of_subset
+  exact loaded
 
 end PreTrigger
 
