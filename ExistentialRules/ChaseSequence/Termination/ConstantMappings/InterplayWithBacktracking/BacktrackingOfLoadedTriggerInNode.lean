@@ -265,14 +265,14 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
             origin.fst.val.subs pure_body_vars[idx]
           else g_mapped_frontier c
 
-        have triggers_strong_equiv : origin.fst.val.strong_equiv { rule := backtrack_trigger.rule, subs := g.apply_ground_term ∘ backtrack_trigger.subs } := by
+        have triggers_strong_equiv : origin.fst.val.strong_equiv (backtrack_trigger.extend_with_groundTermMapping g.apply_ground_term) := by
           unfold PreTrigger.strong_equiv
           constructor
-          . rw [triggers_equiv.left]
+          . simp [triggers_equiv.left]
           . intro v v_mem
             cases Decidable.em (v ∈ backtrack_trigger.rule.frontier) with
             | inl v_mem' =>
-              simp only [Function.comp_apply]
+              simp only [PreTrigger.extend_with_groundTermMapping, Function.comp_apply]
               rw [triggers_equiv.right v v_mem']
               apply Eq.symm
               apply ConstantMapping.apply_ground_term_eq_self_of_id_on_constants
@@ -298,7 +298,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
                 . apply decide_eq_true; exact v_mem'
               simp only [backtrack_trigger, PreTrigger.backtrackTrigger_for_functional_term, GroundTerm.backtrackTrigger, PreGroundTerm.backtrackTrigger, PreTrigger.functional_term_for_var, GroundTerm.func]
               simp only [backtrack_trigger, PreTrigger.backtrackTrigger_for_functional_term, GroundTerm.backtrackTrigger, PreGroundTerm.backtrackTrigger, PreTrigger.functional_term_for_var, GroundTerm.func] at v_mem'
-              simp only [Function.comp_apply, v_mem', ↓reduceDIte]
+              simp only [PreTrigger.extend_with_groundTermMapping, Function.comp_apply, v_mem', ↓reduceDIte]
               simp only [pure_body_vars, rule] at v_mem''
               simp only [v_mem'', ↓reduceDIte]
               simp only [ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, GroundTerm.const]
@@ -311,7 +311,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
               exact v_mem''
 
         have mapped_body_eq := PreTrigger.mapped_body_eq_of_strong_equiv triggers_strong_equiv
-        have mapped_head_eq : origin.fst.val.mapped_head[origin.snd.val] = { rule := backtrack_trigger.rule, subs := g.apply_ground_term ∘ backtrack_trigger.subs : PreTrigger sig }.mapped_head[origin.snd.val]'(by rw [← PreTrigger.result_eq_of_equiv (PreTrigger.equiv_of_strong_equiv triggers_strong_equiv), PreTrigger.length_mapped_head]; exact origin.snd.isLt) := by simp only [PreTrigger.result_eq_of_equiv (PreTrigger.equiv_of_strong_equiv triggers_strong_equiv)]
+        have mapped_head_eq : origin.fst.val.mapped_head[origin.snd.val] = (backtrack_trigger.extend_with_groundTermMapping g.apply_ground_term).mapped_head[origin.snd.val]'(by rw [← PreTrigger.result_eq_of_equiv (PreTrigger.equiv_of_strong_equiv triggers_strong_equiv), PreTrigger.length_mapped_head]; exact origin.snd.isLt) := by simp only [PreTrigger.result_eq_of_equiv (PreTrigger.equiv_of_strong_equiv triggers_strong_equiv)]
 
         have g_id_on_rule_constants : ∀ c, c ∈ backtrack_trigger.rule.constants -> g c = .const c := by
           intro d d_mem
@@ -363,7 +363,8 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
               exists a
               constructor
               . exact a_mem
-              . rw [← GroundSubstitution.apply_function_free_atom.eq_def, GroundSubstitution.apply_function_free_atom_compose, ← ConstantMapping.apply_fact_eq_groundTermMapping_applyFact, ← f_eq]
+              . simp only [PreTrigger.extend_with_groundTermMapping]
+                rw [← GroundSubstitution.apply_function_free_atom.eq_def, GroundSubstitution.apply_function_free_atom_compose, ← ConstantMapping.apply_fact_eq_groundTermMapping_applyFact, ← f_eq]
                 . rfl
                 . intro d d_mem
                   rw [ConstantMapping.apply_ground_term_constant]
@@ -387,7 +388,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
               exists a
               constructor
               . exact a_mem
-              . rw [← ConstantMapping.apply_fact_swap_apply_to_function_free_atom, ← f_eq]
+              . rw [← g.apply_fact_swap_apply_to_function_free_atom backtrack_trigger a _ _ (by rw [triggers_equiv.left]; simp), ← f_eq]
                 . rfl
                 . intro d d_mem
                   apply g_id_on_rule_constants

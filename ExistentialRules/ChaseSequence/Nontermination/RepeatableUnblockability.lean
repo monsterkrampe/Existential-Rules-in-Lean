@@ -42,7 +42,7 @@ def trigger_repeatable [Inhabited sig.C] (overapprox : OverapproximationFunction
     (rs : RuleSet sig) (hc : HeadChoice sig) (trg : Trigger obs.toLaxObsolescenceCondition) : Prop :=
   ∀ (g : ConstantMapping sig), g.isReversible trg.termSkeleton.toSet ->
     (overapprox.trigger_unblockable rs hc trg) ->
-    (overapprox.trigger_unblockable rs hc {rule := trg.rule, subs := g.apply_ground_term ∘ trg.subs : Trigger obs})
+    (overapprox.trigger_unblockable rs hc (trg.extend_with_groundTermMapping g.apply_ground_term))
 
 end OverapproximationFunction
 

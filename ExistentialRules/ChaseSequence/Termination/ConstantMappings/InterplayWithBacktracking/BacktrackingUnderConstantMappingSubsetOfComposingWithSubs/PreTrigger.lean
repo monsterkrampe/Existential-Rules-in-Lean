@@ -50,7 +50,7 @@ theorem PreTrigger.affected_rules_eq_of_same_skeleton {trg trg2 : PreTrigger sig
 Since a strict constant mapping does not change term structure, the affected rules of a trigger stay the same when a strict constant mapping is applied after the substitution.
 -/
 theorem PreTrigger.affected_rules_eq_of_composing_with_subs {trg : PreTrigger sig} : ∀ (g : StrictConstantMapping sig),
-    trg.affected_rules_for_backtracking = { rule := trg.rule, subs := g.toConstantMapping.apply_ground_term ∘ trg.subs : PreTrigger sig}.affected_rules_for_backtracking := by
+    trg.affected_rules_for_backtracking = (trg.extend_with_groundTermMapping g.toConstantMapping.apply_ground_term).affected_rules_for_backtracking := by
   intro g
   apply affected_rules_eq_of_same_skeleton
   apply same_skeleton_under_strict_constant_mapping
@@ -63,14 +63,14 @@ theorem PreTrigger.backtracking_under_constant_mapping_subset_of_composing_with_
       ∃ (fresh_constant_remapping : StrictConstantMapping sig),
       (∀ d ∉ trg.backtrackFacts.snd, fresh_constant_remapping d = d) ∧
       ((StrictConstantMapping.toConstantMapping (fun c => if c ∈ trg.backtrackFacts.snd then fresh_constant_remapping c else g c)).apply_fact_set trg.backtrackFacts.fst.toSet ⊆
-      {rule := trg.rule, subs := g.toConstantMapping.apply_ground_term ∘ trg.subs : PreTrigger sig}.backtrackFacts.fst.toSet) ∧
-      (trg.backtrackFacts.snd.map fresh_constant_remapping = {rule := trg.rule, subs := g.toConstantMapping.apply_ground_term ∘ trg.subs : PreTrigger sig}.backtrackFacts.snd) := by
+      (trg.extend_with_groundTermMapping g.toConstantMapping.apply_ground_term).backtrackFacts.fst.toSet) ∧
+      (trg.backtrackFacts.snd.map fresh_constant_remapping = (trg.extend_with_groundTermMapping g.toConstantMapping.apply_ground_term).backtrackFacts.snd) := by
   intro g g_id
   rcases GroundTerm.backtrackFacts_list_under_constant_mapping_subset_of_composing_with_subs (trg.mapped_body.flatMap GeneralizedAtom.terms) trg.initial_forbidden_constants_for_backtracking (by apply List.subset_append_of_subset_left; intro d d_mem; rw [List.mem_flatMap] at d_mem; rcases d_mem with ⟨t, t_mem, d_mem⟩; rw [List.mem_flatMap] at t_mem; rcases t_mem with ⟨f, f_mem, t_mem⟩; rw [List.mem_flatMap]; exists f; constructor; exact f_mem; unfold Fact.constants; rw [List.mem_flatMap]; exists t) (by apply List.subset_append_of_subset_right; simp [PreTrigger.affected_rules_for_backtracking]) g (by intro d d_mem; apply g_id; apply List.mem_append_right; exact d_mem) with ⟨fresh_constant_remapping, fresh_constant_remapping_h⟩
 
-  have mapped_body_map_swap : (trg.mapped_body.flatMap GeneralizedAtom.terms).map g.toConstantMapping.apply_ground_term = { rule := trg.rule, subs := g.toConstantMapping.apply_ground_term ∘ trg.subs : PreTrigger sig }.mapped_body.flatMap GeneralizedAtom.terms := by
+  have mapped_body_map_swap : (trg.mapped_body.flatMap GeneralizedAtom.terms).map g.toConstantMapping.apply_ground_term = (trg.extend_with_groundTermMapping g.toConstantMapping.apply_ground_term).mapped_body.flatMap GeneralizedAtom.terms := by
     rw [List.map_flatMap]
-    simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list]
+    simp only [PreTrigger.mapped_body, PreTrigger.extend_with_groundTermMapping, GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list]
     rw [List.flatMap_map, List.flatMap_map]
     unfold List.flatMap
     apply List.flatten_eq_of_eq
@@ -99,12 +99,12 @@ theorem PreTrigger.backtracking_under_constant_mapping_subset_of_composing_with_
         exact voc_mem
     | var v => rfl
 
-  have forbidden_constants_map_g_eq : trg.initial_forbidden_constants_for_backtracking.map g = { rule := trg.rule, subs := g.toConstantMapping.apply_ground_term ∘ trg.subs : PreTrigger sig }.initial_forbidden_constants_for_backtracking := by
+  have forbidden_constants_map_g_eq : trg.initial_forbidden_constants_for_backtracking.map g = (trg.extend_with_groundTermMapping g.toConstantMapping.apply_ground_term).initial_forbidden_constants_for_backtracking := by
     unfold PreTrigger.initial_forbidden_constants_for_backtracking
     rw [List.map_append]
     apply List.append_eq_append_of_parts_eq
     . rw [List.map_flatMap]
-      simp only [PreTrigger.mapped_body, GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list]
+      simp only [PreTrigger.mapped_body, PreTrigger.extend_with_groundTermMapping, GroundSubstitution.apply_function_free_conj, TermMapping.apply_generalized_atom_list]
       rw [List.flatMap_map, List.flatMap_map]
       unfold List.flatMap
       apply List.flatten_eq_of_eq
@@ -161,7 +161,8 @@ theorem PreTrigger.backtracking_under_constant_mapping_subset_of_composing_with_
       exists a
       constructor
       . exact a_mem
-      . rw [← GroundSubstitution.apply_function_free_atom.eq_def, GroundSubstitution.apply_function_free_atom_compose]
+      . simp only [PreTrigger.extend_with_groundTermMapping]
+        rw [← GroundSubstitution.apply_function_free_atom.eq_def, GroundSubstitution.apply_function_free_atom_compose]
         . rw [e_eq, ← f_eq]
           rw [← ConstantMapping.apply_fact_eq_groundTermMapping_applyFact]
           apply ConstantMapping.apply_fact_congr_left

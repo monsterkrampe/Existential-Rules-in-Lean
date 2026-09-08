@@ -117,5 +117,5 @@ structure CyclicityPrefix [Inhabited sig.C] (obs : ObsolescenceCondition sig.wit
   last_trigger : toPreCyclicityPrefix.last_origin.fst.val.rule = rule.cast_withFreshConstantsForVars ∧ ∃ term ∈ (toPreCyclicityPrefix.last_origin.fst.val.output_for_headChoice hc).flatMap GeneralizedAtom.terms, PreGroundTerm.ruleCyclic rule.cast_withFreshConstantsForVars term.val
   constantMapping_reversible_in_each_step : ∀ h, ∀ node ∈ toChaseDerivationSkeleton.tail h, ∀ orig ∈ node.origin, ∀ j : Nat,
     toPreCyclicityPrefix.constantMappingForRepetition.isReversible
-      {rule := orig.fst.val.rule, subs := (toPreCyclicityPrefix.constantMappingForRepetition.apply_ground_term.repeat_fun j) ∘ orig.fst.val.subs : PreTrigger _}.termSkeleton.toSet
+      (orig.fst.val.extend_with_groundTermMapping (toPreCyclicityPrefix.constantMappingForRepetition.apply_ground_term.repeat_fun j)).termSkeleton.toSet
 

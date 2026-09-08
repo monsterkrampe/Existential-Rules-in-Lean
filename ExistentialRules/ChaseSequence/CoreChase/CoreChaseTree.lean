@@ -619,23 +619,18 @@ theorem origin_trg_remains_inactive {ct : CoreChaseTree kb} {n1 n2 : ct.NodeWith
 
       rcases ex_hom_that_is_id_on_terms_of_isWeakCore_of_homSubset_of_finite n3.node.isWeakCore n3.node.homSubset (ct.core_finite_of_mem n3)
         with ⟨h, hom, id_on_terms⟩
-      let target_trg : Trigger (RestrictedObsolescence sig) := { rule := trg'.val.rule, subs := h ∘ trg'.val.subs}
-      exists ⟨target_trg, trg'.property⟩; constructor
+      exists trg'.extend_with_groundTermMapping h; constructor
       . constructor
-        . rw [equiv'.left]
+        . rw [equiv'.left]; simp
         . intro v v_mem
           rw [equiv'.right _ v_mem]
-          simp only [target_trg, Function.comp_apply]
+          simp only [PreTrigger.extend_with_groundTermMapping, Function.comp_apply]
           rw [id_on_terms]
           suffices trg'.val.subs v = trg.val.subs v by
             rw [this]; apply frontier_still_occurs; rw [← equiv.left]; exact v_mem
           rw [← equiv'.right _ v_mem, equiv.right _ v_mem]
-      . simp only [PreTrigger.loaded, PreTrigger.mapped_body]
-        rw [GroundSubstitution.apply_function_free_conj_compose_of_isIdOnConstants _ _ hom.left]
-        apply Set.subset_trans _ hom.right
-        rw [Function.comp_apply]
-        rw [← TermMapping.apply_generalized_atom_set_toSet]
-        apply TermMapping.apply_generalized_atom_set_subset_of_subset
+      . apply Set.subset_trans _ hom.right
+        apply PreTrigger.extend_with_groundTermMapping_loaded_of_loaded_of_isIdOnConstants hom.left
         exact loaded'
 termination_by (n1, n2)
 

@@ -158,5 +158,10 @@ instance : CoeOut (Trigger obs) (PreTrigger sig) where
 def Trigger.active (trg : Trigger obs) (F : FactSet sig) : Prop :=
   trg.loaded F ∧ ¬ (obs.cond trg F)
 
+/-- Lifting the definition from `PreTrigger`. -/
+abbrev Trigger.extend_with_groundTermMapping (trg : Trigger obs) (h : GroundTermMapping sig) : Trigger obs :=
+  let trg' := PreTrigger.extend_with_groundTermMapping trg h
+  { rule := trg'.rule, subs := trg'.subs }
+
 end Trigger
 

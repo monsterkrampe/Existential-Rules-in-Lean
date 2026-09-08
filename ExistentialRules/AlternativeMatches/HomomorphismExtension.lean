@@ -34,13 +34,14 @@ noncomputable def extend_hom_to_next_step_of_next_eq_some
   let origin := next.origin.get (cd.isSome_origin_next next_eq)
   have origin_trg_active := cd.active_trigger_origin_next next_eq
   let disj : Fin origin.fst.val.rule.head.length := origin.snd
-  let trg' : PreTrigger sig := ⟨origin.fst.val.rule, h ∘ origin.fst.val.subs⟩
+  let trg' : PreTrigger sig := origin.fst.val.extend_with_groundTermMapping h
+  have disj_lt : disj.val < trg'.rule.head.length := by grind
   have trg'_loaded : trg'.loaded cd.result := by
     apply Set.subset_trans _ hom.right
-    apply PreTrigger.term_mapping_preserves_loadedness
+    apply PreTrigger.extend_with_groundTermMapping_loaded_of_loaded_of_isIdOnConstants
     . exact hom.left
     . exact origin_trg_active.left
-  have trg'_satisfied : trg'.satisfied_for_disj cd.result disj.val disj.isLt := by
+  have trg'_satisfied : trg'.satisfied_for_disj cd.result disj.val disj_lt := by
     have modelsRule : cd.result.modelsRule trg'.rule := by
       exact cd.result_models_rules trg'.rule origin.fst.property
     specialize modelsRule trg'.subs trg'_loaded

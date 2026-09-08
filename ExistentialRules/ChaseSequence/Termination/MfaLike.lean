@@ -146,7 +146,7 @@ The necessesity for doing this comes from `DeterministicSkolemObsolescence.block
 def MfaObsolescenceCondition.blocks_obs (mfa_obs : MfaObsolescenceCondition sig) (obs : ObsolescenceCondition sig) (rs : RuleSet sig) (special_const : sig.C) : Prop :=
   ∀ {db : Database sig} (cb : RegularChaseBranch obs ⟨db, rs⟩) (node : cb.Node) (trg : RTrigger obs rs) (fs : FactSet sig),
   (∃ (i : Nat) (lt : i < trg.val.rule.head.length), ¬ ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact_set (trg.val.mapped_head[i]'(by grind)).toSet) ⊆ fs) ->
-  (mfa_obs.cond { rule := trg.val.rule, subs := (rs.mfaConstantMapping special_const).toConstantMapping.apply_ground_term ∘ trg.val.subs } fs) ->
+  (mfa_obs.cond (trg.val.extend_with_groundTermMapping (rs.mfaConstantMapping special_const).toConstantMapping.apply_ground_term) fs) ->
   trg.val.loaded node.val.facts -> obs.cond trg.val node.val.facts
 
 /-- A trigger fulfills `DeterministicSkolemObsolescence` if each of its derived heads is already in the fact set in question. Note that this captures the idea of replacing disjunctions with conjunctions, which is part of MFA. We do this nowhere explicitely, so disjunctions always remain in rules, but we implicitly treat them like conjunctions when necessary (like here). -/
@@ -205,8 +205,10 @@ theorem DeterministicSkolemObsolescence.blocks_each_obs (obs : ObsolescenceCondi
     | var v =>
       simp only [Function.comp_apply, StrictConstantMapping.apply_var_or_const]
       cases Decidable.em (v ∈ trg.val.rule.existential_vars_for_head_disjunct i lt) with
-      | inl v_mem => simp [v_mem, PreTrigger.functional_term_for_var, PreTrigger.apply_mapping_after_mapped_frontier]
-      | inr v_mem => simp [v_mem]
+      | inl v_mem =>
+        rw [PreTrigger.apply_to_var_or_const_extend_with_groundTermMapping_of_mem_existential_vars _ v_mem]
+        simp [v_mem, PreTrigger.functional_term_for_var, PreTrigger.apply_mapping_after_mapped_frontier]
+      | inr v_mem => simp [v_mem, PreTrigger.extend_with_groundTermMapping]
     | const c => simp [StrictConstantMapping.apply_var_or_const, PreTrigger.apply_to_var_or_const_for_const, ConstantMapping.apply_ground_term_constant, StrictConstantMapping.toConstantMapping]
 
 /-- A trigger is blocked for its own backtracking if it is obsolete for its own backtracking. Note that the backtracking always requires us to prove that Skolem function terms are well-formed, which is what the additional conditions are for. -/
@@ -235,7 +237,7 @@ theorem BlockingObsolescence.blocks_corresponding_obs [GetFreshInhabitant sig.C]
   simp only [BlockingObsolescence] at blocked
 
   have blocked : trg.val.blocked_for_backtracking := by
-    let trg_with_constant_mapping_applied_but_not_renamed_apart : PreTrigger sig := { rule := trg.val.rule, subs := (rs.mfaConstantMapping special_const).toConstantMapping.apply_ground_term ∘ trg.val.subs }
+    let trg_with_constant_mapping_applied_but_not_renamed_apart : PreTrigger sig := (trg.val.extend_with_groundTermMapping (rs.mfaConstantMapping special_const).toConstantMapping.apply_ground_term)
     have affected_rules_eq : trg.val.affected_rules_for_backtracking = trg_with_constant_mapping_applied_but_not_renamed_apart.affected_rules_for_backtracking := trg.val.affected_rules_eq_of_composing_with_subs _
 
     have exists_strict_constant_mapping_reversing_renaming :=
@@ -268,8 +270,8 @@ theorem BlockingObsolescence.blocks_corresponding_obs [GetFreshInhabitant sig.C]
 
     apply obs.monotone fresh_constant_remapping_subsumes
 
-    have equiv : { rule := trg_with_constant_mapping_applied_but_not_renamed_apart.rule, subs := reverse_renaming_mapping.toConstantMapping.apply_ground_term ∘ (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (trg.val.affected_rules_for_backtracking.flatMap Rule.constants)).subs : PreTrigger sig }.equiv { rule := trg_with_constant_mapping_applied_but_not_renamed_apart.rule, subs := (StrictConstantMapping.toConstantMapping (fun c => if c ∈ (PreTrigger.backtrackFacts (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (trg.val.affected_rules_for_backtracking.flatMap Rule.constants))).snd then fresh_constant_remapping c else reverse_renaming_mapping c)).apply_ground_term ∘ (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (trg.val.affected_rules_for_backtracking.flatMap Rule.constants)).subs : PreTrigger sig } := by
-      simp only [PreTrigger.equiv, true_and]
+    have equiv : ((trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (trg.val.affected_rules_for_backtracking.flatMap Rule.constants)).extend_with_groundTermMapping reverse_renaming_mapping.toConstantMapping.apply_ground_term).equiv ((trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (trg.val.affected_rules_for_backtracking.flatMap Rule.constants)).extend_with_groundTermMapping (StrictConstantMapping.toConstantMapping (fun c => if c ∈ (PreTrigger.backtrackFacts (trg_with_constant_mapping_applied_but_not_renamed_apart.rename_constants_apart (trg.val.affected_rules_for_backtracking.flatMap Rule.constants))).snd then fresh_constant_remapping c else reverse_renaming_mapping c)).apply_ground_term) := by
+      simp only [PreTrigger.equiv, PreTrigger.extend_with_groundTermMapping, true_and]
       intro v v_mem
       simp only [Function.comp_apply]
       apply ConstantMapping.apply_ground_term_congr_left
@@ -344,12 +346,11 @@ theorem BlockingObsolescence.blocks_corresponding_obs [GetFreshInhabitant sig.C]
     )
     blocked
 
-  have equiv : trg.val.equiv {rule := trg.val.rule, subs := g.apply_ground_term ∘ trg.val.subs} := by
+  have equiv : trg.val.equiv (trg.extend_with_groundTermMapping g.apply_ground_term) := by
     unfold PreTrigger.equiv
     constructor
     . rfl
     . intro v v_mem
-      simp only [Function.comp_apply]
       apply Eq.symm
       apply ConstantMapping.apply_ground_term_eq_self_of_id_on_constants
       intro d d_mem

@@ -22,13 +22,12 @@ public section
 variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [DecidableEq sig.P]
 
 @[expose]
-def ObsolescenceCondition.propagates_under_constant_mapping (obs : ObsolescenceCondition sig) : Prop := ∀ {trg : PreTrigger sig} {fs : FactSet sig} {g : ConstantMapping sig}, (∀ c ∈ trg.rule.head_constants, g c = GroundTerm.const c) -> obs.cond trg fs -> obs.cond { rule := trg.rule, subs := g.apply_ground_term ∘ trg.subs } (g.apply_fact_set fs)
+def ObsolescenceCondition.propagates_under_constant_mapping (obs : ObsolescenceCondition sig) : Prop := ∀ {trg : PreTrigger sig} {fs : FactSet sig} {g : ConstantMapping sig}, (∀ c ∈ trg.rule.head_constants, g c = GroundTerm.const c) -> obs.cond trg fs -> obs.cond (trg.extend_with_groundTermMapping g.apply_ground_term) (g.apply_fact_set fs)
 
 theorem SkolemObsolescence.propagates_under_constant_mapping : (SkolemObsolescence sig).propagates_under_constant_mapping := by
   intro trg fs g g_id cond
   simp only [SkolemObsolescence] at cond
   simp only [SkolemObsolescence]
-  let trg' : PreTrigger sig := { rule := trg.rule, subs := g.apply_ground_term ∘ trg.subs }
   rcases cond with ⟨i, lt, cond⟩
   exists i, lt
   intro f f_mem
@@ -36,7 +35,7 @@ theorem SkolemObsolescence.propagates_under_constant_mapping : (SkolemObsolescen
   unfold PreTrigger.mapped_head at f_mem
   simp only [List.getElem_map, List.getElem_attach, List.getElem_zipIdx, List.mem_map, Nat.zero_add] at f_mem
   rcases f_mem with ⟨a, a_mem, f_eq⟩
-  rw [← ConstantMapping.apply_fact_swap_apply_to_function_free_atom] at f_eq
+  rw [← g.apply_fact_swap_apply_to_function_free_atom trg _ _ i lt] at f_eq
   . rw [← f_eq]
     apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
     apply cond
@@ -58,13 +57,12 @@ theorem RestrictedObsolescence.propagates_under_constant_mapping : (RestrictedOb
   intro trg fs g g_id cond
   simp only [RestrictedObsolescence, PreTrigger.satisfied, PreTrigger.satisfied_for_disj] at cond
   simp only [RestrictedObsolescence, PreTrigger.satisfied, PreTrigger.satisfied_for_disj]
-  let trg' : PreTrigger sig := { rule := trg.rule, subs := g.apply_ground_term ∘ trg.subs }
   rcases cond with ⟨i, lt, cond⟩
   exists i, lt
   rcases cond with ⟨s, id_front, cond⟩
   exists g.apply_ground_term ∘ s
   constructor
-  . intro v v_mem; simp only [Function.comp_apply]; rw [id_front v v_mem]
+  . intro v v_mem; simp only [PreTrigger.extend_with_groundTermMapping, Function.comp_apply]; rw [id_front v v_mem]
   . rw [GroundSubstitution.apply_function_free_conj_compose]
     . rw [← TermMapping.apply_generalized_atom_set_toSet]
       apply TermMapping.apply_generalized_atom_set_subset_of_subset
