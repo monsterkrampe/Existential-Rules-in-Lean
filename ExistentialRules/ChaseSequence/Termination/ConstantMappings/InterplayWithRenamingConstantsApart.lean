@@ -461,13 +461,13 @@ theorem same_skeleton_trans (trg trg2 trg3 : PreTrigger sig) : trg.same_skeleton
     . rw [h.left]
       exact h'.right
 
-theorem same_skeleton_under_strict_constant_mapping (trg : PreTrigger sig) (g : StrictConstantMapping sig) : trg.same_skeleton {rule := trg.rule, subs := g.toConstantMapping.apply_ground_term ∘ trg.subs} := by
+theorem same_skeleton_under_strict_constant_mapping (trg : PreTrigger sig) (g : StrictConstantMapping sig) : trg.same_skeleton (trg.extend_with_groundTermMapping g.toConstantMapping.apply_ground_term) := by
   unfold same_skeleton
-  simp [GroundSubstitution.same_skeleton_for_vars_under_strict_constant_mapping]
+  simp [PreTrigger.extend_with_groundTermMapping, GroundSubstitution.same_skeleton_for_vars_under_strict_constant_mapping]
 
 theorem exists_strict_constant_mapping_to_reverse_renaming [GetFreshInhabitant sig.C] (trg trg2 : PreTrigger sig) (trgs_same_skeleton : same_skeleton trg trg2) (forbidden_constants : List sig.C) :
     ∃ (g : StrictConstantMapping sig),
-      { rule := trg.rule, subs := g.toConstantMapping.apply_ground_term ∘ (trg.rename_constants_apart forbidden_constants).subs : PreTrigger sig }.strong_equiv trg2 ∧
+      ((trg.rename_constants_apart forbidden_constants).extend_with_groundTermMapping g.toConstantMapping.apply_ground_term).strong_equiv trg2 ∧
       (∀ d, d ∉ (trg.rule.body.vars.eraseDupsKeepRight.map (trg.rename_constants_apart forbidden_constants).subs).flatMap GroundTerm.constants -> g d = d) := by
   rcases trg.subs.exists_strict_constant_mapping_to_reverse_renaming_for_vars trg2.subs trg.rule.body.vars.eraseDupsKeepRight trg.rule.body.vars.nodup_eraseDupsKeepRight trgs_same_skeleton.right forbidden_constants with ⟨g, g_h⟩
   exists g
@@ -475,7 +475,7 @@ theorem exists_strict_constant_mapping_to_reverse_renaming [GetFreshInhabitant s
   . constructor
     . exact trgs_same_skeleton.left
     . intro v v_mem
-      simp only [rename_constants_apart, Function.comp_apply]
+      simp only [rename_constants_apart]
       apply g_h.left
       rw [List.mem_eraseDupsKeepRight]
       exact v_mem

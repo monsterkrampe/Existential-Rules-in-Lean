@@ -64,17 +64,11 @@ noncomputable def hom_step_of_trg_ex
   have trg_spec_orig_eq := trg_spec.right.right.left
   have trg_spec_idx_eq := trg_spec.right.right.right
 
-  let trg_variant_for_m : RTrigger obs kb.rules := {
-    val := {
-      rule := trg.val.rule
-      subs := fun t => prev_hom (trg.val.subs t)
-    }
-    property := trg.property
-  }
+  let trg_variant_for_m : RTrigger obs kb.rules := trg.extend_with_groundTermMapping prev_hom
   have trg_variant_loaded_for_m : trg_variant_for_m.val.loaded m := by
     suffices trg_variant_for_m.val.loaded (prev_hom.applyFactSet (CN.outgoingFacts node.node)) by
       exact Set.subset_trans this prev_hom_is_homomorphism.right
-    apply PreTrigger.term_mapping_preserves_loadedness
+    apply PreTrigger.extend_with_groundTermMapping_loaded_of_loaded_of_isIdOnConstants
     . exact prev_hom_is_homomorphism.left
     . exact trg_spec_act.left
   have trg_variant_satisfied_on_m : trg_variant_for_m.val.satisfied m := by
@@ -91,6 +85,8 @@ noncomputable def hom_step_of_trg_ex
   let h_obs_at_head_index_for_m_subs := Classical.choose_spec h_head_index_lt_for_m_subs
 
   have head_index_lt_for_m_subs' : head_index_for_m_subs < trg.val.mapped_head.length := by grind
+  -- shadowing the original head_index_lt_for_m_subs is intended here; the original one is simply not useful beyond this point
+  have head_index_lt_for_m_subs : head_index_for_m_subs < trg.val.rule.head.length := by grind
 
   let next_hom : GroundTermMapping sig := fun t =>
     let t_in_node := t ∈ (CN.outgoingFacts node.node).terms
@@ -172,7 +168,7 @@ noncomputable def hom_step_of_trg_ex
           rw [h_obs_at_head_index_for_m_subs.left v v_front]
           rw [PreTrigger.apply_to_var_or_const_frontier_var _ _ _ _ v_front]
           simp only [trg_variant_for_m, next_hom]
-          suffices trg.val.subs v ∈ (CN.outgoingFacts node.node).terms by simp [this]
+          suffices trg.val.subs v ∈ (CN.outgoingFacts node.node).terms by simp [this, PreTrigger.extend_with_groundTermMapping]
           apply FactSet.terms_subset_of_subset trg_spec_act.left
           rw [FactSet.mem_terms_toSet, PreTrigger.mem_terms_mapped_body_iff]
           apply Or.inr

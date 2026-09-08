@@ -33,7 +33,7 @@ we also prove that it holds for both `SkolemObsolescence` and `RestrictedObsoles
 -/
 
 @[expose]
-def ObsolescenceCondition.propagates_under_term_mapping_of_no_fresh_term_occurs (obs : ObsolescenceCondition sig) : Prop := ∀ {trg : PreTrigger sig} {fs : FactSet sig} {h : GroundTermMapping sig}, (∀ i lt t, t ∈ trg.fresh_terms_for_head_disjunct i lt -> t ∉ fs.terms) -> (∀ c ∈ trg.rule.head_constants, h (.const c) = .const c) -> obs.cond trg fs -> obs.cond { rule := trg.rule, subs := h ∘ trg.subs } (h.applyFactSet fs)
+def ObsolescenceCondition.propagates_under_term_mapping_of_no_fresh_term_occurs (obs : ObsolescenceCondition sig) : Prop := ∀ {trg : PreTrigger sig} {fs : FactSet sig} {h : GroundTermMapping sig}, (∀ i lt t, t ∈ trg.fresh_terms_for_head_disjunct i lt -> t ∉ fs.terms) -> (∀ c ∈ trg.rule.head_constants, h (.const c) = .const c) -> obs.cond trg fs -> obs.cond (trg.extend_with_groundTermMapping h) (h.applyFactSet fs)
 
 theorem SkolemObsolescence.propagates_under_term_mapping_of_no_fresh_term_occurs :
     (SkolemObsolescence sig).propagates_under_term_mapping_of_no_fresh_term_occurs := by
@@ -68,8 +68,8 @@ theorem SkolemObsolescence.propagates_under_term_mapping_of_no_fresh_term_occurs
     | var v =>
       suffices v ∉ trg.rule.existential_vars_for_head_disjunct i lt by
         rw [PreTrigger.apply_to_var_or_const_of_not_mem_existential_vars trg _ _ _ this]
-        rw [PreTrigger.apply_to_var_or_const_of_not_mem_existential_vars {rule := trg.rule, subs := h ∘ trg.subs} _ _ _ this]
-        simp
+        rw [PreTrigger.apply_to_var_or_const_of_not_mem_existential_vars (trg.extend_with_groundTermMapping h) _ _ _ this]
+        simp [PreTrigger.extend_with_groundTermMapping]
       intro contra; apply no_fresh_term_occurs i lt (trg.functional_term_for_var i lt v contra)
       . apply trg.mem_fresh_terms_of_functional_for_exis_var
       . exists trg.apply_to_function_free_atom i lt a; constructor
@@ -88,7 +88,7 @@ theorem RestrictedObsolescence.propagates_under_term_mapping_of_no_fresh_term_oc
   rcases cond with ⟨s, id_front, cond⟩
   exists h ∘ s;
   constructor
-  . intro v v_mem; simp only [Function.comp_apply]; rw [id_front v v_mem]
+  . intro v v_mem; simp only [Function.comp_apply]; rw [id_front v v_mem]; rfl
   . rw [GroundSubstitution.apply_function_free_conj_compose]
     . rw [← TermMapping.apply_generalized_atom_set_toSet]
       apply TermMapping.apply_generalized_atom_set_subset_of_subset

@@ -159,7 +159,7 @@ theorem apply_fact_eq_groundTermMapping_applyFact (g : ConstantMapping sig) (f :
 theorem apply_fact_swap_apply_to_function_free_atom (g : ConstantMapping sig) (trg : PreTrigger sig) (a : FunctionFreeAtom sig)
     (h : ∀ d ∈ a.constants, g d = GroundTerm.const d) :
     ∀ i lt, g.apply_fact (trg.apply_to_function_free_atom i lt a) =
-      PreTrigger.apply_to_function_free_atom { rule := trg.rule, subs := g.apply_ground_term ∘ trg.subs } i lt a := by
+      PreTrigger.apply_to_function_free_atom (trg.extend_with_groundTermMapping g.apply_ground_term) i lt a := by
   intro i lt
   unfold PreTrigger.apply_to_function_free_atom
   unfold ConstantMapping.apply_fact
