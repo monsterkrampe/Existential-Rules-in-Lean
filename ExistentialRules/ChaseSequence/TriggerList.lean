@@ -23,6 +23,8 @@ public section
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
+section FiniteTriggerList
+
 /-!
 ## Finite Trigger Lists
 -/
@@ -89,6 +91,11 @@ def active (start : FactSet sig) (l : FiniteTriggerList obs rules) : Prop := tri
 
 end FiniteTriggerList
 
+abbrev FiniteNonEmptyTriggerList (obs : ObsolescenceCondition sig) (rules : RuleSet sig) := NonEmptyList (ChaseNodeOrigin obs rules)
+
+end FiniteTriggerList
+
+section InfiniteTriggerList
 
 /-!
 ## Infinite Trigger Lists
@@ -155,4 +162,36 @@ def loaded (start : FactSet sig) (l : InfiniteTriggerList obs rules) : Prop := t
 def active (start : FactSet sig) (l : InfiniteTriggerList obs rules) : Prop := trigger_property_holds (fun trg => trg.val.active) start l
 
 end InfiniteTriggerList
+
+end InfiniteTriggerList
+
+section InfiniteListOfFiniteTriggerLists
+
+/-!
+## Constructing an InfiniteTriggerList from an InfiniteList of FiniteTriggerLists
+-/
+
+namespace InfiniteTriggerList
+
+variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
+
+def fromFiniteLists (ls : InfiniteList (FiniteNonEmptyTriggerList obs rules)) : InfiniteTriggerList obs rules := InfiniteList.fromNonEmptyLists ls
+
+def startForFiniteList (ls : InfiniteList (FiniteNonEmptyTriggerList obs rules)) (start : FactSet sig) : Nat -> FactSet sig
+| .zero => start
+| .succ n => FiniteTriggerList.result (startForFiniteList ls start n) (ls.get n).toList
+
+theorem trigger_property_preserved
+    {ls : InfiniteList (FiniteNonEmptyTriggerList obs rules)}
+    {property : RTrigger obs rules -> FactSet sig -> Prop}
+    {start : FactSet sig} :
+    (∀ n, FiniteTriggerList.trigger_property_holds property (startForFiniteList ls start n) (ls.get n).toList) ->
+    trigger_property_holds property start (fromFiniteLists ls) := by
+  intro holds_for_each
+  intro i
+  sorry
+
+end InfiniteTriggerList
+
+end InfiniteListOfFiniteTriggerLists
 
