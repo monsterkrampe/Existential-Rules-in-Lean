@@ -486,8 +486,8 @@ section SubstitutionsAndTriggers
               simp only
               intro map_unzip_eq
               by_cases v_mem_vars: v∈ vars
-              . simp only[v_mem_vars, subs_agrees_on_vars, ite_cond_eq_true];
-                have eq: subs v = t.snd := by unfold GroundSubstitution.apply_var_or_const at map_unzip_eq; simp only at map_unzip_eq; exact map_unzip_eq.left;
+              . simp only[v_mem_vars, subs_agrees_on_vars, ite_eq_left_of_eq_true]
+                have eq: subs v = t.snd := by unfold GroundSubstitution.apply_var_or_const at map_unzip_eq; simp only at map_unzip_eq; exact map_unzip_eq.left
                 simp[eq]
                 apply ih
                 . exact map_unzip_eq.right
