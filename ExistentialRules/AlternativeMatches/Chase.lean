@@ -8,6 +8,8 @@ module
 public import ExistentialRules.AlternativeMatches.Basic
 import ExistentialRules.AlternativeMatches.HomomorphismExtension
 public import ExistentialRules.Models.Cores
+public import ExistentialRules.ChaseSequence.ChaseBranch
+import ExistentialRules.ChaseSequence.TreeDerivation
 
 /-!
 # Alternative Matches and the Chase

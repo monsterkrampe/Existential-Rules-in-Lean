@@ -6,9 +6,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 import BasicLeanDatastructures.List.AllListsOfLength
-public import BasicLeanDatastructures.List.Basic
 import BasicLeanDatastructures.List.EraseDupsKeepRight
-public import BasicLeanDatastructures.Set.Basic
 public import BasicLeanDatastructures.Set.Finite
 
 public import ExistentialRules.AtomsAndRules.Fact

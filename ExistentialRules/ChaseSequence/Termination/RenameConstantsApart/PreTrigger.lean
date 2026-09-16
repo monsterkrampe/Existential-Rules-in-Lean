@@ -7,6 +7,7 @@ module
 
 public import BasicLeanDatastructures.List.EraseDupsKeepRight
 public import ExistentialRules.ChaseSequence.Termination.RenameConstantsApart.GroundTerm
+public import ExistentialRules.Triggers.Basic
 
 /-!
 # Renaming Constants apart in a GroundSubstitution and PreTrigger

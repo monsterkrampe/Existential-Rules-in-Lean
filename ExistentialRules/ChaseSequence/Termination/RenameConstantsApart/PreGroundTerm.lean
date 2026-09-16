@@ -6,8 +6,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import BasicLeanDatastructures.GetFreshInhabitant
-public import ExistentialRules.ChaseSequence.Termination.Basic
-public import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts
+public import ExistentialRules.Terms.GroundTerm
 
 /-!
 # Renaming Constants apart in a PreGroundTerm

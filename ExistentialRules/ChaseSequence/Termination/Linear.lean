@@ -5,7 +5,8 @@ Released under Apache 2.0 license as described in the file LICENSE.
 
 module
 
-public import ExistentialRules.ChaseSequence.Termination.Basic
+public import ExistentialRules.Triggers.Basic
+public import PossiblyInfiniteTrees.PossiblyInfiniteList.PossiblyInfiniteList
 
 /-!
 

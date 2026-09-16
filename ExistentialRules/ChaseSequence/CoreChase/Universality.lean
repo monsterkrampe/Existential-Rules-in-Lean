@@ -8,8 +8,6 @@ module
 public import ExistentialRules.ChaseSequence.Deterministic
 import ExistentialRules.ChaseSequence.Universality
 
-import ExistentialRules.ChaseSequence.CoreChase.Basic
-public import ExistentialRules.ChaseSequence.CoreChase.CoreChaseBranch
 public import ExistentialRules.ChaseSequence.CoreChase.CoreChaseTree
 
 /-!

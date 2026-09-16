@@ -7,7 +7,6 @@ module
 
 import BasicLeanDatastructures.WellFounded
 
-public import ExistentialRules.ChaseSequence.ChaseBranch
 public import ExistentialRules.ChaseSequence.Termination.Basic
 
 import ExistentialRules.ChaseSequence.CoreChase.Basic

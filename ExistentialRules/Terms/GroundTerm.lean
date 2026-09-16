@@ -8,6 +8,7 @@ module
 public import BasicLeanDatastructures.FiniteTree
 
 public import ExistentialRules.Terms.SkolemTerm
+import BasicLeanDatastructures.List.Basic
 
 /-!
 # Ground Terms

@@ -7,7 +7,6 @@ module
 
 public import ExistentialRules.AtomsAndRules.Atom
 public import ExistentialRules.AtomsAndRules.FactSet
-public import ExistentialRules.AtomsAndRules.FunctionFreeConjunction
 
 /-!
 # Substitutions and other mappings on Terms

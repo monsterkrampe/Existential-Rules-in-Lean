@@ -5,11 +5,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 
 module
 
-public import ExistentialRules.ChaseSequence.ChaseTree
-public import ExistentialRules.ChaseSequence.Termination.Basic
-
 import ExistentialRules.ChaseSequence.CoreChase.Basic
-public import ExistentialRules.ChaseSequence.CoreChase.CoreChaseNode
 public import ExistentialRules.ChaseSequence.CoreChase.CoreChaseBranch
 
 /-!

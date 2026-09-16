@@ -5,8 +5,9 @@ Released under Apache 2.0 license as described in the file LICENSE.
 
 module
 
-public import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts
-public import ExistentialRules.ChaseSequence.Termination.ConstantMappings.InterplayWithObsolescenceCondition
+public import ExistentialRules.ChaseSequence.ChaseBranch
+public import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts.PreTrigger
+public import ExistentialRules.ChaseSequence.Termination.ConstantMappings.Basic
 
 /-!
 # The Backtracking Triggers in the Chase indeed is already part of the Chase

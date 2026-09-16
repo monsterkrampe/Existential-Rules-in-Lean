@@ -6,7 +6,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import ExistentialRules.ChaseSequence.Termination.ConstantMappings.StrictConstantMapping
-public import ExistentialRules.ChaseSequence.Termination.RenameConstantsApart
+public import ExistentialRules.ChaseSequence.Termination.RenameConstantsApart.PreTrigger
 
 /-!
 # Interaction of Strict Constant Mappings and Renaming Constant Apart

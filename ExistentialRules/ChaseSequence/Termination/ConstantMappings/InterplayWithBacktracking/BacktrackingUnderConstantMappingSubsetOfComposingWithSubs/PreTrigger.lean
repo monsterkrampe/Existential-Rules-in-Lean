@@ -5,7 +5,9 @@ Released under Apache 2.0 license as described in the file LICENSE.
 
 module
 
-public import ExistentialRules.ChaseSequence.Termination.ConstantMappings.InterplayWithBacktracking.BacktrackingUnderConstantMappingSubsetOfComposingWithSubs.GroundTerm
+public import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts.PreTrigger
+public import ExistentialRules.ChaseSequence.Termination.ConstantMappings.InterplayWithRenamingConstantsApart
+import ExistentialRules.ChaseSequence.Termination.ConstantMappings.InterplayWithBacktracking.BacktrackingUnderConstantMappingSubsetOfComposingWithSubs.GroundTerm
 
 /-!
 # Interaction of Backtrackings and Strict Constant Mappings on PreTrigger

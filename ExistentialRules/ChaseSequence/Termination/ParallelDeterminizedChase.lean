@@ -5,7 +5,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 
 module
 
-public import ExistentialRules.ChaseSequence.Termination.Basic
+public import ExistentialRules.AtomsAndRules.KnowledgeBase
+public import ExistentialRules.Triggers.RTrigger
+public import PossiblyInfiniteTrees.PossiblyInfiniteList.InfiniteList
+import ExistentialRules.ChaseSequence.TreeDerivation
 
 /-!
 # Parallel Determinized Chase

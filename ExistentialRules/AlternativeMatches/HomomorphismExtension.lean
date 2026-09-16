@@ -5,7 +5,8 @@ Released under Apache 2.0 license as described in the file LICENSE.
 
 module
 
-public import ExistentialRules.AlternativeMatches.Basic
+public import ExistentialRules.ChaseSequence.ChaseBranch
+import ExistentialRules.ChaseSequence.TreeDerivation
 
 /-!
 # Extending arbitrary Homomorphisms along a Chase Branch

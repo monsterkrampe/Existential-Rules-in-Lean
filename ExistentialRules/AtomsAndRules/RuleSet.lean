@@ -6,10 +6,8 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 import BasicLeanDatastructures.List.EraseDupsKeepRight
-public import BasicLeanDatastructures.Set.Basic
 public import BasicLeanDatastructures.Set.Finite
 
-public import ExistentialRules.AtomsAndRules.Rule
 public import ExistentialRules.Terms.SkolemTerm
 
 

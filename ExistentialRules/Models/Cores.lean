@@ -5,9 +5,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 
 module
 
-public import BasicLeanDatastructures.Function.InjectiveSurjective
 public import BasicLeanDatastructures.Function.Repetition
-public import BasicLeanDatastructures.List.EraseDupsKeepRight
 public import ExistentialRules.Models.Basic
 
 /-!

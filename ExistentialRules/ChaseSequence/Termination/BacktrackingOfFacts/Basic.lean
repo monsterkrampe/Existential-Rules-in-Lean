@@ -6,7 +6,8 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import BasicLeanDatastructures.GetFreshInhabitant
-public import ExistentialRules.ChaseSequence.Termination.Basic
+public import ExistentialRules.AtomsAndRules.Rule
+import BasicLeanDatastructures.List.Basic
 
 /-!
 # Backtracking Facts for a Trigger
