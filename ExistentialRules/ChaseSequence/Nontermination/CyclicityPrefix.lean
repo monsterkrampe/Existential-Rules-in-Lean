@@ -8,7 +8,6 @@ module
 public import ExistentialRules.ChaseSequence.Nontermination.TermSkeleton
 public import ExistentialRules.ChaseSequence.Nontermination.RepeatableUnblockability
 public import ExistentialRules.ChaseSequence.Nontermination.ReversibleConstantMappings
-public import ExistentialRules.ChaseSequence.Termination.Basic
 public import ExistentialRules.Terms.Cyclic
 
 open CustomBasicDatastructures
@@ -68,58 +67,113 @@ def Rule.body_database_trigger (r : Rule sig) : PreTrigger sig.withFreshConstant
   rule := r.cast_withFreshConstantsForVars
   subs := .const ∘ .inr
 
+/-- The `body_database_trigger` is loaded for the `body_database`. -/
+theorem Rule.body_database_trigger_loaded {r : Rule sig} : r.body_database_trigger.loaded r.body_database.toFactSet.val := by
+  unfold body_database body_database_trigger
+  intro f f_mem
+  simp only [PreTrigger.mapped_body, List.mem_toSet, TermMapping.mem_apply_generalized_atom_list] at f_mem
+  rcases f_mem with ⟨b, b_mem, f_mem⟩
+  simp only [cast_withFreshConstantsForVars, TermMapping.mem_apply_generalized_atom_list] at b_mem
+  rcases b_mem with ⟨a, a_mem, b_mem⟩
+  simp only [Database.toFactSet, List.mem_toSet]
+  exists VarOrConst.toConst_withFreshConstantsForVars.apply_generalized_atom a
+  constructor
+  . apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_list; exact a_mem
+  . rw [f_mem, b_mem]
+    rw [FunctionFreeFact.toFact_eq]
+    rw [← TermMapping.apply_generalized_atom_compose', ← TermMapping.apply_generalized_atom_compose']
+    apply TermMapping.apply_generalized_atom_congr_left
+    intro t t_mem
+    cases t <;> simp [VarOrConst.cast_withFreshConstantsForVars, VarOrConst.toConst_withFreshConstantsForVars, GroundSubstitution.apply_var_or_const]
+
+/-- The `ChaseNodeOrigin` for a rule that matches its `body_database`. -/
+def Rule.body_database_origin
+    (obs : ObsolescenceCondition sig.withFreshConstantsForVars)
+    (rules : RuleSet sig)
+    (hc : HeadChoice sig.withFreshConstantsForVars)
+    (r : Rule sig)
+    (r_mem : r ∈ rules) :
+    ChaseNodeOrigin obs rules.cast_withFreshConstantsForVars :=
+  let trg := r.body_database_trigger
+  ⟨⟨Trigger.fromPreTrigger trg obs, by simp only [trg, RuleSet.cast_withFreshConstantsForVars, Rule.body_database_trigger]; apply Set.mem_map_of_mem; exact r_mem⟩, hc r.body_database_trigger⟩
+
+/-- The `body_database_origin` adheres to the head choice. -/
+theorem Rule.body_database_origin_adheres_to_headChoice
+    {obs : ObsolescenceCondition sig.withFreshConstantsForVars}
+    {rules : RuleSet sig}
+    {hc : HeadChoice sig.withFreshConstantsForVars}
+    {r : Rule sig}
+    {r_mem : r ∈ rules} :
+    (r.body_database_origin obs rules hc r_mem).adheres_to_headChoice hc := by
+  simp only [body_database_origin, ChaseNodeOrigin.adheres_to_headChoice]
+  congr
+
 /-- For a signature `withFreshConstantsForVars`, we can turn a `GroundSubstitution` into a `ConstantMapping`. -/
 def GroundSubstitution.toConstantMapping_for_sig_withFreshConstantsForVars (subs : GroundSubstitution sig.withFreshConstantsForVars) :
     ConstantMapping sig.withFreshConstantsForVars
 | .inl c => .const (.inl c) -- we leave original constants untouched
 | .inr v => subs v
 
-/-- We define a structure, which is almost a `CyclicityPrefix` (missing a few conditions). We do this mainly to add some auxiliary definitions that we can use to express the remaining conditions more easily. -/
-structure PreCyclicityPrefix [Inhabited sig.C] (obs : ObsolescenceCondition sig.withFreshConstantsForVars) (rules : RuleSet sig) (hc : HeadChoice sig.withFreshConstantsForVars) (rule : Rule sig)
-    extends RegularChaseDerivationSkeleton obs rules.cast_withFreshConstantsForVars where
+/--
+We define a structure, which is almost a `CyclicityPrefix` (missing some last conditions).
+We split this mainly to add some auxiliary definitions that we can use to express the remaining conditions more easily.
+-/
+structure PreCyclicityPrefix
+    [Inhabited sig.C]
+    (obs : ObsolescenceCondition sig.withFreshConstantsForVars)
+    {rules : RuleSet sig}
+    (hc : HeadChoice sig.withFreshConstantsForVars)
+    {rule : Rule sig}
+    (rule_mem : rule ∈ rules) where
+  body_database_trigger_unblockable : (Trigger.fromPreTrigger rule.body_database_trigger obs).unblockable rules.cast_withFreshConstantsForVars hc
+  -- this list does not include the initial database trigger
+  triggers : FiniteTriggerList obs rules.cast_withFreshConstantsForVars
   -- the first conditions are also found in the `CyclicityDerivation`; `growing` and `unblockable` are missing though
-  adheres_to_headChoice : ChaseDerivationSkeleton.adheres_to_headChoice toChaseDerivationSkeleton hc
-  triggers_loaded : ∀ cd2, cd2 <:+ toChaseDerivationSkeleton -> ∀ next ∈ cd2.next, ∃ orig ∈ next.origin, orig.fst.val.loaded cd2.head.facts
+  adheres_to_headChoice : triggers.adheres_to_headChoice hc
+  triggers_loaded : triggers.loaded (rule.body_database.toFactSet.val ∪ (rule.body_database_origin obs rules hc rule_mem).result.toSet)
   -- from here things are different
-  finite : toChaseDerivationSkeleton.terminates
-  first_trigger : ∃ orig, ∃ (orig_mem : orig ∈ toChaseDerivationSkeleton.head.origin),
-    orig.fst.val = rule.body_database_trigger ∧
-    orig.fst.val.unblockable rules.cast_withFreshConstantsForVars hc ∧
-    toChaseDerivationSkeleton.head.facts = rule.body_database.toFactSet.val ∪ (RegularChaseNode.regularChaseNodeInstance.origin_result toChaseDerivationSkeleton.head (by simp only [ChaseNode.origin]; rw [orig_mem]; simp)).toSet
+  ex_last_trigger : ∃ last ∈ triggers.getLast?, last.fst.val.rule = rule.cast_withFreshConstantsForVars ∧
+    ∃ term ∈ last.result.flatMap GeneralizedAtom.terms, PreGroundTerm.ruleCyclic rule.cast_withFreshConstantsForVars term.val
 
 namespace PreCyclicityPrefix
 
-variable [Inhabited sig.C] {obs : ObsolescenceCondition sig.withFreshConstantsForVars} {rules : RuleSet sig} {hc : HeadChoice sig.withFreshConstantsForVars} {rule : Rule sig}
+variable [Inhabited sig.C] {obs : ObsolescenceCondition sig.withFreshConstantsForVars} {rules : RuleSet sig} {hc : HeadChoice sig.withFreshConstantsForVars} {rule : Rule sig} {rule_mem : rule ∈ rules}
 
-/-- Every node in the `PreCyclicityPrefix` must have an origin. -/
-theorem isSome_origin_of_mem {cd : PreCyclicityPrefix obs rules hc rule} : ∀ node ∈ cd.toChaseDerivationSkeleton, node.origin.isSome := by
-  intro node node_mem
-  rw [cd.mem_iff_eq_head_or_mem_tail] at node_mem
-  cases node_mem with
-  | inl node_mem => rw [node_mem]; rcases cd.first_trigger with ⟨orig, orig_mem, _⟩; rw [orig_mem]; simp
-  | inr node_mem => simp only [cd.mem_tail_iff] at node_mem; rcases node_mem with ⟨_, cd2, suf, mem⟩; apply cd2.isSome_origin_next; exact mem
+/-- The triggers are not empty. -/
+theorem triggers_ne_nil {cp : PreCyclicityPrefix obs hc rule_mem} : cp.triggers ≠ [] := by
+  rcases cp.ex_last_trigger with ⟨_, mem, _⟩
+  intro contra; simp [contra] at mem
 
-/-- Obtain the origin of a node (which must exist). -/
-def origin_of_mem {cd : PreCyclicityPrefix obs rules hc rule} {node : RegularChaseNode obs rules.cast_withFreshConstantsForVars}
-    (node_mem : node ∈ cd.toChaseDerivationSkeleton) :=
-  node.origin.get (cd.isSome_origin_of_mem node node_mem)
+/-- We can cast the triggers into a `FiniteNonEmptyTriggerList`. -/
+def to_FiniteNonEmptyTriggerList (cp : PreCyclicityPrefix obs hc rule_mem) :
+    FiniteNonEmptyTriggerList obs rules.cast_withFreshConstantsForVars :=
+  NonEmptyList.from_ne_nil cp.triggers cp.triggers_ne_nil
 
-/-- The origin of the last node (the prefix is finite). -/
-def last_origin (cd : PreCyclicityPrefix obs rules hc rule) := cd.origin_of_mem (cd.last_mem cd.finite)
+/-- Since the trigger list is not empty, we can get the last trigger. -/
+def last_trigger (cp : PreCyclicityPrefix obs hc rule_mem) : ChaseNodeOrigin obs rules.cast_withFreshConstantsForVars :=
+  cp.triggers.getLast cp.triggers_ne_nil
 
-/-- In the end, we want to repeat the prefix using a constant mapping expressing the mapping from the first to the last trigger. This mapping is what is defined here. -/
-def constantMappingForRepetition (cd : PreCyclicityPrefix obs rules hc rule) : ConstantMapping sig.withFreshConstantsForVars :=
-  cd.last_origin.fst.val.subs.toConstantMapping_for_sig_withFreshConstantsForVars
+/--
+In the end, we want to repeat the prefix using a constant mapping expressing the mapping from the database trigger to the last trigger.
+This mapping is what is defined here.
+-/
+def constantMappingForRepetition (cp : PreCyclicityPrefix obs hc rule_mem) : ConstantMapping sig.withFreshConstantsForVars :=
+  cp.last_trigger.fst.val.subs.toConstantMapping_for_sig_withFreshConstantsForVars
 
 end PreCyclicityPrefix
 
-/-- The actual `CyclicityPrefix` extending the `PreCyclicityPrefix` with the remaining conditions. -/
-structure CyclicityPrefix [Inhabited sig.C] (obs : ObsolescenceCondition sig.withFreshConstantsForVars) (unblk : RepeatableUnblockability obs) (rules : RuleSet sig) (hc : HeadChoice sig.withFreshConstantsForVars) (rule : Rule sig)
-    extends PreCyclicityPrefix obs rules hc rule where
-  -- NOTE: we only demand unblockability on all triggers but the first one. This is indeed correct and necessary.
-  triggers_unblockable : ∀ h, ∀ node ∈ toChaseDerivationSkeleton.tail h, ∀ orig ∈ node.origin, unblk.trigger_unblockable rules.cast_withFreshConstantsForVars hc orig.fst.val
-  last_trigger : toPreCyclicityPrefix.last_origin.fst.val.rule = rule.cast_withFreshConstantsForVars ∧ ∃ term ∈ (toPreCyclicityPrefix.last_origin.fst.val.output_for_headChoice hc).flatMap GeneralizedAtom.terms, PreGroundTerm.ruleCyclic rule.cast_withFreshConstantsForVars term.val
-  constantMapping_reversible_in_each_step : ∀ h, ∀ node ∈ toChaseDerivationSkeleton.tail h, ∀ orig ∈ node.origin, ∀ j : Nat,
+structure CyclicityPrefix
+    [Inhabited sig.C]
+    (obs : ObsolescenceCondition sig.withFreshConstantsForVars)
+    (unblk : RepeatableUnblockability obs)
+    {rules : RuleSet sig}
+    (hc : HeadChoice sig.withFreshConstantsForVars)
+    {rule : Rule sig}
+    (rule_mem : rule ∈ rules)
+    extends PreCyclicityPrefix obs hc rule_mem where
+  triggers_unblockable : ∀ orig ∈ triggers, unblk.trigger_unblockable rules.cast_withFreshConstantsForVars hc orig.fst.val
+  constantMapping_reversible_in_each_step : ∀ orig ∈ triggers, ∀ j : Nat,
     toPreCyclicityPrefix.constantMappingForRepetition.isReversible
-      (orig.fst.val.extend_with_groundTermMapping (Function.repeat_fun toPreCyclicityPrefix.constantMappingForRepetition.apply_ground_term j)).termSkeleton.toSet
+      (orig.fst.val.extend_with_groundTermMapping
+        (Function.repeat_fun toPreCyclicityPrefix.constantMappingForRepetition.apply_ground_term j)).termSkeleton.toSet
 

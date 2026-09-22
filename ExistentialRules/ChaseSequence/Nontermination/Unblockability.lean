@@ -184,7 +184,8 @@ theorem RTrigger.unblockable_of_not_obsolete_for_overapproximation
       apply Set.subset_trans _ (RegularChaseDerivationSkeleton.facts_node_subset_of_prec node3_prec)
       rw [← PreTrigger.output_for_headChoice_eq_of_equiv hc_consistent equiv]; simp only [PreTrigger.output_for_headChoice]
       suffices RegularChaseNode.regularChaseNodeInstance.adheres_to_headChoice node3.val hc by
-        simp only [← this orig orig_mem]
+        have := this orig orig_mem; unfold ChaseNodeOrigin.adheres_to_headChoice at this
+        simp only [← this]
         exact node3.val.facts_contain_origin_result orig orig_mem
       apply ct.subderivation_for_headChoice_adheres_to_headChoice
       exact node3.property
