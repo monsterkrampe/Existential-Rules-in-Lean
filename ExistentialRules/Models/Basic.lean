@@ -8,6 +8,8 @@ module
 public import ExistentialRules.AtomsAndRules.KnowledgeBase
 public import ExistentialRules.SubstitutionsAndHomomorphisms
 
+open CustomBasicDatastructures
+
 /-!
 # Models
 

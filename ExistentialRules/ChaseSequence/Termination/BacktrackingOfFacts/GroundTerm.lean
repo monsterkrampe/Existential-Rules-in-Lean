@@ -7,6 +7,8 @@ module
 
 public import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts.PreGroundTerm
 
+open CustomBasicDatastructures
+
 /-!
 # Backtracking Facts for a GroundTerm
 

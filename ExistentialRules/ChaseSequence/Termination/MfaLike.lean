@@ -16,6 +16,8 @@ import ExistentialRules.ChaseSequence.Termination.ConstantMappings.ArgumentsForI
 import ExistentialRules.ChaseSequence.Termination.ConstantMappings.InterplayWithBacktracking.BacktrackingOfLoadedTriggerInNode
 import ExistentialRules.ChaseSequence.Termination.ConstantMappings.InterplayWithBacktracking.BacktrackingUnderConstantMappingSubsetOfComposingWithSubs.PreTrigger
 
+open CustomBasicDatastructures
+
 /-!
 # Model-Faithful Acyclicity and its Relatives
 

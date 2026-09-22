@@ -7,6 +7,8 @@ module
 
 public import ExistentialRules.ChaseSequence.Nontermination.HeadChoice
 
+open CustomBasicDatastructures
+
 /-!
 # Unblockability
 

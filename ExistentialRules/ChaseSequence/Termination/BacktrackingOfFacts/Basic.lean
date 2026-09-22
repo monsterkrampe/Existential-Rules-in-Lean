@@ -9,6 +9,8 @@ public import BasicLeanDatastructures.GetFreshInhabitant
 public import ExistentialRules.AtomsAndRules.Rule
 import BasicLeanDatastructures.List.Basic
 
+open CustomBasicDatastructures
+
 /-!
 # Backtracking Facts for a Trigger
 

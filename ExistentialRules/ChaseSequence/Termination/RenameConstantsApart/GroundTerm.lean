@@ -7,6 +7,8 @@ module
 
 public import ExistentialRules.ChaseSequence.Termination.RenameConstantsApart.PreGroundTerm
 
+open CustomBasicDatastructures
+
 /-!
 # Renaming Constants apart in a GroundTerm
 

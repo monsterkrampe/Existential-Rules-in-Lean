@@ -8,6 +8,8 @@ module
 public import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts.PreGroundTerm
 public import ExistentialRules.ChaseSequence.Termination.ConstantMappings.StrictConstantMapping
 
+open CustomBasicDatastructures
+
 /-!
 # Interaction of Backtrackings and Strict Constant Mappings on PreGroundTerm
 

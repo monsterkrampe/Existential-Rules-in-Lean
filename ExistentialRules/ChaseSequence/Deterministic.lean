@@ -8,6 +8,8 @@ module
 public import ExistentialRules.ChaseSequence.ChaseTree
 import ExistentialRules.ChaseSequence.Universality
 
+open CustomBasicDatastructures
+
 /-!
 # The Chase on Deterministic Rules
 

@@ -7,6 +7,8 @@ module
 
 public import ExistentialRules.Triggers.RTrigger
 
+open CustomBasicDatastructures
+
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 /-!

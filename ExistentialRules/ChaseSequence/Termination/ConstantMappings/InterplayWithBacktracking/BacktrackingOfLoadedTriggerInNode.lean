@@ -9,6 +9,8 @@ public import ExistentialRules.ChaseSequence.ChaseBranch
 public import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts.PreTrigger
 public import ExistentialRules.ChaseSequence.Termination.ConstantMappings.Basic
 
+open CustomBasicDatastructures
+
 /-!
 # The Backtracking Triggers in the Chase indeed is already part of the Chase
 

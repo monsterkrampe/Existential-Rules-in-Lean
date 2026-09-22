@@ -9,6 +9,8 @@ public import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts.Gro
 public import ExistentialRules.ChaseSequence.Termination.ConstantMappings.StrictConstantMapping
 import ExistentialRules.ChaseSequence.Termination.ConstantMappings.InterplayWithBacktracking.BacktrackingUnderConstantMappingSubsetOfComposingWithSubs.PreGroundTerm
 
+open CustomBasicDatastructures
+
 /-!
 # Interaction of Backtrackings and Strict Constant Mappings on GroundTerm
 

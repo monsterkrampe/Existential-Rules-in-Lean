@@ -8,6 +8,8 @@ module
 import BasicLeanDatastructures.List.Nodup
 public import ExistentialRules.Models.Cores
 
+open CustomBasicDatastructures
+
 /-!
 
 # Auxiliary Theorems for the Core Chase
@@ -68,7 +70,7 @@ theorem isWeakCore_empty : (∅ : FactSet sig).isWeakCore := by
 theorem isWeakCore_list_of_each_homSubset_eq {l : List (Fact sig)} :
     (∀ (sub : List (Fact sig)), homSubset sub.toSet l.toSet -> sub.toSet = l.toSet) -> isWeakCore l.toSet := by
   intro each_homSubset_eq h hom
-  suffices h.injectiveSet (terms l.toSet) by exact ⟨hom_strong_of_finite_of_injective _ l.finite_toSet _ hom this, this⟩
+  suffices Function.injectiveSet h (terms l.toSet) by exact ⟨hom_strong_of_finite_of_injective _ l.finite_toSet _ hom this, this⟩
   suffices (l.map h.applyFact).toSet = l.toSet by
     have terms_eq : ∀ t, t ∈ terms l.toSet ↔ t ∈ (l.flatMap GeneralizedAtom.terms).eraseDupsKeepRight := by
       intro _; rw [mem_terms_toSet, List.mem_eraseDupsKeepRight]

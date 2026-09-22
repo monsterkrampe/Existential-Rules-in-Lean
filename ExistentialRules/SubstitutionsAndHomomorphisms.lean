@@ -8,6 +8,8 @@ module
 public import ExistentialRules.AtomsAndRules.Atom
 public import ExistentialRules.AtomsAndRules.FactSet
 
+open CustomBasicDatastructures
+
 /-!
 # Substitutions and other mappings on Terms
 

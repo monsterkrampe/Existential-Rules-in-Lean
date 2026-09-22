@@ -10,6 +10,8 @@ import BasicLeanDatastructures.List.EraseDupsKeepRight
 public import ExistentialRules.AtomsAndRules.FactSet
 public import ExistentialRules.AtomsAndRules.FunctionFreeFact
 
+open CustomBasicDatastructures
+
 /-!
 # Database
 

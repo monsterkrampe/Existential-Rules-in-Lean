@@ -7,6 +7,8 @@ module
 
 public import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts.GroundTerm
 
+open CustomBasicDatastructures
+
 /-!
 # Backtracking Facts for a PreTrigger
 

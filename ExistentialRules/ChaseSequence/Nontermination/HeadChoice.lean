@@ -7,6 +7,8 @@ module
 
 public import ExistentialRules.ChaseSequence.ChaseTree
 
+open CustomBasicDatastructures
+
 /-!
 # HeadChoice
 

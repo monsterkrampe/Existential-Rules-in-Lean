@@ -118,6 +118,8 @@ theorem root_mem {td : TreeDerivation N obs rules} : td.root ∈ td := by rw [me
 
 section ChildNodes
 
+open CustomBasicDatastructures
+
 /-!
 ### The (immediate) ChildNodes
 
@@ -655,6 +657,8 @@ end Basics
 
 section GeneratedFacts
 
+open CustomBasicDatastructures
+
 /-!
 ## Only Finitely many Generated Facts
 
@@ -984,6 +988,8 @@ end Predecessors
 
 section MinimalNodeWithProp
 
+open CustomBasicDatastructures
+
 /-!
 ## Minimal Nodes with given Properties
 
@@ -1005,6 +1011,8 @@ theorem prop_for_node_has_minimal_such_node {N : Type u} [CN : ChaseNode N obs r
 end MinimalNodeWithProp
 
 section Branches
+
+open CustomBasicDatastructures
 
 /-!
 ## Branches and Chase Result
@@ -1181,6 +1189,8 @@ end Branches
 
 section TermsInChase
 
+open CustomBasicDatastructures
+
 /-!
 ## Terms in the Chase
 
@@ -1334,6 +1344,8 @@ end TermsInChase
 
 section Generate
 
+open CustomBasicDatastructures
+
 /-!
 ## Derivation Generation
 
@@ -1430,7 +1442,7 @@ theorem mem_generate_subderivation {td : TreeDerivation N obs rules}
     {maximal : ∀ b, generator b = none -> (mapper b).subderivation.childTrees = []}
     {node : N} :
     node ∈ (td.generate_subderivation start generator mapper next_is_child maximal) ↔
-    ∃ n, node ∈ (((·.bind generator).repeat_fun n (some start)).map mapper).map NodeWithAddress.node := by
+    ∃ n, node ∈ ((Function.repeat_fun (·.bind generator) n (some start)).map mapper).map NodeWithAddress.node := by
   rw [ChaseDerivation.mem_iff]
   simp only [generate_subderivation, generate_branch, derivation_for_branch, derivationSkeleton_for_branch]
   constructor
@@ -1467,6 +1479,8 @@ namespace RegularTreeDerivation
 variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 
 section FactMonotonicity
+
+open CustomBasicDatastructures
 
 /-!
 ## Subset Monotonicity of Facts in ChaseNodes
@@ -1519,6 +1533,8 @@ end FactMonotonicity
 
 section GeneratedFacts
 
+open CustomBasicDatastructures
+
 /-!
 ## Only Finitely many Generated Facts
 
@@ -1550,6 +1566,8 @@ theorem generatedFacts_finite_of_mem
 end GeneratedFacts
 
 section Predecessors
+
+open CustomBasicDatastructures
 
 /-!
 ## Predecessor Relation
@@ -1606,6 +1624,8 @@ end Predecessors
 
 section ChaseResult
 
+open CustomBasicDatastructures
+
 /-!
 ## Chase Result
 
@@ -1626,6 +1646,8 @@ theorem result_models_rules {td : RegularTreeDerivation obs rules} : ∀ fs ∈ 
 end ChaseResult
 
 section TermsInChase
+
+open CustomBasicDatastructures
 
 /-!
 ## Terms in the Chase

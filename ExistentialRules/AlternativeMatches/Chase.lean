@@ -11,6 +11,8 @@ public import ExistentialRules.Models.Cores
 public import ExistentialRules.ChaseSequence.ChaseBranch
 import ExistentialRules.ChaseSequence.TreeDerivation
 
+open CustomBasicDatastructures
+
 /-!
 # Alternative Matches and the Chase
 
@@ -118,7 +120,7 @@ theorem result_isWeakCore_of_noAltMatch {cb : RegularChaseBranch obs kb} (det : 
         rw [FactSet.mem_terms_toSet]
         exact PreTrigger.mem_terms_mapped_body_of_mem_mapped_frontier _ t_mem
 
-      have h_surj_on_trg_res : h_k.surjectiveSet trg_res_terms trg_res_terms := by
+      have h_surj_on_trg_res : Function.surjectiveSet h_k trg_res_terms trg_res_terms := by
         apply Classical.byContradiction
         intro not_surj
         apply noAltMatch
@@ -172,7 +174,7 @@ theorem result_isWeakCore_of_noAltMatch {cb : RegularChaseBranch obs kb} (det : 
             apply Or.inr; apply Or.inr
             exact t'_mem
 
-      have h_surj_on_step : h_k.surjectiveSet next.facts.terms next.facts.terms := by
+      have h_surj_on_step : Function.surjectiveSet h_k next.facts.terms next.facts.terms := by
         rw [← RegularChaseNode.ingoingFacts_eq, cd2.facts_next next_mem, FactSet.terms_union]
         intro t t_mem
         cases t_mem with
@@ -188,14 +190,14 @@ theorem result_isWeakCore_of_noAltMatch {cb : RegularChaseBranch obs kb} (det : 
       rcases node_terms_finite with ⟨l_terms, l_terms_nodup, l_terms_eq⟩
       have l_terms_eq' : ∀ e, e ∈ next.facts.terms ↔ e ∈ l_terms := by intro _; rw [l_terms_eq]
 
-      rw [h_k.surjective_set_list_equiv l_terms_eq' l_terms_eq'] at h_surj_on_step
+      rw [Function.surjective_set_list_equiv l_terms_eq' l_terms_eq'] at h_surj_on_step
 
-      have h_inj_on_step : h_k.injectiveList l_terms := Function.injective_of_surjective_of_nodup l_terms_nodup h_surj_on_step
-      have h_closed_on_step : h_k.closedList l_terms := Function.closed_of_injective_of_surjective_of_nodup l_terms_nodup h_inj_on_step h_surj_on_step
+      have h_inj_on_step : Function.injectiveList h_k l_terms := Function.injective_of_surjective_of_nodup l_terms_nodup h_surj_on_step
+      have h_closed_on_step : Function.closedList h_k l_terms := Function.closed_of_injective_of_surjective_of_nodup l_terms_nodup h_inj_on_step h_surj_on_step
 
-      have inv_ex := h_k.exists_repetition_that_is_inverse_of_surj l_terms h_surj_on_step
+      have inv_ex := Function.exists_repetition_that_is_inverse_of_surj l_terms h_surj_on_step
       rcases inv_ex with ⟨repetition_number, inv_prop⟩
-      let inv : GroundTermMapping sig := h_k.repeat_fun repetition_number
+      let inv : GroundTermMapping sig := Function.repeat_fun h_k repetition_number
 
       have inv_hom : inv.isHomomorphism next.facts cb.result := by
         constructor
@@ -392,10 +394,10 @@ theorem non_id_endomorphism_of_altMatch {cb : RegularChaseBranch obs kb} (det : 
 /-- This is more of a lemma quite technical unfortunately. Take a `ChaseBranch`, a `FactSet` and a homomorphism $h$ from the chase result into the fact set that is at the same time an endomorphism on the fact set. If there is a term $t$ in the chase result such that no non-zero repetition of $h$ maps $t$ to itself, then the chase branch must have an alternative match for the fact set. Intuitively this is because $t$ is apparently a redundant term. -/
 theorem altMatch_of_some_not_reaches_self (cb : RegularChaseBranch obs kb) (fs : FactSet sig) (h : GroundTermMapping sig)
     (hom_res : h.isHomomorphism cb.result fs) (hom_fs : h.isHomomorphism fs fs)
-    (t : GroundTerm sig) (t_mem : t ∈ cb.result.terms) (t_not_reaches_self : ∀ j, 1 ≤ j -> (h.repeat_fun j) t ≠ t) :
+    (t : GroundTerm sig) (t_mem : t ∈ cb.result.terms) (t_not_reaches_self : ∀ j, 1 ≤ j -> (Function.repeat_fun h j) t ≠ t) :
     cb.has_alt_match_for_fs fs := by
 
-  let term_property (ts : Set (GroundTerm sig)) (t : GroundTerm sig) := ∀ j, 1 ≤ j -> (h.repeat_fun j) t ≠ t
+  let term_property (ts : Set (GroundTerm sig)) (t : GroundTerm sig) := ∀ j, 1 ≤ j -> (Function.repeat_fun h j) t ≠ t
   let node_property (node : cb.Node) := ∃ t, t ∈ node.val.facts.terms ∧ term_property node.val.facts.terms t
 
   have : ∃ node, node_property node ∧ ∀ node2, node2 ≺ node -> ¬ node_property node2 := by
@@ -435,11 +437,11 @@ theorem altMatch_of_some_not_reaches_self (cb : RegularChaseBranch obs kb) (fs :
       exact ChaseDerivationSkeleton.strict_predecessor_of_suffix suffix this)
     simp only [node_property, term_property, not_exists, not_and, Classical.not_forall, ne_eq, Decidable.not_not] at smallest
 
-    have : ∃ l, 1 ≤ l ∧ ∀ s, s ∈ cd2.head.facts.terms -> (h.repeat_fun l) s = s := by
+    have : ∃ l, 1 ≤ l ∧ ∀ s, s ∈ cd2.head.facts.terms -> (Function.repeat_fun h l) s = s := by
       have head_finite := cb.facts_finite_of_mem ⟨cd2.head, by apply cd2.mem_of_mem_suffix suffix; exact cd2.head_mem⟩
       have l_terms_finite := cd2.head.facts.terms_finite_of_finite head_finite
       rcases l_terms_finite with ⟨l_terms, _, l_terms_eq⟩
-      rcases h.repeat_globally_cyclic_of_each_cyclic l_terms (by
+      rcases Function.repeat_globally_cyclic_of_each_cyclic l_terms (by
         intro s s_mem; rw [l_terms_eq] at s_mem
         rcases smallest s s_mem with ⟨l, l_le, eq⟩
         exists l) with ⟨l, l_le, aux⟩
@@ -453,14 +455,14 @@ theorem altMatch_of_some_not_reaches_self (cb : RegularChaseBranch obs kb) (fs :
 
     rcases this with ⟨l, l_le, hom_id⟩
 
-    have prop_node : ∃ t, t ∈ node.val.facts.terms ∧ ∃ k, ∀ j, k ≤ j -> ∀ s, s ∈ node.val.facts.terms -> (h.repeat_fun j) s ≠ t := by
+    have prop_node : ∃ t, t ∈ node.val.facts.terms ∧ ∃ k, ∀ j, k ≤ j -> ∀ s, s ∈ node.val.facts.terms -> (Function.repeat_fun h j) s ≠ t := by
       apply Classical.byContradiction
       intro contra
       simp at contra
       have node_finite := cb.facts_finite_of_mem node
       have l_terms_finite := node.val.facts.terms_finite_of_finite node_finite
       rcases l_terms_finite with ⟨l_terms, l_terms_nodup, l_terms_eq⟩
-      have reaches_self := h.repeat_each_reaches_self_of_each_reachable l_terms (by
+      have reaches_self := Function.repeat_each_reaches_self_of_each_reachable l_terms (by
         intro t t_mem
         rw [l_terms_eq] at t_mem
         specialize contra t _ t_mem 1
@@ -483,12 +485,12 @@ theorem altMatch_of_some_not_reaches_self (cb : RegularChaseBranch obs kb) (fs :
 
     rcases prop_node with ⟨t, t_mem, k, prop_node⟩
 
-    exists (h.repeat_fun ((k + 1) * l)) -- we just need a multiple of l >= k
-    have hom_res' : GroundTermMapping.isHomomorphism (h.repeat_fun ((k + 1) * l)) cb.result fs := by
+    exists (Function.repeat_fun h ((k + 1) * l)) -- we just need a multiple of l >= k
+    have hom_res' : GroundTermMapping.isHomomorphism (Function.repeat_fun h ((k + 1) * l)) cb.result fs := by
       have : (k + 1) * l = ((k + 1) * l - 1) + 1 := by grind
-      have : h.repeat_fun ((k + 1) * l) = h.repeat_fun (((k + 1) * l) - 1) ∘ h := by
+      have : Function.repeat_fun h ((k + 1) * l) = Function.repeat_fun h (((k + 1) * l) - 1) ∘ h := by
         conv => left; rw [this]
-        rw [h.repeat_add', h.repeat_once]
+        rw [Function.repeat_add', Function.repeat_once]
       rw [this]
       apply GroundTermMapping.isHomomorphism_compose h _ cb.result fs fs
       . exact hom_res
@@ -499,9 +501,9 @@ theorem altMatch_of_some_not_reaches_self (cb : RegularChaseBranch obs kb) (fs :
       . exact hom_res'.left
       . have eq_origin : node.val.origin = some (node.val.origin.get (cd2.isSome_origin_next next_eq)) := by simp
         have origin_res_in_facts := node.val.facts_contain_origin_result _ eq_origin
-        apply Set.subset_trans (b := GroundTermMapping.applyFactSet (h.repeat_fun ((k + 1) * l)) node.val.facts)
-        . exact (TermMapping.apply_generalized_atom_set_subset_of_subset (h.repeat_fun ((k + 1) * l)) _ _ origin_res_in_facts)
-        . apply Set.subset_trans (b := GroundTermMapping.applyFactSet (h.repeat_fun ((k + 1) * l)) cb.result)
+        apply Set.subset_trans (b := GroundTermMapping.applyFactSet (Function.repeat_fun h ((k + 1) * l)) node.val.facts)
+        . exact (TermMapping.apply_generalized_atom_set_subset_of_subset (Function.repeat_fun h ((k + 1) * l)) _ _ origin_res_in_facts)
+        . apply Set.subset_trans (b := GroundTermMapping.applyFactSet (Function.repeat_fun h ((k + 1) * l)) cb.result)
           . apply TermMapping.apply_generalized_atom_set_subset_of_subset
             apply RegularChaseDerivationSkeleton.facts_node_subset_result
             exact node.property
@@ -509,7 +511,7 @@ theorem altMatch_of_some_not_reaches_self (cb : RegularChaseBranch obs kb) (fs :
     constructor
     . intro t t_mem
       rw [Nat.mul_comm]
-      apply h.repeat_cycle_mul
+      apply Function.repeat_cycle_mul
       apply hom_id
       apply FactSet.terms_subset_of_subset (cd2.active_trigger_origin_next next_eq).left
       rw [FactSet.mem_terms_toSet]
@@ -523,7 +525,7 @@ theorem altMatch_of_some_not_reaches_self (cb : RegularChaseBranch obs kb) (fs :
           apply prop_node ((k + 1) * l) _ t
           rcases t_mem with ⟨f, f_mem, t_mem⟩
           . exact t_mem'
-          . rw [Nat.mul_comm]; apply h.repeat_cycle_mul; apply hom_id; exact t_mem
+          . rw [Nat.mul_comm]; apply Function.repeat_cycle_mul; apply hom_id; exact t_mem
           . apply Nat.le_trans; apply Nat.le_succ; apply Nat.le_mul_of_pos_right; apply Nat.lt_of_succ_le; exact l_le
         cases t_mem with
         | inl t_mem => apply False.elim; apply not_mem_head; exact t_mem
@@ -562,7 +564,7 @@ theorem altMatch_of_some_not_reaches_self (cb : RegularChaseBranch obs kb) (fs :
 
 /-- For a `ChaseBranch` without alternative match, every endomorphism on the result is surjective. This is shown by contradiction using `altMatch_of_some_not_reaches_self`. -/
 theorem every_endo_surjective_of_noAltMatch (cb : RegularChaseBranch obs kb) : ¬ cb.has_alt_match -> ∀ (h : GroundTermMapping sig),
-    h.isHomomorphism cb.result cb.result -> h.surjectiveSet cb.result.terms cb.result.terms := by
+    h.isHomomorphism cb.result cb.result -> Function.surjectiveSet h cb.result.terms cb.result.terms := by
   intro noAltMatch h endo
   apply Classical.byContradiction
   intro contra
@@ -574,17 +576,17 @@ theorem every_endo_surjective_of_noAltMatch (cb : RegularChaseBranch obs kb) : �
   apply cb.altMatch_of_some_not_reaches_self cb.result h endo endo ⟨t, t_arity_ok⟩ t_mem
 
   intro j j_le eq
-  apply contra ((h.repeat_fun (j-1)) ⟨t, t_arity_ok⟩)
+  apply contra ((Function.repeat_fun h (j-1)) ⟨t, t_arity_ok⟩)
   . have hom := h.repeat_isHomomorphism endo (j-1)
     rcases t_mem with ⟨f, f_mem, t_mem⟩
-    exists GroundTermMapping.applyFact (h.repeat_fun (j-1)) f
+    exists GroundTermMapping.applyFact (Function.repeat_fun h (j-1)) f
     constructor
     . apply hom.right
       apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set
       exact f_mem
     . simp only [GroundTermMapping.applyFact, TermMapping.apply_generalized_atom, List.mem_map]
       exists ⟨t, t_arity_ok⟩
-  . suffices h.repeat_fun (1 + (j - 1)) ⟨t, t_arity_ok⟩ = ⟨t, t_arity_ok⟩ by
+  . suffices Function.repeat_fun h (1 + (j - 1)) ⟨t, t_arity_ok⟩ = ⟨t, t_arity_ok⟩ by
       rw [Function.repeat_add, Function.repeat_once] at this; exact this
     grind
 
@@ -635,7 +637,7 @@ theorem core_superset_of_chase_result
     . apply Set.subset_trans _ hom.right
       apply TermMapping.apply_generalized_atom_set_subset_of_subset; exact sub_fs_sub
 
-  have : ∃ t, t ∈ cb.result.terms ∧ ∀ j, 1 ≤ j -> (h.repeat_fun j) t ≠ t := by
+  have : ∃ t, t ∈ cb.result.terms ∧ ∀ j, 1 ≤ j -> (Function.repeat_fun h j) t ≠ t := by
     suffices ∃ f ∈ cb.result, f ∉ sub_fs by
       rcases this with ⟨f, f_mem, f_nmem⟩
       rcases FactSet.homSubset_fact_missing_means_term_not_reaches_self sub_fs_sub hom (fs_super _ f_mem) f_nmem with ⟨t, t_mem, not_reaches⟩

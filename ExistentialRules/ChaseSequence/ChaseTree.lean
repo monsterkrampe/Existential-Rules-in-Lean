@@ -100,6 +100,8 @@ abbrev RegularChaseTree (obs : ObsolescenceCondition sig) (kb : KnowledgeBase si
 
 namespace RegularChaseTree
 
+open CustomBasicDatastructures
+
 variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
 
 /-- Opposed to a `TreeDerivation`, we know that each node in a `ChaseBranch` has a finite set of facts. This is because the database is finite and each trigger only adds finitely many new facts. -/

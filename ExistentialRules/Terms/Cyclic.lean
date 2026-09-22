@@ -8,6 +8,8 @@ module
 import BasicLeanDatastructures.List.Basic
 public import ExistentialRules.Terms.GroundTerm
 
+open CustomBasicDatastructures
+
 /-!
 # Cyclic Terms
 

@@ -10,6 +10,8 @@ public import ExistentialRules.Triggers.RTrigger
 public import PossiblyInfiniteTrees.PossiblyInfiniteList.InfiniteList
 import ExistentialRules.ChaseSequence.TreeDerivation
 
+open CustomBasicDatastructures
+
 /-!
 # Parallel Determinized Chase
 

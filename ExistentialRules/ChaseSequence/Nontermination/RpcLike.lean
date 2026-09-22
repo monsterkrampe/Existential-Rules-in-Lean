@@ -8,6 +8,8 @@ module
 public import ExistentialRules.ChaseSequence.Termination.Basic
 public import ExistentialRules.ChaseSequence.Nontermination.Unblockability
 
+open CustomBasicDatastructures
+
 /-!
 # RPC-like Non-Termination
 

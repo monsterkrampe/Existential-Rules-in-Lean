@@ -7,6 +7,8 @@ module
 
 public import ExistentialRules.Triggers.Basic
 
+open CustomBasicDatastructures
+
 /-!
 # Constant Mappings
 

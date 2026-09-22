@@ -7,6 +7,8 @@ module
 
 public import ExistentialRules.ChaseSequence.Termination.ConstantMappings.StrictConstantMapping
 
+open CustomBasicDatastructures
+
 /-!
 # Get StrictConstantMapping Arguments that produce a certain Image
 

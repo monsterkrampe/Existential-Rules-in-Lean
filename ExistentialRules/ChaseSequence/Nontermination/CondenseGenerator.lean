@@ -8,6 +8,8 @@ module
 public import BasicLeanDatastructures.Function.Repetition
 import BasicLeanDatastructures.WellFounded
 
+open CustomBasicDatastructures
+
 /-!
 
 # Condense a Generator Function
@@ -27,7 +29,7 @@ variable {α : Type u} {β : Type v} [DecidableEq α]
 /-- An auxiliary definition for condensing a generator function. It requires that for each generated element there is a smallest number n, such that the n times repetition yields a different value under the mapper function. It is not really necessary that this n is the smallest since, as long as we know that any such n exists, we know that there also exists a smallest one. Still, the termination proof of this function is much simpler with the stronger claim. -/
 def condense_generator_weak
     (generator : β -> β) (mapper : β -> α)
-    (different_value_exists : ∀ b, ∃ n, mapper (generator.repeat_fun n b) ≠ mapper b ∧ ∀ m : Fin n, mapper (generator.repeat_fun m b) = mapper b)
+    (different_value_exists : ∀ b, ∃ n, mapper (Function.repeat_fun generator n b) ≠ mapper b ∧ ∀ m : Fin n, mapper (Function.repeat_fun generator m b) = mapper b)
     (b : β) : β :=
   if eq : mapper (generator b) = mapper b
   then
@@ -37,7 +39,7 @@ def condense_generator_weak
       apply Decidable.byContradiction; intro contra
       apply spec.left
       rcases (Classical.choose (different_value_exists b)).exists_eq_succ_of_ne_zero (by intro contra; apply spec.left; rw [contra, Function.repeat_zero]) with ⟨prev, prev_eq⟩
-      rw [prev_eq, Function.repeat_succ, generator.repeat_swap_one]
+      rw [prev_eq, Function.repeat_succ, Function.repeat_swap_one (f := generator)]
       rw [← eq]
       exact spec_next.right ⟨prev, by apply Nat.lt_of_succ_le; apply Nat.le_of_not_lt; rw [← prev_eq]; exact contra⟩
     condense_generator_weak generator mapper different_value_exists (generator b)
@@ -47,12 +49,12 @@ termination_by Classical.choose (different_value_exists b)
 /-- We condense a generator function by skipping the values that yield the same value under a mapper function. To knwo that this terminates, we need a proof that eventually we will obtain a new value. Internally the recursion is implemented using an auxiliary function, which requires a slightly stronger proof but we can simply derive that one from the weaker claim given to this function. -/
 public def condense_generator
     (generator : β -> β) (mapper : β -> α)
-    (different_value_exists : ∀ b, ∃ n, mapper (generator.repeat_fun n b) ≠ mapper b)
+    (different_value_exists : ∀ b, ∃ n, mapper (Function.repeat_fun generator n b) ≠ mapper b)
     (b : β) : β :=
-  have stronger_claim : ∀ b, ∃ n, mapper (generator.repeat_fun n b) ≠ mapper b ∧ ∀ m : Fin n, mapper (generator.repeat_fun m b) = mapper b := by
+  have stronger_claim : ∀ b, ∃ n, mapper (Function.repeat_fun generator n b) ≠ mapper b ∧ ∀ m : Fin n, mapper (Function.repeat_fun generator m b) = mapper b := by
     intro b; specialize different_value_exists b
     rcases different_value_exists with ⟨n, h⟩
-    rcases minimal_element_for_property_and_relation (fun m => mapper (generator.repeat_fun m b) ≠ mapper b) n h with ⟨n', strong_h_l, strong_h_r⟩
+    rcases minimal_element_for_property_and_relation (fun m => mapper (Function.repeat_fun generator m b) ≠ mapper b) n h with ⟨n', strong_h_l, strong_h_r⟩
     exists n'; constructor; exact strong_h_l
     intro m
     specialize strong_h_r m.val m.isLt
@@ -62,7 +64,7 @@ public def condense_generator
 /-- This unfolds the branch of the recursive definition where the values of the current and the next value are the same. In this case the next value is skipped. -/
 public theorem condense_generator_of_next_eq
     {generator : β -> β} {mapper : β -> α}
-    {different_value_exists : ∀ b, ∃ n, mapper (generator.repeat_fun n b) ≠ mapper b} :
+    {different_value_exists : ∀ b, ∃ n, mapper (Function.repeat_fun generator n b) ≠ mapper b} :
     ∀ {b}, mapper (generator b) = mapper b ->
     condense_generator generator mapper different_value_exists b = condense_generator generator mapper different_value_exists (generator b) := by
   intro b eq
@@ -70,10 +72,10 @@ public theorem condense_generator_of_next_eq
   conv => left; unfold condense_generator_weak
   simp [eq]
 
-/-- This unfolds the branch of the recursive definition where the values of the current and the next value are not the same. In this case the condense_generator yields the same value as the original generator. -/
+/-- This unfolds the branch of the recursive definition where the values of the current and the next value are not the same. In this case the condense_generator yields the same value as the original Function. generator -/
 public theorem condense_generator_eq_generator_of_ne
     {generator : β -> β} {mapper : β -> α}
-    {different_value_exists : ∀ b, ∃ n, mapper (generator.repeat_fun n b) ≠ mapper b} :
+    {different_value_exists : ∀ b, ∃ n, mapper (Function.repeat_fun generator n b) ≠ mapper b} :
     ∀ b, mapper (generator b) ≠ mapper b -> condense_generator generator mapper different_value_exists b = generator b := by
   intro b eq
   unfold condense_generator
@@ -83,7 +85,7 @@ public theorem condense_generator_eq_generator_of_ne
 /-- The next value produced by `condense_generator` is guaranteed to be different from the current one under the mapper function. -/
 public theorem condense_generator_next_ne
     {generator : β -> β} {mapper : β -> α}
-    {different_value_exists : ∀ b, ∃ n, mapper (generator.repeat_fun n b) ≠ mapper b} :
+    {different_value_exists : ∀ b, ∃ n, mapper (Function.repeat_fun generator n b) ≠ mapper b} :
     ∀ b, mapper (condense_generator generator mapper different_value_exists b) ≠ mapper b := by
   intro b
   unfold condense_generator
@@ -91,11 +93,11 @@ public theorem condense_generator_next_ne
   | case2 b ne => exact ne
   | case1 b eq _ ih => rw [← eq]; exact ih
 
-/-- Each value produced by `condense_generator` can be obtain from a suitable number of repetitions of the original generator. Note that this is true for the produced "carrier" value of the generator and not just for the value under the mapper function. The result simply holds since `condense_generator` is only skipping value from the generator but it cannot produce anything which would not eventually be produced by the generator as well. -/
+/-- Each value produced by `condense_generator` can be obtain from a suitable number of repetitions of the original Function. generator Note that this is true for the produced "carrier" value of the generator and not just for the value under the mapper function. The result simply holds since `condense_generator` is only skipping value from the generator but it cannot produce anything which would not eventually be produced by the generator as well. -/
 public theorem condense_generator_eq_repeat_generator
     (generator : β -> β) (mapper : β -> α)
-    (different_value_exists : ∀ b, ∃ n, mapper (generator.repeat_fun n b) ≠ mapper b) :
-    ∀ b, ∃ n, condense_generator generator mapper different_value_exists b = generator.repeat_fun n b := by
+    (different_value_exists : ∀ b, ∃ n, mapper (Function.repeat_fun generator n b) ≠ mapper b) :
+    ∀ b, ∃ n, condense_generator generator mapper different_value_exists b = Function.repeat_fun generator n b := by
   intro b
   unfold condense_generator
   fun_induction condense_generator_weak generator mapper _ b with
@@ -103,7 +105,7 @@ public theorem condense_generator_eq_repeat_generator
   | case1 b eq _ ih =>
     rcases ih with ⟨n, ih⟩
     exists n.succ
-    rw [Function.repeat_succ, generator.repeat_swap_one]
+    rw [Function.repeat_succ, Function.repeat_swap_one (f := generator)]
     exact ih
 
 end Function

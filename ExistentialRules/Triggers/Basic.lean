@@ -7,6 +7,8 @@ module
 
 public import ExistentialRules.SubstitutionsAndHomomorphisms
 
+open CustomBasicDatastructures
+
 /-!
 # PreTriggers
 

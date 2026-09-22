@@ -7,6 +7,8 @@ module
 
 public import ExistentialRules.ChaseSequence.Termination.ConstantMappings.Basic
 
+open CustomBasicDatastructures
+
 /-!
 # Strict Constant Mappings
 

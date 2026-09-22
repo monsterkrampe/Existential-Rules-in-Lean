@@ -11,6 +11,8 @@ public import BasicLeanDatastructures.Set.Finite
 
 public import ExistentialRules.AtomsAndRules.Fact
 
+open CustomBasicDatastructures
+
 /-!
 # FactSet
 

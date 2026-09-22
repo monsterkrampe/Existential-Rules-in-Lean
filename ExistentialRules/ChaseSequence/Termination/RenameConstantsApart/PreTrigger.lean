@@ -9,6 +9,8 @@ public import BasicLeanDatastructures.List.EraseDupsKeepRight
 public import ExistentialRules.ChaseSequence.Termination.RenameConstantsApart.GroundTerm
 public import ExistentialRules.Triggers.Basic
 
+open CustomBasicDatastructures
+
 /-!
 # Renaming Constants apart in a GroundSubstitution and PreTrigger
 

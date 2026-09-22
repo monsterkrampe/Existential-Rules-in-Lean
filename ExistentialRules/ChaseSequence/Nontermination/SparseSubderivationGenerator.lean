@@ -7,6 +7,8 @@ module
 
 public import ExistentialRules.ChaseSequence.TreeDerivation
 
+open CustomBasicDatastructures
+
 /-!
 
 # Generate Branch in Tree Derivation from Sparse Sequence
@@ -259,7 +261,7 @@ theorem densify_generator.childTrees_empty_of_next_none {β : Type u}
 /-- Given any `DensifiedResult`, if we iterate the `densify_generator` n times, where n is the length of the list in the second component, then we obtain a densified result where the first component is unchanged but the second component is the empty list. Intuitively, we have then iterated over exactly the list elements in the second component. -/
 theorem densify_generator.original_generator_value_after_exhausting_list {β : Type u}
     {td : TreeDerivation N obs rules} {generator : β -> Option β} {mapper : β -> NodeWithAddress td} :
-    ∀ dr : DensifiedResult β td, (·.bind (td.densify_generator generator mapper)).repeat_fun dr.snd.length (some dr) = some ⟨dr.fst, []⟩ := by
+    ∀ dr : DensifiedResult β td, Function.repeat_fun (·.bind (td.densify_generator generator mapper)) dr.snd.length (some dr) = some ⟨dr.fst, []⟩ := by
   intro dr
   induction eq : dr.snd generalizing dr with
   | nil => rw [List.length_nil, Function.repeat_zero]; grind
@@ -274,12 +276,12 @@ theorem densify_generator.original_generator_value_after_exhausting_list {β : T
 /-- Every value that can be reached by iterating the original generator can also be reached by iterating the densified version (but the number of iterations can and will most of the time be different). -/
 theorem mem_densify_generator_of_mem_generator {β : Type u}
     (td : TreeDerivation N obs rules) (generator : β -> Option β) (mapper : β -> NodeWithAddress td)
-    (start : β) : ∀ n, ∃ m, (·.bind (td.densify_generator generator mapper)).repeat_fun m (some ⟨start, []⟩) = ((·.bind generator).repeat_fun n (some start)).map (fun b' => ⟨b', []⟩) := by
+    (start : β) : ∀ n, ∃ m, Function.repeat_fun (·.bind (td.densify_generator generator mapper)) m (some ⟨start, []⟩) = (Function.repeat_fun (·.bind generator) n (some start)).map (fun b' => ⟨b', []⟩) := by
   intro n; induction n with
   | zero => exists 0
   | succ n ih =>
     rcases ih with ⟨m, ih⟩
-    cases eq_next : (·.bind generator).repeat_fun n.succ (some start) with
+    cases eq_next : Function.repeat_fun (·.bind generator) n.succ (some start) with
     | none =>
       exists m + 1; rw [Option.map_none]
       rw [Function.repeat_add, Function.repeat_once, ← Function.repeat_swap_one, ih]
@@ -290,12 +292,12 @@ theorem mem_densify_generator_of_mem_generator {β : Type u}
       rw [eq_next]
       simp
     | some next =>
-      cases eq_current : (·.bind generator).repeat_fun n (some start) with
+      cases eq_current : Function.repeat_fun (·.bind generator) n (some start) with
       | none => rw [Function.repeat_succ, eq_current] at eq_next; simp at eq_next
       | some current =>
         exists m + ((mapper current).nodes_to (mapper next)).length.succ
         rw [Option.map_some]
-        rw [Function.repeat_add, Function.repeat_swap, Function.repeat_succ, (Option.bind · (td.densify_generator generator mapper)).repeat_swap_one]
+        rw [Function.repeat_add, Function.repeat_swap, Function.repeat_succ, Function.repeat_swap_one (f := (Option.bind · (td.densify_generator generator mapper)))]
         rw [ih, eq_current]
         simp only [Option.map_some, Option.bind_some, densify_generator]
         suffices generator current = next by
@@ -320,26 +322,26 @@ theorem densify_generator'_eq_densify_generator {β : Type u}
     {td : TreeDerivation N obs rules} {generator : β -> Option β} {mapper : β -> NodeWithAddress td}
     {next_is_succ : ∀ b, ∀ b' ∈ generator b, mapper b ≺ mapper b'}
     {dr : {dr : DensifiedResult β td // dr.wellFormed mapper}} :
-    ∀ n, ((·.bind (td.densify_generator' generator mapper next_is_succ)).repeat_fun n (some dr)).map Subtype.val =
-      ((·.bind (td.densify_generator generator mapper)).repeat_fun n (some dr.val)) := by
+    ∀ n, (Function.repeat_fun (·.bind (td.densify_generator' generator mapper next_is_succ)) n (some dr)).map Subtype.val =
+      (Function.repeat_fun (·.bind (td.densify_generator generator mapper)) n (some dr.val)) := by
   intro n; induction n with
   | zero => simp [Function.repeat_zero]
   | succ n ih =>
     rw [Function.repeat_succ]
     conv => right; rw [Function.repeat_succ]
     rw [← ih]
-    cases (·.bind (td.densify_generator' generator mapper next_is_succ)).repeat_fun n (some dr) <;> simp [densify_generator']
+    cases Function.repeat_fun (·.bind (td.densify_generator' generator mapper next_is_succ)) n (some dr) <;> simp [densify_generator']
 
 /-- Applying `densify_mapper'` after any number of repetitions of `densify_generator'` is the same as applyign `densify_mapper` after repeating `densify_generator` for the same number of iterations. -/
 theorem densify'_eq_densify {β : Type u}
     {td : TreeDerivation N obs rules} {generator : β -> Option β} {mapper : β -> NodeWithAddress td}
     {next_is_succ : ∀ b, ∀ b' ∈ generator b, mapper b ≺ mapper b'}
     {dr : {dr : DensifiedResult β td // dr.wellFormed mapper}} :
-    ∀ n, ((·.bind (td.densify_generator' generator mapper next_is_succ)).repeat_fun n (some dr)).map (td.densify_mapper' mapper) =
-      ((·.bind (td.densify_generator generator mapper)).repeat_fun n (some dr.val)).map (td.densify_mapper mapper) := by
+    ∀ n, (Function.repeat_fun (·.bind (td.densify_generator' generator mapper next_is_succ)) n (some dr)).map (td.densify_mapper' mapper) =
+      (Function.repeat_fun (·.bind (td.densify_generator generator mapper)) n (some dr.val)).map (td.densify_mapper mapper) := by
   intro n
   rw [← densify_generator'_eq_densify_generator (next_is_succ := next_is_succ)]
-  cases (·.bind (td.densify_generator' generator mapper next_is_succ)).repeat_fun n (some dr) <;> simp [densify_mapper']
+  cases Function.repeat_fun (·.bind (td.densify_generator' generator mapper next_is_succ)) n (some dr) <;> simp [densify_mapper']
 
 /-- Given a sparse generator function, uses the original `TreeDerivation.generate_subderivation` function together with `densify_generator` and `densify_mapper` to generate a `ChaseDerivation` that corresponds to a branch in the tree. -/
 def generate_subderivation_from_sparse {β : Type u} (td : TreeDerivation N obs rules)
@@ -400,8 +402,8 @@ public theorem mem_generate_subderivation_from_sparse_of_total_generator_of_mem_
   rcases mem_densify_generator_of_mem_generator td (Option.some ∘ generator) mapper start n with ⟨m, b_mem'⟩
   exists m
   rw [densify'_eq_densify, b_mem']
-  suffices (·.bind (Option.some ∘ generator)).repeat_fun n (some start) = some b by rw [this]; simp [densify_mapper]
-  suffices ∀ n, (·.bind (Option.some ∘ generator)).repeat_fun n (some start) = some (generator.repeat_fun n start) by rw [this, b_mem]
+  suffices Function.repeat_fun (·.bind (Option.some ∘ generator)) n (some start) = some b by rw [this]; simp [densify_mapper]
+  suffices ∀ n, Function.repeat_fun (·.bind (Option.some ∘ generator)) n (some start) = some (Function.repeat_fun generator n start) by rw [this, b_mem]
   intro n
   induction n with
   | zero => simp [Function.repeat_zero]

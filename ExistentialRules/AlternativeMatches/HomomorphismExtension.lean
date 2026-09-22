@@ -8,6 +8,8 @@ module
 public import ExistentialRules.ChaseSequence.ChaseBranch
 import ExistentialRules.ChaseSequence.TreeDerivation
 
+open CustomBasicDatastructures
+
 /-!
 # Extending arbitrary Homomorphisms along a Chase Branch
 

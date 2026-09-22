@@ -9,6 +9,8 @@ import PossiblyInfiniteTrees.PossiblyInfiniteTree.FiniteDegreeTree.KoenigsLemma
 
 public import ExistentialRules.ChaseSequence.ChaseTree
 
+open CustomBasicDatastructures
+
 /-!
 # Chase Termination
 

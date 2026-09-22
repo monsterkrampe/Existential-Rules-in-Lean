@@ -12,6 +12,8 @@ public import ExistentialRules.ChaseSequence.Termination.Basic
 import ExistentialRules.ChaseSequence.CoreChase.Basic
 public import ExistentialRules.ChaseSequence.CoreChase.CoreChaseNode
 
+open CustomBasicDatastructures
+
 /-!
 # Core Chase Derivations and Branches
 

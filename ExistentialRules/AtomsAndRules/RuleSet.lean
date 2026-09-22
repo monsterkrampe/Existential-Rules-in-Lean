@@ -10,6 +10,7 @@ public import BasicLeanDatastructures.Set.Finite
 
 public import ExistentialRules.Terms.SkolemTerm
 
+open CustomBasicDatastructures
 
 /-!
 # RuleSet

@@ -81,6 +81,8 @@ theorem head_mem {cd : ChaseDerivationSkeleton N obs rules} : cd.head ∈ cd := 
 
 section Next
 
+open CustomBasicDatastructures
+
 /-!
 ### The "next" ChaseNode
 
@@ -305,6 +307,8 @@ end Basics
 
 section GeneratedFacts
 
+open CustomBasicDatastructures
+
 /-!
 ## Only Finitely many Generated Facts
 
@@ -472,6 +476,8 @@ variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 
 section FactMonotonicity
 
+open CustomBasicDatastructures
+
 /-!
 ## Subset Monotonicity of Facts in ChaseNodes
 
@@ -504,6 +510,8 @@ theorem mem_suffix_of_mem {cd1 cd2 : RegularChaseDerivationSkeleton obs rules} (
 end FactMonotonicity
 
 section GeneratedFacts
+
+open CustomBasicDatastructures
 
 /-!
 ## Only Finitely many Generated Facts
@@ -555,6 +563,8 @@ theorem facts_node_subset_of_prec {cd : RegularChaseDerivationSkeleton obs rules
 end Predecessors
 
 section ChaseResult
+
+open CustomBasicDatastructures
 
 /-!
 ## Chase Result

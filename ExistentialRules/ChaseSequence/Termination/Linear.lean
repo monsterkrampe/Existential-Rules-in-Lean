@@ -8,6 +8,8 @@ module
 public import ExistentialRules.Triggers.Basic
 public import PossiblyInfiniteTrees.PossiblyInfiniteList.PossiblyInfiniteList
 
+open CustomBasicDatastructures
+
 /-!
 
 # Chase Termination for Linear (Multi-Head) Rules

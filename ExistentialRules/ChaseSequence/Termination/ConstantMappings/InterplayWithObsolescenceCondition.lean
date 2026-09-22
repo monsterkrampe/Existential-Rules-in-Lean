@@ -8,6 +8,8 @@ module
 public import ExistentialRules.ChaseSequence.Termination.ConstantMappings.Basic
 public import ExistentialRules.Triggers.Obsolescence
 
+open CustomBasicDatastructures
+
 /-!
 # Interactions of ConstantMappings with Obsolescence
 

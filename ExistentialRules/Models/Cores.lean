@@ -8,6 +8,8 @@ module
 public import BasicLeanDatastructures.Function.Repetition
 public import ExistentialRules.Models.Basic
 
+open CustomBasicDatastructures
+
 /-!
 # Cores
 
@@ -67,19 +69,19 @@ For example, we prove that a repeated endomorphisms is again an endomorphisms.
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 /-- Repeating a mapping retains the `GroundTermMapping.isIdOnConstants` property. -/
-theorem repeat_id_on_const {h : GroundTermMapping sig} (idOnConst : h.isIdOnConstants) : ∀ i, GroundTermMapping.isIdOnConstants (h.repeat_fun i) := by
+theorem repeat_id_on_const {h : GroundTermMapping sig} (idOnConst : h.isIdOnConstants) : ∀ i, GroundTermMapping.isIdOnConstants (Function.repeat_fun h i) := by
   intro i
-  fun_induction h.repeat_fun i with
+  fun_induction Function.repeat_fun h i with
   | case1 => intro c; simp
   | case2 i ih => intro c; rw [Function.comp_apply, ih, idOnConst]
 
 /-- Repeating a mapping retains the `GroundTermMapping.isHomomorphism` property at least for endomorphisms. -/
 theorem repeat_isHomomorphism {h : GroundTermMapping sig} {fs : FactSet sig} (hom : h.isHomomorphism fs fs) :
-    ∀ i, GroundTermMapping.isHomomorphism (h.repeat_fun i) fs fs := by
+    ∀ i, GroundTermMapping.isHomomorphism (Function.repeat_fun h i) fs fs := by
   intro i
   constructor
   . exact repeat_id_on_const hom.left i
-  . fun_induction h.repeat_fun i with
+  . fun_induction Function.repeat_fun h i with
     | case1 =>
       intro f f_mem
       rw [GroundTermMapping.mem_applyFactSet] at f_mem
@@ -113,12 +115,12 @@ variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq 
 /-- A `FactSet` is a weak core if every endomorphisms on the fact set is strong and injective. -/
 @[expose]
 def isWeakCore (fs : FactSet sig) : Prop :=
-  ∀ (h : GroundTermMapping sig), h.isHomomorphism fs fs -> h.strong fs.terms fs fs ∧ h.injectiveSet fs.terms
+  ∀ (h : GroundTermMapping sig), h.isHomomorphism fs fs -> h.strong fs.terms fs fs ∧ Function.injectiveSet h fs.terms
 
 /-- A `FactSet` is a strong core if every endomorphisms on the fact set is strong, injective, and surjective. (By definition, every strong core is a weak core.) -/
 @[expose]
 def isStrongCore (fs : FactSet sig) : Prop :=
-  ∀ (h : GroundTermMapping sig), h.isHomomorphism fs fs -> h.strong fs.terms fs fs ∧ h.injectiveSet fs.terms ∧ h.surjectiveSet fs.terms fs.terms
+  ∀ (h : GroundTermMapping sig), h.isHomomorphism fs fs -> h.strong fs.terms fs fs ∧ Function.injectiveSet h fs.terms ∧ Function.surjectiveSet h fs.terms fs.terms
 
 /-- We say that a fact set $C$ is a homomorphic subset of another fact set $F$ if $C$ is a subset of $F$ and there is a homomorphism from $F$ to $C$. -/
 @[expose]
@@ -127,8 +129,8 @@ def homSubset (c fs : FactSet sig) : Prop := c ⊆ fs ∧ (∃ (h : GroundTermMa
 /-- For a homomorphism on a finite fact set, injectivity implies surjectivity. -/
 @[grind ->]
 theorem hom_surjective_of_finite_of_injective (fs : FactSet sig) (finite : fs.finite) :
-    ∀ (h : GroundTermMapping sig), h.isHomomorphism fs fs -> h.injectiveSet fs.terms ->
-    h.surjectiveSet fs.terms fs.terms := by
+    ∀ (h : GroundTermMapping sig), h.isHomomorphism fs fs -> Function.injectiveSet h fs.terms ->
+    Function.surjectiveSet h fs.terms fs.terms := by
   rcases finite with ⟨l, finite⟩
   intro h isHom inj
 
@@ -154,7 +156,7 @@ theorem hom_surjective_of_finite_of_injective (fs : FactSet sig) (finite : fs.fi
       rw [eq]
       rw [← finite.right f]
       constructor <;> assumption
-  have closed : h.closedList terms_list := by
+  have closed : Function.closedList h terms_list := by
     simp only [terms_list]
     intro e
     rw [List.mem_eraseDupsKeepRight]
@@ -188,7 +190,7 @@ theorem hom_surjective_of_finite_of_injective (fs : FactSet sig) (finite : fs.fi
 /-- For a homomorphism on a finite fact set, injectivity implies that the homomorphisms is also strong. -/
 @[grind ->]
 theorem hom_strong_of_finite_of_injective (fs : FactSet sig) (finite : fs.finite) :
-    ∀ (h : GroundTermMapping sig), h.isHomomorphism fs fs -> h.injectiveSet fs.terms -> h.strong fs.terms fs fs := by
+    ∀ (h : GroundTermMapping sig), h.isHomomorphism fs fs -> Function.injectiveSet h fs.terms -> h.strong fs.terms fs fs := by
   intro h isHom inj
 
   intro f ts_mem f_not_mem apply_mem
@@ -200,12 +202,12 @@ theorem hom_strong_of_finite_of_injective (fs : FactSet sig) (finite : fs.finite
   rcases terms_finite with ⟨terms, nodup, equiv⟩
   have equiv' : ∀ e, e ∈ fs.terms ↔ e ∈ terms := by intro _; rw [equiv]
 
-  rw [h.surjective_set_list_equiv equiv' equiv'] at surj
-  have ex_inv := h.exists_repetition_that_is_inverse_of_surj terms surj
+  rw [Function.surjective_set_list_equiv equiv' equiv'] at surj
+  have ex_inv := Function.exists_repetition_that_is_inverse_of_surj terms surj
   rcases ex_inv with ⟨k, inv⟩
-  have inv_hom : GroundTermMapping.isHomomorphism (h.repeat_fun k) fs fs := h.repeat_isHomomorphism isHom k
+  have inv_hom : GroundTermMapping.isHomomorphism (Function.repeat_fun h k) fs fs := h.repeat_isHomomorphism isHom k
 
-  suffices GroundTermMapping.applyFact (h.repeat_fun k) (h.applyFact f) = f by
+  suffices GroundTermMapping.applyFact (Function.repeat_fun h k) (h.applyFact f) = f by
     rw [← this]; apply inv_hom.right; apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set; exact apply_mem
   unfold GroundTermMapping.applyFact
   rw [← TermMapping.apply_generalized_atom_compose']
@@ -247,9 +249,9 @@ theorem homSubset_eq_self_of_isWeakCore_of_finite {fs1 fs2 : FactSet sig} (homSu
   rcases fs2.terms_finite_of_finite fin with ⟨terms, _, terms_eq⟩
   have terms_eq : ∀ t, t ∈ fs2.terms ↔ t ∈ terms := by intro _; rw [terms_eq]
   rw [Function.surjective_set_list_equiv terms_eq terms_eq] at h_surj
-  rcases h.exists_repetition_that_is_inverse_of_surj terms h_surj with ⟨k, inv⟩
-  suffices GroundTermMapping.applyFact (h.repeat_fun k ∘ h) f = f by
-    have compose_hom : GroundTermMapping.isHomomorphism (h.repeat_fun k ∘ h) fs2 fs1 := by
+  rcases Function.exists_repetition_that_is_inverse_of_surj terms h_surj with ⟨k, inv⟩
+  suffices GroundTermMapping.applyFact (Function.repeat_fun h k ∘ h) f = f by
+    have compose_hom : GroundTermMapping.isHomomorphism (Function.repeat_fun h k ∘ h) fs2 fs1 := by
       apply GroundTermMapping.isHomomorphism_compose; exact hom; apply GroundTermMapping.repeat_isHomomorphism; exact h_endo'
     apply compose_hom.right; rw [← this]; apply TermMapping.apply_generalized_atom_mem_apply_generalized_atom_set; exact f_mem
   apply TermMapping.apply_generalized_atom_eq_self_of_id_on_terms
@@ -261,14 +263,14 @@ theorem homSubset_eq_self_of_isWeakCore_of_finite {fs1 fs2 : FactSet sig} (homSu
 /-- If in a `homSubset` relation a fact from the superset does not appear in the subset, then this fact features a term that is not mapped to itself by any non-zero repetition of the homomorphism. -/
 theorem homSubset_fact_missing_means_term_not_reaches_self {fs1 fs2 : FactSet sig} (sub : fs1 ⊆ fs2)
     {h : GroundTermMapping sig} (hom : h.isHomomorphism fs2 fs1)
-    {f : Fact sig} (f_mem : f ∈ fs2) (f_nmem : f ∉ fs1) : ∃ t ∈ f.terms, ∀ j ≥ 1, h.repeat_fun j t ≠ t := by
+    {f : Fact sig} (f_mem : f ∈ fs2) (f_nmem : f ∉ fs1) : ∃ t ∈ f.terms, ∀ j ≥ 1, Function.repeat_fun h j t ≠ t := by
   apply Classical.byContradiction
   intro contra
   simp only [not_exists, not_and] at contra
   apply f_nmem
 
-  have : ∃ j, 1 ≤ j ∧ ∀ t, t ∈ f.terms -> (h.repeat_fun j) t = t := by
-    have repeats_globally := h.repeat_globally_cyclic_of_each_cyclic f.terms (by
+  have : ∃ j, 1 ≤ j ∧ ∀ t, t ∈ f.terms -> (Function.repeat_fun h j) t = t := by
+    have repeats_globally := Function.repeat_globally_cyclic_of_each_cyclic f.terms (by
       intro s s_mem
       specialize contra s s_mem
       rw [Classical.not_forall] at contra; rcases contra with ⟨l, contra⟩
@@ -279,19 +281,19 @@ theorem homSubset_fact_missing_means_term_not_reaches_self {fs1 fs2 : FactSet si
     exists j
   rcases this with ⟨j, j_le, each_repeats⟩
 
-  have : GroundTermMapping.applyFact (h.repeat_fun j) f = f := by
+  have : GroundTermMapping.applyFact (Function.repeat_fun h j) f = f := by
     simp [GroundTermMapping.applyFact]
-    have : f.terms.map (h.repeat_fun j) = f.terms := by
+    have : f.terms.map (Function.repeat_fun h j) = f.terms := by
       apply List.map_id_of_id_on_all_mem
       intro t t_mem
       apply each_repeats
       exact t_mem
     simp only [TermMapping.apply_generalized_atom, this]
   rw [← this]
-  have : GroundTermMapping.isHomomorphism (h.repeat_fun j) fs2 fs1 := by
-    suffices h.repeat_fun j = h.repeat_fun (j-1+1) by
-      rw [this, h.repeat_add', h.repeat_once]
-      apply GroundTermMapping.isHomomorphism_compose h (h.repeat_fun (j-1)) fs2 fs1 fs1
+  have : GroundTermMapping.isHomomorphism (Function.repeat_fun h j) fs2 fs1 := by
+    suffices Function.repeat_fun h j = Function.repeat_fun h (j-1+1) by
+      rw [this, Function.repeat_add', Function.repeat_once]
+      apply GroundTermMapping.isHomomorphism_compose h (Function.repeat_fun h (j-1)) fs2 fs1 fs1
       . exact hom
       . apply h.repeat_isHomomorphism
         constructor; exact hom.left
@@ -311,7 +313,7 @@ theorem homSubset_fact_missing_means_term_missing_of_isWeakCore_of_finite
     with ⟨t, t_mem, not_reaches⟩
   exists t; constructor; exact t_mem
   intro t_mem_fs1
-  suffices ¬ h.surjectiveSet fs1.terms fs1.terms by
+  suffices ¬ Function.surjectiveSet h fs1.terms fs1.terms by
     have strong := fs1.isStrongCore_of_isWeakCore_of_finite wc fin
     apply this
     apply (strong h _).right.right
@@ -322,9 +324,9 @@ theorem homSubset_fact_missing_means_term_missing_of_isWeakCore_of_finite
   rcases FactSet.terms_finite_of_finite _ fin with ⟨terms, _, terms_eq⟩
   have terms_eq : ∀ t, t ∈ fs1.terms ↔ t ∈ terms := by intro _; rw [terms_eq]
   rw [Function.surjective_set_list_equiv terms_eq terms_eq] at contra
-  rcases h.exists_repetition_that_is_inverse_of_surj terms contra with ⟨k, inv⟩
+  rcases Function.exists_repetition_that_is_inverse_of_surj terms contra with ⟨k, inv⟩
   apply not_reaches k.succ (by simp)
-  rw [Function.repeat_succ, h.repeat_swap_one]
+  rw [Function.repeat_succ, Function.repeat_swap_one (f := h)]
   apply inv
   rw [← terms_eq]
   exact t_mem_fs1
@@ -334,7 +336,7 @@ theorem every_weakCore_isomorphic_to_strongCore_of_hom_both_ways
     (sc : FactSet sig) (sc_strong : sc.isStrongCore)
     (wc : FactSet sig) (wc_weak : wc.isWeakCore)
     (h_sc_wc h_wc_sc : GroundTermMapping sig) (h_sc_wc_hom : h_sc_wc.isHomomorphism sc wc) (h_wc_sc_hom : h_wc_sc.isHomomorphism wc sc) :
-    ∃ (iso : GroundTermMapping sig), iso.isHomomorphism wc sc ∧ iso.strong wc.terms wc sc ∧ iso.injectiveSet wc.terms ∧ iso.surjectiveSet wc.terms sc.terms := by
+    ∃ (iso : GroundTermMapping sig), iso.isHomomorphism wc sc ∧ iso.strong wc.terms wc sc ∧ Function.injectiveSet iso wc.terms ∧ Function.surjectiveSet iso wc.terms sc.terms := by
 
   specialize wc_weak (h_sc_wc ∘ h_wc_sc) (by
     apply GroundTermMapping.isHomomorphism_compose
@@ -380,7 +382,7 @@ theorem strongCore_unique_up_to_isomorphism_with_respect_to_weak_cores
     (fs : FactSet sig)
     (sc : FactSet sig) (sub_sc : sc.homSubset fs) (sc_strong : sc.isStrongCore)
     (wc : FactSet sig) (sub_wc : wc.homSubset fs) (wc_weak : wc.isWeakCore) :
-    ∃ (iso : GroundTermMapping sig), iso.isHomomorphism wc sc ∧ iso.strong wc.terms wc sc ∧ iso.injectiveSet wc.terms ∧ iso.surjectiveSet wc.terms sc.terms := by
+    ∃ (iso : GroundTermMapping sig), iso.isHomomorphism wc sc ∧ iso.strong wc.terms wc sc ∧ Function.injectiveSet iso wc.terms ∧ Function.surjectiveSet iso wc.terms sc.terms := by
 
   rcases sub_sc with ⟨sub_sc, h_fs_sc, h_fs_sc_hom⟩
   rcases sub_wc with ⟨sub_wc, h_fs_wc, h_fs_wc_hom⟩
@@ -408,7 +410,7 @@ theorem every_universal_weakCore_isomorphic_to_universal_strongCore
     {kb : KnowledgeBase sig}
     (sc : FactSet sig) (sc_universal : sc.universallyModelsKb kb) (sc_strong : sc.isStrongCore)
     (wc : FactSet sig) (wc_universal : wc.universallyModelsKb kb) (wc_weak : wc.isWeakCore) :
-    ∃ (iso : GroundTermMapping sig), iso.isHomomorphism wc sc ∧ iso.strong wc.terms wc sc ∧ iso.injectiveSet wc.terms ∧ iso.surjectiveSet wc.terms sc.terms := by
+    ∃ (iso : GroundTermMapping sig), iso.isHomomorphism wc sc ∧ iso.strong wc.terms wc sc ∧ Function.injectiveSet iso wc.terms ∧ Function.surjectiveSet iso wc.terms sc.terms := by
 
   rcases sc_universal.right wc wc_universal.left with ⟨h_sc_wc, h_sc_wc_hom⟩
   rcases wc_universal.right sc sc_universal.left with ⟨h_wc_sc, h_wc_sc_hom⟩

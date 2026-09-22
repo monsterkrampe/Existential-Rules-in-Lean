@@ -8,6 +8,8 @@ module
 public import ExistentialRules.ChaseSequence.Termination.ConstantMappings.StrictConstantMapping
 public import ExistentialRules.ChaseSequence.Termination.RenameConstantsApart.PreTrigger
 
+open CustomBasicDatastructures
+
 /-!
 # Interaction of Strict Constant Mappings and Renaming Constant Apart
 

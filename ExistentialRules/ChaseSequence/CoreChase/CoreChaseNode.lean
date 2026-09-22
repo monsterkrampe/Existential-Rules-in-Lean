@@ -8,6 +8,8 @@ module
 public import ExistentialRules.Models.Cores
 public import ExistentialRules.ChaseSequence.ChaseNode
 
+open CustomBasicDatastructures
+
 /-!
 # Core Chase Node
 
@@ -45,13 +47,13 @@ theorem ex_hom_that_is_id_on_terms_of_isWeakCore_of_homSubset_of_finite
   -- we can repeat the homomorphism often enough such that it is the id on all terms in core;
   -- this works since core is finite and a core
   have node_strong_core : core.isStrongCore := core.isStrongCore_of_isWeakCore_of_finite wc fin
-  have endo_surj : h.surjectiveSet core.terms core.terms := (node_strong_core h h_endo).right.right
+  have endo_surj : Function.surjectiveSet h core.terms core.terms := (node_strong_core h h_endo).right.right
   rcases core.terms_finite_of_finite fin with ⟨terms, _, terms_eq⟩
   have terms_eq : ∀ t, t ∈ core.terms ↔ t ∈ terms := by intro _; rw [terms_eq]
   rw [Function.surjective_set_list_equiv terms_eq terms_eq] at endo_surj
-  rcases h.exists_repetition_that_is_inverse_of_surj terms endo_surj with ⟨k, inv⟩
+  rcases Function.exists_repetition_that_is_inverse_of_surj terms endo_surj with ⟨k, inv⟩
 
-  let target_h : GroundTermMapping sig := (h.repeat_fun k) ∘ h
+  let target_h : GroundTermMapping sig := (Function.repeat_fun h k) ∘ h
   have target_h_hom : target_h.isHomomorphism fs core := by
     apply GroundTermMapping.isHomomorphism_compose; exact hom; exact GroundTermMapping.repeat_isHomomorphism h_endo k
   have target_h_id_terms : ∀ t ∈ terms, target_h t = t := inv

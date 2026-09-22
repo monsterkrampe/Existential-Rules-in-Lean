@@ -68,6 +68,8 @@ abbrev RegularChaseBranch (obs : ObsolescenceCondition sig) (kb : KnowledgeBase 
 
 namespace RegularChaseBranch
 
+open CustomBasicDatastructures
+
 variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
 
 /-- Opposed to a `ChaseDerivation`, we know that each node in a `ChaseBranch` has a finite set of facts. This is because the database is finite and each trigger only adds finitely many new facts. -/

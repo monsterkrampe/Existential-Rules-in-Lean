@@ -271,6 +271,8 @@ end Predecessors
 
 section TermsInChase
 
+open CustomBasicDatastructures
+
 /-!
 ## Terms in the Chase
 
@@ -440,6 +442,8 @@ variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 
 section FactMonotonicity
 
+open CustomBasicDatastructures
+
 /-!
 ## Subset Monotonicity of Facts in ChaseNodes
 
@@ -527,6 +531,8 @@ theorem fairness_prec {cd : RegularChaseDerivation obs rules} :
   exact node2_mem_cd3
 
 section StrictPredecessor
+
+open CustomBasicDatastructures
 
 /-!
 The strict version of the predecessor is a strict total order on `ChaseDerivation.Node` for the `ChaseDerivation`.
@@ -661,6 +667,8 @@ end Predecessors
 
 section ChaseResult
 
+open CustomBasicDatastructures
+
 /-!
 ## Chase Result
 
@@ -701,6 +709,8 @@ theorem result_models_rules {cd : RegularChaseDerivation obs rules} : cd.result.
 end ChaseResult
 
 section TermsInChase
+
+open CustomBasicDatastructures
 
 /-!
 ## Terms in the Chase
@@ -792,6 +802,8 @@ theorem result_of_trigger_introducing_functional_term_occurs_in_chase
 end TermsInChase
 
 section MinimalNodeWithProp
+
+open CustomBasicDatastructures
 
 /-!
 ## Minimal Nodes with given Properties

@@ -8,6 +8,8 @@ module
 public import BasicLeanDatastructures.List.AllListsOfLength
 public import ExistentialRules.Terms.GroundTerm
 
+open CustomBasicDatastructures
+
 /-!
 # Computing all GroundTerms of a given depth
 

@@ -8,6 +8,8 @@ module
 import ExistentialRules.ChaseSequence.CoreChase.Basic
 public import ExistentialRules.ChaseSequence.CoreChase.CoreChaseBranch
 
+open CustomBasicDatastructures
+
 /-!
 # Core Chase Trees
 

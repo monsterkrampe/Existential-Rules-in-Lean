@@ -8,6 +8,8 @@ module
 public import BasicLeanDatastructures.GetFreshInhabitant
 public import ExistentialRules.Terms.GroundTerm
 
+open CustomBasicDatastructures
+
 /-!
 # Renaming Constants apart in a PreGroundTerm
 

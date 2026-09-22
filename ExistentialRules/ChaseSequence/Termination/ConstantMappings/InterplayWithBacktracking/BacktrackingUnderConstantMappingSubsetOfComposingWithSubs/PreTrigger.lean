@@ -9,6 +9,8 @@ public import ExistentialRules.ChaseSequence.Termination.BacktrackingOfFacts.Pre
 public import ExistentialRules.ChaseSequence.Termination.ConstantMappings.InterplayWithRenamingConstantsApart
 import ExistentialRules.ChaseSequence.Termination.ConstantMappings.InterplayWithBacktracking.BacktrackingUnderConstantMappingSubsetOfComposingWithSubs.GroundTerm
 
+open CustomBasicDatastructures
+
 /-!
 # Interaction of Backtrackings and Strict Constant Mappings on PreTrigger
 
