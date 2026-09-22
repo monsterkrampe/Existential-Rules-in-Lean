@@ -827,7 +827,7 @@ theorem origin_trg_remains_inactive {cb : CoreChaseBranch kb} {n1 n2 : cb.Node} 
         . rw [equiv'.left]; simp
         . intro v v_mem
           rw [equiv'.right _ v_mem]
-          simp only [PreTrigger.extend_with_groundTermMapping, Function.comp_apply]
+          simp only [Trigger.subs_fromPreTrigger, PreTrigger.extend_with_groundTermMapping, Function.comp_apply]
           rw [id_on_terms]
           suffices trg'.val.subs v = trg.val.subs v by
             rw [this]; apply frontier_still_occurs; rw [← equiv.left]; exact v_mem

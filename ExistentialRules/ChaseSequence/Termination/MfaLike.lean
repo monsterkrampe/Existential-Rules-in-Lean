@@ -224,10 +224,7 @@ def Trigger.blocked_for_backtracking
 
 /-- A trigger fulfills `BlockingObsolescence` if the trigger with renamed-apart constants is blocked for its own backtracking. Note that `BlockingObsolescence` only depends on the trigger. The passed fact set is ignored. -/
 def BlockingObsolescence [GetFreshInhabitant sig.C] [Inhabited sig.C] (obs : ObsolescenceCondition sig) : MfaObsolescenceCondition sig := {
-  cond := fun (trg : PreTrigger sig) _ =>
-    let trg' := trg.rename_constants_apart (trg.affected_rules_for_backtracking.flatMap Rule.constants)
-    let trg'' : Trigger obs := { rule := trg'.rule, subs := trg'.subs }
-    trg''.blocked_for_backtracking
+  cond := fun (trg : PreTrigger sig) _ => (Trigger.fromPreTrigger (trg.rename_constants_apart (trg.affected_rules_for_backtracking.flatMap Rule.constants)) obs).blocked_for_backtracking
   monotone := by intro _ _ _ _ h; exact h -- trivial since the condition does not depend on the passed fact set
 }
 
@@ -456,7 +453,7 @@ theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
         | inr not_mem =>
           apply Or.inr
           let origin := next.origin.get (cd.isSome_origin_next next_mem)
-          exists ⟨{ rule := origin.fst.val.rule, subs := origin.fst.val.subs }, origin.fst.property⟩
+          exists ⟨Trigger.fromPreTrigger origin.fst.val _, by exact origin.fst.property⟩
           constructor
           . unfold Trigger.active
             constructor
