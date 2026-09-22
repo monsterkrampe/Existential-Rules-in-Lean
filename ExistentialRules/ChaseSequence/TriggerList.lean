@@ -88,13 +88,13 @@ theorem each_trg_result_sub_result {start : FactSet sig} {l : FiniteTriggerList 
       rw [orig_mem]; apply Set.subset_union_of_subset_right; exact Set.subset_refl
 
 /-- A trigger property holds for the list if it holds for each trigger with respect to the previous trigger result. (With property we mean things like loaded, active, and obsolete.) -/
-def trigger_property_holds (property : RTrigger obs rules -> FactSet sig -> Prop) (start : FactSet sig) : FiniteTriggerList obs rules -> Prop
+def trigger_property_holds (property : ChaseNodeOrigin obs rules -> FactSet sig -> Prop) (start : FactSet sig) : FiniteTriggerList obs rules -> Prop
 | .nil => True
-| .cons hd tl => property hd.fst start ∧ trigger_property_holds property (start ∪ hd.result.toSet) tl
+| .cons hd tl => property hd start ∧ trigger_property_holds property (start ∪ hd.result.toSet) tl
 
 /-- We can express `trigger_property_holds` in terms of list indices. -/
-theorem trigger_property_holds_iff {property : RTrigger obs rules -> FactSet sig -> Prop} {start : FactSet sig} {l : FiniteTriggerList obs rules} :
-    trigger_property_holds property start l ↔ ∀ {i : Nat} (lt : i < l.length), property l[i].fst (result start (l.take i)) := by
+theorem trigger_property_holds_iff {property : ChaseNodeOrigin obs rules -> FactSet sig -> Prop} {start : FactSet sig} {l : FiniteTriggerList obs rules} :
+    trigger_property_holds property start l ↔ ∀ {i : Nat} (lt : i < l.length), property l[i] (result start (l.take i)) := by
   induction l generalizing start with
   | nil => simp [trigger_property_holds]
   | cons hd tl ih =>
@@ -112,9 +112,9 @@ theorem trigger_property_holds_iff {property : RTrigger obs rules -> FactSet sig
         apply h this
 
 /-- A trigger list is called loaded if each trigger is loaded with respect to the result of the previous one. -/
-def loaded (start : FactSet sig) (l : FiniteTriggerList obs rules) : Prop := trigger_property_holds (fun trg => trg.val.loaded) start l
+def loaded (start : FactSet sig) (l : FiniteTriggerList obs rules) : Prop := trigger_property_holds (fun orig => orig.fst.val.loaded) start l
 /-- A trigger list is called active if each trigger is active with respect to the result of the previous one. -/
-def active (start : FactSet sig) (l : FiniteTriggerList obs rules) : Prop := trigger_property_holds (fun trg => trg.val.active) start l
+def active (start : FactSet sig) (l : FiniteTriggerList obs rules) : Prop := trigger_property_holds (fun orig => orig.fst.val.active) start l
 
 end FiniteTriggerList
 
@@ -180,13 +180,14 @@ def to_regularChaseDerivationSkeleton (l : InfiniteTriggerList obs rules) (start
     simp [ChaseNode.origin_result]
 
 /-- A trigger property holds for the list if it holds for each trigger with respect to the previous trigger result. (With property we mean things like loaded, active, and obsolete.) -/
-def trigger_property_holds (property : RTrigger obs rules -> FactSet sig -> Prop) (start : FactSet sig) (l : InfiniteTriggerList obs rules) : Prop :=
-  ∀ i, property (l.get i).fst (l.factSet_at start i)
+@[expose]
+def trigger_property_holds (property : ChaseNodeOrigin obs rules -> FactSet sig -> Prop) (start : FactSet sig) (l : InfiniteTriggerList obs rules) : Prop :=
+  ∀ i, property (l.get i) (l.factSet_at start i)
 
 /-- A trigger list is called loaded if each trigger is loaded with respect to the result of the previous one. -/
-def loaded (start : FactSet sig) (l : InfiniteTriggerList obs rules) : Prop := trigger_property_holds (fun trg => trg.val.loaded) start l
+def loaded (start : FactSet sig) (l : InfiniteTriggerList obs rules) : Prop := trigger_property_holds (fun orig => orig.fst.val.loaded) start l
 /-- A trigger list is called active if each trigger is active with respect to the result of the previous one. -/
-def active (start : FactSet sig) (l : InfiniteTriggerList obs rules) : Prop := trigger_property_holds (fun trg => trg.val.active) start l
+def active (start : FactSet sig) (l : InfiniteTriggerList obs rules) : Prop := trigger_property_holds (fun orig => orig.fst.val.active) start l
 
 end InfiniteTriggerList
 
@@ -224,7 +225,7 @@ then the same property holds for the infinite list that we obtain through `fromF
 -/
 theorem fromFiniteLists_trigger_property_preserved
     {ls : InfiniteList (FiniteNonEmptyTriggerList obs rules)}
-    {property : RTrigger obs rules -> FactSet sig -> Prop}
+    {property : ChaseNodeOrigin obs rules -> FactSet sig -> Prop}
     {start : FactSet sig} :
     (∀ n, FiniteTriggerList.trigger_property_holds property (startForFiniteList ls start n) (ls.get n).toList) ->
     trigger_property_holds property start (fromFiniteLists ls) := by

@@ -7,6 +7,7 @@ module
 
 public import ExistentialRules.AtomsAndRules.Atom
 public import ExistentialRules.AtomsAndRules.FactSet
+public import ExistentialRules.AtomsAndRules.FunctionFreeFact
 
 open CustomBasicDatastructures
 
@@ -160,6 +161,15 @@ theorem apply_generalized_atom_set_toSet {g : TermMapping S T} :
   intro l; exact List.map_toSet_eq_toSet_map
 
 end TermMapping
+
+namespace FunctionFreeFact
+
+variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
+
+/-- The internal definition of `FunctionFreeFact.toFact` is the same as `TermMapping.apply_generalized_atom` using `GroundTerm.const` as the mapping. -/
+theorem toFact_eq {f : FunctionFreeFact sig} : f.toFact = TermMapping.apply_generalized_atom GroundTerm.const f := rfl
+
+end FunctionFreeFact
 
 end TermMapping
 
