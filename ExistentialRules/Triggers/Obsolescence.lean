@@ -154,7 +154,22 @@ def RestrictedTrigger := Trigger (RestrictedObsolescence sig : LaxObsolescenceCo
 variable {obs : LaxObsolescenceCondition sig}
 
 instance : CoeOut (Trigger obs) (PreTrigger sig) where
-  coe trigger := { rule := trigger.rule, subs := trigger.subs }
+  coe trigger := trigger.toPreTrigger
+
+@[expose]
+def Trigger.fromPreTrigger (trg : PreTrigger sig) (obs : LaxObsolescenceCondition sig) : Trigger obs where
+  rule := trg.rule
+  subs := trg.subs
+
+@[simp, grind =]
+theorem Trigger.rule_fromPreTrigger {trg : PreTrigger sig} {obs : LaxObsolescenceCondition sig} : (Trigger.fromPreTrigger trg obs).rule = trg.rule := rfl
+@[simp, grind =]
+theorem Trigger.subs_fromPreTrigger {trg : PreTrigger sig} {obs : LaxObsolescenceCondition sig} : (Trigger.fromPreTrigger trg obs).subs = trg.subs := rfl
+
+@[simp, grind =]
+theorem Trigger.toPreTrigger_after_fromPreTrigger {trg : PreTrigger sig} :
+    ∀ {obs : LaxObsolescenceCondition sig}, (Trigger.fromPreTrigger trg obs).toPreTrigger = trg := by
+  intros; rfl
 
 @[expose]
 def Trigger.active (trg : Trigger obs) (F : FactSet sig) : Prop :=
@@ -162,8 +177,7 @@ def Trigger.active (trg : Trigger obs) (F : FactSet sig) : Prop :=
 
 /-- Lifting the definition from `PreTrigger`. -/
 abbrev Trigger.extend_with_groundTermMapping (trg : Trigger obs) (h : GroundTermMapping sig) : Trigger obs :=
-  let trg' := PreTrigger.extend_with_groundTermMapping trg h
-  { rule := trg'.rule, subs := trg'.subs }
+  fromPreTrigger (PreTrigger.extend_with_groundTermMapping trg h) obs
 
 end Trigger
 
