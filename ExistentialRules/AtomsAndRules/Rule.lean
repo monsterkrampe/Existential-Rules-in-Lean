@@ -103,6 +103,10 @@ theorem frontier_for_head_subset_vars_head {r : Rule sig} {i : Nat} (lt : i < r.
   unfold Rule.frontier_for_head
   grind
 
+/-- The body constants of the rule are also constants of the whole rule. -/
+@[grind <-]
+theorem body_constants_subset_constants (r : Rule sig) : r.body.consts ⊆ r.constants := by apply List.subset_append_left
+
 /-- The head constants of the rule are also constants of the whole rule. -/
 @[grind <-]
 theorem head_constants_subset_constants (r : Rule sig) : r.head_constants ⊆ r.constants := by apply List.subset_append_right
