@@ -112,8 +112,10 @@ theorem trigger_property_holds_iff {property : ChaseNodeOrigin obs rules -> Fact
         apply h this
 
 /-- A trigger list is called loaded if each trigger is loaded with respect to the result of the previous one. -/
+@[expose]
 def loaded (start : FactSet sig) (l : FiniteTriggerList obs rules) : Prop := trigger_property_holds (fun orig => orig.fst.val.loaded) start l
 /-- A trigger list is called active if each trigger is active with respect to the result of the previous one. -/
+@[expose]
 def active (start : FactSet sig) (l : FiniteTriggerList obs rules) : Prop := trigger_property_holds (fun orig => orig.fst.val.active) start l
 
 end FiniteTriggerList
@@ -143,10 +145,14 @@ def factSet_at (l : InfiniteTriggerList obs rules) (start : FactSet sig) (i : Na
 theorem factSet_at_zero {l : InfiniteTriggerList obs rules} {start : FactSet sig} : l.factSet_at start 0 = start := by simp [factSet_at]
 
 /-- The fact set at index i.succ results from taking the one at index i and addint the result of the trigger at index i. -/
-@[simp, grind =]
 theorem factSet_at_succ {l : InfiniteTriggerList obs rules} {start : FactSet sig} :
     ∀ {i : Nat}, l.factSet_at start i.succ = l.factSet_at start i ∪ (l.get i).result.toSet := by
   intro i; simp only [factSet_at]; rw [InfiniteList.take_succ']; simp
+
+/-- The fact set at index i.succ results from computing the factSet_at i for the tail when taking the first result as the start. -/
+theorem factSet_at_succ' {l : InfiniteTriggerList obs rules} {start : FactSet sig} :
+    ∀ {i : Nat}, l.factSet_at start i.succ = factSet_at l.tail (start ∪ l.head.result.toSet) i := by
+  intro i; simp only [factSet_at]; rw [InfiniteList.take_succ]; simp
 
 /-- We can turn the list of triggers into a list of `ChaseNode`s. -/
 def to_chaseNode_list (l : InfiniteTriggerList obs rules) (start : FactSet sig) : InfiniteList (RegularChaseNode obs rules)
@@ -159,6 +165,12 @@ theorem facts_get_to_ChaseNode_list {l : InfiniteTriggerList obs rules} {start :
     ∀ {i : Nat}, ((l.to_chaseNode_list start).get i).facts = l.factSet_at start i := by
   intro i; cases i <;> simp [InfiniteList.compute_get, to_chaseNode_list]
 
+/-- For `to_chaseNode_list`, the origin at index zero is always none. -/
+@[simp, grind =]
+theorem origin_get_zero_to_ChaseNode_list {l : InfiniteTriggerList obs rules} {start : FactSet sig} :
+    ChaseNode.origin (obs := obs) (rules := rules) ((l.to_chaseNode_list start).get 0) = none := by
+  simp [ChaseNode.origin, InfiniteList.compute_get, to_chaseNode_list]
+
 /-- For `to_chaseNode_list`, the origin at index i.succ is exactly the list element at index i. -/
 @[simp, grind =]
 theorem origin_get_succ_to_ChaseNode_list {l : InfiniteTriggerList obs rules} {start : FactSet sig} :
@@ -166,6 +178,7 @@ theorem origin_get_succ_to_ChaseNode_list {l : InfiniteTriggerList obs rules} {s
   intro _; simp [ChaseNode.origin, InfiniteList.compute_get, to_chaseNode_list]
 
 /-- Each `InfiniteTriggerList` can be turned into a `RegularChaseDerivationSkeleton` via `to_chaseNode_list`. -/
+@[expose]
 def to_regularChaseDerivationSkeleton (l : InfiniteTriggerList obs rules) (start : FactSet sig) : RegularChaseDerivationSkeleton obs rules where
   branch := PossiblyInfiniteList.from_infiniteList (l.to_chaseNode_list start)
   isSome_head := by rw [PossiblyInfiniteList.head_eq, PossiblyInfiniteList.get?_from_infiniteList]; simp
@@ -177,16 +190,30 @@ def to_regularChaseDerivationSkeleton (l : InfiniteTriggerList obs rules) (start
     rw [← before_mem, ← after_mem]
     exists (by simp [InfiniteList.compute_get, to_chaseNode_list, ChaseNode.origin])
     simp only [RegularChaseNode.ingoingFacts_eq, RegularChaseNode.outgoingFacts_eq]
-    simp [ChaseNode.origin_result]
+    simp [ChaseNode.origin_result, factSet_at_succ]
 
 /-- A trigger property holds for the list if it holds for each trigger with respect to the previous trigger result. (With property we mean things like loaded, active, and obsolete.) -/
 @[expose]
 def trigger_property_holds (property : ChaseNodeOrigin obs rules -> FactSet sig -> Prop) (start : FactSet sig) (l : InfiniteTriggerList obs rules) : Prop :=
   ∀ i, property (l.get i) (l.factSet_at start i)
 
+/-- Checking a trigger property can be done by splitting off the head, checking the property on it and then checking the property for the tail of the list. -/
+theorem trigger_property_holds_iff_holds_for_head_and_tail
+    {property : ChaseNodeOrigin obs rules -> FactSet sig -> Prop} {start : FactSet sig} {l : InfiniteTriggerList obs rules} :
+    trigger_property_holds property start l ↔ ((property l.head start) ∧ trigger_property_holds property (start ∪ l.head.result.toSet) l.tail) := by
+  constructor
+  . intro h; constructor
+    . specialize h 0; rw [InfiniteList.head_eq]; rw [factSet_at_zero] at h; exact h
+    . intro i; specialize h i.succ; rw [InfiniteList.get_tail]; rw [factSet_at_succ'] at h; exact h
+  . intro ⟨hd, tl⟩ i; cases i with
+    | zero => rw [InfiniteList.head_eq] at hd; rw [factSet_at_zero]; exact hd
+    | succ i => specialize tl i; rw [InfiniteList.get_tail] at tl; rw [factSet_at_succ']; exact tl
+
 /-- A trigger list is called loaded if each trigger is loaded with respect to the result of the previous one. -/
+@[expose]
 def loaded (start : FactSet sig) (l : InfiniteTriggerList obs rules) : Prop := trigger_property_holds (fun orig => orig.fst.val.loaded) start l
 /-- A trigger list is called active if each trigger is active with respect to the result of the previous one. -/
+@[expose]
 def active (start : FactSet sig) (l : InfiniteTriggerList obs rules) : Prop := trigger_property_holds (fun orig => orig.fst.val.active) start l
 
 end InfiniteTriggerList
@@ -207,6 +234,7 @@ variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 def fromFiniteLists (ls : InfiniteList (FiniteNonEmptyTriggerList obs rules)) : InfiniteTriggerList obs rules := InfiniteList.fromNonEmptyLists ls
 
 /-- For a infinite list of `FiniteNonEmptyTriggerList`, we can compute the starting fact set for each of the finite lists inductively. -/
+@[expose]
 def startForFiniteList (ls : InfiniteList (FiniteNonEmptyTriggerList obs rules)) (start : FactSet sig) : Nat -> FactSet sig
 | .zero => start
 | .succ n => FiniteTriggerList.result (startForFiniteList ls start n) (ls.get n).toList

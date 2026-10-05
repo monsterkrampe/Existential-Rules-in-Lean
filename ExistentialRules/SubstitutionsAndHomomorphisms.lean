@@ -160,6 +160,15 @@ theorem apply_generalized_atom_set_toSet {g : TermMapping S T} :
     ∀ l : List (GeneralizedAtom P S), g.apply_generalized_atom_set l.toSet = (g.apply_generalized_atom_list l).toSet := by
   intro l; exact List.map_toSet_eq_toSet_map
 
+/-- When mapping a set of atoms formed by a union, we can map on the individual sets and then form the union. -/
+theorem apply_generalized_atom_set_union {g : TermMapping S T} :
+    ∀ {as bs : Set (GeneralizedAtom P S)}, g.apply_generalized_atom_set (as ∪ bs) = (g.apply_generalized_atom_set as) ∪ (g.apply_generalized_atom_set bs) := by
+  intro as bs
+  apply Set.ext
+  intro e;
+  simp only [apply_generalized_atom_set, Set.mem_union_iff, Set.mem_map]
+  grind
+
 end TermMapping
 
 namespace FunctionFreeFact
