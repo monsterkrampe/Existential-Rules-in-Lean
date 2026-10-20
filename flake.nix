@@ -12,6 +12,7 @@
         default = pkgs.mkShell {
           packages = [
             pkgs.elan
+            pkgs.bubblewrap # required for lake check
           ];
         };
       });

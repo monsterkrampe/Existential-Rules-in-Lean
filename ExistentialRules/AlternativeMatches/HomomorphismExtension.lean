@@ -157,8 +157,6 @@ theorem node_is_next_in_extend_hom_to_next_step_next_eq_some
     {next : RegularChaseNode obs kb.rules} {next_eq : cd.next = some next} :
     (extend_hom_to_next_step_of_next_eq_some cb det cd suffix h hom next next_eq).val.fst = cd.tail (by simp [next_eq]) := by
   simp only [extend_hom_to_next_step_of_next_eq_some]
-  split
-  rfl
 
 /-- The homomorphism returned by `extend_hom_to_next_step_of_next_eq_some` agrees with the previous one on all terms in the previous derivation head. -/
 theorem hom_extends_prev_in_extend_hom_to_next_step_of_next_eq_some
