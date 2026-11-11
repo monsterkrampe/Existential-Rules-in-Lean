@@ -772,6 +772,10 @@ def extend_with_groundTermMapping (trg : PreTrigger sig) (h : GroundTermMapping 
   rule := trg.rule
   subs := h ∘ trg.subs
 
+/-- When `extend_with_groundTermMapping` is used with the id function, the trigger is not altered. -/
+@[simp, grind =]
+theorem extend_with_groundTermMapping_id {trg : PreTrigger sig} : trg.extend_with_groundTermMapping id = trg := by simp [extend_with_groundTermMapping]
+
 /-- Using `extend_with_groundTermMapping` does not change the rule. -/
 @[simp, grind =]
 theorem rule_extend_with_groundTermMapping {trg : PreTrigger sig} {h : GroundTermMapping sig} :
@@ -807,26 +811,46 @@ theorem apply_to_var_or_const_extend_with_groundTermMapping_of_mem_existential_v
     (trg.extend_with_groundTermMapping h).apply_to_var_or_const i lt (.var v) = (trg.extend_with_groundTermMapping h).functional_term_for_var i lt v mem := by
   intro v v_mem; apply apply_to_var_or_const_of_mem_existential_vars
 
-/-- When extending a trigger with a mapping that is the indentity on all constants, then the mapping can simply be applied after the original mapped_body instead. -/
-theorem mapped_body_extend_with_groundTermMapping_eq_of_isIdOnConstants {trg : PreTrigger sig} {h : GroundTermMapping sig} (h_id : h.isIdOnConstants) :
-    (trg.extend_with_groundTermMapping h).mapped_body = trg.mapped_body.map h.applyFact := by
+/--
+When extending a trigger with a mapping that is the indentity on the constants in the rules body,
+then the mapping can simply be applied after the original mapped_body instead.
+-/
+theorem mapped_body_extend_with_groundTermMapping_eq {trg : PreTrigger sig} {h : GroundTermMapping sig} :
+    (∀ d ∈ trg.rule.body.consts, h (.const d) = .const d) -> (trg.extend_with_groundTermMapping h).mapped_body = trg.mapped_body.map h.applyFact := by
+  intro h_id
   simp only [mapped_body, extend_with_groundTermMapping]
-  rw [GroundSubstitution.apply_function_free_conj_compose_of_isIdOnConstants _ _ h_id]
+  rw [GroundSubstitution.apply_function_free_conj_compose _ _ _ h_id]
   rfl
 
-/-- Applying a `GroundTermMapping` that is the id on constants after the trigger substitution and on the fact set preserves loadedness. -/
-theorem extend_with_groundTermMapping_loaded_of_loaded_of_isIdOnConstants
-    {trg : PreTrigger sig} {fs : FactSet sig} {h : GroundTermMapping sig} (h_id : h.isIdOnConstants) :
-    trg.loaded fs -> (trg.extend_with_groundTermMapping h).loaded (h.applyFactSet fs) := by
+/--
+When extending a trigger with a mapping that is the indentity on all constants, then the mapping can simply be applied after the original mapped_body instead.
+-/
+theorem mapped_body_extend_with_groundTermMapping_eq_of_isIdOnConstants {trg : PreTrigger sig} {h : GroundTermMapping sig} (h_id : h.isIdOnConstants) :
+    (trg.extend_with_groundTermMapping h).mapped_body = trg.mapped_body.map h.applyFact := by
+  apply mapped_body_extend_with_groundTermMapping_eq
+  intros; exact h_id
+
+/-- Applying a `GroundTermMapping` that is the id on all body constants after the trigger substitution and on the fact set preserves loadedness. -/
+theorem extend_with_groundTermMapping_loaded_of_loaded
+    {trg : PreTrigger sig} {fs : FactSet sig} {h : GroundTermMapping sig} :
+    (∀ d ∈ trg.rule.body.consts, h (.const d) = .const d) -> trg.loaded fs -> (trg.extend_with_groundTermMapping h).loaded (h.applyFactSet fs) := by
+  intro h_id
   unfold loaded
   intro loaded
-  rw [mapped_body_extend_with_groundTermMapping_eq_of_isIdOnConstants h_id]
+  rw [mapped_body_extend_with_groundTermMapping_eq h_id]
   suffices h.applyFactSet trg.mapped_body.toSet ⊆ h.applyFactSet fs by
     unfold GroundTermMapping.applyFactSet at this
     rw [TermMapping.apply_generalized_atom_set_toSet] at this
     exact this
   apply TermMapping.apply_generalized_atom_set_subset_of_subset
   exact loaded
+
+/-- Applying a `GroundTermMapping` that is the id on constants after the trigger substitution and on the fact set preserves loadedness. -/
+theorem extend_with_groundTermMapping_loaded_of_loaded_of_isIdOnConstants
+    {trg : PreTrigger sig} {fs : FactSet sig} {h : GroundTermMapping sig} (h_id : h.isIdOnConstants) :
+    trg.loaded fs -> (trg.extend_with_groundTermMapping h).loaded (h.applyFactSet fs) := by
+  apply extend_with_groundTermMapping_loaded_of_loaded
+  intros; exact h_id
 
 end PreTrigger
 
