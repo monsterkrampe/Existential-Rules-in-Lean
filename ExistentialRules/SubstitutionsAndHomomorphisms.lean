@@ -88,6 +88,10 @@ theorem apply_generalized_atom_eq_self_of_id_on_terms (h : TermMapping T T) (a :
   . rfl
   . apply List.map_id_of_id_on_all_mem; exact id_on_terms
 
+/-- Applying the identity on a `GeneralizedAtom` yields the original atom. -/
+theorem apply_generalized_atom_id (a : GeneralizedAtom P T) : apply_generalized_atom id a = a := by
+  apply apply_generalized_atom_eq_self_of_id_on_terms; simp
+
 /-- Unfold the defintiion of apply_generalized_atom_list for membership. -/
 @[simp, grind =]
 theorem mem_apply_generalized_atom_list {h : TermMapping S T} {l : List (GeneralizedAtom P S)} {a : GeneralizedAtom P T} :
@@ -119,6 +123,10 @@ theorem apply_generalized_atom_mem_apply_generalized_atom_list
   intro a_mem
   simp only [apply_generalized_atom_list, List.mem_map]
   exists a
+
+/-- Applying the identity on a list of atoms yields the original list. -/
+theorem apply_generalized_atom_list_id (l : List (GeneralizedAtom P T)) : apply_generalized_atom_list id l = l := by
+  apply List.map_id''; exact apply_generalized_atom_id
 
 /-- Unfold the defintiion of apply_generalized_atom_set for membership. -/
 @[simp, grind =]
@@ -159,6 +167,20 @@ theorem apply_generalized_atom_set_subset_of_subset (h : TermMapping S T) (as bs
 theorem apply_generalized_atom_set_toSet {g : TermMapping S T} :
     ∀ l : List (GeneralizedAtom P S), g.apply_generalized_atom_set l.toSet = (g.apply_generalized_atom_list l).toSet := by
   intro l; exact List.map_toSet_eq_toSet_map
+
+/-- When mapping a set of atoms formed by a union, we can map on the individual sets and then form the union. -/
+theorem apply_generalized_atom_set_union {g : TermMapping S T} :
+    ∀ {as bs : Set (GeneralizedAtom P S)}, g.apply_generalized_atom_set (as ∪ bs) = (g.apply_generalized_atom_set as) ∪ (g.apply_generalized_atom_set bs) := by
+  intro as bs
+  apply Set.ext
+  intro e;
+  simp only [apply_generalized_atom_set, Set.mem_union_iff, Set.mem_map]
+  grind
+
+/-- Applying the identity on a set of atoms yields the original set. -/
+@[simp, grind =]
+theorem apply_generalized_atom_set_id (s : Set (GeneralizedAtom P T)) : apply_generalized_atom_set id s = s := by
+  apply Set.map_id_of_id_on_all_mem; intros; apply apply_generalized_atom_id
 
 end TermMapping
 
@@ -259,6 +281,14 @@ abbrev applyFactSet (h : GroundTermMapping sig) : FactSet sig -> FactSet sig := 
 @[expose]
 def isHomomorphism (h : GroundTermMapping sig) (A B : FactSet sig) : Prop :=
   isIdOnConstants h ∧ (h.applyFactSet A ⊆ B)
+
+/-- Mapping a fact with the id term mapping yields the original fact. -/
+@[simp, grind = ]
+theorem applyFact_id {f : Fact sig} : applyFact id f = f := TermMapping.apply_generalized_atom_id f
+
+/-- Mapping a fact set with the id term mapping yields the original fact set. -/
+@[simp, grind = ]
+theorem applyFactSet_id {fs : FactSet sig} : applyFactSet id fs = fs := TermMapping.apply_generalized_atom_set_id fs
 
 /-- Unfold the `applyFactSet` definition for membership. -/
 @[simp, grind =]

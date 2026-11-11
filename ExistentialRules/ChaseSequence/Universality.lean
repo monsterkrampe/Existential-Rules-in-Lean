@@ -292,7 +292,7 @@ noncomputable def start_for_infinite_list_of_derivations_and_homomorphisms
       rw [GroundTermMapping.mem_applyFactSet]
       intro ⟨f, hf⟩
       apply m_is_model.left
-      have : f = e := by have hfr := hf.right; rw [hfr]; simp [TermMapping.apply_generalized_atom]
+      have : f = e := by grind
       rw [this] at hf
       exact hf.left⟩
   start
