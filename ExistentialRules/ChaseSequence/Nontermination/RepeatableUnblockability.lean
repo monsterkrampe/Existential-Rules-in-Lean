@@ -6,8 +6,8 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import ExistentialRules.ChaseSequence.Nontermination.Unblockability
-import ExistentialRules.ChaseSequence.Nontermination.ReversibleConstantMappings
-import ExistentialRules.ChaseSequence.Nontermination.TermSkeleton
+public import ExistentialRules.ChaseSequence.Nontermination.ReversibleConstantMappings
+public import ExistentialRules.ChaseSequence.Nontermination.TermSkeleton
 
 open CustomBasicDatastructures
 
@@ -40,6 +40,7 @@ def trigger_unblockable (overapprox : OverapproximationFunction sig)
 /-- This rather involved condition makes sure that a trigger can be repeated in the sense that applying a reversible constant mapping after
 the substitution yields a trigger that is unblockable, given that the original trigger was also unblockable.
 This is the condition proven in Lemma 4 in the [RPC] paper. -/
+@[expose]
 def trigger_repeatable [Inhabited sig.C] (overapprox : OverapproximationFunction sig)
     (rs : RuleSet sig) (hc : HeadChoice sig) (trg : Trigger obs.toLaxObsolescenceCondition) : Prop :=
   ∀ (g : ConstantMapping sig), g.isReversible trg.termSkeleton.toSet ->
@@ -59,23 +60,24 @@ namespace RepeatableUnblockability
 variable [Inhabited sig.C] {obs : ObsolescenceCondition sig}
 
 /-- We lift the `OverapproximationFunction.trigger_unblockable` property to `RepeatableUnblockability` in the obvious way. -/
+@[expose]
 def trigger_unblockable (unblk : RepeatableUnblockability obs) (rs : RuleSet sig) (hc : HeadChoice sig) (trg : Trigger obs.toLaxObsolescenceCondition) : Prop :=
   unblk.overapprox.trigger_unblockable rs hc trg
 
-/-- If `RepeatableUnblockability.trigger_unblockable` holds for a trigger, then `Trigger.unblockable` follows.
+/-- If `RepeatableUnblockability.trigger_unblockable` holds for a trigger, then `Trigger.rsUnblockable` follows.
 This is due to the `RepeatableUnblockability.rpc_overapprox` condition and follows mainly from `RTrigger.unblockable_of_not_obsolete_for_overapproximation`. -/
-theorem unblockable_of_trigger_unblockable
+theorem rsUnblockable_of_trigger_unblockable
     (obs_propagates : obs.propagates_under_term_mapping_of_no_fresh_term_occurs)
     {unblk : RepeatableUnblockability obs}
     {rs : RuleSet sig} {hc : HeadChoice sig}
     (hc_consistent : hc.consistent_for_equivalent_triggers)
     (trg : RTrigger obs rs) :
-    unblk.trigger_unblockable rs hc trg.val -> trg.val.unblockable rs hc := by
+    unblk.trigger_unblockable rs hc trg.val -> trg.val.rsUnblockable rs hc := by
   intro unblockable_for_condition
   cases unblockable_for_condition with
-  | inl isDetDatalog => exact Trigger.unblockable_of_isDatalog_of_isDeterministic isDetDatalog.left isDetDatalog.right
+  | inl isDetDatalog => exact Trigger.rsUnblockable_of_isDatalog_of_isDeterministic isDetDatalog.left isDetDatalog.right
   | inr not_obs =>
-    apply trg.unblockable_of_not_obsolete_for_overapproximation obs_propagates hc_consistent (unblk.rpc_overapprox rs hc trg.val)
+    apply trg.rsUnblockable_of_not_obsolete_for_overapproximation obs_propagates hc_consistent (unblk.rpc_overapprox rs hc trg.val)
     exact not_obs
 
 end RepeatableUnblockability

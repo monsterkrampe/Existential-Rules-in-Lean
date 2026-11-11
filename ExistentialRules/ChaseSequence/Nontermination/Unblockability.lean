@@ -108,22 +108,29 @@ of detecting unblockability. Specific such overapproximations will follow later.
 
 variable {obs : ObsolescenceCondition sig}
 
-/-- A trigger is unblockable for a given `HeadChoice` if, for every derivation, when the trigger is loaded in a node of the branch indicated by the `HeacChoice`, then the `HeadChoice` result of the trigger also occurs in that branch. In the introducing paper this is called g-unblockable. -/
+/-- A trigger is `kbUnblockable` for a given `KnowledgeBase` and `HeadChoice` if, for every derivation, when the trigger is loaded in a node of the branch indicated by the `HeadChoice`, then the `HeadChoice` result of the trigger also occurs in that branch. In the introducing paper this is called g-unblockable. -/
 @[expose]
-def Trigger.unblockable
-    (rules : RuleSet sig)
+def Trigger.kbUnblockable
+    (kb : KnowledgeBase sig)
     (hc : HeadChoice sig)
     (trg : Trigger obs.toLaxObsolescenceCondition) : Prop :=
-  ∀ kb : KnowledgeBase sig, kb.rules = rules ->
   ∀ ct : RegularChaseTree obs kb, ∀ node : (ct.subderivation_for_headChoice hc).Node, trg.loaded node.val.facts ->
   ∃ node2 : (ct.subderivation_for_headChoice hc).Node, node ≼ node2 ∧
   (trg.output_for_headChoice hc).toSet ⊆ node2.val.facts
 
-/-- Every deterministic Datalog trigger is unblockable. -/
-theorem Trigger.unblockable_of_isDatalog_of_isDeterministic {rules : RuleSet sig} {hc : HeadChoice sig} {trg : RTrigger obs rules}
+/-- A trigger is `rsUnblockable` for a given `RuleSet` if it is `kbUnblockable` for every `KnowledgeBase` with the rule set in question. -/
+@[expose]
+def Trigger.rsUnblockable
+    (rules : RuleSet sig)
+    (hc : HeadChoice sig)
+    (trg : Trigger obs.toLaxObsolescenceCondition) : Prop :=
+  ∀ kb : KnowledgeBase sig, kb.rules = rules -> trg.kbUnblockable kb hc
+
+/-- Every deterministic Datalog trigger is `rsUnblockable`. -/
+theorem Trigger.rsUnblockable_of_isDatalog_of_isDeterministic {rules : RuleSet sig} {hc : HeadChoice sig} {trg : RTrigger obs rules}
     (isDatalog : trg.val.rule.isDatalog)
     (isDet : trg.val.rule.isDeterministic) :
-    trg.val.unblockable rules hc := by
+    trg.val.rsUnblockable rules hc := by
   intro kb rules_eq ct node loaded
   let trg_kb : RTrigger obs kb.rules := ⟨trg.val, by rw [rules_eq]; exact trg.property⟩
   suffices ∃ node2, node ≼ node2 ∧ ¬ trg.val.active node2.val.facts by
@@ -155,12 +162,12 @@ def FactSet.is_rpc_overapproximation
       (¬ (trg.output_for_headChoice hc).toSet ⊆ node.facts) -> h.applyFactSet node.facts ⊆ fs
 
 /-- This is Lemma 1 from the [RPC] paper. -/
-theorem RTrigger.unblockable_of_not_obsolete_for_overapproximation
+theorem RTrigger.rsUnblockable_of_not_obsolete_for_overapproximation
     (obs_propagates : obs.propagates_under_term_mapping_of_no_fresh_term_occurs)
     {rules : RuleSet sig} {hc : HeadChoice sig}
     (hc_consistent : hc.consistent_for_equivalent_triggers)
     {trg : RTrigger obs rules} {fs : FactSet sig} :
-    fs.is_rpc_overapproximation rules hc trg.val -> ¬ obs.cond trg.val fs -> trg.val.unblockable rules hc := by
+    fs.is_rpc_overapproximation rules hc trg.val -> ¬ obs.cond trg.val fs -> trg.val.rsUnblockable rules hc := by
   intro ⟨h, id_head_consts, id_frontier, overapprox⟩ not_obs
   intro kb rules_eq ct node loaded
   let trg_kb : RTrigger obs kb.rules := ⟨trg.val, by rw [rules_eq]; exact trg.property⟩

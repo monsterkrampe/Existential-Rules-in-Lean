@@ -5,9 +5,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 
 module
 
-public import ExistentialRules.ChaseSequence.Nontermination.TermSkeleton
 public import ExistentialRules.ChaseSequence.Nontermination.RepeatableUnblockability
-public import ExistentialRules.ChaseSequence.Nontermination.ReversibleConstantMappings
 public import ExistentialRules.Terms.Cyclic
 
 open CustomBasicDatastructures
@@ -61,6 +59,10 @@ def RuleSet.cast_withFreshConstantsForVars (rs : RuleSet sig) : RuleSet sig.with
 We achieve this by extending the signature and mapping all terms in the body using `VarOrConst.cast_withFreshConstantsForVars`. -/
 def Rule.body_database (r : Rule sig) : Database sig.withFreshConstantsForVars :=
   ⟨(VarOrConst.toConst_withFreshConstantsForVars.apply_generalized_atom_list r.body).toSet, List.finite_toSet _⟩
+
+/-- The `body_kb` consists of the cast rule set and the `body_database`. -/
+def Rule.body_kb (r : Rule sig) (rules : RuleSet sig) : KnowledgeBase sig.withFreshConstantsForVars :=
+  { rules := rules.cast_withFreshConstantsForVars, db := r.body_database }
 
 /-- The trigger for a rule that matches its `body_database`. -/
 def Rule.body_database_trigger (r : Rule sig) : PreTrigger sig.withFreshConstantsForVars where
@@ -125,7 +127,7 @@ structure PreCyclicityPrefix
     (hc : HeadChoice sig.withFreshConstantsForVars)
     {rule : Rule sig}
     (rule_mem : rule ∈ rules) where
-  body_database_trigger_unblockable : (Trigger.fromPreTrigger rule.body_database_trigger obs).unblockable rules.cast_withFreshConstantsForVars hc
+  body_database_trigger_unblockable : (Trigger.fromPreTrigger rule.body_database_trigger obs).kbUnblockable (rule.body_kb rules) hc
   -- this list does not include the initial database trigger
   triggers : FiniteTriggerList obs rules.cast_withFreshConstantsForVars
   -- the first conditions are also found in the `CyclicityDerivation`; `growing` and `unblockable` are missing though
