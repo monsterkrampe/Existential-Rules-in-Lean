@@ -150,6 +150,79 @@ theorem Trigger.rsUnblockable_of_isDatalog_of_isDeterministic {rules : RuleSet s
   | inl prec => exists fairness_node; constructor; exact prec; apply fair; grind
   | inr prec => exists node; constructor; grind; apply fair; exact prec
 
+/--
+If a trigger has a rule with at least one existentially quantified variable but only constants in the mapped frontier,
+then the trigger cannot be `rsUnblockable`. (It can still be `kbUnblockable` though.)
+To show this, we simply pick the knowledge base featuring the database with all the constants from the trigger interconnected.
+This is already a model so the only chase tree features exactly the root node. But then the result of the trigger does not occur.
+-/
+theorem Trigger.not_rsUnblockable_of_hc_exis_of_frontier_only_constants {rules : RuleSet sig} {hc : HeadChoice sig} {trg : RTrigger obs rules}
+    (hc_exis : trg.val.rule.existential_vars_for_head_disjunct (hc trg.val).val (hc trg.val).isLt ≠ [])
+    (frontier_only_constants : ∀ t ∈ trg.val.mapped_frontier, ∃ c, t = .const c) :
+    ¬ trg.val.rsUnblockable rules hc := by
+  suffices ∃ db : Database sig, trg.val.loaded db.toFactSet.val ∧ ∀ trg : RTrigger obs rules, trg.val.loaded db.toFactSet.val -> obs.cond trg db.toFactSet.val by
+    rcases this with ⟨db, trg_loaded, all_obs⟩
+    let kb : KnowledgeBase sig := ⟨db, rules⟩
+    intro contra; specialize contra kb rfl
+    let startNode : RegularChaseNode obs rules := { facts := db.toFactSet.val, origin := none, facts_contain_origin_result := by simp }
+    let ct : RegularChaseTree obs kb := {
+      tree := FiniteDegreeTree.node startNode []
+      isSome_root := by simp
+      database_first := by simp [TreeDerivation.root, RegularChaseNode.ingoingFacts_eq, RegularChaseNode.outgoingFacts_eq, RegularChaseNode.origin_eq, kb, startNode]
+      triggers_exist := by
+        intro t2 suffix; rw [FiniteDegreeTree.IsSuffix_iff] at suffix; rcases suffix with ⟨ns, suffix⟩
+        cases ns with
+        | nil => simp [← suffix, FiniteDegreeTree.childNodes_eq, ChaseNode.succ_list]
+        | cons n ns => simp [← suffix, FiniteDegreeTree.get?_node_cons]
+      fairness_leaves := by
+        intro leaf leaf_mem
+        suffices leaf = startNode by
+          intro trg; rw [this, RegularChaseNode.outgoingFacts_eq]; simp only [startNode]
+          intro active; apply active.right
+          apply all_obs; exact active.left
+        rw [FiniteDegreeTree.mem_leaves] at leaf_mem; rcases leaf_mem with ⟨ns, leaf_mem⟩
+        cases ns with
+        | nil => grind
+        | cons n ns => simp [FiniteDegreeTree.get?_node_cons] at leaf_mem
+      fairness_infinite_branches := by intro trg; exists 1; intro ns len_ge; cases ns; simp at len_ge; simp [FiniteDegreeTree.get?_node_cons]
+    }
+    have startNode_only_node : ∀ node ∈ ct, node = startNode := by
+      intro node; rw [ChaseTree.mem_iff]; intro ⟨ns, node_mem⟩
+      cases ns with
+      | nil => simp only [ct, FiniteDegreeTree.get?_node_nil, Option.some_inj] at node_mem; exact Eq.symm node_mem
+      | cons n ns => simp [ct, FiniteDegreeTree.get?_node_cons] at node_mem
+    have childNodes_empty : ct.childNodes = [] := by simp only [ct]; rw [TreeDerivation.childNodes_eq, List.map_eq_nil_iff]; simp [TreeDerivation.childTrees]
+    specialize contra ct ⟨startNode, by
+      suffices startNode = (ct.subderivation_for_headChoice hc).head by
+        rw [this]; exact ChaseDerivationSkeleton.head_mem
+      simp only [ChaseTree.subderivation_for_headChoice]
+      rw [ct.toTreeDerivation.head_subderivation_for_headChoice]
+      simp [ct, startNode, TreeDerivation.root]⟩
+    specialize contra trg_loaded
+    rcases contra with ⟨node2, node2_succ, contra⟩
+    have node2_eq : node2.val = startNode := by
+      apply startNode_only_node
+      have node2_mem := node2.property
+      rw [ChaseDerivation.mem_iff_eq_head_or_mem_tail] at node2_mem
+      cases node2_mem with
+      | inl node2_mem => rw [node2_mem]; simp only [ChaseTree.subderivation_for_headChoice, ct.head_subderivation_for_headChoice]; exact ct.root_mem
+      | inr node2_mem =>
+        rcases node2_mem with ⟨h, _⟩
+        simp only [ChaseTree.subderivation_for_headChoice] at h
+        rw [Option.isSome_iff_exists] at h; rcases h with ⟨next, h⟩
+        have h := ct.next_subderivation_for_headChoice_mem_childNodes next h
+        simp [childNodes_empty] at h
+    rw [node2_eq] at contra
+    rcases List.exists_mem_of_ne_nil _ hc_exis with ⟨v, v_mem⟩
+    suffices trg.val.functional_term_for_var (hc trg.val).val (hc trg.val).isLt v v_mem ∈ startNode.facts.terms by
+      rcases this with ⟨f, f_mem, t_mem⟩
+      rcases db.toFactSet.property.right f f_mem _ t_mem with ⟨c, t_eq⟩
+      exact GroundTerm.func_neq_const t_eq
+    apply FactSet.terms_subset_of_subset contra
+    simp only [FactSet.mem_terms_toSet, PreTrigger.output_for_headChoice, trg.val.mem_terms_mapped_head_iff (hc trg.val).val (hc trg.val).isLt]
+    apply Or.inr; apply Or.inr; apply PreTrigger.mem_fresh_terms_of_functional_for_exis_var
+  sorry
+
 /-- This is Definition 7 from the [RPC] paper. -/
 def FactSet.is_rpc_overapproximation
     (rules : RuleSet sig)

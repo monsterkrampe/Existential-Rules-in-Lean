@@ -204,6 +204,18 @@ theorem subderivation_for_headChoice_mem_branches {td : TreeDerivation N obs rul
 theorem head_subderivation_for_headChoice {td : TreeDerivation N obs rules} {hc : HeadChoice sig} :
   (td.subderivation_for_headChoice hc).head = td.root := td.head_generate_subderivation
 
+/-- The head of `subderivation_for_headChoice` is the root of the tree derivation. -/
+theorem next_subderivation_for_headChoice_mem_childNodes {td : TreeDerivation N obs rules} {hc : HeadChoice sig} :
+    ∀ next ∈ (td.subderivation_for_headChoice hc).next, next ∈ td.childNodes := by
+  intro next
+  simp only [subderivation_for_headChoice, TreeDerivation.next_generate_subderivation, Option.mem_def, Option.map_map, Option.map_eq_some_iff]
+  intro ⟨next_node, next_node_gen_result, next_eq⟩
+  rw [← TreeDerivation.NodeWithAddress.subderivation_root (td := td)]
+  rw [← next_eq, Function.comp_id]
+  apply TreeDerivation.NodeWithAddress.mem_childNodes_of_mem_childNodes
+  apply generator_for_headChoice_mem_childNodes
+  exact next_node_gen_result
+
 /-- The subderivation for a head choice adheres to that head choice. -/
 theorem subderivation_for_headChoice_adheres_to_headChoice_of_root_adheres {td : TreeDerivation N obs rules} {hc : HeadChoice sig} :
     CN.adheres_to_headChoice td.root hc -> (td.subderivation_for_headChoice hc).adheres_to_headChoice hc := by

@@ -80,5 +80,24 @@ theorem rsUnblockable_of_trigger_unblockable
     apply trg.rsUnblockable_of_not_obsolete_for_overapproximation obs_propagates hc_consistent (unblk.rpc_overapprox rs hc trg.val)
     exact not_obs
 
+/--
+As for general unblockability, if a trigger features at least one existentially quantified variable and
+only constants as frontier terms, then it cannot be unblockable.
+This follows directly from `Trigger.not_rsUnblockable_of_hc_exis_of_frontier_only_constants` and
+the contraposition of `rsUnblockable_of_trigger_unblockable`.
+-/
+theorem not_unblockable_of_hc_exis_of_frontier_only_constants
+    (obs_propagates : obs.propagates_under_term_mapping_of_no_fresh_term_occurs)
+    {unblk : RepeatableUnblockability obs}
+    {rs : RuleSet sig} {hc : HeadChoice sig}
+    (hc_consistent : hc.consistent_for_equivalent_triggers)
+    (trg : RTrigger obs rs)
+    (hc_exis : trg.val.rule.existential_vars_for_head_disjunct (hc trg.val).val (hc trg.val).isLt ≠ [])
+    (frontier_only_constants : ∀ t ∈ trg.val.mapped_frontier, ∃ c, t = .const c) :
+    ¬ unblk.trigger_unblockable rs hc trg.val := by
+  intro contra
+  apply Trigger.not_rsUnblockable_of_hc_exis_of_frontier_only_constants hc_exis frontier_only_constants
+  exact rsUnblockable_of_trigger_unblockable obs_propagates hc_consistent trg contra
+
 end RepeatableUnblockability
 
