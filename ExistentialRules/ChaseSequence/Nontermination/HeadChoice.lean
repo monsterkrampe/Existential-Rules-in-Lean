@@ -28,6 +28,15 @@ variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq 
 @[expose]
 def HeadChoice.consistent_for_equivalent_triggers (hc : HeadChoice sig) : Prop := ∀ {trg trg2 : PreTrigger sig}, trg.equiv trg2 -> (hc trg).val = (hc trg2).val
 
+/-- Sometimes we even require that the head choice only depends on the rule; that is, each trigger with the same rules uses the same head. -/
+@[expose]
+def HeadChoice.consistent_for_same_rule (hc : HeadChoice sig) : Prop := ∀ {trg trg2 : PreTrigger sig}, trg.rule = trg2.rule -> (hc trg).val = (hc trg2).val
+
+/-- If a head choice is `consistent_for_same_rule`, then it is also `consistent_for_equivalent_triggers`. -/
+theorem HeadChoice.consistent_for_equivalent_triggers_of_consistent_for_same_rule {hc : HeadChoice sig} :
+    hc.consistent_for_same_rule -> hc.consistent_for_equivalent_triggers := by
+  intro h trg trg2 eq; apply h; exact eq.left
+
 /-- A shortcut for the trigger output dictaded by a head choice. -/
 @[expose]
 def PreTrigger.output_for_headChoice (trg : PreTrigger sig) (hc : HeadChoice sig) : List (Fact sig) :=
@@ -84,6 +93,7 @@ namespace FiniteTriggerList
 variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 
 /-- A `FiniteTriggerList` adheres to a `HeadChoice` if every element adheres to the `HeadChoice`. -/
+@[expose]
 def adheres_to_headChoice (l : FiniteTriggerList obs rules) (hc : HeadChoice sig) : Prop :=
   ∀ orig ∈ l, orig.adheres_to_headChoice hc
 
@@ -94,18 +104,19 @@ namespace InfiniteTriggerList
 variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 
 /-- A `InfiniteTriggerList` adheres to a `HeadChoice` if every element adheres to the `HeadChoice`. -/
+@[expose]
 def adheres_to_headChoice (l : InfiniteTriggerList obs rules) (hc : HeadChoice sig) : Prop :=
   ∀ orig ∈ l, orig.adheres_to_headChoice hc
 
 /-- By `InfiniteTriggerList.fromFiniteLists_trigger_property_preserved`, trigger head choice adherence is preserved by the `InfiniteTriggerList.fromFiniteLists` construction. -/
 theorem fromFiniteLists_headChoice_preserved
     {ls : InfiniteList (FiniteNonEmptyTriggerList obs rules)} {hc : HeadChoice sig} :
-    (∀ n, FiniteTriggerList.adheres_to_headChoice (ls.get n).toList hc) ->
+    (∀ l ∈ ls, FiniteTriggerList.adheres_to_headChoice l.toList hc) ->
     (fromFiniteLists ls).adheres_to_headChoice hc := by
   intro adheres
   let property : ChaseNodeOrigin obs rules -> FactSet sig -> Prop := fun orig => fun _ => orig.adheres_to_headChoice hc
   have prop_holds : ∀ n, FiniteTriggerList.trigger_property_holds property (startForFiniteList ls ∅ n) (ls.get n).toList := by
-    intro n; specialize adheres n
+    intro n; specialize adheres (ls.get n) InfiniteList.get_mem
     rw [FiniteTriggerList.trigger_property_holds_iff]; intro i lt
     specialize adheres (ls.get n).toList[i] (by simp)
     exact adheres
