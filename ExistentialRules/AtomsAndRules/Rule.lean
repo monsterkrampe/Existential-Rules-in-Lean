@@ -149,5 +149,18 @@ theorem mem_existential_vars_of_mem_head_disjunct_of_not_mem_frontier {r : Rule 
     ∀ v ∈ r.head[i].vars, v ∉ r.frontier -> v ∈ r.existential_vars_for_head_disjunct i lt := by
   grind [existential_vars_for_head_disjunct]
 
+/-- A rule `isDatalog` if and only if every head disjunct does not contain existential variables. -/
+theorem isDatalog_iff_existential_vars_for_head_disjunct_eq_nil {r : Rule sig} :
+    r.isDatalog ↔ ∀ (i : Nat) (lt : i < r.head.length), r.existential_vars_for_head_disjunct i lt = [] := by
+  constructor
+  . intro h i lt; rw [List.eq_nil_iff_forall_not_mem]; intro v v_mem; apply not_mem_frontier_of_mem_existential_vars_for_head_disjunct _ v_mem
+    simp only [frontier]; simp only [isDatalog] at h; grind
+  . simp only [isDatalog, List.all_eq_true, decide_eq_true_eq]
+    intro h conj conj_mem v v_mem
+    rw [List.mem_iff_getElem] at conj_mem; rcases conj_mem with ⟨i, lt, conj_mem⟩; rw [← conj_mem] at v_mem
+    apply frontier_subset_vars_body
+    apply mem_frontier_of_mem_head_disjunct_of_not_mem_existential_vars _ v_mem
+    rw [h]; simp
+
 end Rule
 
