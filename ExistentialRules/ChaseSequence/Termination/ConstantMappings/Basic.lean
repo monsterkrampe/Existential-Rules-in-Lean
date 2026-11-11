@@ -91,6 +91,9 @@ theorem apply_pre_ground_term_eq_self_of_id_on_constants
 def apply_ground_term (g : ConstantMapping sig) : TermMapping (GroundTerm sig) (GroundTerm sig) :=
   fun t => ⟨g.apply_pre_ground_term t.val, g.apply_pre_ground_term_arity_ok t.val t.property⟩
 
+@[simp, grind =]
+theorem apply_ground_term_id : (id : ConstantMapping sig).apply_ground_term = _root_.id := by apply funext; intro _; simp [apply_ground_term]
+
 /-- Applying a `ConstantMapping` to a `GroundTerm.const` is the same as directly applying the mapping to the underlying constant. -/
 @[simp, grind =]
 theorem apply_ground_term_constant (g : ConstantMapping sig) : ∀ c, g.apply_ground_term (.const c) = g c := by
@@ -109,6 +112,16 @@ theorem apply_ground_term_func (g : ConstantMapping sig) :
   rw [List.map_inj_left]
   intro t t_mem
   simp only [Function.comp_apply, ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term]
+
+/--
+When composing a `ConstantMapping` with another one and then transforming the result into a `GroundTermMapping`,
+we can do the transformation first instead.
+-/
+theorem apply_ground_term_compose {g h : ConstantMapping sig} : apply_ground_term (h.apply_ground_term ∘ g) = h.apply_ground_term ∘ g.apply_ground_term := by
+  apply funext; intro t
+  induction t
+  . simp
+  . simp; grind
 
 /-- For a non-constant `SkolemTerm`, if we apply a `ConstantMapping` after a `GroundSubstitution`, we can instead apply the substitution that is the composition of the `ConstantMapping` after the `GroundSubstitution`. Note that this does not work for constants since the `ConstantMapping` might map it some something else, whereas the composed substitution maps each constant to itself. -/
 theorem apply_ground_term_swap_apply_skolem_term (g : ConstantMapping sig) (subs : GroundSubstitution sig) :
@@ -157,7 +170,7 @@ abbrev apply_fact (g : ConstantMapping sig) : Fact sig -> Fact sig := TermMappin
 theorem apply_fact_eq_groundTermMapping_applyFact (g : ConstantMapping sig) (f : Fact sig) :
   g.apply_fact f = GroundTermMapping.applyFact g.apply_ground_term f := by rfl
 
-/-- Consider a `ConstantMapping`, a `PreTrigger`, and a `FunctionFreeAtom`. If the constant mapping if the id on all constants in the atom, then applying the mapping after the trigger is the same a applying a trigger where the constant mapping is composed with the original substitution. -/
+/-- Consider a `ConstantMapping`, a `PreTrigger`, and a `FunctionFreeAtom`. If the constant mapping is the id on all constants in the atom, then applying the mapping after the trigger is the same a applying a trigger where the constant mapping is composed with the original substitution. -/
 theorem apply_fact_swap_apply_to_function_free_atom (g : ConstantMapping sig) (trg : PreTrigger sig) (a : FunctionFreeAtom sig)
     (h : ∀ d ∈ a.constants, g d = GroundTerm.const d) :
     ∀ i lt, g.apply_fact (trg.apply_to_function_free_atom i lt a) =
