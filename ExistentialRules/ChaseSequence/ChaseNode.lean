@@ -139,6 +139,7 @@ instance regularChaseNodeInstance : ChaseNode (RegularChaseNode obs rules) obs r
 
 theorem ingoingFacts_eq {node : RegularChaseNode obs rules} : regularChaseNodeInstance.ingoingFacts node = node.facts := by rfl
 theorem outgoingFacts_eq {node : RegularChaseNode obs rules} : regularChaseNodeInstance.outgoingFacts node = node.facts := by rfl
+theorem origin_eq {node : RegularChaseNode obs rules} : regularChaseNodeInstance.origin node = node.origin := by rfl
 
 /-- The `RegularChaseNode` has the `ChaseNode.out_sub_in` property. -/
 theorem out_sub_in : regularChaseNodeInstance.out_sub_in (N := RegularChaseNode obs rules) := by
