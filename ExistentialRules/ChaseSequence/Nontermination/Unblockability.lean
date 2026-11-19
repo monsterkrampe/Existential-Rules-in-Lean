@@ -5,6 +5,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 
 module
 
+import ExistentialRules.ChaseSequence.CriticalInstance
 public import ExistentialRules.ChaseSequence.Nontermination.HeadChoice
 
 open CustomBasicDatastructures
@@ -230,4 +231,127 @@ theorem RTrigger.rsUnblockable_of_equiv_trigger_not_obsolete_for_overapproximati
   apply trg'.rsUnblockable_of_not_obsolete_for_overapproximation obs_propagates hc_consistent
   . exact fs.is_rpc_overapproximation_of_equiv hc_consistent overapprox trg_equiv
   . rw [← obs.preserved_under_equiv trg_equiv]; exact not_obs
+
+section RestrictedObsolescenceOnly
+
+/--
+If a trigger has a rule with at least one existentially quantified variable but only constants in the mapped frontier,
+then at least an equivalent trigger cannot be `rsUnblockable`. (It can still be `kbUnblockable` though.)
+To show this, we simply pick the knowledge base featuring the database with all the constants from the trigger interconnected.
+This is already a model so the only chase tree features exactly the root node. But then the result of the trigger does not occur.
+-/
+-- TODO: A similar result should hold for arbitrary ObsolescenceConditions but only for rules with at least one head disjunct without existential variables. We already have a corresponding critical instance result for this but to show the theorem, we would still need to be able to construct a chase tree (because it would not stop immediately after the database). Once we have such a general construction, it is easy to argue that triggers remain obsolete because they are already obsolete for the database.
+theorem Trigger.not_rsUnblockable_of_hc_exis_of_frontier_only_constants
+    [Inhabited sig.C] {rules : RuleSet sig} {hc : HeadChoice sig} {trg : RTrigger (RestrictedObsolescence sig) rules}
+    (rules_finite : rules.finite)
+    (rules_non_empty_heads : ∀ r ∈ rules, r.head ≠ []) -- TODO: rules with empty heads basically function as denial constraints (they are can never be satisfied once their body matches); maybe we should forbid this in general? although it's maybe also nice to have this as an option. Maybe we should introduce this as a property that rules and rule sets can have (being free of denial constraints that is). Also, observe that by our current definitions, a kb with denial constraints does not admit a chase derivation if a denial constraint becomes loaded at some point, because then, fairness is violated.
+    (hc_consistent : hc.consistent_for_equivalent_triggers)
+    (hc_exis : trg.val.rule.existential_vars_for_head_disjunct (hc trg.val).val (hc trg.val).isLt ≠ [])
+    (frontier_only_constants : ∀ t ∈ trg.val.mapped_frontier, ∃ c, t = .const c) :
+    ∃ trg', trg.equiv trg' ∧ ¬ trg'.val.rsUnblockable rules hc := by
+  suffices ∃ db : Database sig, (∃ trg', trg.equiv trg' ∧ trg'.val.loaded db.toFactSet.val) ∧ ∀ trg : RTrigger (RestrictedObsolescence sig) rules, ¬ trg.val.active db.toFactSet.val by
+    rcases this with ⟨db, ⟨trg', trg_equiv, trg'_loaded⟩, all_obs⟩
+    have hc_exis' : trg'.val.rule.existential_vars_for_head_disjunct (hc trg'.val).val (hc trg'.val).isLt ≠ [] := by
+      simp only [← trg_equiv.left, ← hc_consistent trg_equiv]; exact hc_exis
+    exists trg'; constructor; exact trg_equiv
+    let kb : KnowledgeBase sig := ⟨db, rules⟩
+    intro contra; specialize contra kb rfl
+    let startNode : RegularChaseNode (RestrictedObsolescence sig) rules := { facts := db.toFactSet.val, origin := none, facts_contain_origin_result := by simp }
+    let ct : RegularChaseTree (RestrictedObsolescence sig) kb := {
+      tree := FiniteDegreeTree.node startNode []
+      isSome_root := by simp
+      database_first := by simp [TreeDerivation.root, RegularChaseNode.ingoingFacts_eq, RegularChaseNode.outgoingFacts_eq, RegularChaseNode.origin_eq, kb, startNode]
+      triggers_exist := by
+        intro t2 suffix; rw [FiniteDegreeTree.IsSuffix_iff] at suffix; rcases suffix with ⟨ns, suffix⟩
+        cases ns with
+        | nil => simp [← suffix, FiniteDegreeTree.childNodes_eq, ChaseNode.succ_list]
+        | cons n ns => simp [← suffix, FiniteDegreeTree.get?_node_cons]
+      fairness_leaves := by
+        intro leaf leaf_mem
+        suffices leaf = startNode by
+          intro trg; rw [this, RegularChaseNode.outgoingFacts_eq]; simp only [startNode]
+          intro active
+          apply all_obs
+          exact active
+        rw [FiniteDegreeTree.mem_leaves] at leaf_mem; rcases leaf_mem with ⟨ns, leaf_mem⟩
+        cases ns with
+        | nil => grind
+        | cons n ns => simp [FiniteDegreeTree.get?_node_cons] at leaf_mem
+      fairness_infinite_branches := by intro trg; exists 1; intro ns len_ge; cases ns; simp at len_ge; simp [FiniteDegreeTree.get?_node_cons]
+    }
+    have startNode_only_node : ∀ node ∈ ct, node = startNode := by
+      intro node; rw [ChaseTree.mem_iff]; intro ⟨ns, node_mem⟩
+      cases ns with
+      | nil => simp only [ct, FiniteDegreeTree.get?_node_nil, Option.some_inj] at node_mem; exact Eq.symm node_mem
+      | cons n ns => simp [ct, FiniteDegreeTree.get?_node_cons] at node_mem
+    have childNodes_empty : ct.childNodes = [] := by simp only [ct]; rw [TreeDerivation.childNodes_eq, List.map_eq_nil_iff]; simp [TreeDerivation.childTrees]
+    specialize contra ct ⟨startNode, by
+      suffices startNode = (ct.subderivation_for_headChoice hc).head by
+        rw [this]; exact ChaseDerivationSkeleton.head_mem
+      simp only [ChaseTree.subderivation_for_headChoice]
+      rw [ct.toTreeDerivation.head_subderivation_for_headChoice]
+      simp [ct, startNode, TreeDerivation.root]⟩
+    specialize contra trg'_loaded
+    rcases contra with ⟨node2, node2_succ, contra⟩
+    have node2_eq : node2.val = startNode := by
+      apply startNode_only_node
+      have node2_mem := node2.property
+      rw [ChaseDerivation.mem_iff_eq_head_or_mem_tail] at node2_mem
+      cases node2_mem with
+      | inl node2_mem => rw [node2_mem]; simp only [ChaseTree.subderivation_for_headChoice, ct.head_subderivation_for_headChoice]; exact ct.root_mem
+      | inr node2_mem =>
+        rcases node2_mem with ⟨h, _⟩
+        simp only [ChaseTree.subderivation_for_headChoice] at h
+        rw [Option.isSome_iff_exists] at h; rcases h with ⟨next, h⟩
+        have h := ct.next_subderivation_for_headChoice_mem_childNodes next h
+        simp [childNodes_empty] at h
+    rw [node2_eq] at contra
+    rcases List.exists_mem_of_ne_nil _ hc_exis' with ⟨v, v_mem⟩
+    suffices trg'.val.functional_term_for_var (hc trg'.val).val (hc trg'.val).isLt v v_mem ∈ startNode.facts.terms by
+      rcases this with ⟨f, f_mem, t_mem⟩
+      rcases db.toFactSet.property.right f f_mem _ t_mem with ⟨c, t_eq⟩
+      exact GroundTerm.func_neq_const t_eq
+    apply FactSet.terms_subset_of_subset contra
+    simp only [FactSet.mem_terms_toSet, PreTrigger.output_for_headChoice, trg'.val.mem_terms_mapped_head_iff (hc trg'.val).val (hc trg'.val).isLt]
+    apply Or.inr; apply Or.inr; apply PreTrigger.mem_fresh_terms_of_functional_for_exis_var
+
+  let consts : List sig.C := trg.val.mapped_frontier.flatMap GroundTerm.constants
+  exists rules.generalizedCriticalInstance rules_finite (Inhabited.default :: consts)
+  constructor
+  . let subs : GroundSubstitution sig := fun v => if v ∈ trg.val.rule.frontier then trg.val.subs v else .const Inhabited.default
+    let trg' : RTrigger (RestrictedObsolescence sig) rules := ⟨⟨trg.val.rule, subs⟩, trg.property⟩
+    exists trg'; constructor
+    . apply PreTrigger.equiv_of_rule_eq_of_mapped_frontier_equiv
+      . rfl
+      . simp only [PreTrigger.mapped_frontier, trg', subs]
+        apply List.map_congr_left
+        intro v v_mem; simp [v_mem]
+    . apply rules.generalizedCriticalInstance_trigger_loaded
+      intro t t_mem
+      rw [FactSet.mem_terms_toSet, PreTrigger.mem_terms_mapped_body_iff] at t_mem
+      rw [Set.mem_map]
+      cases t_mem with
+      | inl t_mem =>
+        rcases t_mem with ⟨c, c_mem, t_mem⟩
+        exists c; constructor
+        . apply Set.mem_union_of_mem_right; exists trg'.val.rule; constructor; exact trg'.property; apply Rule.body_constants_subset_constants; exact c_mem
+        . exact t_mem
+      | inr t_mem =>
+        rcases t_mem with ⟨v, v_mem, t_mem⟩
+        cases Decidable.em (v ∈ trg.val.rule.frontier) with
+        | inl v_frontier =>
+          rcases frontier_only_constants (trg.val.subs v) (List.mem_map_of_mem v_frontier) with ⟨c, c_mem⟩
+          exists c; constructor
+          . apply Set.mem_union_of_mem_left; rw [List.mem_toSet, List.mem_cons]; apply Or.inr; simp only [consts]; rw [List.mem_flatMap]; exists trg.val.subs v; constructor; exact List.mem_map_of_mem v_frontier; rw [c_mem]; simp
+          . rw [← t_mem, ← c_mem]; simp [trg', subs, v_frontier]
+        | inr v_frontier =>
+          exists Inhabited.default; constructor
+          . apply Set.mem_union_of_mem_left; simp
+          . rw [← t_mem]; simp [trg', subs, v_frontier]
+  . intro trg
+    apply rules.generalizedCriticalInstance_no_trigger_active_for_restrictedObsolescence
+    . exists default; grind
+    . apply rules_non_empty_heads; exact trg.property
+
+end RestrictedObsolescenceOnly
 

@@ -96,5 +96,31 @@ theorem rsUnblockable_of_trigger_unblockable
     unblk.trigger_unblockable rs hc trg.val -> trg.val.rsUnblockable rs hc := by
   intro unblk; exact rsUnblockable_of_equiv_of_trigger_unblockable obs_propagates hc_consistent trg unblk trg trg.val.equiv_refl
 
+section RestrictedObsolescenceOnly
+
+/--
+As for general unblockability, if a trigger features at least one existentially quantified variable and
+only constants as frontier terms, then it cannot be unblockable.
+This follows directly from `Trigger.not_rsUnblockable_of_hc_exis_of_frontier_only_constants` and
+the contraposition of `rsUnblockable_of_trigger_unblockable`.
+-/
+-- TODO: Again, a similar result should also hold for general ObsolescenceConditions but this requires further machinery. See note on Trigger.not_rsUnblockable_of_hc_exis_of_frontier_only_constants.
+theorem not_unblockable_of_hc_exis_of_frontier_only_constants
+    {unblk : RepeatableUnblockability (RestrictedObsolescence sig)}
+    {rs : RuleSet sig} {hc : HeadChoice sig}
+    (rs_finite : rs.finite)
+    (rs_non_empty_heads : ∀ r ∈ rs, r.head ≠ []) -- TODO: rules with empty heads basically function as denial constraints (they are can never be satisfied once their body matches); maybe we should forbid this in general? although it's maybe also nice to have this as an option. Maybe we should introduce this as a property that rules and rule sets can have (being free of denial constraints that is). Also, observe that by our current definitions, a kb with denial constraints does not admit a chase derivation if a denial constraint becomes loaded at some point, because then, fairness is violated.
+    (hc_consistent : hc.consistent_for_equivalent_triggers)
+    (trg : RTrigger (RestrictedObsolescence sig) rs)
+    (hc_exis : trg.val.rule.existential_vars_for_head_disjunct (hc trg.val).val (hc trg.val).isLt ≠ [])
+    (frontier_only_constants : ∀ t ∈ trg.val.mapped_frontier, ∃ c, t = .const c) :
+    ¬ unblk.trigger_unblockable rs hc trg.val := by
+  intro contra
+  rcases Trigger.not_rsUnblockable_of_hc_exis_of_frontier_only_constants rs_finite rs_non_empty_heads hc_consistent hc_exis frontier_only_constants with ⟨trg', equiv, not_unblk⟩
+  apply not_unblk
+  exact rsUnblockable_of_equiv_of_trigger_unblockable RestrictedObsolescence.propagates_under_term_mapping_of_no_fresh_term_occurs hc_consistent trg contra _ equiv
+
+end RestrictedObsolescenceOnly
+
 end RepeatableUnblockability
 
