@@ -54,6 +54,12 @@ theorem strong_of_compose_strong (g h : GroundTermMapping sig) (domain : Set (Gr
     . exact e_mem_b
     . simp
 
+/-- A `GroundTermMapping` is an isomorphism from `FactSet` A to B if
+it is a homomorphism from A to B, it is strong, injective, and surjective. -/
+@[expose]
+def isIsomorphism (h : GroundTermMapping sig) (A B : FactSet sig) : Prop :=
+  h.isHomomorphism A B ∧ h.strong A.terms A B ∧ Function.injectiveSet h A.terms ∧ Function.surjectiveSet h A.terms B.terms
+
 end GroundTermMapping
 
 namespace GroundTermMapping
@@ -336,7 +342,7 @@ theorem every_weakCore_isomorphic_to_strongCore_of_hom_both_ways
     (sc : FactSet sig) (sc_strong : sc.isStrongCore)
     (wc : FactSet sig) (wc_weak : wc.isWeakCore)
     (h_sc_wc h_wc_sc : GroundTermMapping sig) (h_sc_wc_hom : h_sc_wc.isHomomorphism sc wc) (h_wc_sc_hom : h_wc_sc.isHomomorphism wc sc) :
-    ∃ (iso : GroundTermMapping sig), iso.isHomomorphism wc sc ∧ iso.strong wc.terms wc sc ∧ Function.injectiveSet iso wc.terms ∧ Function.surjectiveSet iso wc.terms sc.terms := by
+    ∃ (iso : GroundTermMapping sig), iso.isIsomorphism wc sc := by
 
   specialize wc_weak (h_sc_wc ∘ h_wc_sc) (by
     apply GroundTermMapping.isHomomorphism_compose
@@ -382,7 +388,7 @@ theorem strongCore_unique_up_to_isomorphism_with_respect_to_weak_cores
     (fs : FactSet sig)
     (sc : FactSet sig) (sub_sc : sc.homSubset fs) (sc_strong : sc.isStrongCore)
     (wc : FactSet sig) (sub_wc : wc.homSubset fs) (wc_weak : wc.isWeakCore) :
-    ∃ (iso : GroundTermMapping sig), iso.isHomomorphism wc sc ∧ iso.strong wc.terms wc sc ∧ Function.injectiveSet iso wc.terms ∧ Function.surjectiveSet iso wc.terms sc.terms := by
+    ∃ (iso : GroundTermMapping sig), iso.isIsomorphism wc sc := by
 
   rcases sub_sc with ⟨sub_sc, h_fs_sc, h_fs_sc_hom⟩
   rcases sub_wc with ⟨sub_wc, h_fs_wc, h_fs_wc_hom⟩
@@ -410,7 +416,7 @@ theorem every_universal_weakCore_isomorphic_to_universal_strongCore
     {kb : KnowledgeBase sig}
     (sc : FactSet sig) (sc_universal : sc.universallyModelsKb kb) (sc_strong : sc.isStrongCore)
     (wc : FactSet sig) (wc_universal : wc.universallyModelsKb kb) (wc_weak : wc.isWeakCore) :
-    ∃ (iso : GroundTermMapping sig), iso.isHomomorphism wc sc ∧ iso.strong wc.terms wc sc ∧ Function.injectiveSet iso wc.terms ∧ Function.surjectiveSet iso wc.terms sc.terms := by
+    ∃ (iso : GroundTermMapping sig), iso.isIsomorphism wc sc := by
 
   rcases sc_universal.right wc wc_universal.left with ⟨h_sc_wc, h_sc_wc_hom⟩
   rcases wc_universal.right sc sc_universal.left with ⟨h_wc_sc, h_wc_sc_hom⟩
