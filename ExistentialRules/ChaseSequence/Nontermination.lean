@@ -24,7 +24,6 @@ We are going to formalize sufficient conditions for chase non-termination.
 Mainly, we will introduce the necessary machinery from Restricted Prefix Cyclicity (RPC) [RPC]
 but we also aim to generalize this to capture (Disjunctive) Model-Faithful Cyclicity ((D)MFC) [DMFA] [RMFA] at the same time.
 
-SO FAR, WE ONLY HAVE A FEW VERY BASIC DEFINITIONS. THERE IS A LONG WAY TO GO.
+THIS IS STILL WORK IN PROGRESS. From [RPC], we have formalized Sections 3 and 5 but Sections 4 and 6 still remain.
 -/
-
 
