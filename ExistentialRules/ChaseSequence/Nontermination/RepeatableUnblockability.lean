@@ -64,8 +64,29 @@ variable [Inhabited sig.C] {obs : ObsolescenceCondition sig}
 def trigger_unblockable (unblk : RepeatableUnblockability obs) (rs : RuleSet sig) (hc : HeadChoice sig) (trg : Trigger obs.toLaxObsolescenceCondition) : Prop :=
   unblk.overapprox.trigger_unblockable rs hc trg
 
-/-- If `RepeatableUnblockability.trigger_unblockable` holds for a trigger, then `Trigger.rsUnblockable` follows.
-This is due to the `RepeatableUnblockability.rpc_overapprox` condition and follows mainly from `RTrigger.unblockable_of_not_obsolete_for_overapproximation`. -/
+/--
+If `RepeatableUnblockability.trigger_unblockable` holds for a trigger, then `Trigger.rsUnblockable` follows for each equivalent trigger.
+This is due to the `RepeatableUnblockability.rpc_overapprox` condition and
+follows mainly from `RTrigger.rsUnblockable_of_equiv_trigger_not_obsolete_for_overapproximation`.
+-/
+theorem rsUnblockable_of_equiv_of_trigger_unblockable
+    (obs_propagates : obs.propagates_under_term_mapping_of_no_fresh_term_occurs)
+    {unblk : RepeatableUnblockability obs}
+    {rs : RuleSet sig} {hc : HeadChoice sig}
+    (hc_consistent : hc.consistent_for_equivalent_triggers)
+    (trg : RTrigger obs rs) :
+    unblk.trigger_unblockable rs hc trg.val -> ∀ trg', trg.equiv trg' -> trg'.val.rsUnblockable rs hc := by
+  intro unblockable_for_condition trg' equiv
+  cases unblockable_for_condition with
+  | inl isDetDatalog => rw [equiv.left] at isDetDatalog; exact Trigger.rsUnblockable_of_isDatalog_of_isDeterministic isDetDatalog.left isDetDatalog.right
+  | inr not_obs =>
+    apply trg.rsUnblockable_of_equiv_trigger_not_obsolete_for_overapproximation obs_propagates hc_consistent (unblk.rpc_overapprox rs hc trg.val)
+    . exact not_obs
+    . exact equiv
+
+/--
+As a special case of the above theorem, we obtain that `RepeatableUnblockability.trigger_unblockable` implies `Trigger.rsUnblockable` for the same trigger.
+-/
 theorem rsUnblockable_of_trigger_unblockable
     (obs_propagates : obs.propagates_under_term_mapping_of_no_fresh_term_occurs)
     {unblk : RepeatableUnblockability obs}
@@ -73,12 +94,7 @@ theorem rsUnblockable_of_trigger_unblockable
     (hc_consistent : hc.consistent_for_equivalent_triggers)
     (trg : RTrigger obs rs) :
     unblk.trigger_unblockable rs hc trg.val -> trg.val.rsUnblockable rs hc := by
-  intro unblockable_for_condition
-  cases unblockable_for_condition with
-  | inl isDetDatalog => exact Trigger.rsUnblockable_of_isDatalog_of_isDeterministic isDetDatalog.left isDetDatalog.right
-  | inr not_obs =>
-    apply trg.rsUnblockable_of_not_obsolete_for_overapproximation obs_propagates hc_consistent (unblk.rpc_overapprox rs hc trg.val)
-    exact not_obs
+  intro unblk; exact rsUnblockable_of_equiv_of_trigger_unblockable obs_propagates hc_consistent trg unblk trg trg.val.equiv_refl
 
 end RepeatableUnblockability
 

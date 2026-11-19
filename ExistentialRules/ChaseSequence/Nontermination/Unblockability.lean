@@ -161,6 +161,23 @@ def FactSet.is_rpc_overapproximation
     ∀ ct : RegularChaseTree obs kb, ∀ node ∈ (ct.subderivation_for_headChoice hc).toChaseDerivation,
       (¬ (trg.output_for_headChoice hc).toSet ⊆ node.facts) -> h.applyFactSet node.facts ⊆ fs
 
+/-- The overapproximation definition is independant of the trigger up to equivalence. -/
+theorem FactSet.is_rpc_overapproximation_of_equiv
+    {rules : RuleSet sig}
+    {hc : HeadChoice sig}
+    (hc_consistent : hc.consistent_for_equivalent_triggers)
+    {trg1 trg2 : Trigger obs.toLaxObsolescenceCondition}
+    {fs : FactSet sig}
+    (overapprox : fs.is_rpc_overapproximation rules hc trg1) :
+    trg1.equiv trg2 -> fs.is_rpc_overapproximation rules hc trg2 := by
+  intro equiv; rcases overapprox with ⟨h, id_const, id_frontier, overapprox⟩
+  exists h; constructor; rw [← equiv.left]; exact id_const
+  constructor; rw [← PreTrigger.mapped_frontier_eq_of_equiv equiv]; exact id_frontier
+  intro kb rules_eq ct node node_mem output_sub_node
+  apply overapprox kb rules_eq ct node node_mem
+  rw [PreTrigger.output_for_headChoice_eq_of_equiv hc_consistent equiv]
+  exact output_sub_node
+
 /-- This is Lemma 1 from the [RPC] paper. -/
 theorem RTrigger.rsUnblockable_of_not_obsolete_for_overapproximation
     (obs_propagates : obs.propagates_under_term_mapping_of_no_fresh_term_occurs)
@@ -201,4 +218,16 @@ theorem RTrigger.rsUnblockable_of_not_obsolete_for_overapproximation
   cases ChaseDerivationSkeleton.predecessor_total node fairness_node with
   | inl prec => exists fairness_node; constructor; exact prec; apply fair; grind
   | inr prec => exists node; constructor; grind; apply fair; exact prec
+
+/-- A slight generalization of the above theorem showing that all equivalent triggers are also rsUnblockable. -/
+theorem RTrigger.rsUnblockable_of_equiv_trigger_not_obsolete_for_overapproximation
+    (obs_propagates : obs.propagates_under_term_mapping_of_no_fresh_term_occurs)
+    {rules : RuleSet sig} {hc : HeadChoice sig}
+    (hc_consistent : hc.consistent_for_equivalent_triggers)
+    {trg : RTrigger obs rules} {fs : FactSet sig} :
+    fs.is_rpc_overapproximation rules hc trg.val -> ¬ obs.cond trg.val fs -> ∀ trg', trg.equiv trg' -> trg'.val.rsUnblockable rules hc := by
+  intro overapprox not_obs trg' trg_equiv
+  apply trg'.rsUnblockable_of_not_obsolete_for_overapproximation obs_propagates hc_consistent
+  . exact fs.is_rpc_overapproximation_of_equiv hc_consistent overapprox trg_equiv
+  . rw [← obs.preserved_under_equiv trg_equiv]; exact not_obs
 
