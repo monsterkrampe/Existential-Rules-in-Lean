@@ -9,6 +9,7 @@ public import ExistentialRules.ChaseSequence.Termination.ParallelDeterminizedCha
 import ExistentialRules.Terms.Cyclic
 import ExistentialRules.Terms.ListsOfTerms
 public import BasicLeanDatastructures.GetFreshInhabitant
+import ExistentialRules.ChaseSequence.CriticalInstance
 public import ExistentialRules.ChaseSequence.Termination.Basic
 public import ExistentialRules.ChaseSequence.Termination.ConstantMappings.InterplayWithObsolescenceCondition
 public import ExistentialRules.ChaseSequence.Termination.ConstantMappings.StrictConstantMapping
@@ -570,59 +571,9 @@ end KnowledgeBase
 
 namespace RuleSet
 
-/-- The MFA-like conditions all start on a special database, called the "critical instance". We define this here. It consists of all facts that can be build from predicates in the rule set and constants from the ruleset plus a "special constant". Intuitively, this generalizes all possible databases. -/
+/-- The MFA-like conditions all start on a special database, called the "critical instance". It consists of all facts that can be build from predicates in the rule set and constants from the ruleset plus a "special constant". Intuitively, this generalizes all possible databases. -/
 def criticalInstance (rs : RuleSet sig) (finite : rs.finite) (special_const : sig.C) : Database sig :=
-  ⟨fun f => f.predicate ∈ rs.predicates ∧ ∀ t, t ∈ f.terms -> (t = special_const ∨ t ∈ rs.constants), by
-    -- TODO: this is very close to part of the proof of FactSet.finite_of_preds_finite_of_terms_finite
-    -- but we cannot use it since our set is not Set (Fact sig) but Set (FunctionFreeFact sig)...
-    -- maybe we can generalize this someday
-
-    have preds_finite := rs.predicates_finite_of_finite finite
-    rcases preds_finite with ⟨l_preds, _, preds_eq⟩
-    have consts_finite := rs.constants_finite_of_finite finite
-    rcases consts_finite with ⟨l_consts, _, consts_eq⟩
-
-    exists (l_preds.flatMap (fun p =>
-      (all_lists_of_length (special_const :: l_consts) (sig.arity p)).attach.map (fun ⟨ts, mem⟩ =>
-        {
-          predicate := p
-          terms := ts
-          arity_ok := ((mem_all_lists_of_length (special_const :: l_consts) (sig.arity p) ts).mp mem).left
-        }
-      )
-    )).eraseDupsKeepRight
-
-    constructor
-    . apply List.nodup_eraseDupsKeepRight
-    . intro f
-      rw [List.mem_eraseDupsKeepRight]
-      simp only [List.mem_flatMap, List.mem_map, List.mem_attach, true_and, Subtype.exists]
-      constructor
-      . intro h
-        rcases h with ⟨pred, pred_mem, ts, ts_mem, f_eq⟩
-        rw [← f_eq]
-        constructor
-        . rw [preds_eq] at pred_mem
-          exact pred_mem
-        . rw [mem_all_lists_of_length] at ts_mem
-          intro t t_mem
-          rw [← consts_eq]
-          rw [← List.mem_cons]
-          apply ts_mem.right
-          exact t_mem
-      . intro h
-        rcases h with ⟨pred_mem, ts_mem⟩
-        exists f.predicate
-        constructor
-        . rw [preds_eq]; exact pred_mem
-        . exists f.terms
-          exists (by
-            rw [mem_all_lists_of_length]
-            constructor
-            . exact f.arity_ok
-            . intro t t_mem; rw [List.mem_cons]; rw [consts_eq]; apply ts_mem; exact t_mem
-          )
-  ⟩
+  rs.generalizedCriticalInstance finite [special_const]
 
 /-- The `KnowledgeBase` for the MFA-like checks consists of the rule set in question and the `criticalInstance`. -/
 def mfaKb (rs : RuleSet sig) (finite : rs.finite) (special_const : sig.C) : KnowledgeBase sig := {
@@ -633,14 +584,22 @@ def mfaKb (rs : RuleSet sig) (finite : rs.finite) (special_const : sig.C) : Know
 /-- Constants in the `mfaKb` are either the special constants or they come from the rule set. -/
 theorem mfaKb_db_constants (rs : RuleSet sig) (finite : rs.finite) (special_const : sig.C) :
     ∀ c, c ∈ (rs.mfaKb finite special_const).db.constants.val -> (c = special_const ∨ c ∈ rs.constants) := by
-  intro c c_mem
-  unfold mfaKb at c_mem
-  unfold criticalInstance at c_mem
-  unfold Database.constants at c_mem
-  simp only at c_mem
-  rcases c_mem with ⟨f, f_mem, c_mem⟩
-  apply f_mem.right
-  exact c_mem
+  intro c;
+  simp only [mfaKb, criticalInstance];
+  intro c_mem; have c_mem := rs.generalizedCriticalInstance_constants _ c_mem
+  rw [Set.mem_union_iff, List.mem_toSet, List.mem_singleton] at c_mem; exact c_mem
+
+/-- Applying the `mfaConstantMapping` to a `FunctionFreeFact` yields a fact in the critical instance. -/
+theorem mfaKb_functionFreeFact_mem_under_mfaConstantMapping {rs : RuleSet sig} {finite : rs.finite} {special_const : sig.C} :
+    ∀ f : FunctionFreeFact sig, f.predicate ∈ rs.predicates -> ((rs.mfaConstantMapping special_const).apply_generalized_atom f) ∈ (rs.mfaKb finite special_const).db.val := by
+  intro f pred_mem
+  have pred_mem' : ((rs.mfaConstantMapping special_const).apply_generalized_atom f).predicate ∈ rs.predicates := by simpa [TermMapping.apply_generalized_atom]
+  apply rs.functionFreeFact_mem_generalizedCriticalInstance_of_constants_mem _ pred_mem'
+  intro t t_mem; rw [Set.mem_union_iff, List.mem_toSet, List.mem_singleton]
+  simp only [List.mem_toSet, TermMapping.apply_generalized_atom, List.mem_map] at t_mem
+  rcases t_mem with ⟨s, s_mem, t_eq⟩
+  simp only [mfaConstantMapping] at t_eq
+  cases Classical.em (s ∈ rs.constants) <;> grind
 
 /-- The fact set computed in the MFA-like checks is the parallel determinized chase result (defined in a separete file) for the `mfaKb`. -/
 def mfaSet (rs : RuleSet sig) (finite : rs.finite) (special_const : sig.C) (obs : MfaObsolescenceCondition sig) : FactSet sig :=
@@ -663,42 +622,15 @@ theorem mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_pred
     simp only [parallelDeterminizedChase, InfiniteList.head_mem, true_and]
     rw [parallelDeterminizedDerivation_head]
 
-    have every_t_const : ∀ t, t ∈ ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact f).terms -> ∃ c, t = GroundTerm.const c ∧ (c = special_const ∨ c ∈ rs.constants) := by
-      intro t t_mem
-      unfold ConstantMapping.apply_fact at t_mem
-      unfold TermMapping.apply_generalized_atom at t_mem
-      simp only [List.mem_map] at t_mem
-      rcases t_mem with ⟨s, s_mem, t_eq⟩
-
-      have isFunctionFree := db.toFactSet.property.right
-      specialize isFunctionFree _ f_mem
-      specialize isFunctionFree _ s_mem
-      rcases isFunctionFree with ⟨c, s_eq⟩
-      exists (rs.mfaConstantMapping special_const) c
-      constructor
-      . rw [← t_eq, s_eq]
-        simp [StrictConstantMapping.toConstantMapping, ConstantMapping.apply_ground_term, ConstantMapping.apply_pre_ground_term, FiniteTree.mapLeaves, GroundTerm.const]
-      . cases Classical.em (c ∈ rs.constants) with
-        | inl c_mem => apply Or.inr; simp [mfaConstantMapping, c_mem]
-        | inr c_mem => apply Or.inl; simp [mfaConstantMapping, c_mem]
-    have f_func_free : ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact f).isFunctionFree := by
-      intro t t_mem
-      rcases every_t_const t t_mem with ⟨c, t_eq, _⟩
-      exists c
-
-    exists ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact f).toFunctionFreeFact f_func_free
+    exists (rs.mfaConstantMapping special_const).apply_generalized_atom (f.toFunctionFreeFact (db.toFactSet.property.right _ f_mem))
     constructor
-    . unfold Fact.toFunctionFreeFact
-      constructor
-      . exact f_predicate
-      . simp only [List.mem_map, List.mem_attach, true_and, Subtype.exists, forall_exists_index]
-        intro c t t_arity_ok t_mem c_eq
-        specialize every_t_const ⟨t, t_arity_ok⟩ t_mem
-        rcases every_t_const with ⟨d, d_eq, goal⟩
-        rw [← c_eq]
-        simp only [d_eq]
-        simpa using goal
-    . rw [Fact.toFact_after_toFunctionFreeFact_is_id]
+    . apply mfaKb_functionFreeFact_mem_under_mfaConstantMapping; exact f_predicate
+    . conv => right; rw [← Fact.toFact_after_toFunctionFreeFact_is_id f (db.toFactSet.property.right _ f_mem)]
+      simp only [FunctionFreeFact.toFact_eq, ConstantMapping.apply_fact, ← TermMapping.apply_generalized_atom_compose']
+      apply TermMapping.apply_generalized_atom_congr_left
+      intro t _
+      simp
+
   | step cd suffix ih next next_mem =>
     intro f f_predicate f_mem
     simp only [← next.ingoingFacts_eq, cd.facts_next next_mem] at f_mem
@@ -1134,7 +1066,7 @@ theorem terminates_of_isMfa [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs
         apply RuleSet.head_constants_subset_constants
         exact this
       | inr this =>
-        apply rs.mfaKb_db_constants rs_finite default
+        apply rs.mfaKb_db_constants rs_finite default c
         exact this
     . exact this
 
