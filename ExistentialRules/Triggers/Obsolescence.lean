@@ -50,6 +50,27 @@ instance {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq 
     Coe (ObsolescenceCondition sig) (LaxObsolescenceCondition sig) where
   coe obs := { cond := obs.cond, monotone := obs.monotone }
 
+/-- The only way for a Datalog rule to be obsolete is that its result already occurs in the fact set. -/
+theorem ObsolescenceCondition.cond_implies_contained_of_isDatalog {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
+    {obs : ObsolescenceCondition sig} {trg : PreTrigger sig} {fs : FactSet sig} (isDatalog : trg.rule.isDatalog) :
+    obs.cond trg fs -> ∃ (i : Nat) (lt : i < trg.rule.head.length), (trg.mapped_head[i]'(by grind)).toSet ⊆ fs := by
+  intro cond; rcases obs.cond_implies_trg_is_satisfied cond with ⟨i, lt, subs, id_frontier, sat⟩
+  exists i, lt
+  rw [trg.each_mapped_head_eq_of_isDatalog isDatalog _ lt]
+  suffices trg.subs.apply_function_free_conj trg.rule.head[i] = subs.apply_function_free_conj trg.rule.head[i] by rw [this]; exact sat
+  apply List.map_congr_left
+  intro a a_mem
+  apply TermMapping.apply_generalized_atom_congr_left
+  intro t t_mem
+  cases t with
+  | const c => simp [GroundSubstitution.apply_var_or_const]
+  | var v =>
+    simp only [GroundSubstitution.apply_var_or_const]
+    apply Eq.symm; apply id_frontier
+    apply trg.rule.mem_frontier_of_mem_head_vars_of_isDatalog isDatalog
+    rw [FunctionFreeConjunction.mem_vars]
+    exists a
+
 section SpecificConditions
 
 /-!
@@ -133,11 +154,30 @@ def RestrictedTrigger := Trigger (RestrictedObsolescence sig : LaxObsolescenceCo
 variable {obs : LaxObsolescenceCondition sig}
 
 instance : CoeOut (Trigger obs) (PreTrigger sig) where
-  coe trigger := { rule := trigger.rule, subs := trigger.subs }
+  coe trigger := trigger.toPreTrigger
+
+@[expose]
+def Trigger.fromPreTrigger (trg : PreTrigger sig) (obs : LaxObsolescenceCondition sig) : Trigger obs where
+  rule := trg.rule
+  subs := trg.subs
+
+@[simp, grind =]
+theorem Trigger.rule_fromPreTrigger {trg : PreTrigger sig} {obs : LaxObsolescenceCondition sig} : (Trigger.fromPreTrigger trg obs).rule = trg.rule := rfl
+@[simp, grind =]
+theorem Trigger.subs_fromPreTrigger {trg : PreTrigger sig} {obs : LaxObsolescenceCondition sig} : (Trigger.fromPreTrigger trg obs).subs = trg.subs := rfl
+
+@[simp, grind =]
+theorem Trigger.toPreTrigger_after_fromPreTrigger {trg : PreTrigger sig} :
+    ∀ {obs : LaxObsolescenceCondition sig}, (Trigger.fromPreTrigger trg obs).toPreTrigger = trg := by
+  intros; rfl
 
 @[expose]
 def Trigger.active (trg : Trigger obs) (F : FactSet sig) : Prop :=
   trg.loaded F ∧ ¬ (obs.cond trg F)
+
+/-- Lifting the definition from `PreTrigger`. -/
+abbrev Trigger.extend_with_groundTermMapping (trg : Trigger obs) (h : GroundTermMapping sig) : Trigger obs :=
+  fromPreTrigger (PreTrigger.extend_with_groundTermMapping trg h) obs
 
 end Trigger
 

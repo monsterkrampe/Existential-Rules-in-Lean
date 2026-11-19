@@ -15,7 +15,7 @@ A `FunctionFreeAtom` is a `GeneralizedAtom` with `VarOrConst`s.
 
 public section
 
-abbrev FunctionFreeAtom (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] := GeneralizedAtom sig (VarOrConst sig)
+abbrev FunctionFreeAtom (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] := GeneralizedAtom sig.Preds (VarOrConst sig)
 
 namespace FunctionFreeAtom
 
