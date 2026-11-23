@@ -6,7 +6,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 import ExistentialRules.ChaseSequence.CriticalInstance
-public import ExistentialRules.ChaseSequence.Nontermination.HeadChoice
+public import ExistentialRules.ChaseSequence.HeadChoice
 
 open CustomBasicDatastructures
 

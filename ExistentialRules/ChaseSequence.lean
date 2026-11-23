@@ -5,17 +5,18 @@ Released under Apache 2.0 license as described in the file LICENSE.
 
 module
 
-import ExistentialRules.ChaseSequence.CriticalInstance
 import ExistentialRules.ChaseSequence.ChaseNode
 import ExistentialRules.ChaseSequence.ChaseBranch
 import ExistentialRules.ChaseSequence.ChaseDerivation
 import ExistentialRules.ChaseSequence.ChaseDerivationSkeleton
 import ExistentialRules.ChaseSequence.ChaseTree
 import ExistentialRules.ChaseSequence.CoreChase
-import ExistentialRules.ChaseSequence.Universality
+import ExistentialRules.ChaseSequence.CriticalInstance
 import ExistentialRules.ChaseSequence.Deterministic
+import ExistentialRules.ChaseSequence.HeadChoice
 import ExistentialRules.ChaseSequence.Nontermination
 import ExistentialRules.ChaseSequence.Termination
 import ExistentialRules.ChaseSequence.TreeDerivation
 import ExistentialRules.ChaseSequence.TriggerList
+import ExistentialRules.ChaseSequence.Universality
 
