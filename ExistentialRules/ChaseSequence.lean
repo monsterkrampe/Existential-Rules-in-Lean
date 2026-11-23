@@ -15,6 +15,7 @@ import ExistentialRules.ChaseSequence.CriticalInstance
 import ExistentialRules.ChaseSequence.Deterministic
 import ExistentialRules.ChaseSequence.HeadChoice
 import ExistentialRules.ChaseSequence.Nontermination
+import ExistentialRules.ChaseSequence.ParallelDeterminizedChase
 import ExistentialRules.ChaseSequence.Termination
 import ExistentialRules.ChaseSequence.TreeDerivation
 import ExistentialRules.ChaseSequence.TriggerList

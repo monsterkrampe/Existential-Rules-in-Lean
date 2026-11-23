@@ -5,7 +5,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 
 module
 
-public import ExistentialRules.ChaseSequence.Termination.ParallelDeterminizedChase
+public import ExistentialRules.ChaseSequence.ParallelDeterminizedChase
 import ExistentialRules.Terms.Cyclic
 import ExistentialRules.Terms.ListsOfTerms
 public import BasicLeanDatastructures.GetFreshInhabitant
