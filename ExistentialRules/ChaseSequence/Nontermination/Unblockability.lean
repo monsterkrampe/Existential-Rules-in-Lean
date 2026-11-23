@@ -244,11 +244,19 @@ This is already a model so the only chase tree features exactly the root node. B
 theorem Trigger.not_rsUnblockable_of_hc_exis_of_frontier_only_constants
     [Inhabited sig.C] {rules : RuleSet sig} {hc : HeadChoice sig} {trg : RTrigger (RestrictedObsolescence sig) rules}
     (rules_finite : rules.finite)
-    (rules_non_empty_heads : ∀ r ∈ rules, r.head ≠ []) -- TODO: rules with empty heads basically function as denial constraints (they are can never be satisfied once their body matches); maybe we should forbid this in general? although it's maybe also nice to have this as an option. Maybe we should introduce this as a property that rules and rule sets can have (being free of denial constraints that is). Also, observe that by our current definitions, a kb with denial constraints does not admit a chase derivation if a denial constraint becomes loaded at some point, because then, fairness is violated.
     (hc_consistent : hc.consistent_for_equivalent_triggers)
     (hc_exis : trg.val.rule.existential_vars_for_head_disjunct (hc trg.val).val (hc trg.val).isLt ≠ [])
     (frontier_only_constants : ∀ t ∈ trg.val.mapped_frontier, ∃ c, t = .const c) :
     ∃ trg', trg.equiv trg' ∧ ¬ trg'.val.rsUnblockable rules hc := by
+  have rules_non_empty_heads : ∀ r ∈ rules, r.head ≠ [] := by
+    -- TODO: rules with empty heads basically function as denial constraints (they are can never be satisfied once their body matches); maybe we should forbid this in general? although it's maybe also nice to have this as an option. Maybe we should introduce this as a property that rules and rule sets can have (being free of denial constraints that is). Also, observe that by our current definitions, a kb with denial constraints does not admit a chase derivation if a denial constraint becomes loaded at some point, because then, fairness is violated.
+    -- Note that here, the existence of a head choice implies that no rule can have an empty head. If any rule had an empty head, we could not pick an apropriate index with the head choice. Truth be told, this is not necessarily an intentional consequence but I take it.
+    intro r _ contra
+    let trg : PreTrigger sig := ⟨r, fun _ => .const default⟩
+    let i := hc trg
+    apply Nat.not_lt_zero i.val
+    suffices trg.rule.head.length = 0 by rw [← this]; exact i.isLt
+    simp [trg, contra]
   suffices ∃ db : Database sig, (∃ trg', trg.equiv trg' ∧ trg'.val.loaded db.toFactSet.val) ∧ ∀ trg : RTrigger (RestrictedObsolescence sig) rules, ¬ trg.val.active db.toFactSet.val by
     rcases this with ⟨db, ⟨trg', trg_equiv, trg'_loaded⟩, all_obs⟩
     have hc_exis' : trg'.val.rule.existential_vars_for_head_disjunct (hc trg'.val).val (hc trg'.val).isLt ≠ [] := by
