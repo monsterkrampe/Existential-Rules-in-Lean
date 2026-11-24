@@ -384,7 +384,7 @@ namespace KnowledgeBase
 theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
     (kb : KnowledgeBase sig) (det : kb.rules.isDeterministic) :
     ∀ (cb : RegularChaseBranch (SkolemObsolescence sig) kb), cb.result =
-      parallelDeterminizedChase_result kb (DeterministicSkolemObsolescence sig) none := by
+      parallelDeterminizedChase_result kb (DeterministicSkolemObsolescence sig) none id := by
   intro cb
   apply Set.ext
   intro f
@@ -392,12 +392,12 @@ theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
   . rintro ⟨node, node_mem, f_mem⟩
     revert f f_mem
     let node : cb.Node := ⟨node, node_mem⟩
-    show ∀ f ∈ node.val.facts, f ∈ parallelDeterminizedChase_result kb (DeterministicSkolemObsolescence sig) none
+    show ∀ f ∈ node.val.facts, f ∈ parallelDeterminizedChase_result kb (DeterministicSkolemObsolescence sig) none id
     induction node using cb.toChaseDerivation.mem_rec with
     | head =>
       intro f f_mem
       simp only [← cb.head.outgoingFacts_eq, cb.database_first] at f_mem
-      exists (parallelDeterminizedChase kb (DeterministicSkolemObsolescence sig) none).head
+      exists (parallelDeterminizedChase kb (DeterministicSkolemObsolescence sig) none id).head
       simp only [parallelDeterminizedChase, InfiniteList.head_mem]
       simp [f_mem]
     | step cd suffix ih next next_mem =>
@@ -406,14 +406,14 @@ theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
       cases f_mem with
       | inl f_mem => apply ih; exact f_mem
       | inr f_mem =>
-        have : ∃ fs ∈ parallelDeterminizedChase kb (DeterministicSkolemObsolescence sig) none, cd.head.facts ⊆ fs := by
+        have : ∃ fs ∈ parallelDeterminizedChase kb (DeterministicSkolemObsolescence sig) none id, cd.head.facts ⊆ fs := by
           have prev_finite := cb.facts_finite_of_mem ⟨cd.head, (cd.mem_of_mem_suffix suffix _ cd.head_mem)⟩
           rcases prev_finite with ⟨prev_l, _, prev_l_eq⟩
-          have : ∀ (l : List (Fact sig)), (∀ e, e ∈ l -> e ∈ cd.head.facts) -> ∃ fs ∈ (parallelDeterminizedChase kb (DeterministicSkolemObsolescence sig) none), (∀ e, e ∈ l -> e ∈ fs) := by
+          have : ∀ (l : List (Fact sig)), (∀ e, e ∈ l -> e ∈ cd.head.facts) -> ∃ fs ∈ (parallelDeterminizedChase kb (DeterministicSkolemObsolescence sig) none id), (∀ e, e ∈ l -> e ∈ fs) := by
             intro l l_sub
             induction l with
             | nil =>
-              exists (parallelDeterminizedChase kb (DeterministicSkolemObsolescence sig) none).head
+              exists (parallelDeterminizedChase kb (DeterministicSkolemObsolescence sig) none id).head
               constructor
               . exact InfiniteList.head_mem
               . intro _; simp
@@ -445,7 +445,7 @@ theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
             exact this.right f
 
         rcases this with ⟨fs, fs_mem, head_sub_fs⟩
-        exists parallelDeterminizedDerivation_step kb.rules (DeterministicSkolemObsolescence sig) none fs
+        exists parallelDeterminizedDerivation_step kb.rules (DeterministicSkolemObsolescence sig) none id fs
         constructor
         . apply parallelDeterminizedDerivation_step_mem_of_mem; exact fs_mem
         -- TODO: would be Decidable if we define sets in the parallelDeterminizedChase to be finite
@@ -454,6 +454,7 @@ theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
         | inr not_mem =>
           rw [parallelDeterminizedDerivation_step_hc_none]
           apply Or.inr
+          rw [GroundTermMapping.applyFactSet_id]
           let origin := next.origin.get (cd.isSome_origin_next next_mem)
           exists ⟨Trigger.fromPreTrigger origin.fst.val _, by exact origin.fst.property⟩
           constructor
@@ -467,7 +468,7 @@ theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
               apply contra.right origin.snd.val origin.snd.isLt
               exact f_mem
           . exists origin.snd.val, origin.snd.isLt; rw [List.mem_toSet] at f_mem; exact f_mem
-  . have goal : ∀ elem : (parallelDeterminizedChase kb (DeterministicSkolemObsolescence sig) none).Element, elem.val ⊆ cb.result := by
+  . have goal : ∀ elem : (parallelDeterminizedChase kb (DeterministicSkolemObsolescence sig) none id).Element, elem.val ⊆ cb.result := by
       intro elem
       induction elem using parallelDeterminizedDerivation_mem_rec with
       | head =>
@@ -479,6 +480,7 @@ theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
         intro f f_mem; cases parallelDeterminizedDerivation_step_subset _ f_mem with
         | inl f_mem => exact ih _ f_mem
         | inr f_mem =>
+          rw [GroundTermMapping.applyFactSet_id] at f_mem
           rcases f_mem with ⟨trg, trg_active, f_mem⟩
 
           have trg_loaded_somewhere : ∃ node ∈ cb.toChaseDerivation, trg.val.loaded node.facts := by
@@ -604,7 +606,7 @@ theorem mfaKb_functionFreeFact_mem_under_mfaConstantMapping {rs : RuleSet sig} {
 
 /-- The fact set computed in the MFA-like checks is the parallel determinized chase result (defined in a separete file) for the `mfaKb`. -/
 def mfaSet (rs : RuleSet sig) (finite : rs.finite) (special_const : sig.C) (obs : MfaObsolescenceCondition sig) : FactSet sig :=
-  parallelDeterminizedChase_result (rs.mfaKb finite special_const) obs none
+  parallelDeterminizedChase_result (rs.mfaKb finite special_const) obs none id
 
 /-- We can map every possible `ChaseBranch` into the `mfaSet` by replacing all (non-ruleset) constants by the special constant. At least this is the intuition for this behemoth of a theorem statement. -/
 theorem mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_predicates_not_from_rs
@@ -619,7 +621,7 @@ theorem mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_pred
   | head =>
     intro f f_predicate f_mem
     simp only [← cb.head.outgoingFacts_eq, cb.database_first] at f_mem
-    exists (parallelDeterminizedChase (rs.mfaKb finite special_const) mfa_obs none).head
+    exists (parallelDeterminizedChase (rs.mfaKb finite special_const) mfa_obs none id).head
     simp only [parallelDeterminizedChase, InfiniteList.head_mem, true_and]
     rw [parallelDeterminizedDerivation_head]
 
@@ -641,7 +643,7 @@ theorem mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_pred
       . exact f_predicate
       . exact f_mem
     | inr f_mem =>
-      have : ∃ fs ∈ (parallelDeterminizedChase (rs.mfaKb finite special_const) mfa_obs none), ∀ f, f.predicate ∈ rs.predicates -> f ∈ cd.head.facts -> ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact f) ∈ fs := by
+      have : ∃ fs ∈ (parallelDeterminizedChase (rs.mfaKb finite special_const) mfa_obs none id), ∀ f, f.predicate ∈ rs.predicates -> f ∈ cd.head.facts -> ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact f) ∈ fs := by
         let kb := rs.mfaKb finite special_const
         let prev_filtered : FactSet sig := fun f => f.predicate ∈ rs.predicates ∧ f ∈ cd.head.facts
         have prev_finite : prev_filtered.finite := by
@@ -658,11 +660,11 @@ theorem mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_pred
             rfl
         rcases prev_finite with ⟨prev_l, _, prev_l_eq⟩
 
-        have : ∀ (l : List (Fact sig)), (∀ e, e ∈ l -> e.predicate ∈ rs.predicates ∧ e ∈ cd.head.facts) -> ∃ fs ∈ (parallelDeterminizedChase kb mfa_obs none), (∀ e, e ∈ l -> ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact e) ∈ fs) := by
+        have : ∀ (l : List (Fact sig)), (∀ e, e ∈ l -> e.predicate ∈ rs.predicates ∧ e ∈ cd.head.facts) -> ∃ fs ∈ (parallelDeterminizedChase kb mfa_obs none id), (∀ e, e ∈ l -> ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact e) ∈ fs) := by
           intro l l_sub
           induction l with
           | nil =>
-            exists (parallelDeterminizedChase kb mfa_obs none).head
+            exists (parallelDeterminizedChase kb mfa_obs none id).head
             constructor
             . exact InfiniteList.head_mem
             . intro _; simp
@@ -705,12 +707,13 @@ theorem mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_pred
         exact this
 
       rcases this with ⟨fs, fs_mem, prev_node_subs_parallel_chase⟩
-      exists parallelDeterminizedDerivation_step rs mfa_obs none fs
+      exists parallelDeterminizedDerivation_step rs mfa_obs none id fs
       constructor
       . apply parallelDeterminizedDerivation_step_mem_of_mem; exact fs_mem
       simp only [parallelDeterminizedDerivation_step_hc_none]
       rw [Set.mem_union_iff, Classical.or_iff_not_imp_left]
       intro f_not_in_prev
+      rw [GroundTermMapping.applyFactSet_id]
 
       let origin := next.origin.get (cd.isSome_origin_next next_mem)
       let trg := origin.fst
@@ -1026,7 +1029,7 @@ theorem terminates_of_isMfa [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs
       rw [funcs_eq]
       unfold funcs
 
-      apply parallelDeterminizedChase_result_functions (kb := rs.mfaKb rs_finite default)
+      apply parallelDeterminizedChase_result_functions_with_id_remapping (kb := rs.mfaKb rs_finite default)
       rcases t_mem with ⟨f, f_mem, t_mem⟩
       exists f
       constructor
@@ -1049,7 +1052,7 @@ theorem terminates_of_isMfa [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs
     constructor
     . intro c c_mem
 
-      have := parallelDeterminizedChase_result_constants (kb := rs.mfaKb rs_finite default) (obs := mfa_obs) (hc_opt := none)
+      have := parallelDeterminizedChase_result_constants_with_id_remapping (kb := rs.mfaKb rs_finite default) (obs := mfa_obs) (hc_opt := none)
       specialize this c (by
         unfold FactSet.constants
         rcases t_mem with ⟨f, f_mem, t_mem⟩
