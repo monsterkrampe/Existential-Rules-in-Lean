@@ -24,17 +24,17 @@ public section
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 /-- This is the function signature that our specific unblockability overapproximations will follow. -/
-abbrev OverapproximationFunction (obs : ObsolescenceCondition sig) :=
-  (rs : RuleSet sig) -> HeadChoice obs rs -> RTrigger obs rs -> FactSet sig
+abbrev OverapproximationFunction (_ : ObsolescenceCondition sig) :=
+  (rs : RuleSet sig) -> HeadChoice rs -> RTrigger rs -> FactSet sig
 
 namespace OverapproximationFunction
 
-variable {obs : ObsolescenceCondition sig} {rs : RuleSet sig}
+variable {obs : ObsolescenceCondition sig}
 
 /-- A trigger is unblockable with respect to a specific overapproximation function
 if it is deterministic Datalog or if it is not obsolete for the overapproxmiation. -/
 def trigger_unblockable (overapprox : OverapproximationFunction obs) (rs : RuleSet sig)
-    (hc : HeadChoice obs rs) (trg : RTrigger obs rs) : Prop :=
+    (hc : HeadChoice rs) (trg : RTrigger rs) : Prop :=
   (trg.val.rule.isDatalog ∧ trg.val.rule.isDeterministic) ∨ ¬ obs.cond trg.val (overapprox rs hc trg)
 
 /-- This rather involved condition makes sure that a trigger can be repeated in the sense that applying a reversible constant mapping after
@@ -42,7 +42,7 @@ the substitution yields a trigger that is unblockable, given that the original t
 This is the condition proven in Lemma 4 in the [RPC] paper. -/
 @[expose]
 def trigger_repeatable [Inhabited sig.C] (overapprox : OverapproximationFunction obs) (rs : RuleSet sig)
-    (hc : HeadChoice obs rs) (trg : RTrigger obs rs) : Prop :=
+    (hc : HeadChoice rs) (trg : RTrigger rs) : Prop :=
   ∀ (g : ConstantMapping sig), g.isReversible trg.val.termSkeleton.toSet ->
     (overapprox.trigger_unblockable rs hc trg) ->
     (overapprox.trigger_unblockable rs hc (trg.extend_with_groundTermMapping g.apply_ground_term))
@@ -52,8 +52,8 @@ end OverapproximationFunction
 /-- A `RepeatableUnblockability` condition is an overapproximation function for that we know that the function result adheres to `is_rpc_overapproximation` and for that the `trigger_unblockable` property holds for each trigger. -/
 structure RepeatableUnblockability [Inhabited sig.C] (obs : ObsolescenceCondition sig) where
   overapprox : OverapproximationFunction obs
-  rpc_overapprox : ∀ rs hc (trg : RTrigger obs rs), (overapprox rs hc trg).is_rpc_overapproximation rs hc trg
-  repeatable : ∀ rs hc (trg : RTrigger obs rs), overapprox.trigger_repeatable rs hc trg
+  rpc_overapprox : ∀ rs hc (trg : RTrigger rs), (overapprox rs hc trg).is_rpc_overapproximation obs rs hc trg
+  repeatable : ∀ rs hc (trg : RTrigger rs), overapprox.trigger_repeatable rs hc trg
 
 namespace RepeatableUnblockability
 
@@ -62,7 +62,7 @@ variable [Inhabited sig.C] {obs : ObsolescenceCondition sig}
 /-- We lift the `OverapproximationFunction.trigger_unblockable` property to `RepeatableUnblockability` in the obvious way. -/
 @[expose]
 def trigger_unblockable (unblk : RepeatableUnblockability obs) (rs : RuleSet sig)
-    (hc : HeadChoice obs rs) (trg : RTrigger obs rs) : Prop :=
+    (hc : HeadChoice rs) (trg : RTrigger rs) : Prop :=
   unblk.overapprox.trigger_unblockable rs hc trg
 
 /--
@@ -73,10 +73,10 @@ follows mainly from `RTrigger.rsUnblockable_of_equiv_trigger_not_obsolete_for_ov
 theorem rsUnblockable_of_equiv_of_trigger_unblockable
     (obs_propagates : obs.propagates_under_term_mapping_of_no_fresh_term_occurs)
     {unblk : RepeatableUnblockability obs}
-    {rs : RuleSet sig} {hc : HeadChoice obs rs}
+    {rs : RuleSet sig} {hc : HeadChoice rs}
     (hc_consistent : hc.consistent_for_equivalent_triggers)
-    (trg : RTrigger obs rs) :
-    unblk.trigger_unblockable rs hc trg -> ∀ trg', trg.equiv trg' -> trg'.rsUnblockable rs hc := by
+    (trg : RTrigger rs) :
+    unblk.trigger_unblockable rs hc trg -> ∀ trg', trg.equiv trg' -> trg'.rsUnblockable obs rs hc := by
   intro unblockable_for_condition trg' equiv
   cases unblockable_for_condition with
   | inl isDetDatalog => rw [equiv.left] at isDetDatalog; exact RTrigger.rsUnblockable_of_isDatalog_of_isDeterministic isDetDatalog.left isDetDatalog.right
@@ -91,10 +91,10 @@ As a special case of the above theorem, we obtain that `RepeatableUnblockability
 theorem rsUnblockable_of_trigger_unblockable
     (obs_propagates : obs.propagates_under_term_mapping_of_no_fresh_term_occurs)
     {unblk : RepeatableUnblockability obs}
-    {rs : RuleSet sig} {hc : HeadChoice obs rs}
+    {rs : RuleSet sig} {hc : HeadChoice rs}
     (hc_consistent : hc.consistent_for_equivalent_triggers)
-    (trg : RTrigger obs rs) :
-    unblk.trigger_unblockable rs hc trg -> trg.rsUnblockable rs hc := by
+    (trg : RTrigger rs) :
+    unblk.trigger_unblockable rs hc trg -> trg.rsUnblockable obs rs hc := by
   intro unblk; exact rsUnblockable_of_equiv_of_trigger_unblockable obs_propagates hc_consistent trg unblk trg trg.val.equiv_refl
 
 section RestrictedObsolescenceOnly
@@ -108,10 +108,10 @@ the contraposition of `rsUnblockable_of_trigger_unblockable`.
 -- TODO: Again, a similar result should also hold for general ObsolescenceConditions but this requires further machinery. See note on Trigger.not_rsUnblockable_of_hc_exis_of_frontier_only_constants.
 theorem not_unblockable_of_hc_exis_of_frontier_only_constants
     {unblk : RepeatableUnblockability (RestrictedObsolescence sig)}
-    {rs : RuleSet sig} {hc : HeadChoice (RestrictedObsolescence sig) rs}
+    {rs : RuleSet sig} {hc : HeadChoice rs}
     (rs_finite : rs.finite)
     (hc_consistent : hc.consistent_for_equivalent_triggers)
-    (trg : RTrigger (RestrictedObsolescence sig) rs)
+    (trg : RTrigger rs)
     (hc_exis : trg.val.rule.existential_vars_for_head_disjunct (hc trg).val (hc trg).isLt ≠ [])
     (frontier_only_constants : ∀ t ∈ trg.val.mapped_frontier, ∃ c, t = .const c) :
     ¬ unblk.trigger_unblockable rs hc trg := by

@@ -31,7 +31,7 @@ namespace ChaseBranch
 variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
 
 theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C]
-    {cb : RegularChaseBranch obs kb} {node : RegularChaseNode obs kb.rules} (node_mem : node ∈ cb.toChaseDerivation) :
+    {cb : RegularChaseBranch obs kb} {node : RegularChaseNode kb.rules} (node_mem : node ∈ cb.toChaseDerivation) :
     ∀ (term : GroundTerm sig), (term_mem : term ∈ node.facts.terms) ->
     ∀ (forbidden_constants : List sig.C),
       term.constants ⊆ forbidden_constants ->
@@ -462,7 +462,7 @@ theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C
           exact d_mem
 
 theorem backtracking_of_term_list_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C]
-    {cb : RegularChaseBranch obs kb} {node : RegularChaseNode obs kb.rules} (node_mem : node ∈ cb.toChaseDerivation) :
+    {cb : RegularChaseBranch obs kb} {node : RegularChaseNode kb.rules} (node_mem : node ∈ cb.toChaseDerivation) :
     ∀ (terms : List (GroundTerm sig)), (terms_mem : terms.toSet ⊆ node.facts.terms) ->
     ∀ (forbidden_constants : List sig.C),
       (terms.flatMap GroundTerm.constants) ⊆ forbidden_constants ->
@@ -568,7 +568,7 @@ theorem backtracking_of_term_list_in_node [GetFreshInhabitant sig.C] [Inhabited 
       . apply g_tl_h.right; rw [List.mem_append]; apply Or.inl; exact d_mem
 
 public theorem backtracking_of_loaded_trigger_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C]
-    {cb : RegularChaseBranch obs kb} {node : RegularChaseNode obs kb.rules} (node_mem : node ∈ cb.toChaseDerivation) :
+    {cb : RegularChaseBranch obs kb} {node : RegularChaseNode kb.rules} (node_mem : node ∈ cb.toChaseDerivation) :
     ∀ (trg : PreTrigger sig), (trg_loaded : trg.loaded node.facts) ->
     ∃ (g : ConstantMapping sig),
       g.apply_fact_set trg.backtrackFacts.fst.toSet ⊆ node.facts ∧

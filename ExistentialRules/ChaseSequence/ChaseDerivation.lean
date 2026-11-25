@@ -40,9 +40,9 @@ The backbone of the `ChaseDerivation` is a `ChaseDerivationSkeleton` with additi
 2. The derivation needs to be fair. That is, for each trigger, there exists a step in the derivation from which on the trigger is not active.
 -/
 
-structure ChaseDerivation (N : Type u) (obs : ObsolescenceCondition sig) (rules : RuleSet sig) [CN : ChaseNode N obs rules] extends ChaseDerivationSkeleton N obs rules where
-  triggers_active : ∀ cd2, cd2 <:+ toChaseDerivationSkeleton -> ∀ next ∈ cd2.next, ∃ orig ∈ CN.origin next, orig.fst.val.active (CN.outgoingFacts cd2.head)
-  fairness : ∀ (trg : RTrigger obs rules), ∃ (cd2 : ChaseDerivationSkeleton N obs rules), cd2 <:+ toChaseDerivationSkeleton ∧ ∀ node ∈ cd2, ¬ trg.val.active (CN.outgoingFacts node)
+structure ChaseDerivation (N : Type u) (obs : ObsolescenceCondition sig) (rules : RuleSet sig) [CN : ChaseNode N rules] extends ChaseDerivationSkeleton N rules where
+  triggers_active : ∀ cd2, cd2 <:+ toChaseDerivationSkeleton -> ∀ next ∈ cd2.next, ∃ orig ∈ CN.origin next, orig.fst.val.active obs (CN.outgoingFacts cd2.head)
+  fairness : ∀ (trg : RTrigger rules), ∃ (cd2 : ChaseDerivationSkeleton N rules), cd2 <:+ toChaseDerivationSkeleton ∧ ∀ node ∈ cd2, ¬ trg.val.active obs (CN.outgoingFacts node)
 
 namespace ChaseDerivation
 
@@ -50,7 +50,7 @@ variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 
 section Basics
 
-variable {N : Type u} [CN : ChaseNode N obs rules]
+variable {N : Type u} [CN : ChaseNode N rules]
 
 /-!
 ## Basic Definitions
@@ -72,7 +72,7 @@ theorem mem_iff {cd : ChaseDerivation N obs rules} : ∀ {e}, e ∈ cd ↔ ∃ n
 @[expose]
 def derivation_for_skeleton
     (cd : ChaseDerivation N obs rules)
-    (l2 : ChaseDerivationSkeleton N obs rules)
+    (l2 : ChaseDerivationSkeleton N rules)
     (suffix : l2 <:+ cd.toChaseDerivationSkeleton) :
     ChaseDerivation N obs rules where
   branch := l2.branch
@@ -112,7 +112,7 @@ Compared to the `ChaseDerivationSkeleton` we can show some additional results fo
 /-- The trigger used to derive `ChaseDerivationSkeleton.next` is active for `ChaseDerivationSkeleton.head`. -/
 @[grind ->]
 theorem active_trigger_origin_next {cd : ChaseDerivation N obs rules} {next : N} (eq : cd.next = some next) :
-    ((CN.origin next).get (cd.isSome_origin_next eq)).fst.val.active (CN.outgoingFacts cd.head) := by
+    ((CN.origin next).get (cd.isSome_origin_next eq)).fst.val.active obs (CN.outgoingFacts cd.head) := by
   have trg_act := cd.triggers_active  _ (PossiblyInfiniteList.IsSuffix_refl) next (by simp [← eq, ChaseDerivationSkeleton.next])
   rcases trg_act with ⟨orig, orig_mem, trg_act⟩
   rw [Option.mem_def] at orig_mem
@@ -120,7 +120,7 @@ theorem active_trigger_origin_next {cd : ChaseDerivation N obs rules} {next : N}
   exact trg_act
 
 /-- The `ChaseDerivationSkeleton.next` node is not none if and only if some trigger is active on `ChaseDerivationSkeleton.head`. -/
-theorem isSome_next_iff_trg_ex {cd : ChaseDerivation N obs rules} : cd.next.isSome ↔ ∃ (trg : RTrigger obs rules), trg.val.active (CN.outgoingFacts cd.head) := by
+theorem isSome_next_iff_trg_ex {cd : ChaseDerivation N obs rules} : cd.next.isSome ↔ ∃ (trg : RTrigger rules), trg.val.active obs (CN.outgoingFacts cd.head) := by
   constructor
   . rw [Option.isSome_iff_exists]
     rintro ⟨next, eq⟩
@@ -165,7 +165,7 @@ theorem subderivation_of_node_mem {cd : ChaseDerivation N obs rules} {node : N} 
 
 /-- We repeat fairness lifted from an expression over `ChaseDerivationSkeleton` to an expression over `ChaseDerivation`. -/
 theorem fairness' {cd : ChaseDerivation N obs rules} :
-    ∀ (trg : RTrigger obs rules), ∃ (cd2 : ChaseDerivation N obs rules), cd2 <:+ cd ∧ ∀ node ∈ cd2, ¬ trg.val.active (CN.outgoingFacts node) := by
+    ∀ (trg : RTrigger rules), ∃ (cd2 : ChaseDerivation N obs rules), cd2 <:+ cd ∧ ∀ node ∈ cd2, ¬ trg.val.active obs (CN.outgoingFacts node) := by
   intro trg; rcases cd.fairness trg with ⟨cd2, suf, fair⟩
   exists cd.derivation_for_skeleton cd2 suf
 
@@ -258,7 +258,7 @@ section Predecessors
 We lift the predecessor relation from `ChaseDerivationSkeleton`s to `ChaseDerivation`s.
 -/
 
-variable {N : Type u} [CN : ChaseNode N obs rules]
+variable {N : Type u} [CN : ChaseNode N rules]
 
 /-- We could also define the predecessor relation directly on `ChaseDerivation`s. This theorem shows how this would look. -/
 theorem predecessor_iff {cd : ChaseDerivation N obs rules} (n1 n2 : Node cd) :
@@ -285,7 +285,7 @@ The second observation entails that the precense of a functional term that does 
 that the trigger that introduces this term must have been applied in some `ChaseNode`.
 -/
 
-variable {N : Type u} [CN : ChaseNode N obs rules]
+variable {N : Type u} [CN : ChaseNode N rules]
 
 /-- Constants in the chase can only come from the initial fact set or from a constant in a rule. -/
 theorem constants_node_subset_constants_fs_union_constants_rules
@@ -403,7 +403,7 @@ theorem trigger_introducing_functional_term_occurs_in_chase
     (node : (cd.tail next_some).Node)
     {t : GroundTerm sig}
     (t_mem_node : t ∈ (CN.ingoingFacts node.val).terms)
-    {trg : RTrigger obs rules}
+    {trg : RTrigger rules}
     {disj_idx : Nat}
     {lt : disj_idx < trg.val.rule.head.length}
     (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :
@@ -434,7 +434,7 @@ The `RegularChaseDerivation` relates to the `ChaseDerivation` as the `RegularCha
 That is, the `RegularChaseDerivation` is an abbreviation for a `ChaseDerivation` where the chase node implementation is fixed to be the `RegularChaseNode`, which lands us in the realm of Skolem and restricted chase (but not core chase).
 -/
 
-abbrev RegularChaseDerivation (obs : ObsolescenceCondition sig) (rules : RuleSet sig) := ChaseDerivation (RegularChaseNode obs rules) obs rules
+abbrev RegularChaseDerivation (obs : ObsolescenceCondition sig) (rules : RuleSet sig) := ChaseDerivation (RegularChaseNode rules) obs rules
 
 namespace RegularChaseDerivation
 
@@ -513,7 +513,7 @@ theorem predecessor_trans {cd : RegularChaseDerivation obs rules} {n1 n2 n3 : cd
 
 /-- We can express fairness in terms of the predecessor relation: For each trigger, there is a node such that the trigger is not active for each of the node's successors. -/
 theorem fairness_prec {cd : RegularChaseDerivation obs rules} :
-    ∀ (trg : RTrigger obs rules), ∃ (node : cd.Node), ∀ node2, node ≼ node2 -> ¬ trg.val.active node2.val.facts := by
+    ∀ (trg : RTrigger rules), ∃ (node : cd.Node), ∀ node2, node ≼ node2 -> ¬ trg.val.active obs node2.val.facts := by
   intro trg
   rcases cd.fairness' trg with ⟨cd2, suffix, fair⟩
   exists ⟨cd2.head, cd2.mem_of_mem_suffix suffix _ cd2.head_mem⟩
@@ -682,7 +682,7 @@ abbrev result (cd : RegularChaseDerivation obs rules) := RegularChaseDerivationS
 @[grind <-]
 theorem result_models_rules {cd : RegularChaseDerivation obs rules} : cd.result.modelsRules rules := by
   intro r r_mem subs subs_loaded
-  let trg : Trigger obs := ⟨r, subs⟩
+  let trg : PreTrigger sig := ⟨r, subs⟩
   have trg_loaded : trg.loaded cd.result := subs_loaded
   apply obs.cond_implies_trg_is_satisfied (trg := trg)
   rcases RegularChaseDerivationSkeleton.trg_loaded_for_some_node_of_trg_loaded_for_result trg trg_loaded with ⟨node_loaded, node_loaded_mem, trg_loaded⟩
@@ -728,7 +728,7 @@ that the trigger that introduces this term must have been applied in some `Chase
 /-- Constants in the chase can only come from the initial fact set or from a constant in a rule. -/
 theorem constants_node_subset_constants_fs_union_constants_rules
     {cd : RegularChaseDerivation obs rules}
-    {node : RegularChaseNode obs rules} (node_mem : node ∈ cd) :
+    {node : RegularChaseNode rules} (node_mem : node ∈ cd) :
     node.facts.constants ⊆ cd.head.facts.constants ∪ rules.head_constants := by
   cases cd.mem_iff_eq_head_or_mem_tail.mp node_mem with
   | inl node_mem => apply Set.subset_union_of_subset_left; rw [node_mem]; exact Set.subset_refl
@@ -762,7 +762,7 @@ theorem trigger_introducing_functional_term_occurs_in_chase
     (node : cd.Node)
     {t : GroundTerm sig}
     (t_mem_node : t ∈ node.val.facts.terms)
-    {trg : RTrigger obs rules}
+    {trg : RTrigger rules}
     {disj_idx : Nat}
     {lt : disj_idx < trg.val.rule.head.length}
     (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :
@@ -785,7 +785,7 @@ theorem result_of_trigger_introducing_functional_term_occurs_in_chase
     (node : cd.Node)
     {t : GroundTerm sig}
     (t_mem_node : t ∈ node.val.facts.terms)
-    {trg : RTrigger obs rules}
+    {trg : RTrigger rules}
     {disj_idx : Nat}
     {lt : disj_idx < trg.val.rule.head.length}
     (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :

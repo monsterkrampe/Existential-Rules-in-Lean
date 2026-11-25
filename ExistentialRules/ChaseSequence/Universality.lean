@@ -40,7 +40,7 @@ variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq 
 namespace AuxiliaryDefsAndTheoremsForUniversalityProof
 
 variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
-variable {N : Type u} [CN : ChaseNode N obs kb.rules]
+variable {N : Type u} [CN : ChaseNode N kb.rules]
 
 /-- The `InductiveHomomorphismResult` is used for the step-wise construction is forms the element that is the input and output of the generator function used in `TreeDerivation.generate_subderivation` later. It consists of a node in the chase tree and a `GroundTermMapping` that is a homomorphism from the node to the target model. The generated branch is the chain of all the generated nodes.  -/
 abbrev InductiveHomomorphismResult (ct : ChaseTree N obs kb) (m : FactSet sig) :=
@@ -56,7 +56,7 @@ noncomputable def hom_step_of_trg_ex
     (prev_hom : GroundTermMapping sig)
     (prev_hom_is_homomorphism : prev_hom.isHomomorphism (CN.outgoingFacts node.node) m)
     (children_ne_nil : node.subderivation.childNodes ≠ [])
-    (trg_inactive_of_fresh_term_present : ∀ (trg : RTrigger obs kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active (CN.outgoingFacts node.node)) :
+    (trg_inactive_of_fresh_term_present : ∀ (trg : RTrigger kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active obs (CN.outgoingFacts node.node)) :
     InductiveHomomorphismResult ct m :=
   have trg_ex := node.triggers_exist children_ne_nil
   let trg := Classical.choose trg_ex
@@ -66,7 +66,7 @@ noncomputable def hom_step_of_trg_ex
   have trg_spec_orig_eq := trg_spec.right.right.left
   have trg_spec_idx_eq := trg_spec.right.right.right
 
-  let trg_variant_for_m : RTrigger obs kb.rules := trg.extend_with_groundTermMapping prev_hom
+  let trg_variant_for_m : RTrigger kb.rules := trg.extend_with_groundTermMapping prev_hom
   have trg_variant_loaded_for_m : trg_variant_for_m.val.loaded m := by
     suffices trg_variant_for_m.val.loaded (prev_hom.applyFactSet (CN.outgoingFacts node.node)) by
       exact Set.subset_trans this prev_hom_is_homomorphism.right
@@ -207,7 +207,7 @@ theorem mem_childNodes_of_mem_hom_step_of_trg_ex
     {prev_hom : GroundTermMapping sig}
     {prev_hom_is_homomorphism : prev_hom.isHomomorphism (CN.outgoingFacts node.node) m}
     {children_ne_nil : node.subderivation.childNodes ≠ []}
-    {trg_inactive_of_fresh_term_present : ∀ (trg : RTrigger obs kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active (CN.outgoingFacts node.node)} :
+    {trg_inactive_of_fresh_term_present : ∀ (trg : RTrigger kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active obs (CN.outgoingFacts node.node)} :
     (hom_step_of_trg_ex out_sub_in ct m m_is_model node prev_hom prev_hom_is_homomorphism children_ne_nil trg_inactive_of_fresh_term_present).val.fst ∈ node.childNodes := by
   simp only [hom_step_of_trg_ex]; exact List.getElem_mem _
 
@@ -221,7 +221,7 @@ theorem hom_extends_prev_in_hom_step_of_trg_ex
     {prev_hom : GroundTermMapping sig}
     {prev_hom_is_homomorphism : prev_hom.isHomomorphism (CN.outgoingFacts node.node) m}
     {children_ne_nil : node.subderivation.childNodes ≠ []}
-    {trg_inactive_of_fresh_term_present : ∀ (trg : RTrigger obs kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active (CN.outgoingFacts node.node)} :
+    {trg_inactive_of_fresh_term_present : ∀ (trg : RTrigger kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active obs (CN.outgoingFacts node.node)} :
     ∀ t ∈ (CN.outgoingFacts node.node).terms, prev_hom t = (hom_step_of_trg_ex out_sub_in ct m m_is_model node prev_hom prev_hom_is_homomorphism children_ne_nil trg_inactive_of_fresh_term_present).val.snd t := by intro t t_mem; simp [hom_step_of_trg_ex, t_mem]
 
 /-- When extending the `InductiveHomomorphismResult` from one step to the next, we do not necessarily know that a trigger is active for the current node. Indeed the chase might just have already finished. So we do a simple case distinction here and return an `Option` either with the result from `hom_step_of_trg_ex` or simply none. -/
@@ -230,7 +230,7 @@ noncomputable def hom_step
     (ct : ChaseTree N obs kb)
     (m : FactSet sig)
     (m_is_model : m.modelsKb kb)
-    (trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger obs kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active (CN.outgoingFacts node.node))
+    (trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active obs (CN.outgoingFacts node.node))
     (prev_res : InductiveHomomorphismResult ct m) :
     Option (InductiveHomomorphismResult ct m) :=
   if eq_nil : prev_res.val.fst.subderivation.childNodes = []
@@ -243,7 +243,7 @@ theorem mem_childNodes_of_mem_hom_step
     {ct : ChaseTree N obs kb}
     {m : FactSet sig}
     {m_is_model : m.modelsKb kb}
-    {trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger obs kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active (CN.outgoingFacts node.node)}
+    {trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active obs (CN.outgoingFacts node.node)}
     {prev_res : InductiveHomomorphismResult ct m} :
     ∀ res ∈ hom_step out_sub_in ct m m_is_model trg_inactive_of_fresh_term_present prev_res, res.val.fst ∈ prev_res.val.fst.childNodes := by
   intro res
@@ -256,7 +256,7 @@ theorem childNodes_empty_of_hom_step_none
     {ct : ChaseTree N obs kb}
     {m : FactSet sig}
     {m_is_model : m.modelsKb kb}
-    {trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger obs kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active (CN.outgoingFacts node.node)}
+    {trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active obs (CN.outgoingFacts node.node)}
     {prev_res : InductiveHomomorphismResult ct m} :
     hom_step out_sub_in ct m m_is_model trg_inactive_of_fresh_term_present prev_res = none -> prev_res.val.fst.childNodes = [] := by
   simp only [hom_step]
@@ -270,7 +270,7 @@ theorem hom_extends_prev_in_hom_step
     {ct : ChaseTree N obs kb}
     {m : FactSet sig}
     {m_is_model : m.modelsKb kb}
-    {trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger obs kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active (CN.outgoingFacts node.node)}
+    {trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active obs (CN.outgoingFacts node.node)}
     {prev_res : InductiveHomomorphismResult ct m} :
     ∀ pair ∈ hom_step out_sub_in ct m m_is_model trg_inactive_of_fresh_term_present prev_res,
       ∀ t ∈ (CN.outgoingFacts prev_res.val.fst.node).terms, prev_res.val.snd t = pair.val.snd t := by
@@ -303,7 +303,7 @@ noncomputable def infinite_list_of_derivations_and_homomorphisms
     (ct : ChaseTree N obs kb)
     (m : FactSet sig)
     (m_is_model : m.modelsKb kb)
-    (trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger obs kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active (CN.outgoingFacts node.node)) :
+    (trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active obs (CN.outgoingFacts node.node)) :
     PossiblyInfiniteList (ChaseDerivation N obs kb.rules × GroundTermMapping sig) :=
   let derivs_with_homs : PossiblyInfiniteList (ChaseDerivation N obs kb.rules × GroundTermMapping sig) :=
     PossiblyInfiniteList.generate (start_for_infinite_list_of_derivations_and_homomorphisms ct m m_is_model) (hom_step out_sub_in ct m m_is_model trg_inactive_of_fresh_term_present) (fun res =>
@@ -326,7 +326,7 @@ theorem each_step_isHomomorphism_in_infinite_list_of_derivations_and_homomorphis
     {ct : ChaseTree N obs kb}
     {m : FactSet sig}
     {m_is_model : m.modelsKb kb}
-    {trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger obs kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active (CN.outgoingFacts node.node)} :
+    {trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active obs (CN.outgoingFacts node.node)} :
     ∀ step ∈ infinite_list_of_derivations_and_homomorphisms out_sub_in ct m m_is_model trg_inactive_of_fresh_term_present,
     step.snd.isHomomorphism (CN.outgoingFacts step.fst.head) m := by
   intro step step_mem
@@ -339,7 +339,7 @@ noncomputable def head_infinite_list_of_derivations_and_homomorphisms
     (ct : ChaseTree N obs kb)
     (m : FactSet sig)
     (m_is_model : m.modelsKb kb)
-    (trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger obs kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active (CN.outgoingFacts node.node)) :
+    (trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active obs (CN.outgoingFacts node.node)) :
     (ChaseDerivation N obs kb.rules × GroundTermMapping sig) :=
   (infinite_list_of_derivations_and_homomorphisms out_sub_in ct m m_is_model trg_inactive_of_fresh_term_present).head.get (by simp [infinite_list_of_derivations_and_homomorphisms, PossiblyInfiniteList.head_generate])
 
@@ -349,7 +349,7 @@ theorem mem_branches_fst_head_infinite_list_of_derivations_and_homomorphisms
     {ct : ChaseTree N obs kb}
     {m : FactSet sig}
     {m_is_model : m.modelsKb kb}
-    {trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger obs kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active (CN.outgoingFacts node.node)} :
+    {trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active obs (CN.outgoingFacts node.node)} :
     (head_infinite_list_of_derivations_and_homomorphisms out_sub_in ct m m_is_model trg_inactive_of_fresh_term_present).fst ∈ ct.branches := by
   simp only [head_infinite_list_of_derivations_and_homomorphisms, infinite_list_of_derivations_and_homomorphisms, PossiblyInfiniteList.head_generate, Option.map_some, Option.get_some]
   apply ct.generate_subderivation_mem_branches
@@ -361,7 +361,7 @@ theorem fst_head_infinite_list_of_derivations_and_homomorphisms_eq_list_of_all_h
     {ct : ChaseTree N obs kb}
     {m : FactSet sig}
     {m_is_model : m.modelsKb kb}
-    {trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger obs kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active (CN.outgoingFacts node.node)} :
+    {trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CN.outgoingFacts node.node).terms -> ¬ trg.val.active obs (CN.outgoingFacts node.node)} :
     (head_infinite_list_of_derivations_and_homomorphisms out_sub_in ct m m_is_model trg_inactive_of_fresh_term_present).fst.branch =
     (infinite_list_of_derivations_and_homomorphisms out_sub_in ct m m_is_model trg_inactive_of_fresh_term_present).map (fun step => step.fst.head) := by
   let pairs : PossiblyInfiniteList (InductiveHomomorphismResult ct m) :=
@@ -397,7 +397,7 @@ open AuxiliaryDefsAndTheoremsForUniversalityProof
 theorem universal_result (ct : RegularChaseTree obs kb) : ∀ (m : FactSet sig), m.modelsKb kb ->
     ∃ (fs : FactSet sig) (h : GroundTermMapping sig), fs ∈ ct.result ∧ h.isHomomorphism fs m := by
 
-  have trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger obs kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (RegularChaseNode.regularChaseNodeInstance.outgoingFacts node.node).terms -> ¬ trg.val.active (RegularChaseNode.regularChaseNodeInstance.outgoingFacts node.node) := by
+  have trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (RegularChaseNode.regularChaseNodeInstance.outgoingFacts node.node).terms -> ¬ trg.val.active obs (RegularChaseNode.regularChaseNodeInstance.outgoingFacts node.node) := by
     intro node trg i lt t t_fresh t_mem_node trg_act
     apply trg_act.right
     apply obs.contains_trg_result_implies_cond i lt

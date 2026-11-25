@@ -29,7 +29,7 @@ namespace TreeDerivation
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
-variable {N : Type u} [CN : ChaseNode N obs rules]
+variable {N : Type u} [CN : ChaseNode N rules]
 
 namespace NodeWithAddress
 

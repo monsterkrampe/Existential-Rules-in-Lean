@@ -32,7 +32,7 @@ open AuxiliaryDefsAndTheoremsForUniversalityProof
 theorem universal_result (ct : CoreChaseTree kb) (terminates : ct.terminates) : ∀ (m : FactSet sig), m.modelsKb kb ->
     ∃ (fs : FactSet sig) (h : GroundTermMapping sig), fs ∈ CoreTreeDerivation.result ct.toTreeDerivation terminates ∧ h.isHomomorphism fs m := by
 
-  have trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger (RestrictedObsolescence sig) kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CoreChaseNode.coreChaseNodeInstance.outgoingFacts node.node).terms -> ¬ trg.val.active (CoreChaseNode.coreChaseNodeInstance.outgoingFacts node.node) := by
+  have trg_inactive_of_fresh_term_present : ∀ (node : ct.NodeWithAddress) (trg : RTrigger kb.rules) i lt t, t ∈ trg.val.fresh_terms_for_head_disjunct i lt -> t ∈ (CoreChaseNode.coreChaseNodeInstance.outgoingFacts node.node).terms -> ¬ trg.val.active (RestrictedObsolescence sig) (CoreChaseNode.coreChaseNodeInstance.outgoingFacts node.node) := by
     intro node trg i lt t t_fresh t_mem_node trg_act
     rw [node.node.outgoingFacts_eq] at t_mem_node
     rw [node.node.outgoingFacts_eq] at trg_act

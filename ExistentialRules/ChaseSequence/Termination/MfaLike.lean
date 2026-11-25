@@ -148,7 +148,7 @@ This is safe to do since applying these again would not make a difference.
 The necessesity for doing this comes from `DeterministicSkolemObsolescence.blocks_each_obs`. `BlockingObsolescence.blocks_corresponding_obs` works without.
 -/
 def MfaObsolescenceCondition.blocks_obs (mfa_obs : MfaObsolescenceCondition sig) (obs : ObsolescenceCondition sig) (rs : RuleSet sig) (special_const : sig.C) : Prop :=
-  ∀ {db : Database sig} (cb : RegularChaseBranch obs ⟨db, rs⟩) (node : cb.Node) (trg : RTrigger obs rs) (fs : FactSet sig),
+  ∀ {db : Database sig} (cb : RegularChaseBranch obs ⟨db, rs⟩) (node : cb.Node) (trg : RTrigger rs) (fs : FactSet sig),
   (∃ (i : Nat) (lt : i < trg.val.rule.head.length), ¬ ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact_set (trg.val.mapped_head[i]'(by grind)).toSet) ⊆ fs) ->
   (mfa_obs.cond (trg.val.extend_with_groundTermMapping (rs.mfaConstantMapping special_const).toConstantMapping.apply_ground_term) fs) ->
   trg.val.loaded node.val.facts -> obs.cond trg.val node.val.facts
@@ -216,16 +216,17 @@ theorem DeterministicSkolemObsolescence.blocks_each_obs (obs : ObsolescenceCondi
     | const c => simp [StrictConstantMapping.apply_var_or_const, PreTrigger.apply_to_var_or_const_for_const, ConstantMapping.apply_ground_term_constant, StrictConstantMapping.toConstantMapping]
 
 /-- A trigger is blocked for its own backtracking if it is obsolete for its own backtracking. Note that the backtracking always requires us to prove that Skolem function terms are well-formed, which is what the additional conditions are for. -/
-def Trigger.blocked_for_backtracking
+def PreTrigger.blocked_for_backtracking
     [GetFreshInhabitant sig.C]
     [Inhabited sig.C]
-    {obs : LaxObsolescenceCondition sig}
-    (trg : Trigger obs) : Prop :=
+    (obs : LaxObsolescenceCondition sig)
+    (trg : PreTrigger sig) : Prop :=
   (obs.cond trg trg.backtrackFacts.fst.toSet)
 
 /-- A trigger fulfills `BlockingObsolescence` if the trigger with renamed-apart constants is blocked for its own backtracking. Note that `BlockingObsolescence` only depends on the trigger. The passed fact set is ignored. -/
 def BlockingObsolescence [GetFreshInhabitant sig.C] [Inhabited sig.C] (obs : ObsolescenceCondition sig) : MfaObsolescenceCondition sig := {
-  cond := fun (trg : PreTrigger sig) _ => (Trigger.fromPreTrigger (trg.rename_constants_apart (trg.affected_rules_for_backtracking.flatMap Rule.constants)) obs).blocked_for_backtracking
+  cond := fun (trg : PreTrigger sig) _ =>
+    (trg.rename_constants_apart (trg.affected_rules_for_backtracking.flatMap Rule.constants)).blocked_for_backtracking obs
   monotone := by intro _ _ _ _ h; exact h -- trivial since the condition does not depend on the passed fact set
 }
 
@@ -237,18 +238,18 @@ theorem BlockingObsolescence.blocks_corresponding_obs [GetFreshInhabitant sig.C]
   intro db cb node trg _ _ blocked loaded
   simp only [BlockingObsolescence] at blocked
 
-  have blocked : trg.val.blocked_for_backtracking := by
+  have blocked : trg.val.blocked_for_backtracking obs := by
     let trg_with_constant_mapping_applied_but_not_renamed_apart : PreTrigger sig := (trg.val.extend_with_groundTermMapping (rs.mfaConstantMapping special_const).toConstantMapping.apply_ground_term)
     have affected_rules_eq : trg.val.affected_rules_for_backtracking = trg_with_constant_mapping_applied_but_not_renamed_apart.affected_rules_for_backtracking := trg.val.affected_rules_eq_of_composing_with_subs _
 
     have exists_strict_constant_mapping_reversing_renaming :=
       trg_with_constant_mapping_applied_but_not_renamed_apart.exists_strict_constant_mapping_to_reverse_renaming
-        trg.val.toPreTrigger
+        trg.val
         (by apply PreTrigger.same_skeleton_symm; apply PreTrigger.same_skeleton_under_strict_constant_mapping)
         (trg.val.affected_rules_for_backtracking.flatMap Rule.constants)
     rcases exists_strict_constant_mapping_reversing_renaming with ⟨reverse_renaming_mapping, reverse_renaming_mapping_properties⟩
 
-    unfold Trigger.blocked_for_backtracking
+    unfold PreTrigger.blocked_for_backtracking
     rw [← obs.preserved_under_equiv (PreTrigger.equiv_of_strong_equiv reverse_renaming_mapping_properties.left)]
     rw [PreTrigger.backtrackFacts_eq_of_strong_equiv _ _ (PreTrigger.strong_equiv_symm reverse_renaming_mapping_properties.left)]
 
@@ -331,7 +332,7 @@ theorem BlockingObsolescence.blocks_corresponding_obs [GetFreshInhabitant sig.C]
     . rw [affected_rules_eq]
       exact blocked
 
-  simp only [Trigger.blocked_for_backtracking] at blocked
+  simp only [PreTrigger.blocked_for_backtracking] at blocked
 
   rcases ChaseBranch.backtracking_of_loaded_trigger_in_node node.property trg.val loaded with ⟨g, g_h⟩
 
@@ -456,9 +457,9 @@ theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
           apply Or.inr
           rw [GroundTermMapping.applyFactSet_id]
           let origin := next.origin.get (cd.isSome_origin_next next_mem)
-          exists ⟨Trigger.fromPreTrigger origin.fst.val _, by exact origin.fst.property⟩
+          exists origin.fst
           constructor
-          . unfold Trigger.active
+          . unfold PreTrigger.active
             constructor
             . unfold PreTrigger.loaded
               apply Set.subset_trans _ head_sub_fs
@@ -532,7 +533,7 @@ theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
           | inl prec =>
             exists fairness_node.val; constructor; exact fairness_node.property
             specialize fair fairness_node cb.predecessor_refl
-            unfold Trigger.active at fair
+            unfold PreTrigger.active at fair
             simp only [not_and, Classical.not_not] at fair
             have trg_loaded : trg.val.loaded fairness_node.val.facts := by
               intro f f_mem
@@ -553,7 +554,7 @@ theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
           | inr prec =>
             exists node; constructor; exact node_mem
             specialize fair ⟨node, node_mem⟩ prec
-            unfold Trigger.active at fair
+            unfold PreTrigger.active at fair
             simp only [not_and, Classical.not_not] at fair
             specialize fair trg_loaded
             rcases fair with ⟨j, lt2, fair⟩
@@ -719,7 +720,7 @@ theorem mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_pred
       let trg := origin.fst
       let disj_index := origin.snd
 
-      let adjusted_trg : RTrigger mfa_obs (rs.mfaKb finite special_const).rules := ⟨⟨trg.val.rule, (rs.mfaConstantMapping special_const).toConstantMapping.apply_ground_term ∘ trg.val.subs⟩, trg.property⟩
+      let adjusted_trg : RTrigger (rs.mfaKb finite special_const).rules := ⟨⟨trg.val.rule, (rs.mfaConstantMapping special_const).toConstantMapping.apply_ground_term ∘ trg.val.subs⟩, trg.property⟩
 
       exists adjusted_trg
       constructor
@@ -848,7 +849,7 @@ theorem filtered_cb_result_subset_mfaSet (rs : RuleSet sig) (finite : rs.finite)
 
 /-- If the `mfaSet` is finite, then the rule set terminates. The argument is that if the `mfaSet` is finite and every `ChaseBranch` can be embedded into this set, then each of these `ChaseBranch`es also needs to be finite. This is still a bit involved since we need to show that only finitely many terms can collapse to the same on in the `mfaSet`. -/
 theorem terminates_of_mfaSet_finite [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.finite) (mfa_obs : MfaObsolescenceCondition sig) :
-    ∀ {obs : ObsolescenceCondition sig}, (mfa_obs.blocks_obs obs rs Inhabited.default) -> (rs.mfaSet rs_finite Inhabited.default mfa_obs).finite -> rs.terminates obs (RegularChaseNode obs rs) := by
+    ∀ {obs : ObsolescenceCondition sig}, (mfa_obs.blocks_obs obs rs Inhabited.default) -> (rs.mfaSet rs_finite Inhabited.default mfa_obs).finite -> rs.terminates obs (RegularChaseNode rs) := by
   intro obs blocks mfa_finite
   unfold RuleSet.terminates
   intro db
@@ -972,7 +973,7 @@ def isMfa [Inhabited sig.C] (rs : RuleSet sig) (finite : rs.finite) (mfa_obs : M
 /-- A rule set terminates if it `isMfa`. What mainly remains to be shown here is that only finitely many terms are non-cyclic. -/
 theorem terminates_of_isMfa [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.finite) (mfa_obs : MfaObsolescenceCondition sig) :
     ∀ {obs : ObsolescenceCondition sig}, (mfa_obs.blocks_obs obs rs Inhabited.default) ->
-      rs.isMfa rs_finite mfa_obs -> rs.terminates obs (RegularChaseNode obs rs) := by
+      rs.isMfa rs_finite mfa_obs -> rs.terminates obs (RegularChaseNode rs) := by
   intro obs blocks isMfa
   apply rs.terminates_of_mfaSet_finite rs_finite mfa_obs blocks
   apply FactSet.finite_of_preds_finite_of_terms_finite
@@ -1076,14 +1077,14 @@ theorem terminates_of_isMfa [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs
 
 /-- MFA correctness - If a rule set is MFA (`isMfa` with `DeterministicSkolemObsolescence`), then it terminates. -/
 theorem terminates_of_isMfa_with_DeterministicSkolemObsolescence [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.finite) :
-    rs.isMfa rs_finite (DeterministicSkolemObsolescence sig) -> ∀ obs, rs.terminates obs (RegularChaseNode obs rs) := by
+    rs.isMfa rs_finite (DeterministicSkolemObsolescence sig) -> ∀ obs, rs.terminates obs (RegularChaseNode rs) := by
   intro isMfa obs
   apply rs.terminates_of_isMfa rs_finite (DeterministicSkolemObsolescence sig) (DeterministicSkolemObsolescence.blocks_each_obs obs default rs)
   exact isMfa
 
 /-- DMFA/RMFA correctness - If a rule set is DMFA/RMFA or anything in between (`isMfa` with `BlockingObsolescence`), then it terminates for the respective `ObsolescenceCondition`. -/
 theorem terminates_of_isMfa_with_BlockingObsolescence [GetFreshInhabitant sig.C] [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.finite) (obs : ObsolescenceCondition sig) (obs_propagates_under_const_mapping : obs.propagates_under_constant_mapping) :
-    rs.isMfa rs_finite (BlockingObsolescence obs) -> rs.terminates obs (RegularChaseNode obs rs) :=
+    rs.isMfa rs_finite (BlockingObsolescence obs) -> rs.terminates obs (RegularChaseNode rs) :=
   rs.terminates_of_isMfa rs_finite (BlockingObsolescence obs) (BlockingObsolescence.blocks_corresponding_obs obs obs_propagates_under_const_mapping default)
 
 end RuleSet

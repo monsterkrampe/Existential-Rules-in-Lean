@@ -107,14 +107,13 @@ We now start to define what it means for a trigger to be unblockable. Also we de
 of detecting unblockability. Specific such overapproximations will follow later.
 -/
 
-variable {obs : ObsolescenceCondition sig}
-
 /-- A trigger is `kbUnblockable` for a given `KnowledgeBase` and `HeadChoice` if, for every derivation, when the trigger is loaded in a node of the branch indicated by the `HeadChoice`, then the `HeadChoice` result of the trigger also occurs in that branch. In the introducing paper this is called g-unblockable. -/
 @[expose]
 def RTrigger.kbUnblockable
+    (obs : ObsolescenceCondition sig)
     (kb : KnowledgeBase sig)
-    (hc : HeadChoice obs kb.rules)
-    (trg : RTrigger obs kb.rules) : Prop :=
+    (hc : HeadChoice kb.rules)
+    (trg : RTrigger kb.rules) : Prop :=
   ∀ ct : RegularChaseTree obs kb, ∀ node : (ct.subderivation_for_headChoice hc).Node, trg.val.loaded node.val.facts ->
   ∃ node2 : (ct.subderivation_for_headChoice hc).Node, node ≼ node2 ∧
   (trg.output_for_headChoice hc).toSet ⊆ node2.val.facts
@@ -122,22 +121,23 @@ def RTrigger.kbUnblockable
 /-- A trigger is `rsUnblockable` for a given `RuleSet` if it is `kbUnblockable` for every `KnowledgeBase` with the rule set in question. -/
 @[expose]
 def RTrigger.rsUnblockable
+    (obs : ObsolescenceCondition sig)
     (rules : RuleSet sig)
-    (hc : HeadChoice obs rules)
-    (trg : RTrigger obs rules) : Prop :=
-  ∀ kb : KnowledgeBase sig, (eq : rules = kb.rules) -> kbUnblockable kb (hc.cast_of_rules_eq eq) ⟨trg.val, by rw [← eq]; exact trg.property⟩
+    (hc : HeadChoice rules)
+    (trg : RTrigger rules) : Prop :=
+  ∀ kb : KnowledgeBase sig, (eq : rules = kb.rules) -> kbUnblockable obs kb (hc.cast_of_rules_eq eq) ⟨trg.val, by rw [← eq]; exact trg.property⟩
 
 /-- Every deterministic Datalog trigger is `rsUnblockable`. -/
-theorem RTrigger.rsUnblockable_of_isDatalog_of_isDeterministic {rules : RuleSet sig} {hc : HeadChoice obs rules} {trg : RTrigger obs rules}
+theorem RTrigger.rsUnblockable_of_isDatalog_of_isDeterministic {obs : ObsolescenceCondition sig} {rules : RuleSet sig} {hc : HeadChoice rules} {trg : RTrigger rules}
     (isDatalog : trg.val.rule.isDatalog)
     (isDet : trg.val.rule.isDeterministic) :
-    trg.rsUnblockable rules hc := by
+    trg.rsUnblockable obs rules hc := by
   intro kb rules_eq ct node loaded
-  let trg_kb : RTrigger obs kb.rules := ⟨trg.val, by rw [← rules_eq]; exact trg.property⟩
-  suffices ∃ node2, node ≼ node2 ∧ ¬ trg.val.active node2.val.facts by
+  let trg_kb : RTrigger kb.rules := ⟨trg.val, by rw [← rules_eq]; exact trg.property⟩
+  suffices ∃ node2, node ≼ node2 ∧ ¬ trg.val.active obs node2.val.facts by
     rcases this with ⟨node2, prec, not_active⟩
     exists node2, prec
-    unfold Trigger.active at not_active; rw [not_and, Classical.not_not] at not_active
+    unfold PreTrigger.active at not_active; rw [not_and, Classical.not_not] at not_active
     specialize not_active (Set.subset_trans loaded (RegularChaseDerivationSkeleton.facts_node_subset_of_prec prec))
     rcases obs.cond_implies_contained_of_isDatalog isDatalog not_active with ⟨i, lt, contained⟩
     suffices (hc trg).val = i by unfold RTrigger.output_for_headChoice; simp only [this]; exact contained
@@ -153,9 +153,10 @@ theorem RTrigger.rsUnblockable_of_isDatalog_of_isDeterministic {rules : RuleSet 
 
 /-- This is Definition 7 from the [RPC] paper. -/
 def FactSet.is_rpc_overapproximation
+    (obs : ObsolescenceCondition sig)
     (rules : RuleSet sig)
-    (hc : HeadChoice obs rules)
-    (trg : RTrigger obs rules)
+    (hc : HeadChoice rules)
+    (trg : RTrigger rules)
     (fs : FactSet sig) : Prop :=
   ∃ h : GroundTermMapping sig, (∀ c ∈ trg.val.rule.head_constants, h (.const c) = .const c) ∧ (∀ t ∈ trg.val.mapped_frontier, h t = t) ∧
     ∀ kb : KnowledgeBase sig, (eq : rules = kb.rules) ->
@@ -164,13 +165,14 @@ def FactSet.is_rpc_overapproximation
 
 /-- The overapproximation definition is independant of the trigger up to equivalence. -/
 theorem FactSet.is_rpc_overapproximation_of_equiv
+    {obs : ObsolescenceCondition sig}
     {rules : RuleSet sig}
-    {hc : HeadChoice obs rules}
+    {hc : HeadChoice rules}
     (hc_consistent : hc.consistent_for_equivalent_triggers)
-    {trg1 trg2 : RTrigger obs rules}
+    {trg1 trg2 : RTrigger rules}
     {fs : FactSet sig}
-    (overapprox : fs.is_rpc_overapproximation rules hc trg1) :
-    trg1.equiv trg2 -> fs.is_rpc_overapproximation rules hc trg2 := by
+    (overapprox : fs.is_rpc_overapproximation obs rules hc trg1) :
+    trg1.equiv trg2 -> fs.is_rpc_overapproximation obs rules hc trg2 := by
   intro equiv; rcases overapprox with ⟨h, id_const, id_frontier, overapprox⟩
   exists h; constructor; rw [← equiv.left]; exact id_const
   constructor; rw [← PreTrigger.mapped_frontier_eq_of_equiv equiv]; exact id_frontier
@@ -181,15 +183,16 @@ theorem FactSet.is_rpc_overapproximation_of_equiv
 
 /-- This is Lemma 1 from the [RPC] paper. -/
 theorem RTrigger.rsUnblockable_of_not_obsolete_for_overapproximation
+    {obs : ObsolescenceCondition sig}
     (obs_propagates : obs.propagates_under_term_mapping_of_no_fresh_term_occurs)
-    {rules : RuleSet sig} {hc : HeadChoice obs rules}
+    {rules : RuleSet sig} {hc : HeadChoice rules}
     (hc_consistent : hc.consistent_for_equivalent_triggers)
-    {trg : RTrigger obs rules} {fs : FactSet sig} :
-    fs.is_rpc_overapproximation rules hc trg -> ¬ obs.cond trg.val fs -> trg.rsUnblockable rules hc := by
+    {trg : RTrigger rules} {fs : FactSet sig} :
+    fs.is_rpc_overapproximation obs rules hc trg -> ¬ obs.cond trg.val fs -> trg.rsUnblockable obs rules hc := by
   intro ⟨h, id_head_consts, id_frontier, overapprox⟩ not_obs
   intro kb rules_eq ct node loaded
-  let trg_kb : RTrigger obs kb.rules := ⟨trg.val, by rw [← rules_eq]; exact trg.property⟩
-  suffices ∃ node2, node ≼ node2 ∧ ¬ trg.val.active node2.val.facts by
+  let trg_kb : RTrigger kb.rules := ⟨trg.val, by rw [← rules_eq]; exact trg.property⟩
+  suffices ∃ node2, node ≼ node2 ∧ ¬ trg.val.active obs node2.val.facts by
     rcases this with ⟨node2, prec, not_active⟩
     exists node2; constructor; exact prec
     apply Classical.byContradiction
@@ -222,11 +225,12 @@ theorem RTrigger.rsUnblockable_of_not_obsolete_for_overapproximation
 
 /-- A slight generalization of the above theorem showing that all equivalent triggers are also rsUnblockable. -/
 theorem RTrigger.rsUnblockable_of_equiv_trigger_not_obsolete_for_overapproximation
+    {obs : ObsolescenceCondition sig}
     (obs_propagates : obs.propagates_under_term_mapping_of_no_fresh_term_occurs)
-    {rules : RuleSet sig} {hc : HeadChoice obs rules}
+    {rules : RuleSet sig} {hc : HeadChoice rules}
     (hc_consistent : hc.consistent_for_equivalent_triggers)
-    {trg : RTrigger obs rules} {fs : FactSet sig} :
-    fs.is_rpc_overapproximation rules hc trg -> ¬ obs.cond trg.val fs -> ∀ trg', trg.equiv trg' -> trg'.rsUnblockable rules hc := by
+    {trg : RTrigger rules} {fs : FactSet sig} :
+    fs.is_rpc_overapproximation obs rules hc trg -> ¬ obs.cond trg.val fs -> ∀ trg', trg.equiv trg' -> trg'.rsUnblockable obs rules hc := by
   intro overapprox not_obs trg' trg_equiv
   apply trg'.rsUnblockable_of_not_obsolete_for_overapproximation obs_propagates hc_consistent
   . exact fs.is_rpc_overapproximation_of_equiv hc_consistent overapprox trg_equiv
@@ -242,29 +246,29 @@ This is already a model so the only chase tree features exactly the root node. B
 -/
 -- TODO: A similar result should hold for arbitrary ObsolescenceConditions but only for rules with at least one head disjunct without existential variables. We already have a corresponding critical instance result for this but to show the theorem, we would still need to be able to construct a chase tree (because it would not stop immediately after the database). Once we have such a general construction, it is easy to argue that triggers remain obsolete because they are already obsolete for the database.
 theorem Trigger.not_rsUnblockable_of_hc_exis_of_frontier_only_constants
-    [Inhabited sig.C] {rules : RuleSet sig} {hc : HeadChoice (RestrictedObsolescence sig) rules} {trg : RTrigger (RestrictedObsolescence sig) rules}
+    [Inhabited sig.C] {rules : RuleSet sig} {hc : HeadChoice rules} {trg : RTrigger rules}
     (rules_finite : rules.finite)
     (hc_consistent : hc.consistent_for_equivalent_triggers)
     (hc_exis : trg.val.rule.existential_vars_for_head_disjunct (hc trg).val (hc trg).isLt ≠ [])
     (frontier_only_constants : ∀ t ∈ trg.val.mapped_frontier, ∃ c, t = .const c) :
-    ∃ trg', trg.equiv trg' ∧ ¬ trg'.rsUnblockable rules hc := by
+    ∃ trg', trg.equiv trg' ∧ ¬ trg'.rsUnblockable (RestrictedObsolescence sig) rules hc := by
   have rules_non_empty_heads : ∀ r ∈ rules, r.head ≠ [] := by
     -- TODO: rules with empty heads basically function as denial constraints (they are can never be satisfied once their body matches); maybe we should forbid this in general? although it's maybe also nice to have this as an option. Maybe we should introduce this as a property that rules and rule sets can have (being free of denial constraints that is). Also, observe that by our current definitions, a kb with denial constraints does not admit a chase derivation if a denial constraint becomes loaded at some point, because then, fairness is violated.
     -- Note that here, the existence of a head choice implies that no rule can have an empty head. If any rule had an empty head, we could not pick an apropriate index with the head choice. Truth be told, this is not necessarily an intentional consequence but I take it.
     intro r r_mem contra
-    let trg : RTrigger (RestrictedObsolescence sig) rules := ⟨⟨r, fun _ => .const default⟩, r_mem⟩
+    let trg : RTrigger rules := ⟨⟨r, fun _ => .const default⟩, r_mem⟩
     let i := hc trg
     apply Nat.not_lt_zero i.val
     suffices trg.val.rule.head.length = 0 by rw [← this]; exact i.isLt
     simp [trg, contra]
-  suffices ∃ db : Database sig, (∃ trg', trg.equiv trg' ∧ trg'.val.loaded db.toFactSet.val) ∧ ∀ trg : RTrigger (RestrictedObsolescence sig) rules, ¬ trg.val.active db.toFactSet.val by
+  suffices ∃ db : Database sig, (∃ trg', trg.equiv trg' ∧ trg'.val.loaded db.toFactSet.val) ∧ ∀ trg : RTrigger rules, ¬ trg.val.active (RestrictedObsolescence sig) db.toFactSet.val by
     rcases this with ⟨db, ⟨trg', trg_equiv, trg'_loaded⟩, all_obs⟩
     have hc_exis' : trg'.val.rule.existential_vars_for_head_disjunct (hc trg').val (hc trg').isLt ≠ [] := by
       simp only [← trg_equiv.left, ← hc_consistent trg_equiv]; exact hc_exis
     exists trg'; constructor; exact trg_equiv
     let kb : KnowledgeBase sig := ⟨db, rules⟩
     intro contra; specialize contra kb rfl
-    let startNode : RegularChaseNode (RestrictedObsolescence sig) rules := { facts := db.toFactSet.val, origin := none, facts_contain_origin_result := by simp }
+    let startNode : RegularChaseNode rules := { facts := db.toFactSet.val, origin := none, facts_contain_origin_result := by simp }
     let ct : RegularChaseTree (RestrictedObsolescence sig) kb := {
       tree := FiniteDegreeTree.node startNode []
       isSome_root := by simp
@@ -327,7 +331,7 @@ theorem Trigger.not_rsUnblockable_of_hc_exis_of_frontier_only_constants
   exists rules.generalizedCriticalInstance rules_finite (Inhabited.default :: consts)
   constructor
   . let subs : GroundSubstitution sig := fun v => if v ∈ trg.val.rule.frontier then trg.val.subs v else .const Inhabited.default
-    let trg' : RTrigger (RestrictedObsolescence sig) rules := ⟨⟨trg.val.rule, subs⟩, trg.property⟩
+    let trg' : RTrigger rules := ⟨⟨trg.val.rule, subs⟩, trg.property⟩
     exists trg'; constructor
     . apply PreTrigger.equiv_of_rule_eq_of_mapped_frontier_equiv
       . rfl

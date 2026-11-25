@@ -34,7 +34,7 @@ variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 @[expose]
 def is_alt_match_for_chase_derivation_and_fs
     (h : GroundTermMapping sig) (cd : RegularChaseDerivation obs rules) (fs : FactSet sig) : Prop :=
-  ∃ (next : RegularChaseNode obs rules) (next_mem : next ∈ cd.next),
+  ∃ (next : RegularChaseNode rules) (next_mem : next ∈ cd.next),
     let origin := next.origin.get (cd.isSome_origin_next next_mem)
     h.isAlternativeMatch origin.fst.val origin.snd.val origin.snd.isLt fs
 

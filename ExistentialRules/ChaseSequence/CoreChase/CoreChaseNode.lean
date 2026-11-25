@@ -125,7 +125,7 @@ some basic properties also relying on the results above.
 /-- The CoreChaseNode add a couple of fields on top of the RegularChaseNode but the `facts` field has a different meaning. This is why we duplicate the structure and not jsut extend it. We want to prevent that the `CoreChaseNode` is accidentally treated as a `RegularChaseNode`. -/
 structure CoreChaseNode (rules : RuleSet sig) where
   facts : FactSet sig
-  origin : Option (ChaseNodeOrigin (RestrictedObsolescence sig) rules)
+  origin : Option (ChaseNodeOrigin rules)
   facts_contain_origin_result : ∀ orig ∈ origin, orig.result.toSet ⊆ facts
   core : FactSet sig
   isWeakCore : core.isWeakCore
@@ -136,7 +136,7 @@ namespace CoreChaseNode
 variable {rules : RuleSet sig}
 
 /-- The `CoreChaseNode` is a `ChaseNode` where the outgoingFacts are a core of the ingoingFacts. -/
-instance coreChaseNodeInstance : ChaseNode (CoreChaseNode rules) (RestrictedObsolescence sig) rules where
+instance coreChaseNodeInstance : ChaseNode (CoreChaseNode rules) rules where
   ingoingFacts := CoreChaseNode.facts
   outgoingFacts := CoreChaseNode.core
   origin := CoreChaseNode.origin
@@ -153,7 +153,7 @@ theorem out_sub_in : coreChaseNodeInstance.out_sub_in (N := CoreChaseNode rules)
 theorem equiv_origin_trg_inactive_of_isWeakCore_of_homSubset_of_finite
     {node : CoreChaseNode rules} {fs : FactSet sig}
     (wc : fs.isWeakCore) (homSub : fs.homSubset node.facts) (fin : fs.finite) :
-    ∀ orig ∈ node.origin, ∀ trg, orig.fst.equiv trg -> ¬ trg.val.active fs := by
+    ∀ orig ∈ node.origin, ∀ trg, orig.fst.equiv trg -> ¬ trg.val.active (RestrictedObsolescence sig) fs := by
   intro orig orig_mem trg equiv ⟨loaded, contra⟩
   apply contra
   apply equiv_trg_obsolete_of_isWeakCore_of_homSubset_of_finite wc homSub fin _ _ _ equiv loaded
@@ -165,19 +165,19 @@ theorem equiv_origin_trg_inactive_of_isWeakCore_of_homSubset_of_finite
 /-- The origin trigger of a `CoreChaseNode` is inactive for each homSubset of the node's facts, given that this subset is finite. -/
 theorem origin_trg_inactive_of_isWeakCore_of_homSubset_of_finite
     {node : CoreChaseNode rules} {fs : FactSet sig} (wc : fs.isWeakCore) (homSub : fs.homSubset node.facts) (fin : fs.finite) :
-    ∀ orig ∈ node.origin, ¬ orig.fst.val.active fs := by
+    ∀ orig ∈ node.origin, ¬ orig.fst.val.active (RestrictedObsolescence sig) fs := by
   intro orig orig_mem
   exact equiv_origin_trg_inactive_of_isWeakCore_of_homSubset_of_finite wc homSub fin orig orig_mem _ PreTrigger.equiv_refl
 
 /-- Every trigger equivalent to the origin trigger of a `CoreChaseNode` is inactive on the node's core. -/
 theorem equiv_origin_trg_inactive_for_own_core_of_finite {node : CoreChaseNode rules} (fin : node.core.finite) :
-    ∀ orig ∈ node.origin, ∀ trg, orig.fst.equiv trg -> ¬ trg.val.active node.core := by
+    ∀ orig ∈ node.origin, ∀ trg, orig.fst.equiv trg -> ¬ trg.val.active (RestrictedObsolescence sig) node.core := by
   intro orig orig_mem trg equiv
   exact equiv_origin_trg_inactive_of_isWeakCore_of_homSubset_of_finite node.isWeakCore node.homSubset fin orig orig_mem _ equiv
 
 /-- The origin trigger of a `CoreChaseNode` is inactive on the node's core. -/
 theorem origin_trg_inactive_for_own_core_of_finite {node : CoreChaseNode rules} (fin : node.core.finite) :
-    ∀ orig ∈ node.origin, ¬ orig.fst.val.active node.core := by
+    ∀ orig ∈ node.origin, ¬ orig.fst.val.active (RestrictedObsolescence sig) node.core := by
   apply origin_trg_inactive_of_isWeakCore_of_homSubset_of_finite
   . exact node.isWeakCore
   . exact node.homSubset

@@ -22,41 +22,40 @@ public section
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 /-- A `HeadChoice` is a function that maps each trigger of a rule set to one of its head indices. -/
--- TODO: It's not ideal to have an ObsolescenceCondition as part of this definition. We could refactor RTriggers to not take an ObsolescenceCondition at all and define the active method to accept an ObsolescenceCondition as argument. This is maybe cleaner than the current approach using the Trigger type that fixes an ObsolescenceCondition.
-abbrev HeadChoice (obs : LaxObsolescenceCondition sig) (rules : RuleSet sig) := (trg : RTrigger obs rules) -> Fin trg.val.rule.head.length
+abbrev HeadChoice (rules : RuleSet sig) := (trg : RTrigger rules) -> Fin trg.val.rule.head.length
 
 namespace HeadChoice
 
-variable {obs : LaxObsolescenceCondition sig} {rules : RuleSet sig}
+variable {rules : RuleSet sig}
 
 /-- We can apply the same head choice to another rule set if the rule sets are equal. -/
-abbrev cast_of_rules_eq (hc : HeadChoice obs rules) {rules2 : RuleSet sig} (eq : rules = rules2) : HeadChoice obs rules2 :=
+abbrev cast_of_rules_eq (hc : HeadChoice rules) {rules2 : RuleSet sig} (eq : rules = rules2) : HeadChoice rules2 :=
   (fun trg => hc ⟨trg.val, by rw [eq]; exact trg.property⟩)
 
 /-- Often we want to assume that a `HeadChoice` for equivalent triggers returns the same index. -/
 @[expose]
-def consistent_for_equivalent_triggers (hc : HeadChoice obs rules) : Prop :=
-  ∀ {trg trg2 : RTrigger obs rules}, trg.equiv trg2 -> (hc trg).val = (hc trg2).val
+def consistent_for_equivalent_triggers (hc : HeadChoice rules) : Prop :=
+  ∀ {trg trg2 : RTrigger rules}, trg.equiv trg2 -> (hc trg).val = (hc trg2).val
 
 /-- Casting does not change consistency. -/
 @[simp]
-theorem consistent_for_equivalent_triggers_cast {hc : HeadChoice obs rules} {rules2 : RuleSet sig} {eq : rules = rules2} :
+theorem consistent_for_equivalent_triggers_cast {hc : HeadChoice rules} {rules2 : RuleSet sig} {eq : rules = rules2} :
     (hc.cast_of_rules_eq eq).consistent_for_equivalent_triggers ↔ hc.consistent_for_equivalent_triggers := by
   simp [cast_of_rules_eq, consistent_for_equivalent_triggers, eq]
 
 /-- Sometimes we even require that the head choice only depends on the rule; that is, each trigger with the same rules uses the same head. -/
 @[expose]
-def consistent_for_same_rule (hc : HeadChoice obs rules) : Prop :=
-  ∀ {trg trg2 : RTrigger obs rules}, trg.val.rule = trg2.val.rule -> (hc trg).val = (hc trg2).val
+def consistent_for_same_rule (hc : HeadChoice rules) : Prop :=
+  ∀ {trg trg2 : RTrigger rules}, trg.val.rule = trg2.val.rule -> (hc trg).val = (hc trg2).val
 
 /-- Casting does not change consistency. -/
 @[simp]
-theorem consistent_for_same_rule_cast {hc : HeadChoice obs rules} {rules2 : RuleSet sig} {eq : rules = rules2} :
+theorem consistent_for_same_rule_cast {hc : HeadChoice rules} {rules2 : RuleSet sig} {eq : rules = rules2} :
     (hc.cast_of_rules_eq eq).consistent_for_same_rule ↔ hc.consistent_for_same_rule := by
   simp [cast_of_rules_eq, consistent_for_same_rule, eq]
 
 /-- If a head choice is `consistent_for_same_rule`, then it is also `consistent_for_equivalent_triggers`. -/
-theorem consistent_for_equivalent_triggers_of_consistent_for_same_rule {hc : HeadChoice obs rules} :
+theorem consistent_for_equivalent_triggers_of_consistent_for_same_rule {hc : HeadChoice rules} :
     hc.consistent_for_same_rule -> hc.consistent_for_equivalent_triggers := by
   intro h trg trg2 eq; apply h; exact eq.left
 
@@ -64,15 +63,15 @@ end HeadChoice
 
 namespace RTrigger
 
-variable {obs : LaxObsolescenceCondition sig} {rules : RuleSet sig}
+variable {rules : RuleSet sig}
 
 /-- A shortcut for the trigger output dictaded by a head choice. -/
 @[expose]
-def output_for_headChoice (trg : RTrigger obs rules) (hc : HeadChoice obs rules) : List (Fact sig) :=
+def output_for_headChoice (trg : RTrigger rules) (hc : HeadChoice rules) : List (Fact sig) :=
   trg.val.mapped_head[(hc trg).val]
 
 /-- The head choice output for equivalent triggers is the same given that the head choice is `consistent_for_equivalent_triggers`. -/
-theorem output_for_headChoice_eq_of_equiv {trg trg2 : RTrigger obs rules} {hc : HeadChoice obs rules}
+theorem output_for_headChoice_eq_of_equiv {trg trg2 : RTrigger rules} {hc : HeadChoice rules}
     (hc_consistent : hc.consistent_for_equivalent_triggers) (equiv : trg.equiv trg2) : trg.output_for_headChoice hc = trg2.output_for_headChoice hc := by
   unfold output_for_headChoice; simp only [hc_consistent equiv, PreTrigger.result_eq_of_equiv equiv]
 
@@ -80,13 +79,13 @@ end RTrigger
 
 namespace ChaseNodeOrigin
 
-variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
+variable {rules : RuleSet sig}
 
 /-- A `ChaseNodeOrigin` adheres to a `HeadChoice` if it uses the index that is the head choice of its trigger. -/
 @[expose]
-def adheres_to_headChoice (orig : ChaseNodeOrigin obs rules) (hc : HeadChoice obs rules) : Prop := orig.snd.val = (hc orig.fst).val
+def adheres_to_headChoice (orig : ChaseNodeOrigin rules) (hc : HeadChoice rules) : Prop := orig.snd.val = (hc orig.fst).val
 
-theorem result_eq_of_adheres_to_headChoice {orig : ChaseNodeOrigin obs rules} {hc : HeadChoice obs rules}
+theorem result_eq_of_adheres_to_headChoice {orig : ChaseNodeOrigin rules} {hc : HeadChoice rules}
     (adheres : orig.adheres_to_headChoice hc) :
     orig.result = orig.fst.output_for_headChoice hc := by
   unfold adheres_to_headChoice at adheres
@@ -96,15 +95,15 @@ end ChaseNodeOrigin
 
 namespace ChaseNode
 
-variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N obs rules]
+variable {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N rules]
 
 /-- A `ChaseNode` adheres to a `HeadChoice` if its origin uses the index that is the head choice of its trigger. -/
 @[expose]
-def adheres_to_headChoice (node : N) (hc : HeadChoice obs rules) : Prop :=
+def adheres_to_headChoice (node : N) (hc : HeadChoice rules) : Prop :=
   ∀ orig ∈ (CN.origin node), orig.adheres_to_headChoice hc
 
 theorem origin_result_eq_of_adheres_to_headChoice {node : N} (isSome : (CN.origin node).isSome)
-    {hc : HeadChoice obs rules} (adheres : CN.adheres_to_headChoice node hc) :
+    {hc : HeadChoice rules} (adheres : CN.adheres_to_headChoice node hc) :
     CN.origin_result node isSome = ((CN.origin node).get isSome).fst.output_for_headChoice hc := by
   unfold origin_result
   rw [ChaseNodeOrigin.result_eq_of_adheres_to_headChoice (adheres _ _)]
@@ -115,37 +114,37 @@ end ChaseNode
 /-- A `ChaseDerivationSkeleton` adheres to a `HeadChoice` if every node adheres to the `HeadChoice`. -/
 @[expose]
 def ChaseDerivationSkeleton.adheres_to_headChoice
-    {obs : ObsolescenceCondition sig} {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N obs rules]
-    (cd : ChaseDerivationSkeleton N obs rules) (hc : HeadChoice obs rules) : Prop :=
+    {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N rules]
+    (cd : ChaseDerivationSkeleton N rules) (hc : HeadChoice rules) : Prop :=
   ∀ n ∈ cd, CN.adheres_to_headChoice n hc
 
 namespace FiniteTriggerList
 
-variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
+variable {rules : RuleSet sig}
 
 /-- A `FiniteTriggerList` adheres to a `HeadChoice` if every element adheres to the `HeadChoice`. -/
 @[expose]
-def adheres_to_headChoice (l : FiniteTriggerList obs rules) (hc : HeadChoice obs rules) : Prop :=
+def adheres_to_headChoice (l : FiniteTriggerList rules) (hc : HeadChoice rules) : Prop :=
   ∀ orig ∈ l, orig.adheres_to_headChoice hc
 
 end FiniteTriggerList
 
 namespace InfiniteTriggerList
 
-variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
+variable {rules : RuleSet sig}
 
 /-- A `InfiniteTriggerList` adheres to a `HeadChoice` if every element adheres to the `HeadChoice`. -/
 @[expose]
-def adheres_to_headChoice (l : InfiniteTriggerList obs rules) (hc : HeadChoice obs rules) : Prop :=
+def adheres_to_headChoice (l : InfiniteTriggerList rules) (hc : HeadChoice rules) : Prop :=
   ∀ orig ∈ l, orig.adheres_to_headChoice hc
 
 /-- By `InfiniteTriggerList.fromFiniteLists_trigger_property_preserved`, trigger head choice adherence is preserved by the `InfiniteTriggerList.fromFiniteLists` construction. -/
 theorem fromFiniteLists_headChoice_preserved
-    {ls : InfiniteList (FiniteNonEmptyTriggerList obs rules)} {hc : HeadChoice obs rules} :
+    {ls : InfiniteList (FiniteNonEmptyTriggerList rules)} {hc : HeadChoice rules} :
     (∀ l ∈ ls, FiniteTriggerList.adheres_to_headChoice l.toList hc) ->
     (fromFiniteLists ls).adheres_to_headChoice hc := by
   intro adheres
-  let property : ChaseNodeOrigin obs rules -> FactSet sig -> Prop := fun orig => fun _ => orig.adheres_to_headChoice hc
+  let property : ChaseNodeOrigin rules -> FactSet sig -> Prop := fun orig => fun _ => orig.adheres_to_headChoice hc
   have prop_holds : ∀ n, FiniteTriggerList.trigger_property_holds property (startForFiniteList ls ∅ n) (ls.get n).toList := by
     intro n; specialize adheres (ls.get n) InfiniteList.get_mem
     rw [FiniteTriggerList.trigger_property_holds_iff]; intro i lt
@@ -161,15 +160,15 @@ end InfiniteTriggerList
 
 namespace TreeDerivation
 
-variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N obs rules]
+variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N rules]
 
 /-- The generator function used to generate the tree branch corresponding to the given `HeadChoice`. -/
-def generator_for_headChoice (td : TreeDerivation N obs rules) (hc : HeadChoice obs rules) (n : td.NodeWithAddress) : Option td.NodeWithAddress :=
-  let next_trg_opt : Option (RTrigger obs rules) := (n.childNodes.head?.bind (fun c => CN.origin c.node)).map Sigma.fst
+def generator_for_headChoice (td : TreeDerivation N obs rules) (hc : HeadChoice rules) (n : td.NodeWithAddress) : Option td.NodeWithAddress :=
+  let next_trg_opt : Option (RTrigger rules) := (n.childNodes.head?.bind (fun c => CN.origin c.node)).map Sigma.fst
   next_trg_opt.bind (fun trg => n.childNodes[(hc trg).val]?)
 
 /-- The generator function produces a child node if it produces a value at all. -/
-theorem generator_for_headChoice_mem_childNodes {td : TreeDerivation N obs rules} {hc : HeadChoice obs rules} (n : td.NodeWithAddress) :
+theorem generator_for_headChoice_mem_childNodes {td : TreeDerivation N obs rules} {hc : HeadChoice rules} (n : td.NodeWithAddress) :
     ∀ next ∈ td.generator_for_headChoice hc n, next ∈ n.childNodes := by
   intro next next_mem
   simp only [generator_for_headChoice] at next_mem; rw [Option.mem_def, Option.bind_eq_some_iff] at next_mem
@@ -178,7 +177,7 @@ theorem generator_for_headChoice_mem_childNodes {td : TreeDerivation N obs rules
   exact ⟨_, next_mem⟩
 
 /-- The generator function does not yield a new value if and only if the childNodes are empty. -/
-theorem generator_for_headChoice_eq_none_iff_childNodes_eq_nil {td : TreeDerivation N obs rules} {hc : HeadChoice obs rules} (n : td.NodeWithAddress) :
+theorem generator_for_headChoice_eq_none_iff_childNodes_eq_nil {td : TreeDerivation N obs rules} {hc : HeadChoice rules} (n : td.NodeWithAddress) :
     td.generator_for_headChoice hc n = none ↔ n.childNodes = [] := by
   simp only [generator_for_headChoice]
   cases n.childNodes.instDecidableEqNil.em with
@@ -196,12 +195,12 @@ theorem generator_for_headChoice_eq_none_iff_childNodes_eq_nil {td : TreeDerivat
         rw [n.childNodes_eq_childNodes]; apply List.mem_map_of_mem; simp
       simp)
 
-    suffices (hc trg).val < (n.subderivation.childNodes.map (ChaseNode.ingoingFacts obs rules)).length by
+    suffices (hc trg).val < (n.subderivation.childNodes.map (ChaseNode.ingoingFacts rules)).length by
       apply Nat.not_le_of_lt this; rw [n.childNodes_eq_childNodes]; simp only [List.length_map]; rw [← List.getElem?_eq_none_iff]; exact contra
     rw [ingoing_eq, List.length_map, PreTrigger.length_mapped_head]; exact (hc trg).isLt
 
 /-- The node produced by `generator_for_headChoice` adheres to the head choice. -/
-theorem generator_for_headChoice_adheres_to_headChoice {td : TreeDerivation N obs rules} {hc : HeadChoice obs rules} (n : td.NodeWithAddress) :
+theorem generator_for_headChoice_adheres_to_headChoice {td : TreeDerivation N obs rules} {hc : HeadChoice rules} (n : td.NodeWithAddress) :
     ∀ next ∈ td.generator_for_headChoice hc n, CN.adheres_to_headChoice next.node hc := by
   intro next next_mem orig orig_mem; simp only [generator_for_headChoice, Option.mem_def, Option.bind_eq_some_iff] at next_mem
   rcases next_mem with ⟨head_trg, head_trg_eq, next_mem⟩
@@ -223,19 +222,19 @@ theorem generator_for_headChoice_adheres_to_headChoice {td : TreeDerivation N ob
   rw [← head_trg_eq, trg_eq'.right]
 
 /-- This function generates the tree branch that corresponds to the given `HeadChoice`. -/
-def subderivation_for_headChoice (td : TreeDerivation N obs rules) (hc : HeadChoice obs rules) : ChaseDerivation N obs rules :=
+def subderivation_for_headChoice (td : TreeDerivation N obs rules) (hc : HeadChoice rules) : ChaseDerivation N obs rules :=
   td.generate_subderivation (NodeWithAddress.root td) (td.generator_for_headChoice hc) id td.generator_for_headChoice_mem_childNodes (by intro n; rw [generator_for_headChoice_eq_none_iff_childNodes_eq_nil]; rw [List.eq_nil_iff_length_eq_zero, List.eq_nil_iff_length_eq_zero, n.length_childNodes, n.subderivation.childNodes_eq]; simp)
 
 /-- The `subderivation_for_headChoice` is a branch, which follows since we use `TreeDerivation.generate_subderivation` to build it. -/
-theorem subderivation_for_headChoice_mem_branches {td : TreeDerivation N obs rules} {hc : HeadChoice obs rules} :
+theorem subderivation_for_headChoice_mem_branches {td : TreeDerivation N obs rules} {hc : HeadChoice rules} :
   td.subderivation_for_headChoice hc ∈ td.branches := by apply td.generate_subderivation_mem_branches; rfl
 
 /-- The head of `subderivation_for_headChoice` is the root of the tree derivation. -/
-theorem head_subderivation_for_headChoice {td : TreeDerivation N obs rules} {hc : HeadChoice obs rules} :
+theorem head_subderivation_for_headChoice {td : TreeDerivation N obs rules} {hc : HeadChoice rules} :
   (td.subderivation_for_headChoice hc).head = td.root := td.head_generate_subderivation
 
 /-- The head of `subderivation_for_headChoice` is the root of the tree derivation. -/
-theorem next_subderivation_for_headChoice_mem_childNodes {td : TreeDerivation N obs rules} {hc : HeadChoice obs rules} :
+theorem next_subderivation_for_headChoice_mem_childNodes {td : TreeDerivation N obs rules} {hc : HeadChoice rules} :
     ∀ next ∈ (td.subderivation_for_headChoice hc).next, next ∈ td.childNodes := by
   intro next
   simp only [subderivation_for_headChoice, TreeDerivation.next_generate_subderivation, Option.mem_def, Option.map_map, Option.map_eq_some_iff]
@@ -247,7 +246,7 @@ theorem next_subderivation_for_headChoice_mem_childNodes {td : TreeDerivation N 
   exact next_node_gen_result
 
 /-- The subderivation for a head choice adheres to that head choice. -/
-theorem subderivation_for_headChoice_adheres_to_headChoice_of_root_adheres {td : TreeDerivation N obs rules} {hc : HeadChoice obs rules} :
+theorem subderivation_for_headChoice_adheres_to_headChoice_of_root_adheres {td : TreeDerivation N obs rules} {hc : HeadChoice rules} :
     CN.adheres_to_headChoice td.root hc -> (td.subderivation_for_headChoice hc).adheres_to_headChoice hc := by
   simp only [subderivation_for_headChoice]
   intro root_adheres node node_mem; rw [← ChaseDerivation.mem_def, td.mem_generate_subderivation] at node_mem
@@ -266,11 +265,11 @@ end TreeDerivation
 
 namespace ChaseTree
 
-variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig} {N : Type u} [CN : ChaseNode N obs kb.rules]
+variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig} {N : Type u} [CN : ChaseNode N kb.rules]
 
 /-- This function generates the tree branch that corresponds to the given `HeadChoice`. -/
 @[expose]
-def subderivation_for_headChoice (ct : ChaseTree N obs kb) (hc : HeadChoice obs kb.rules) : ChaseBranch N obs kb :=
+def subderivation_for_headChoice (ct : ChaseTree N obs kb) (hc : HeadChoice kb.rules) : ChaseBranch N obs kb :=
   let deriv := ct.toTreeDerivation.subderivation_for_headChoice hc
   {
     branch := deriv.branch,
@@ -282,7 +281,7 @@ def subderivation_for_headChoice (ct : ChaseTree N obs kb) (hc : HeadChoice obs 
   }
 
 /-- The subderivation for a head choice adheres to that head choice. -/
-theorem subderivation_for_headChoice_adheres_to_headChoice {ct : ChaseTree N obs kb} {hc : HeadChoice obs kb.rules} :
+theorem subderivation_for_headChoice_adheres_to_headChoice {ct : ChaseTree N obs kb} {hc : HeadChoice kb.rules} :
     (ct.subderivation_for_headChoice hc).adheres_to_headChoice hc := by
   apply TreeDerivation.subderivation_for_headChoice_adheres_to_headChoice_of_root_adheres
   intro orig orig_mem; rw [ct.database_first.right.right] at orig_mem; simp at orig_mem

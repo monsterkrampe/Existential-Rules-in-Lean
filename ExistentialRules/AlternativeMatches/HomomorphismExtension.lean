@@ -32,12 +32,12 @@ noncomputable def extend_hom_to_next_step_of_next_eq_some
     (cb : RegularChaseBranch obs kb) (det : kb.rules.isDeterministic)
     (cd : RegularChaseDerivation obs kb.rules) (suffix : cd <:+ cb.toChaseDerivation)
     (h : GroundTermMapping sig) (hom : h.isHomomorphism cd.head.facts cd.result)
-    (next : RegularChaseNode obs kb.rules) (next_eq : cd.next = some next) :
+    (next : RegularChaseNode kb.rules) (next_eq : cd.next = some next) :
     InductiveHomomorphismExtensionResult cd h :=
   let origin := next.origin.get (cd.isSome_origin_next next_eq)
   have origin_trg_active := cd.active_trigger_origin_next next_eq
   let disj : Fin origin.fst.val.rule.head.length := origin.snd
-  let trg' : RTrigger obs kb.rules := origin.fst.extend_with_groundTermMapping h
+  let trg' : RTrigger kb.rules := origin.fst.extend_with_groundTermMapping h
   have disj_lt : disj.val < trg'.val.rule.head.length := by grind
   have trg'_loaded : trg'.val.loaded cd.result := by
     apply Set.subset_trans _ hom.right
@@ -155,7 +155,7 @@ theorem node_is_next_in_extend_hom_to_next_step_next_eq_some
     {cb : RegularChaseBranch obs kb} {det : kb.rules.isDeterministic}
     {cd : RegularChaseDerivation obs kb.rules} {suffix : cd <:+ cb.toChaseDerivation}
     {h : GroundTermMapping sig} {hom : h.isHomomorphism cd.head.facts cd.result}
-    {next : RegularChaseNode obs kb.rules} {next_eq : cd.next = some next} :
+    {next : RegularChaseNode kb.rules} {next_eq : cd.next = some next} :
     (extend_hom_to_next_step_of_next_eq_some cb det cd suffix h hom next next_eq).val.fst = cd.tail (by simp [next_eq]) := by
   simp only [extend_hom_to_next_step_of_next_eq_some]
 
@@ -164,7 +164,7 @@ theorem hom_extends_prev_in_extend_hom_to_next_step_of_next_eq_some
     {cb : RegularChaseBranch obs kb} {det : kb.rules.isDeterministic}
     {cd : RegularChaseDerivation obs kb.rules} {suffix : cd <:+ cb.toChaseDerivation}
     {h : GroundTermMapping sig} {hom : h.isHomomorphism cd.head.facts cd.result}
-    {next : RegularChaseNode obs kb.rules} {next_eq : cd.next = some next} :
+    {next : RegularChaseNode kb.rules} {next_eq : cd.next = some next} :
     ∀ t ∈ cd.head.facts.terms, (extend_hom_to_next_step_of_next_eq_some cb det cd suffix h hom next next_eq).val.snd t = h t := by
   exact (extend_hom_to_next_step_of_next_eq_some cb det cd suffix h hom next next_eq).property.right.left
 
@@ -223,7 +223,7 @@ theorem hom_extends_prev_in_extend_hom_to_next_step
 /-- Using `extend_hom_to_next_step` as a generator in `PossiblyInfiniteList.generate` we can create a possiblibly infinite list of homomorphisms that extend each other and all map to the result. We can combine them into a single function to have an endomorphism on the result. The idea is similar to the construction used in `RegularChaseTree.universal_result`. -/
 public theorem hom_for_node_extendable_to_result
     {cb : RegularChaseBranch obs kb} (det : kb.rules.isDeterministic)
-    {node : RegularChaseNode obs kb.rules} (node_mem : node ∈ cb.toChaseDerivation)
+    {node : RegularChaseNode kb.rules} (node_mem : node ∈ cb.toChaseDerivation)
     {h : GroundTermMapping sig} (hom : h.isHomomorphism node.facts cb.result) :
     ∃ (h' : GroundTermMapping sig), (∀ t ∈ node.facts.terms, h' t = h t) ∧ h'.isHomomorphism cb.result cb.result := by
   rcases cb.subderivation_of_node_mem node_mem with ⟨deriv_for_node, deriv_for_node_head, deriv_suffix⟩

@@ -168,7 +168,7 @@ theorem predecessor_trans_of_finite {cd : CoreChaseDerivation rules} {n1 n2 n3 :
   simp only [cd.predecessor_iff]; grind
 
 /-- We can express fairness in terms of the predecessor relation: For each trigger, there is a node such that the trigger is not active for each of the node's successors. -/
-theorem fairness_prec_of_finite {cd : CoreChaseDerivation rules} (head_fin : cd.head.core.finite) : ∀ (trg : RTrigger (RestrictedObsolescence sig) rules), ∃ (node : cd.Node), ∀ node2, node ≼ node2 -> ¬ trg.val.active node2.val.core := by
+theorem fairness_prec_of_finite {cd : CoreChaseDerivation rules} (head_fin : cd.head.core.finite) : ∀ (trg : RTrigger rules), ∃ (node : cd.Node), ∀ node2, node ≼ node2 -> ¬ trg.val.active (RestrictedObsolescence sig) node2.val.core := by
   intro trg
   rcases cd.fairness' trg with ⟨cd2, suffix, fair⟩
   exists ⟨cd2.head, cd2.mem_of_mem_suffix suffix _ cd2.head_mem⟩
@@ -310,7 +310,7 @@ theorem trigger_introducing_functional_term_occurs_in_chase
     (node : (cd.tail next_some).Node)
     {t : GroundTerm sig}
     (t_mem_node : t ∈ node.val.facts.terms)
-    {trg : RTrigger (RestrictedObsolescence sig) rules}
+    {trg : RTrigger rules}
     {disj_idx : Nat}
     {lt : disj_idx < trg.val.rule.head.length}
     (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :
@@ -335,7 +335,7 @@ abbrev result (cd : CoreChaseDerivation rules) (term : cd.terminates) : FactSet 
 @[grind <-]
 theorem result_models_rules {cd : CoreChaseDerivation rules} (term : cd.terminates) : (cd.result term).modelsRules rules := by
   intro r r_mem subs subs_loaded
-  let trg : Trigger (RestrictedObsolescence sig) := ⟨r, subs⟩
+  let trg : PreTrigger sig := ⟨r, subs⟩
   have trg_loaded : trg.loaded (cd.result term) := subs_loaded
   apply (RestrictedObsolescence sig).cond_implies_trg_is_satisfied (trg := trg)
   apply Classical.byContradiction; intro contra
@@ -425,7 +425,7 @@ theorem predecessor_trans {cb : CoreChaseBranch kb} {n1 n2 n3 : cb.Node} :
   apply CoreChaseDerivation.predecessor_trans_of_finite; apply core_finite_of_mem
 
 /-- We can express fairness in terms of the predecessor relation: For each trigger, there is a node such that the trigger is not active for each of the node's successors. -/
-theorem fairness_prec {cb : CoreChaseBranch kb} : ∀ (trg : RTrigger (RestrictedObsolescence sig) kb.rules), ∃ (node : cb.Node), ∀ node2, node ≼ node2 -> ¬ trg.val.active node2.val.core := by
+theorem fairness_prec {cb : CoreChaseBranch kb} : ∀ (trg : RTrigger kb.rules), ∃ (node : cb.Node), ∀ node2, node ≼ node2 -> ¬ trg.val.active (RestrictedObsolescence sig) node2.val.core := by
   apply CoreChaseDerivation.fairness_prec_of_finite; exact core_finite_of_mem ⟨cb.head, cb.head_mem⟩
 
 
@@ -581,7 +581,7 @@ theorem trigger_introducing_functional_term_occurs_in_chase
     (node : cb.Node)
     {t : GroundTerm sig}
     (t_mem_node : t ∈ node.val.facts.terms)
-    {trg : RTrigger (RestrictedObsolescence sig) kb.rules}
+    {trg : RTrigger kb.rules}
     {disj_idx : Nat}
     {lt : disj_idx < trg.val.rule.head.length}
     (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :
@@ -638,7 +638,7 @@ For regular chase derivations this is trivial because of fact monotonicity but h
 -/
 
 theorem origin_trg_remains_inactive {cb : CoreChaseBranch kb} {n1 n2 : cb.Node} (prec : n1 ≼ n2) :
-    ∀ orig ∈ n1.val.origin, ∀ trg, orig.fst.equiv trg -> ¬ trg.val.active n2.val.core := by
+    ∀ orig ∈ n1.val.origin, ∀ trg, orig.fst.equiv trg -> ¬ trg.val.active (RestrictedObsolescence sig) n2.val.core := by
   -- We assume for a contradiction that trg is active on n2 (captured in contra).
   intro orig orig_mem trg equiv contra
   rw [cb.predecessor_iff] at prec; rcases prec with ⟨cd, suf, n1_eq, n2_mem⟩
@@ -658,7 +658,7 @@ theorem origin_trg_remains_inactive {cb : CoreChaseBranch kb} {n1 n2 : cb.Node} 
       constructor
       . exact cd_where_n1_next.predecessor_of_suffix cd_where_n1_next_suf prec.left
       . intro contra; rw [Subtype.mk.injEq] at contra; apply prec.right; rw [Subtype.mk.injEq]; exact contra
-    have orig_active_just_before_n1 : orig.fst.val.active just_before_n1.val.core := by
+    have orig_active_just_before_n1 : orig.fst.val.active (RestrictedObsolescence sig) just_before_n1.val.core := by
       have active := cd_where_n1_next.active_trigger_origin_next n1_next
       rw [Option.mem_def] at orig_mem
       simp only [ChaseNode.origin, orig_mem, Option.get_some] at active
@@ -677,7 +677,7 @@ theorem origin_trg_remains_inactive {cb : CoreChaseBranch kb} {n1 n2 : cb.Node} 
       . exact cd_where_n2_next.predecessor_of_suffix (PossiblyInfiniteList.IsSuffix_trans cd_where_n2_next_suf suf) prec.left
       . intro contra; rw [Subtype.mk.injEq] at contra; apply prec.right; rw [Subtype.mk.injEq]; exact contra
     -- From a recursive call to the theorem, we get that no equivalent trigger can be active on just_before_n2.
-    have no_trg_active_head_cd2 : ∀ trg, orig.fst.equiv trg -> ¬ trg.val.active just_before_n2.val.core := origin_trg_remains_inactive just_before_n2_succ _ orig_mem
+    have no_trg_active_head_cd2 : ∀ trg, orig.fst.equiv trg -> ¬ trg.val.active (RestrictedObsolescence sig) just_before_n2.val.core := origin_trg_remains_inactive just_before_n2_succ _ orig_mem
     -- If however there is an equivalent trigger loaded just_before_n2, then we can quickly conclude the proof
     -- by showing that this trigger would then in fact be active on just_before_n2, which is a contradiction.
     -- Or rather: if it was not active, then we can show that trg is obsolete on n2,
@@ -827,7 +827,7 @@ theorem origin_trg_remains_inactive {cb : CoreChaseBranch kb} {n1 n2 : cb.Node} 
         . rw [equiv'.left]; simp
         . intro v v_mem
           rw [equiv'.right _ v_mem]
-          simp only [Trigger.subs_fromPreTrigger, PreTrigger.extend_with_groundTermMapping, Function.comp_apply]
+          simp only [PreTrigger.extend_with_groundTermMapping, Function.comp_apply]
           rw [id_on_terms]
           suffices trg'.val.subs v = trg.val.subs v by
             rw [this]; apply frontier_still_occurs; rw [← equiv.left]; exact v_mem

@@ -236,7 +236,7 @@ theorem trigger_introducing_functional_term_occurs_in_chase
     (node : child.NodeWithAddress)
     {t : GroundTerm sig}
     (t_mem_node : t ∈ node.node.facts.terms)
-    {trg : RTrigger (RestrictedObsolescence sig) rules}
+    {trg : RTrigger rules}
     {disj_idx : Nat}
     {lt : disj_idx < trg.val.rule.head.length}
     (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :
@@ -422,7 +422,7 @@ theorem trigger_introducing_functional_term_occurs_in_chase
     (node : ct.NodeWithAddress)
     {t : GroundTerm sig}
     (t_mem_node : t ∈ node.node.facts.terms)
-    {trg : RTrigger (RestrictedObsolescence sig) kb.rules}
+    {trg : RTrigger kb.rules}
     {disj_idx : Nat}
     {lt : disj_idx < trg.val.rule.head.length}
     (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :
@@ -458,7 +458,7 @@ For regular chase trees this is trivial because of fact monotonicity but here it
 -/
 
 theorem origin_trg_remains_inactive {ct : CoreChaseTree kb} {n1 n2 : ct.NodeWithAddress} (prec : n1 ≼ n2) :
-    ∀ orig ∈ n1.node.origin, ∀ trg, orig.fst.equiv trg -> ¬ trg.val.active n2.node.core := by
+    ∀ orig ∈ n1.node.origin, ∀ trg, orig.fst.equiv trg -> ¬ trg.val.active (RestrictedObsolescence sig) n2.node.core := by
   -- We assume for a contradiction that trg is active on n2 (captured in contra).
   intro orig orig_mem trg equiv contra
   cases ct.eq_or_strict_of_predecessor prec with
@@ -471,7 +471,7 @@ theorem origin_trg_remains_inactive {ct : CoreChaseTree kb} {n1 n2 : ct.NodeWith
     -- We get the node that is just before n1 and show some of its essential properties.
     rcases ct.mem_childNodes_of_some_member_of_isSome_origin n1 (by simp only [ChaseNode.origin]; rw [orig_mem]; simp) with ⟨just_before_n1, n1_child⟩
     have just_before_n1_prec : just_before_n1 ≺ n1 := ct.node_strict_prec_childNodes _ n1_child
-    have orig_active_just_before_n1 : orig.fst.val.active just_before_n1.node.core := by
+    have orig_active_just_before_n1 : orig.fst.val.active (RestrictedObsolescence sig) just_before_n1.node.core := by
       have active := just_before_n1.subderivation.active_trigger_origin_of_mem_childNodes (just_before_n1.mem_childNodes_of_mem_childNodes n1_child)
       rw [Option.mem_def] at orig_mem
       simp only [ChaseNode.origin, orig_mem, Option.get_some] at active
@@ -482,7 +482,7 @@ theorem origin_trg_remains_inactive {ct : CoreChaseTree kb} {n1 n2 : ct.NodeWith
     -- The following is used in the proof but also required to prove termination of the recursive theorem.
     have just_before_n2_prec : just_before_n2 ≺ n2 := ct.node_strict_prec_childNodes _ n2_child
     -- From a recursive call to the theorem, we get that no equivalent trigger can be active on just_before_n2.
-    have no_trg_active_head_cd2 : ∀ trg, orig.fst.equiv trg -> ¬ trg.val.active just_before_n2.node.core := origin_trg_remains_inactive just_before_n2_succ _ orig_mem
+    have no_trg_active_head_cd2 : ∀ trg, orig.fst.equiv trg -> ¬ trg.val.active (RestrictedObsolescence sig) just_before_n2.node.core := origin_trg_remains_inactive just_before_n2_succ _ orig_mem
     -- If however there is an equivalent trigger loaded just_before_n2, then we can quickly conclude the proof
     -- by showing that this trigger would then in fact be active on just_before_n2, which is a contradiction.
     -- Or rather: if it was not active, then we can show that trg is obsolete on n2,
@@ -622,7 +622,7 @@ theorem origin_trg_remains_inactive {ct : CoreChaseTree kb} {n1 n2 : ct.NodeWith
         . rw [equiv'.left]; simp
         . intro v v_mem
           rw [equiv'.right _ v_mem]
-          simp only [Trigger.subs_fromPreTrigger, PreTrigger.extend_with_groundTermMapping, Function.comp_apply]
+          simp only [PreTrigger.extend_with_groundTermMapping, Function.comp_apply]
           rw [id_on_terms]
           suffices trg'.val.subs v = trg.val.subs v by
             rw [this]; apply frontier_still_occurs; rw [← equiv.left]; exact v_mem

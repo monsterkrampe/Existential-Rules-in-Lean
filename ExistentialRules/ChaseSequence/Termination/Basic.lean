@@ -25,13 +25,13 @@ section Definitions
 
 /-- A `ChaseDerivationSkeleton` terminates if the underlying `PossiblyInfiniteList` is finite. -/
 @[expose, implicit_reducible]
-def ChaseDerivationSkeleton.terminates {obs : ObsolescenceCondition sig} {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N obs rules]
-  (cds : ChaseDerivationSkeleton N obs rules) : Prop := cds.branch.finite
+def ChaseDerivationSkeleton.terminates {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N rules]
+  (cds : ChaseDerivationSkeleton N rules) : Prop := cds.branch.finite
 
 /-- A `ChaseDerivationSkeleton` terminates if and only if its suffixes terminate. -/
 theorem ChaseDerivationSkeleton.terminates_iff_terminates_suffix
-    {obs : ObsolescenceCondition sig} {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N obs rules]
-    {cd cd2 : ChaseDerivationSkeleton N obs rules} (suf : cd2 <:+ cd) : cd.terminates ↔ cd2.terminates := by
+    {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N rules]
+    {cd cd2 : ChaseDerivationSkeleton N rules} (suf : cd2 <:+ cd) : cd.terminates ↔ cd2.terminates := by
   rw [IsSuffix_iff] at suf; rcases suf with ⟨m, suf⟩
   constructor
   . intro ⟨n, eq_none⟩
@@ -45,22 +45,22 @@ theorem ChaseDerivationSkeleton.terminates_iff_terminates_suffix
 
 /-- A `ChaseDerivation` terminates if the underlying `ChaseDerivationSkeleton` is finite. -/
 @[expose, implicit_reducible]
-def ChaseDerivation.terminates {obs : ObsolescenceCondition sig} {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N obs rules]
+def ChaseDerivation.terminates {obs : ObsolescenceCondition sig} {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N rules]
   (cd : ChaseDerivation N obs rules) : Prop := cd.toChaseDerivationSkeleton.terminates
 
 /-- A `TreeDerivation` terminates if all of its branches terminate. -/
 @[expose, implicit_reducible]
-def TreeDerivation.terminates {obs : ObsolescenceCondition sig} {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N obs rules]
+def TreeDerivation.terminates {obs : ObsolescenceCondition sig} {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N rules]
   (td : TreeDerivation N obs rules) : Prop := ∀ branch, branch ∈ td.branches -> branch.terminates
 
 /-- A `KnowledgeBase` terminates if all of its `ChaseTree`s terminate. -/
 @[expose, implicit_reducible]
-def KnowledgeBase.terminates (kb : KnowledgeBase sig) (obs : ObsolescenceCondition sig) (N : Type u) [CN : ChaseNode N obs kb.rules] : Prop :=
+def KnowledgeBase.terminates (kb : KnowledgeBase sig) (obs : ObsolescenceCondition sig) (N : Type u) [CN : ChaseNode N kb.rules] : Prop :=
   ∀ (ct : ChaseTree N obs kb), ct.terminates
 
 /-- A `RuleSet` terminates if all knowledge bases featuring this rule set terminate. -/
 @[expose, implicit_reducible]
-def RuleSet.terminates (rs : RuleSet sig) (obs : ObsolescenceCondition sig) (N : Type u) [CN : ChaseNode N obs rs] : Prop :=
+def RuleSet.terminates (rs : RuleSet sig) (obs : ObsolescenceCondition sig) (N : Type u) [CN : ChaseNode N rs] : Prop :=
   ∀ (db : Database sig), { rules := rs, db := db : KnowledgeBase sig }.terminates obs N
 
 end Definitions
@@ -76,24 +76,24 @@ For terminating derivations, we define machinery to get the last chase node from
 
 namespace ChaseDerivationSkeleton
 
-variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
-variable {N : Type u} [CN : ChaseNode N obs rules]
+variable {rules : RuleSet sig}
+variable {N : Type u} [CN : ChaseNode N rules]
 
 /-- For terminating derivations, we define the last chase node via turning the derivation into a finite list and then retreiving the last element. -/
 @[expose]
-def last (cd : ChaseDerivationSkeleton N obs rules) (term : cd.terminates) : N := (cd.branch.toList_of_finite term).getLast (by
+def last (cd : ChaseDerivationSkeleton N rules) (term : cd.terminates) : N := (cd.branch.toList_of_finite term).getLast (by
   intro contra
   rw [PossiblyInfiniteList.toList_of_finite_empty_iff, PossiblyInfiniteList.empty_iff_head_none] at contra
   have head_some := cd.isSome_head
   simp [contra] at head_some)
 
 /-- The `last` node is a member of the derivation. -/
-theorem last_mem {cd : ChaseDerivationSkeleton N obs rules} (term : cd.terminates) : cd.last term ∈ cd := by
+theorem last_mem {cd : ChaseDerivationSkeleton N rules} (term : cd.terminates) : cd.last term ∈ cd := by
   suffices cd.last term ∈ cd.branch.toList_of_finite term by rw [PossiblyInfiniteList.mem_toList_of_finite] at this; exact this
   simp [last]
 
 /-- All suffixes have the same last node. -/
-theorem last_eq_of_suffix {cd cd2 : ChaseDerivationSkeleton N obs rules} (suf : cd2 <:+ cd) (term : cd.terminates) :
+theorem last_eq_of_suffix {cd cd2 : ChaseDerivationSkeleton N rules} (suf : cd2 <:+ cd) (term : cd.terminates) :
     cd.last term = cd2.last ((terminates_iff_terminates_suffix suf).mp term) := by
   apply Eq.symm; apply List.IsSuffix.getLast
   have cd2_fin := ((terminates_iff_terminates_suffix suf).mp term)
@@ -104,7 +104,7 @@ theorem last_eq_of_suffix {cd cd2 : ChaseDerivationSkeleton N obs rules} (suf : 
   apply List.ext_getElem?; intro i; simp
 
 /-- Every node is a predecessor of the last one. -/
-theorem each_prec_last {cd : ChaseDerivationSkeleton N obs rules} (term : cd.terminates) : ∀ (node : cd.Node), node ≼ ⟨cd.last term, cd.last_mem term⟩ := by
+theorem each_prec_last {cd : ChaseDerivationSkeleton N rules} (term : cd.terminates) : ∀ (node : cd.Node), node ≼ ⟨cd.last term, cd.last_mem term⟩ := by
   intro node; rcases cd.subderivation_of_node_mem node.property with ⟨cd2, head_eq, suf⟩
   exists cd2; constructor; exact suf; constructor; exact head_eq
   simp only; rw [last_eq_of_suffix suf]; exact cd2.last_mem _
@@ -113,10 +113,10 @@ end ChaseDerivationSkeleton
 
 namespace RegularChaseDerivationSkeleton
 
-variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
+variable {rules : RuleSet sig}
 
 /-- For terminating derivations, the result is equal to the facts of the last node. -/
-theorem result_eq_facts_last {cd : RegularChaseDerivationSkeleton obs rules} (term : cd.terminates) : cd.result = (cd.last term).facts := by
+theorem result_eq_facts_last {cd : RegularChaseDerivationSkeleton rules} (term : cd.terminates) : cd.result = (cd.last term).facts := by
   apply Set.ext; intro f; constructor
   . intro ⟨node, node_mem, f_mem⟩
     let node : cd.Node := ⟨node, node_mem⟩
@@ -129,11 +129,11 @@ end RegularChaseDerivationSkeleton
 namespace ChaseDerivation
 
 variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
-variable {N : Type u} [CN : ChaseNode N obs rules]
+variable {N : Type u} [CN : ChaseNode N rules]
 
 /-- No trigger is active on the last node. -/
 theorem trg_inactive_for_last {cd : ChaseDerivation N obs rules} (term : cd.terminates) :
-    ∀ (trg : RTrigger obs rules), ¬ trg.val.active (CN.outgoingFacts (cd.last term)) := by
+    ∀ (trg : RTrigger rules), ¬ trg.val.active obs (CN.outgoingFacts (cd.last term)) := by
   intro trg
   rcases cd.fairness' trg with ⟨cd2, suf, fair⟩
   apply fair
@@ -220,7 +220,7 @@ variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 
 /-- A terminating `TreeDerivation` only has finitely many branches. We show this using König's Lemma. -/
 @[grind ->]
-theorem branches_finite_of_terminates {N : Type u} [CN : ChaseNode N obs rules] (td : TreeDerivation N obs rules) : td.terminates -> td.branches.finite := by
+theorem branches_finite_of_terminates {N : Type u} [CN : ChaseNode N rules] (td : TreeDerivation N obs rules) : td.terminates -> td.branches.finite := by
   intro each_b_term
 
   have : ∀ b, b ∈ td.tree.branches -> b.finite := by

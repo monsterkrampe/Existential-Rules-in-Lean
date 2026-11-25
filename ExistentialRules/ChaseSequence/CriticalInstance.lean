@@ -8,6 +8,7 @@ module
 import BasicLeanDatastructures.List.AllListsOfLength
 import BasicLeanDatastructures.List.EraseDupsKeepRight
 public import ExistentialRules.AtomsAndRules.Database
+public import ExistentialRules.Triggers.Obsolescence
 public import ExistentialRules.Triggers.RTrigger
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
@@ -122,8 +123,8 @@ theorem functionFreeFact_mem_generalizedCriticalInstance_of_constants_mem {rs : 
 
 /-- Every trigger using only constants from the critical instance is loaded. -/
 theorem generalizedCriticalInstance_trigger_loaded
-    {obs : ObsolescenceCondition sig} {rs : RuleSet sig} {finite : rs.finite} {additional_consts : List sig.C} :
-    ∀ trg : RTrigger obs rs, FactSet.terms trg.val.mapped_body.toSet ⊆ (additional_consts.toSet ∪ rs.constants).map .const ->
+    {rs : RuleSet sig} {finite : rs.finite} {additional_consts : List sig.C} :
+    ∀ trg : RTrigger rs, FactSet.terms trg.val.mapped_body.toSet ⊆ (additional_consts.toSet ∪ rs.constants).map .const ->
     trg.val.loaded (rs.generalizedCriticalInstance finite additional_consts).toFactSet.val := by
   intro trg terms_sub
   intro f f_mem
@@ -155,8 +156,8 @@ No trigger is active on the critical instance if it features at least one head d
 As soon as one is loaded, it is also obsolete.
 -/
 theorem generalizedCriticalInstance_no_trigger_with_datalog_head_active
-    {obs : ObsolescenceCondition sig} {rs : RuleSet sig} {finite : rs.finite} {additional_consts : List sig.C} :
-    ∀ trg : RTrigger obs rs, (∃ i lt, trg.val.rule.existential_vars_for_head_disjunct i lt = []) -> ¬ trg.val.active (rs.generalizedCriticalInstance finite additional_consts).toFactSet.val := by
+    {rs : RuleSet sig} {finite : rs.finite} {additional_consts : List sig.C} (obs : ObsolescenceCondition sig) :
+    ∀ trg : RTrigger rs, (∃ i lt, trg.val.rule.existential_vars_for_head_disjunct i lt = []) -> ¬ trg.val.active obs (rs.generalizedCriticalInstance finite additional_consts).toFactSet.val := by
   intro trg ⟨i, lt, no_exis⟩ ⟨loaded, contra⟩; apply contra
   apply obs.contains_trg_result_implies_cond i lt
   intro f f_mem
@@ -212,7 +213,7 @@ For RestrictedObsolescence, no trigger with non-empty head can ever be active if
 theorem generalizedCriticalInstance_no_trigger_active_for_restrictedObsolescence
     {rs : RuleSet sig} {finite : rs.finite} {additional_consts : List sig.C} :
     (∃ c, c ∈ additional_consts.toSet ∪ rs.constants) ->
-    ∀ trg : RTrigger (RestrictedObsolescence sig) rs, trg.val.rule.head ≠ [] -> ¬ trg.val.active (rs.generalizedCriticalInstance finite additional_consts).toFactSet.val := by
+    ∀ trg : RTrigger rs, trg.val.rule.head ≠ [] -> ¬ trg.val.active (RestrictedObsolescence sig) (rs.generalizedCriticalInstance finite additional_consts).toFactSet.val := by
   intro ⟨c, c_mem⟩ trg head_ne ⟨loaded, contra⟩; apply contra
   simp only [RestrictedObsolescence]
   let subs : GroundSubstitution sig := fun v => if v ∈ trg.val.rule.frontier then trg.val.subs v else .const c

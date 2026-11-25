@@ -133,51 +133,19 @@ def RestrictedObsolescence (sig : Signature) [DecidableEq sig.P] [DecidableEq si
 
 end SpecificConditions
 
-section Trigger
+section Activeness
 
 /-!
-## (Proper) Triggers
+## Trigger Activeness
 
-A `Trigger` is a `PreTrigger` that has a fixed obsolescence condition.
-We say that a `Trigger` is `active` if it is loaded and not obsolete.
-
-`SkolemTrigger` and `RestrictedTrigger` are just defined as examples.
+We say that a `PreTrigger` is `active` if it is loaded and not obsolete with respect to a certain ObsolescenceCondition.
 -/
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
-structure Trigger (obsolete : LaxObsolescenceCondition sig) extends PreTrigger sig
-
-def SkolemTrigger := Trigger (SkolemObsolescence sig : LaxObsolescenceCondition sig)
-def RestrictedTrigger := Trigger (RestrictedObsolescence sig : LaxObsolescenceCondition sig)
-
-variable {obs : LaxObsolescenceCondition sig}
-
-instance : CoeOut (Trigger obs) (PreTrigger sig) where
-  coe trigger := trigger.toPreTrigger
-
 @[expose]
-def Trigger.fromPreTrigger (trg : PreTrigger sig) (obs : LaxObsolescenceCondition sig) : Trigger obs where
-  rule := trg.rule
-  subs := trg.subs
-
-@[simp, grind =]
-theorem Trigger.rule_fromPreTrigger {trg : PreTrigger sig} {obs : LaxObsolescenceCondition sig} : (Trigger.fromPreTrigger trg obs).rule = trg.rule := rfl
-@[simp, grind =]
-theorem Trigger.subs_fromPreTrigger {trg : PreTrigger sig} {obs : LaxObsolescenceCondition sig} : (Trigger.fromPreTrigger trg obs).subs = trg.subs := rfl
-
-@[simp, grind =]
-theorem Trigger.toPreTrigger_after_fromPreTrigger {trg : PreTrigger sig} :
-    ∀ {obs : LaxObsolescenceCondition sig}, (Trigger.fromPreTrigger trg obs).toPreTrigger = trg := by
-  intros; rfl
-
-@[expose]
-def Trigger.active (trg : Trigger obs) (F : FactSet sig) : Prop :=
+def PreTrigger.active (trg : PreTrigger sig) (obs : LaxObsolescenceCondition sig) (F : FactSet sig) : Prop :=
   trg.loaded F ∧ ¬ (obs.cond trg F)
 
-/-- Lifting the definition from `PreTrigger`. -/
-abbrev Trigger.extend_with_groundTermMapping (trg : Trigger obs) (h : GroundTermMapping sig) : Trigger obs :=
-  fromPreTrigger (PreTrigger.extend_with_groundTermMapping trg h) obs
-
-end Trigger
+end Activeness
 

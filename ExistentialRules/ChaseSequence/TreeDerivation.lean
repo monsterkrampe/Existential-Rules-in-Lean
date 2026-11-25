@@ -40,14 +40,14 @@ The backbone of the `TreeDerivation` is a `FiniteDegreeTree` of `ChaseNode`s wit
 Conditions 3 and 4 together are "fairness", i.e. each trigger must eventually be non-active. Fairness ensures that the chase result (or in this case each fact set in the chase result) is indeed a model.
 -/
 
-structure TreeDerivation (N : Type u) (obs : ObsolescenceCondition sig) (rules : RuleSet sig) [CN : ChaseNode N obs rules] where
+structure TreeDerivation (N : Type u) (obs : ObsolescenceCondition sig) (rules : RuleSet sig) [CN : ChaseNode N rules] where
   tree : FiniteDegreeTree N
   isSome_root : tree.root.isSome
   triggers_exist : ∀ t2, t2 <:+ tree -> ∀ before ∈ t2.root,
-    CN.succ_list before t2.childNodes
-  fairness_leaves : ∀ leaf, leaf ∈ tree.leaves -> ∀ trg : (RTrigger obs rules), ¬ trg.val.active (CN.outgoingFacts leaf)
-  fairness_infinite_branches : ∀ trg : (RTrigger obs rules), ∃ i : Nat, ∀ ns : List Nat, ns.length ≥ i ->
-    ∀ node ∈ tree.get? ns, ¬ trg.val.active (CN.outgoingFacts node)
+    CN.succ_list obs before t2.childNodes
+  fairness_leaves : ∀ leaf, leaf ∈ tree.leaves -> ∀ trg : (RTrigger rules), ¬ trg.val.active obs (CN.outgoingFacts leaf)
+  fairness_infinite_branches : ∀ trg : (RTrigger rules), ∃ i : Nat, ∀ ns : List Nat, ns.length ≥ i ->
+    ∀ node ∈ tree.get? ns, ¬ trg.val.active obs (CN.outgoingFacts node)
 
 namespace TreeDerivation
 
@@ -55,7 +55,7 @@ variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
 
 section Basics
 
-variable {N : Type u} [CN : ChaseNode N obs rules]
+variable {N : Type u} [CN : ChaseNode N rules]
 
 /-!
 ## Basic Definitions
@@ -146,7 +146,7 @@ theorem isSome_origin_of_mem_childNodes {td : TreeDerivation N obs rules} : ∀ 
 /-- The trigger used to derive the `childNodes` is active for `head`. -/
 @[grind ->]
 theorem active_trigger_origin_of_mem_childNodes {td : TreeDerivation N obs rules} :
-    ∀ {n}, (mem : n ∈ td.childNodes) -> ((CN.origin n).get (td.isSome_origin_of_mem_childNodes _ mem)).fst.val.active (CN.outgoingFacts td.root) := by
+    ∀ {n}, (mem : n ∈ td.childNodes) -> ((CN.origin n).get (td.isSome_origin_of_mem_childNodes _ mem)).fst.val.active obs (CN.outgoingFacts td.root) := by
   intro n n_mem
   have trg_ex := td.triggers_exist _ FiniteDegreeTree.IsSuffix_refl
   specialize trg_ex td.root (by simp [root]) (by intro contra; unfold childNodes at n_mem; rw [contra] at n_mem; simp at n_mem)
@@ -157,7 +157,7 @@ theorem active_trigger_origin_of_mem_childNodes {td : TreeDerivation N obs rules
 
 /-- The `childNodes` are not nil if and only if some trigger is active on `root`. -/
 theorem childNodes_ne_nil_iff_trg_ex {td : TreeDerivation N obs rules} :
-    td.childNodes ≠ [] ↔ ∃ (trg : RTrigger obs rules), trg.val.active (CN.outgoingFacts td.root) := by
+    td.childNodes ≠ [] ↔ ∃ (trg : RTrigger rules), trg.val.active obs (CN.outgoingFacts td.root) := by
   constructor
   . rw [List.ne_nil_iff_exists_cons]
     rintro ⟨hd, tl, eq⟩
@@ -488,7 +488,7 @@ theorem subderivation_mem_childTrees_of_mem_childNodes
 
 /-- The triggers_exist property expressed in terms of the `NodeWithAddress`. -/
 theorem triggers_exist {td : TreeDerivation N obs rules} (node : td.NodeWithAddress) :
-    CN.succ_list node.node node.subderivation.childNodes := by
+    CN.succ_list obs node.node node.subderivation.childNodes := by
   have trg_ex := node.subderivation.triggers_exist _ FiniteDegreeTree.IsSuffix_refl node.node
   apply trg_ex
   suffices node.node = node.subderivation.root by rw [this]; unfold TreeDerivation.root; simp
@@ -666,7 +666,7 @@ The generated facts of node in a `TreeDerivation` are all facts that are not par
 For each node, the set of generated facts is finite since each trigger only introduces finitely many new facts.
 -/
 
-variable {N : Type u} [CN : ChaseNode N obs rules]
+variable {N : Type u} [CN : ChaseNode N rules]
 
 /-- The generated facts of a chase node are the facts that orruc in the node but not in the initial chase node. -/
 @[expose]
@@ -713,7 +713,7 @@ In particular, note that the `TreeDerivation` has no equivalent for `ChaseDeriva
 Also, even with the address approach, the relation is not total here (which is expected for a tree).
 -/
 
-variable {N : Type u} [CN : ChaseNode N obs rules]
+variable {N : Type u} [CN : ChaseNode N rules]
 
 /-- Node $n$ is a predecessor of node $m$ if the address of $n$ is a prefix of the address of $m$. Predecessor can therefore also be understood as ancestor in the tree. -/
 @[expose]
@@ -997,7 +997,7 @@ If a property hold for a given node in the chase, then there must be a "first" n
 The result follows by the well foundedness of the `≺` relation.
 -/
 
-theorem prop_for_node_has_minimal_such_node {N : Type u} [CN : ChaseNode N obs rules]
+theorem prop_for_node_has_minimal_such_node {N : Type u} [CN : ChaseNode N rules]
     {td : TreeDerivation N obs rules} (prop : td.NodeWithAddress -> Prop) :
     ∀ n, prop n -> ∃ n2, prop n2 ∧ n2 ≼ n ∧ ∀ n3, n3 ≺ n2 -> ¬ prop n3 := by
   intro n prop_n
@@ -1020,11 +1020,11 @@ open CustomBasicDatastructures
 Here, we define the branches of the `TreeDerivation`. It should be no surprise that these are `ChaseDerivation`s.
 -/
 
-variable {N : Type u} [CN : ChaseNode N obs rules]
+variable {N : Type u} [CN : ChaseNode N rules]
 
 /-- Each branch of the underlying tree can be transformed into a proper `ChaseDerivationSkeleton`. -/
 @[expose]
-def derivationSkeleton_for_branch (td : TreeDerivation N obs rules) (branch : PossiblyInfiniteList N) (branch_mem : branch ∈ td.tree.branches) : ChaseDerivationSkeleton N obs rules := {
+def derivationSkeleton_for_branch (td : TreeDerivation N obs rules) (branch : PossiblyInfiniteList N) (branch_mem : branch ∈ td.tree.branches) : ChaseDerivationSkeleton N rules := {
   branch := branch,
   isSome_head := by
     rw [FiniteDegreeTree.branches_eq] at branch_mem
@@ -1203,7 +1203,7 @@ The second observation entails that the precense of a functional term that does 
 that the trigger that introduces this term must have been applied in some node.
 -/
 
-variable {N : Type u} [CN : ChaseNode N obs rules]
+variable {N : Type u} [CN : ChaseNode N rules]
 
 /-- Constants in the chase can only come from the initial fact set or from a constant in a rule. -/
 theorem constants_node_subset_constants_fs_union_constants_rules
@@ -1320,7 +1320,7 @@ theorem trigger_introducing_functional_term_occurs_in_chase
     (node : NodeWithAddress child)
     {t : GroundTerm sig}
     (t_mem_node : t ∈ (CN.ingoingFacts node.node).terms)
-    {trg : RTrigger obs rules}
+    {trg : RTrigger rules}
     {disj_idx : Nat}
     {lt : disj_idx < trg.val.rule.head.length}
     (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :
@@ -1352,7 +1352,7 @@ open CustomBasicDatastructures
 We lift `FiniteDegreeTree.generate_branch` to `TreeDerivation` using a generator over `NodeWithAddress` and combine it with `FiniteDegreeTree.generate_branch_mem_branches` to obtain a `ChaseDerivation` directly.
 -/
 
-variable {N : Type u} [CN : ChaseNode N obs rules]
+variable {N : Type u} [CN : ChaseNode N rules]
 
 /-- We lift `FiniteDegreeTree.generate_branch` to `TreeDerivation`. -/
 @[expose]
@@ -1472,7 +1472,7 @@ As for the `RegularChaseDerivation`, we consider the special case of `TreeDeriva
 We abbreviate fixing this node type by introducing the `RegularTreeDerivation`.
 -/
 
-abbrev RegularTreeDerivation (obs : ObsolescenceCondition sig) (rules : RuleSet sig) := TreeDerivation (RegularChaseNode obs rules) obs rules
+abbrev RegularTreeDerivation (obs : ObsolescenceCondition sig) (rules : RuleSet sig) := TreeDerivation (RegularChaseNode rules) obs rules
 
 namespace RegularTreeDerivation
 
@@ -1544,7 +1544,7 @@ Here we cover the special case for `RegularTreeDerivation`s.
 /-- Each node's facts are formed by the initial facts and its `generatedFacts`. -/
 theorem facts_node_eq_union_initial_and_generated
     {td : RegularTreeDerivation obs rules}
-    {node : RegularChaseNode obs rules} (mem : node ∈ td) :
+    {node : RegularChaseNode rules} (mem : node ∈ td) :
     node.facts = td.root.facts ∪ td.generatedFacts node := by
   unfold TreeDerivation.generatedFacts
   apply Set.ext; intro f; constructor
@@ -1558,7 +1558,7 @@ theorem facts_node_eq_union_initial_and_generated
 /-- The `generatedFacts` are always finite. -/
 theorem generatedFacts_finite_of_mem
     {td : RegularTreeDerivation obs rules}
-    {node : (RegularChaseNode obs rules)} (mem : node ∈ td) :
+    {node : (RegularChaseNode rules)} (mem : node ∈ td) :
     (td.generatedFacts node).finite := by
   apply TreeDerivation.generatedFacts_finite_of_mem RegularChaseNode.out_sub_in _ mem
   rw [RegularChaseNode.ingoingFacts_eq, RegularChaseNode.outgoingFacts_eq]
@@ -1664,7 +1664,7 @@ that the trigger that introduces this term must have been applied in some node.
 /-- Constants in the chase can only come from the initial fact set or from a constant in a rule. -/
 theorem constants_node_subset_constants_fs_union_constants_rules
     {td : RegularTreeDerivation obs rules}
-    {node : RegularChaseNode obs rules} (node_mem : node ∈ td) :
+    {node : RegularChaseNode rules} (node_mem : node ∈ td) :
     node.facts.constants ⊆ (td.root.facts.constants ∪ rules.head_constants) := by
   cases td.mem_iff_eq_root_or_mem_child.mp node_mem with
   | inl node_mem => apply Set.subset_union_of_subset_left; rw [node_mem]; exact Set.subset_refl
@@ -1699,7 +1699,7 @@ theorem trigger_introducing_functional_term_occurs_in_chase
     (node : td.NodeWithAddress)
     {t : GroundTerm sig}
     (t_mem_node : t ∈ node.node.facts.terms)
-    {trg : RTrigger obs rules}
+    {trg : RTrigger rules}
     {disj_idx : Nat}
     {lt : disj_idx < trg.val.rule.head.length}
     (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :
@@ -1723,7 +1723,7 @@ theorem result_of_trigger_introducing_functional_term_occurs_in_chase
     (node : td.NodeWithAddress)
     {t : GroundTerm sig}
     (t_mem_node : t ∈ node.node.facts.terms)
-    {trg : RTrigger obs rules}
+    {trg : RTrigger rules}
     {disj_idx : Nat}
     {lt : disj_idx < trg.val.rule.head.length}
     (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :

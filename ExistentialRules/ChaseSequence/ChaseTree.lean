@@ -24,7 +24,7 @@ public section
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 /-- The `ChaseTree` merely extends the `TreeDerivation` with the condition that the root is the database from the knowledge base. -/
-structure ChaseTree (N : Type u) (obs : ObsolescenceCondition sig) (kb : KnowledgeBase sig) [CN : ChaseNode N obs kb.rules] extends TreeDerivation N obs kb.rules where
+structure ChaseTree (N : Type u) (obs : ObsolescenceCondition sig) (kb : KnowledgeBase sig) [CN : ChaseNode N kb.rules] extends TreeDerivation N obs kb.rules where
   -- We do not need to demand existence here since the TreeDerivation already ensures that the root exists.
   -- The ∀ quantifier makes this condition more convenient to use.
   database_first :
@@ -35,7 +35,7 @@ structure ChaseTree (N : Type u) (obs : ObsolescenceCondition sig) (kb : Knowled
 namespace ChaseTree
 
 variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
-variable {N : Type u} [CN : ChaseNode N obs kb.rules]
+variable {N : Type u} [CN : ChaseNode N kb.rules]
 
 instance : Membership N (ChaseTree N obs kb) where
   mem td node := node ∈ td.tree
@@ -96,7 +96,7 @@ end ChaseTree
 Similar to the `RegularTreeDerivation`, we consider `RegularChaseTree`s as the special `ChaseTree`s where the node type is fixed to be `RegularChaseNode` (representing Skolem and restricted chase).
 -/
 
-abbrev RegularChaseTree (obs : ObsolescenceCondition sig) (kb : KnowledgeBase sig) := ChaseTree (RegularChaseNode obs kb.rules) obs kb
+abbrev RegularChaseTree (obs : ObsolescenceCondition sig) (kb : KnowledgeBase sig) := ChaseTree (RegularChaseNode kb.rules) obs kb
 
 namespace RegularChaseTree
 
@@ -105,7 +105,7 @@ open CustomBasicDatastructures
 variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
 
 /-- Opposed to a `TreeDerivation`, we know that each node in a `ChaseBranch` has a finite set of facts. This is because the database is finite and each trigger only adds finitely many new facts. -/
-theorem facts_finite_of_mem {ct : RegularChaseTree obs kb} {node : RegularChaseNode obs kb.rules} (node_mem : node ∈ ct) :
+theorem facts_finite_of_mem {ct : RegularChaseTree obs kb} {node : RegularChaseNode kb.rules} (node_mem : node ∈ ct) :
     node.facts.finite := by
   rw [RegularTreeDerivation.facts_node_eq_union_initial_and_generated node_mem]
   apply Set.union_finite_of_both_finite
@@ -126,7 +126,7 @@ theorem result_models_kb {ct : RegularChaseTree obs kb} : ∀ fs ∈ ct.result, 
 
 /-- Constants in the chase must be in the database or in some rule. -/
 theorem constants_node_subset_constants_db_union_constants_rules {ct : RegularChaseTree obs kb}
-    {node : RegularChaseNode obs kb.rules} (node_mem : node ∈ ct) :
+    {node : RegularChaseNode kb.rules} (node_mem : node ∈ ct) :
     node.facts.constants ⊆ (kb.db.constants.val ∪ kb.rules.head_constants) := by
   have := RegularTreeDerivation.constants_node_subset_constants_fs_union_constants_rules node_mem
   rw [← ct.root.outgoingFacts_eq, ct.database_first.right.left, Database.toFactSet_constants_same] at this
@@ -150,7 +150,7 @@ theorem trigger_introducing_functional_term_occurs_in_chase
     (node : ct.NodeWithAddress)
     {t : GroundTerm sig}
     (t_mem_node : t ∈ node.node.facts.terms)
-    {trg : RTrigger obs kb.rules}
+    {trg : RTrigger kb.rules}
     {disj_idx : Nat}
     {lt : disj_idx < trg.val.rule.head.length}
     (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :
@@ -165,7 +165,7 @@ theorem result_of_trigger_introducing_functional_term_occurs_in_chase
     (node : ct.NodeWithAddress)
     {t : GroundTerm sig}
     (t_mem_node : t ∈ node.node.facts.terms)
-    {trg : RTrigger obs kb.rules}
+    {trg : RTrigger kb.rules}
     {disj_idx : Nat}
     {lt : disj_idx < trg.val.rule.head.length}
     (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) : (trg.val.mapped_head[disj_idx]'(by simpa)).toSet ⊆ node.node.facts := by
