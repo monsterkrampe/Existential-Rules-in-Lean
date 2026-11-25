@@ -9,6 +9,7 @@ import BasicLeanDatastructures.Function.Composition
 public import ExistentialRules.ChaseSequence.Nontermination.CyclicitySequence
 public import ExistentialRules.ChaseSequence.Nontermination.RepeatableUnblockability
 public import ExistentialRules.ChaseSequence.Nontermination.RepeatingConstantMappings
+public import ExistentialRules.ChaseSequence.Nontermination.SignatureWithFreshConstants
 
 open CustomBasicDatastructures
 
@@ -23,16 +24,6 @@ Then the existence of a `CyclicityPrefix` directly implies that the underlying `
 
 public section
 
-/-- We can extend a signature with a type for fresh constants by setting the constants to be a Sum type of the original constants and the fresh type. -/
-abbrev Signature.withFreshConstants (sig : Signature) (Fresh : Type u) : Signature := {
-  Preds := sig.Preds
-  V := sig.V
-  C := Sum sig.C Fresh
-}
-
-instance {sig : Signature} {Fresh : Type u} [Inhabited sig.C] : Inhabited (sig.withFreshConstants Fresh).C where
-  default := .inl default
-
 /-- In particular, we can simply use the variables as fresh constants. Think of this as constants that just happen to have the same name as the variables. -/
 abbrev Signature.withFreshConstantsForVars (sig : Signature) : Signature := sig.withFreshConstants sig.V
 
@@ -43,124 +34,13 @@ def VarOrConst.toConst_withFreshConstantsForVars : TermMapping (VarOrConst sig) 
 | .const c => .inl c
 | .var v => .inr v
 
-/-- Change the constant of a `VarOrConst` into the Sum type of `Signature.withFreshConstants`. -/
-def VarOrConst.cast_withFreshConstantsForVars : TermMapping (VarOrConst sig) (VarOrConst sig.withFreshConstantsForVars)
-| .const c => .const (.inl c)
-| .var v => .var v
-
-/-- Calling `VarOrConst.filterConsts` after `cast_withFreshConstantsForVars` can be simplified to simply mapping over the original filtered constants. -/
-@[simp, grind =]
-theorem VarOrConst.filterConsts_after_cast_withFreshConstantsForVars {l : List (VarOrConst sig)} :
-    VarOrConst.filterConsts (l.map VarOrConst.cast_withFreshConstantsForVars) = (VarOrConst.filterConsts l).map .inl := by
-  induction l with
-  | nil => simp [VarOrConst.filterConsts]
-  | cons hd tl ih =>
-    simp only [List.map_cons, VarOrConst.filterConsts]
-    cases hd <;> (simp [VarOrConst.cast_withFreshConstantsForVars]; exact ih)
-
-/-- Calling `VarOrConst.filterVars` after `cast_withFreshConstantsForVars` is the same as only calling `VarOrConst.filterVars`. -/
-@[simp, grind =]
-theorem VarOrConst.filterVars_after_cast_withFreshConstantsForVars {l : List (VarOrConst sig)} :
-    VarOrConst.filterVars (l.map VarOrConst.cast_withFreshConstantsForVars) = VarOrConst.filterVars l := by
-  induction l with
-  | nil => simp [VarOrConst.filterVars]
-  | cons hd tl ih =>
-    simp only [List.map_cons, VarOrConst.filterVars]
-    cases hd <;> (simp [VarOrConst.cast_withFreshConstantsForVars]; exact ih)
-
 variable [DecidableEq sig.P]
 
-/-- Then applying `cast_withFreshConstantsForVars` to a conjunction, the variables remain unchanged. -/
-theorem FunctionFreeConjunction.vars_cast_withFreshConstantsForVars {conj : FunctionFreeConjunction sig} :
-    FunctionFreeConjunction.vars (VarOrConst.cast_withFreshConstantsForVars.apply_generalized_atom_list conj) = conj.vars := by
-  simp only [FunctionFreeConjunction.vars, TermMapping.apply_generalized_atom_list]
-  rw [List.flatMap_map]
-  congr
-  apply funext
-  intro a
-  simp [FunctionFreeAtom.variables, TermMapping.apply_generalized_atom]
+/-- Change the constant of a `Rule` into the Sum type of `Signature.withFreshConstantsForVars`. -/
+abbrev Rule.cast_withFreshConstantsForVars (r : Rule sig) : Rule sig.withFreshConstantsForVars := r.cast_withFreshConstants
 
-/-- Change the constant of a `Rule` into the Sum type of `Signature.withFreshConstants`. -/
-def Rule.cast_withFreshConstantsForVars (r : Rule sig) : Rule sig.withFreshConstantsForVars where
-  body := VarOrConst.cast_withFreshConstantsForVars.apply_generalized_atom_list r.body
-  head := r.head.map VarOrConst.cast_withFreshConstantsForVars.apply_generalized_atom_list
-
-/-- The constants of the cast rule are exactly the constants of the original rule (mapped to the left part of the sum type). -/
-theorem Rule.constants_cast_withFreshConstantsForVars {r : Rule sig} :
-    r.cast_withFreshConstantsForVars.constants = r.constants.map .inl := by
-  simp only [Rule.constants, cast_withFreshConstantsForVars]
-  rw [List.map_append, List.map_flatMap, List.flatMap_map]
-  suffices ∀ conj : FunctionFreeConjunction sig, FunctionFreeConjunction.consts (VarOrConst.cast_withFreshConstantsForVars.apply_generalized_atom_list conj) = conj.consts.map .inl by simp [this]
-  intro conj
-  simp only [FunctionFreeConjunction.consts, TermMapping.apply_generalized_atom_list]
-  rw [List.map_flatMap, List.flatMap_map]
-  congr
-  apply funext
-  intro a
-  simp [FunctionFreeAtom.constants, TermMapping.apply_generalized_atom]
-
-/-- The length of the `Rule.head` is not changed by `cast_withFreshConstantsForVars`.  -/
-@[simp, grind =]
-theorem Rule.length_head_cast_withFreshConstantsForVars {r : Rule sig} :
-    r.cast_withFreshConstantsForVars.head.length = r.head.length := by
-  simp [cast_withFreshConstantsForVars]
-
-/-- When calling `Rule.cast_withFreshConstantsForVars`, the variables in each head disjunct remain untouched. -/
-theorem Rule.vars_head_disjunct_cast_withFreshConstantsForVars {r : Rule sig} :
-    ∀ {i : Nat} (lt : i < r.head.length),
-    (r.cast_withFreshConstantsForVars.head[i]'(by grind)).vars = r.head[i].vars := by
-  intro i lt; simp [cast_withFreshConstantsForVars, FunctionFreeConjunction.vars_cast_withFreshConstantsForVars]
-
-/-- When calling `Rule.cast_withFreshConstantsForVars`, the variables in the body remain untouched. -/
-@[simp, grind =]
-theorem Rule.vars_body_cast_withFreshConstantsForVars {r : Rule sig} :
-    r.cast_withFreshConstantsForVars.body.vars = r.body.vars := by
-  simp [cast_withFreshConstantsForVars, FunctionFreeConjunction.vars_cast_withFreshConstantsForVars]
-
-/-- The frontier of the cast rule remains unchanged. -/
-@[simp, grind =]
-theorem Rule.frontier_cast_withFreshConstantsForVars {r : Rule sig} : r.cast_withFreshConstantsForVars.frontier = r.frontier := by
-  simp only [Rule.frontier]
-  rw [vars_body_cast_withFreshConstantsForVars]
-  congr
-  apply funext; intro v
-  simp only [List.any_eq, decide_eq_decide]
-  simp only [List.exists_mem_iff_exists_getElem]
-  constructor
-  . intro ⟨i, lt, h⟩; rw [vars_head_disjunct_cast_withFreshConstantsForVars (by grind)] at h; exact ⟨_, _, h⟩
-  . intro ⟨i, lt, h⟩; exists i, (by grind); rw [vars_head_disjunct_cast_withFreshConstantsForVars (by grind)]; exact h
-
-/-- The cast rule isDatalog if and only if the original rule isDatalog. -/
-@[simp, grind =]
-theorem Rule.isDatalog_cast_withFreshConstantsForVars {r : Rule sig} : r.cast_withFreshConstantsForVars.isDatalog ↔ r.isDatalog := by
-  simp only [Rule.isDatalog]
-  rw [vars_body_cast_withFreshConstantsForVars]
-  simp only [List.all_eq, decide_eq_true_eq]
-  simp only [List.forall_mem_iff_forall_getElem]
-  constructor
-  . intro h i lt; specialize h i (by grind); rw [vars_head_disjunct_cast_withFreshConstantsForVars (by grind)] at h; exact h
-  . intro h i lt; specialize h i (by grind); rw [vars_head_disjunct_cast_withFreshConstantsForVars (by grind)]; exact h
-
-/-- Change the constant of a `RuleSet` into the Sum type of `Signature.withFreshConstants`. -/
-def RuleSet.cast_withFreshConstantsForVars (rs : RuleSet sig) : RuleSet sig.withFreshConstantsForVars :=
-  rs.map Rule.cast_withFreshConstantsForVars
-
-/-- The constants of the cast rule set are exactly the constants of the original rule set (mapped to the left part of the sum type). -/
-theorem RuleSet.constants_cast_withFreshConstantsForVars {rs : RuleSet sig} :
-    rs.cast_withFreshConstantsForVars.constants = rs.constants.map .inl := by
-  apply Set.ext
-  intro c; rw [Set.mem_map]
-  simp only [cast_withFreshConstantsForVars]
-  constructor
-  . intro ⟨r, r_mem, c_mem⟩
-    rw [Set.mem_map] at r_mem; rcases r_mem with ⟨r', r'_mem, r_mem⟩
-    rw [← r_mem, Rule.constants_cast_withFreshConstantsForVars, List.mem_map] at c_mem
-    rcases c_mem with ⟨d, d_mem, c_mem⟩
-    exists d; constructor; exists r'; exact c_mem
-  . intro ⟨d, ⟨r, r_mem, d_mem⟩, c_eq⟩
-    exists r.cast_withFreshConstantsForVars; constructor; exact Set.mem_map_of_mem r_mem
-    rw [Rule.constants_cast_withFreshConstantsForVars, ← c_eq]
-    exact List.mem_map_of_mem d_mem
+/-- Change the constant of a `RuleSet` into the Sum type of `Signature.withFreshConstantsForVars`. -/
+abbrev RuleSet.cast_withFreshConstantsForVars (rs : RuleSet sig) : RuleSet sig.withFreshConstantsForVars := rs.cast_withFreshConstants
 
 /-- The `body_database` of a rule is the body where each variable is replaced by a fresh constant.
 We achieve this by extending the signature and mapping all terms in the body using `VarOrConst.cast_withFreshConstantsForVars`. -/
@@ -181,7 +61,7 @@ theorem Rule.mapped_body_body_database_trigger {r : Rule sig} : r.body_database_
   unfold body_database body_database_trigger
   apply Set.ext; intro f
   simp only [PreTrigger.mapped_body, List.mem_toSet, TermMapping.mem_apply_generalized_atom_list]
-  simp only [cast_withFreshConstantsForVars, TermMapping.mem_apply_generalized_atom_list]
+  simp only [cast_withFreshConstants, TermMapping.mem_apply_generalized_atom_list]
   simp only [Database.toFactSet, List.mem_toSet]
   simp only [TermMapping.apply_generalized_atom_list, List.mem_map]
   constructor
@@ -193,16 +73,16 @@ theorem Rule.mapped_body_body_database_trigger {r : Rule sig} : r.body_database_
       rw [← TermMapping.apply_generalized_atom_compose', ← TermMapping.apply_generalized_atom_compose']
       apply TermMapping.apply_generalized_atom_congr_left
       intro t t_mem
-      cases t <;> simp [VarOrConst.cast_withFreshConstantsForVars, VarOrConst.toConst_withFreshConstantsForVars, GroundSubstitution.apply_var_or_const]
+      cases t <;> simp [VarOrConst.cast_withFreshConstants, VarOrConst.toConst_withFreshConstantsForVars, GroundSubstitution.apply_var_or_const]
   . intro ⟨b, ⟨a, a_mem, b_eq⟩, f_eq⟩
-    exists VarOrConst.cast_withFreshConstantsForVars.apply_generalized_atom a; constructor
+    exists VarOrConst.cast_withFreshConstants.apply_generalized_atom a; constructor
     . exists a
     . rw [← f_eq, ← b_eq]
       rw [FunctionFreeFact.toFact_eq]
       rw [← TermMapping.apply_generalized_atom_compose', ← TermMapping.apply_generalized_atom_compose']
       apply TermMapping.apply_generalized_atom_congr_left
       intro t t_mem
-      cases t <;> simp [VarOrConst.cast_withFreshConstantsForVars, VarOrConst.toConst_withFreshConstantsForVars, GroundSubstitution.apply_var_or_const]
+      cases t <;> simp [VarOrConst.cast_withFreshConstants, VarOrConst.toConst_withFreshConstantsForVars, GroundSubstitution.apply_var_or_const]
 
 /-- The `body_database_trigger` is loaded for the `body_database`. -/
 theorem Rule.body_database_trigger_loaded {r : Rule sig} : r.body_database_trigger.loaded r.body_database.toFactSet.val := by
@@ -322,7 +202,7 @@ theorem constantMappingForRepetition_on_rule_constants {cp : PreCyclicityPrefix 
     rw [ConstantMapping.repeat_succ, Function.comp_apply, ih, ConstantMapping.apply_ground_term_constant]
     simp only [constantMappingForRepetition, GroundSubstitution.toConstantMapping_for_sig_withFreshConstantsForVars]
     suffices ∃ d, c = .inl d by rcases this with ⟨_, eq⟩; simp [eq]
-    rw [RuleSet.constants_cast_withFreshConstantsForVars, Set.mem_map] at c_mem
+    rw [RuleSet.constants_cast_withFreshConstants, Set.mem_map] at c_mem
     rcases c_mem with ⟨d, _, c_eq⟩
     exists d; rw [c_eq]
 
