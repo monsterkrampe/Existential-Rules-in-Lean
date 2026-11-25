@@ -48,17 +48,18 @@ def Rule.body_database (r : Rule sig) : Database sig.withFreshConstantsForVars :
   ⟨(VarOrConst.toConst_withFreshConstantsForVars.apply_generalized_atom_list r.body).toSet, List.finite_toSet _⟩
 
 /-- The `body_kb` consists of the cast rule set and the `body_database`. -/
+@[expose]
 def Rule.body_kb (r : Rule sig) (rules : RuleSet sig) : KnowledgeBase sig.withFreshConstantsForVars :=
   { rules := rules.cast_withFreshConstantsForVars, db := r.body_database }
 
-/-- The trigger for a rule that matches its `body_database`. -/
-def Rule.body_database_trigger (r : Rule sig) : PreTrigger sig.withFreshConstantsForVars where
+/-- The PreTrigger for a rule that matches its `body_database`. -/
+def Rule.body_database_pretrigger (r : Rule sig) : PreTrigger sig.withFreshConstantsForVars where
   rule := r.cast_withFreshConstantsForVars
   subs := .const ∘ .inr
 
 /-- The mapped_body of the `body_database_trigger` is exactly the `body_database`. -/
-theorem Rule.mapped_body_body_database_trigger {r : Rule sig} : r.body_database_trigger.mapped_body.toSet = r.body_database.toFactSet := by
-  unfold body_database body_database_trigger
+theorem Rule.mapped_body_body_database_pretrigger {r : Rule sig} : r.body_database_pretrigger.mapped_body.toSet = r.body_database.toFactSet := by
+  unfold body_database body_database_pretrigger
   apply Set.ext; intro f
   simp only [PreTrigger.mapped_body, List.mem_toSet, TermMapping.mem_apply_generalized_atom_list]
   simp only [cast_withFreshConstants, TermMapping.mem_apply_generalized_atom_list]
@@ -85,37 +86,45 @@ theorem Rule.mapped_body_body_database_trigger {r : Rule sig} : r.body_database_
       cases t <;> simp [VarOrConst.cast_withFreshConstants, VarOrConst.toConst_withFreshConstantsForVars, GroundSubstitution.apply_var_or_const]
 
 /-- The `body_database_trigger` is loaded for the `body_database`. -/
-theorem Rule.body_database_trigger_loaded {r : Rule sig} : r.body_database_trigger.loaded r.body_database.toFactSet.val := by
+theorem Rule.body_database_pretrigger_loaded {r : Rule sig} : r.body_database_pretrigger.loaded r.body_database.toFactSet.val := by
   unfold PreTrigger.loaded
-  rw [mapped_body_body_database_trigger]
+  rw [mapped_body_body_database_pretrigger]
   exact Set.subset_refl
 
 /-- The mapped_frontier of the `body_database_trigger` results from turning every frontier variable into its unique constant. -/
-theorem Rule.mapped_frontier_body_database_trigger {r : Rule sig} :
-    r.body_database_trigger.mapped_frontier = r.frontier.map (.const ∘ .inr) := by
-  simp [body_database_trigger, PreTrigger.mapped_frontier]
+theorem Rule.mapped_frontier_body_database_pretrigger {r : Rule sig} :
+    r.body_database_pretrigger.mapped_frontier = r.frontier.map (.const ∘ .inr) := by
+  simp [body_database_pretrigger, PreTrigger.mapped_frontier]
+
+/-- The trigger for a rule that matches its `body_database`. -/
+def Rule.body_database_trigger
+    (obs : ObsolescenceCondition sig.withFreshConstantsForVars)
+    (rules : RuleSet sig)
+    (r : Rule sig)
+    (r_mem : r ∈ rules) :
+    RTrigger obs rules.cast_withFreshConstantsForVars :=
+  ⟨Trigger.fromPreTrigger r.body_database_pretrigger obs, by simp only [RuleSet.cast_withFreshConstantsForVars, Rule.body_database_pretrigger]; apply Set.mem_map_of_mem; exact r_mem⟩
 
 /-- The `ChaseNodeOrigin` for a rule that matches its `body_database`. -/
 def Rule.body_database_origin
     (obs : ObsolescenceCondition sig.withFreshConstantsForVars)
     (rules : RuleSet sig)
-    (hc : HeadChoice sig.withFreshConstantsForVars)
+    (hc : HeadChoice obs rules.cast_withFreshConstantsForVars)
     (r : Rule sig)
     (r_mem : r ∈ rules) :
     ChaseNodeOrigin obs rules.cast_withFreshConstantsForVars :=
-  let trg := r.body_database_trigger
-  ⟨⟨Trigger.fromPreTrigger trg obs, by simp only [trg, RuleSet.cast_withFreshConstantsForVars, Rule.body_database_trigger]; apply Set.mem_map_of_mem; exact r_mem⟩, hc r.body_database_trigger⟩
+  let trg := r.body_database_trigger obs rules r_mem
+  ⟨trg, hc trg⟩
 
 /-- The `body_database_origin` adheres to the head choice. -/
 theorem Rule.body_database_origin_adheres_to_headChoice
     {obs : ObsolescenceCondition sig.withFreshConstantsForVars}
     {rules : RuleSet sig}
-    {hc : HeadChoice sig.withFreshConstantsForVars}
+    {hc : HeadChoice obs rules.cast_withFreshConstantsForVars}
     {r : Rule sig}
     {r_mem : r ∈ rules} :
     (r.body_database_origin obs rules hc r_mem).adheres_to_headChoice hc := by
   simp only [body_database_origin, ChaseNodeOrigin.adheres_to_headChoice]
-  congr
 
 /-- For a signature `withFreshConstantsForVars`, we can turn a `GroundSubstitution` into a `ConstantMapping`. -/
 def GroundSubstitution.toConstantMapping_for_sig_withFreshConstantsForVars (subs : GroundSubstitution sig.withFreshConstantsForVars) :
@@ -139,12 +148,12 @@ structure PreCyclicityPrefix
     [Inhabited sig.C]
     (obs : ObsolescenceCondition sig.withFreshConstantsForVars)
     {rules : RuleSet sig}
-    {hc : HeadChoice sig.withFreshConstantsForVars}
+    {hc : HeadChoice obs rules.cast_withFreshConstantsForVars}
     (hc_consistent : hc.consistent_for_same_rule)
     {rule : Rule sig}
     (rule_mem : rule ∈ rules)
-    (rule_hc_exis : rule.body_database_trigger.rule.existential_vars_for_head_disjunct (hc rule.body_database_trigger).val (hc rule.body_database_trigger).isLt ≠ []) where
-  body_database_trigger_unblockable : (Trigger.fromPreTrigger rule.body_database_trigger obs).kbUnblockable (rule.body_kb rules) hc
+    (rule_hc_exis : (rule.body_database_trigger obs rules rule_mem).val.rule.existential_vars_for_head_disjunct (hc (rule.body_database_trigger obs rules rule_mem)).val (hc (rule.body_database_trigger obs rules rule_mem)).isLt ≠ []) where
+  body_database_trigger_unblockable : (rule.body_database_trigger obs rules rule_mem).kbUnblockable (rule.body_kb rules) hc
   -- this list does not include the initial database trigger
   triggers : FiniteTriggerList obs rules.cast_withFreshConstantsForVars
   -- the first conditions are also found in the `CyclicityDerivation`; `growing` and `unblockable` are missing though
@@ -155,7 +164,7 @@ structure PreCyclicityPrefix
 
 namespace PreCyclicityPrefix
 
-variable [Inhabited sig.C] {obs : ObsolescenceCondition sig.withFreshConstantsForVars} {rules : RuleSet sig} {hc : HeadChoice sig.withFreshConstantsForVars} {hc_consistent : hc.consistent_for_same_rule} {rule : Rule sig} {rule_mem : rule ∈ rules} {rule_hc_exis : rule.body_database_trigger.rule.existential_vars_for_head_disjunct (hc rule.body_database_trigger).val (hc rule.body_database_trigger).isLt ≠ []}
+variable [Inhabited sig.C] {obs : ObsolescenceCondition sig.withFreshConstantsForVars} {rules : RuleSet sig} {hc : HeadChoice obs rules.cast_withFreshConstantsForVars} {hc_consistent : hc.consistent_for_same_rule} {rule : Rule sig} {rule_mem : rule ∈ rules} {rule_hc_exis : (rule.body_database_trigger obs rules rule_mem).val.rule.existential_vars_for_head_disjunct (hc (rule.body_database_trigger obs rules rule_mem)).val (hc (rule.body_database_trigger obs rules rule_mem)).isLt ≠ []}
 
 /-- The triggers are not empty. -/
 theorem triggers_ne_nil {cp : PreCyclicityPrefix obs hc_consistent rule_mem rule_hc_exis} : cp.triggers ≠ [] := by
@@ -176,7 +185,7 @@ def last_trigger (cp : PreCyclicityPrefix obs hc_consistent rule_mem rule_hc_exi
 theorem last_trigger_mem {cp : PreCyclicityPrefix obs hc_consistent rule_mem rule_hc_exis} : cp.last_trigger ∈ cp.triggers := by simp [last_trigger]
 
 /-- The `ex_last_trigger` property expressed for the `last_trigger` shortcut. -/
-theorem rule_last_trigger {cp : PreCyclicityPrefix obc hc_consistent rule_mem rule_hc_exis} :
+theorem rule_last_trigger {cp : PreCyclicityPrefix obs hc_consistent rule_mem rule_hc_exis} :
     cp.last_trigger.fst.val.rule = rule.cast_withFreshConstantsForVars := by
   rcases cp.ex_last_trigger with ⟨last, mem, h⟩
   suffices last = cp.last_trigger by rw [← this]; exact h
@@ -208,10 +217,12 @@ theorem constantMappingForRepetition_on_rule_constants {cp : PreCyclicityPrefix 
 
 /-- The `last_trigger` os exactly the initial database trigger with the `constantMappingForRepetition` applied. (Because this is essentially how the `constantMappingForRepetition` is defined.) -/
 theorem last_trigger_eq {cp : PreCyclicityPrefix obs hc_consistent rule_mem rule_hc_exis} :
-    cp.last_trigger.fst.val = rule.body_database_trigger.extend_with_groundTermMapping cp.constantMappingForRepetition.apply_ground_term := by
+    cp.last_trigger.fst = (rule.body_database_trigger obs rules rule_mem).extend_with_groundTermMapping cp.constantMappingForRepetition.apply_ground_term := by
+  apply Subtype.ext
+  rw [Trigger.mk.injEq]; simp only [Rule.body_database_trigger, Trigger.toPreTrigger_after_fromPreTrigger]
   rw [PreTrigger.mk.injEq]; constructor
-  . simp [rule_last_trigger, Rule.body_database_trigger]
-  . simp only [PreTrigger.extend_with_groundTermMapping, Rule.body_database_trigger]
+  . simp [rule_last_trigger, Rule.body_database_pretrigger]
+  . simp only [PreTrigger.extend_with_groundTermMapping, Rule.body_database_pretrigger]
     suffices cp.constantMappingForRepetition.apply_ground_term ∘ .const = cp.constantMappingForRepetition by
       rw [← Function.comp_assoc, this]
       simp only [constantMappingForRepetition]
@@ -224,8 +235,8 @@ theorem result_last_trigger {cp : PreCyclicityPrefix obs hc_consistent rule_mem 
   have adheres := cp.adheres_to_headChoice cp.last_trigger cp.last_trigger_mem
   rw [ChaseNodeOrigin.result_eq_of_adheres_to_headChoice adheres]
   rw [last_trigger_eq]
-  simp only [ChaseNodeOrigin.result, Rule.body_database_origin, PreTrigger.output_for_headChoice]
-  suffices (hc (rule.body_database_trigger.extend_with_groundTermMapping cp.constantMappingForRepetition.apply_ground_term)).val = (hc rule.body_database_trigger).val by
+  simp only [ChaseNodeOrigin.result, Rule.body_database_origin, RTrigger.output_for_headChoice]
+  suffices (hc ((rule.body_database_trigger obs rules rule_mem).extend_with_groundTermMapping cp.constantMappingForRepetition.apply_ground_term)).val = (hc (rule.body_database_trigger obs rules rule_mem)).val by
     simp only [this]
     apply List.ext_getElem
     . simp [PreTrigger.mapped_head]
@@ -233,15 +244,20 @@ theorem result_last_trigger {cp : PreCyclicityPrefix obs hc_consistent rule_mem 
     simp only [List.getElem_map, PreTrigger.mapped_head]
     rw [ConstantMapping.apply_fact_swap_apply_to_function_free_atom]
     . simp
-    . simp only [Trigger.rule_fromPreTrigger, List.getElem_attach, List.getElem_zipIdx, Nat.zero_add]
+    . simp only [Rule.body_database_trigger, Trigger.rule_fromPreTrigger, List.getElem_attach, List.getElem_zipIdx, Nat.zero_add]
       intro d d_mem; rw [← cp.constantMappingForRepetition.repeat_once]; apply constantMappingForRepetition_on_rule_constants
-      exists rule.body_database_trigger.rule; constructor
+      exists rule.body_database_pretrigger.rule; constructor
       . apply Set.mem_map_of_mem; exact rule_mem
       . apply Rule.head_constants_subset_constants
         apply List.mem_flatMap_of_mem
-        . exact List.getElem_mem (hc rule.body_database_trigger).isLt
+        . exact List.getElem_mem (hc (rule.body_database_trigger obs rules rule_mem)).isLt
         apply List.mem_flatMap_of_mem
-        . apply List.getElem_mem (n := j); grind
+        . apply List.getElem_mem (n := j); rw [List.length_map] at lt2
+          have := (rule.body_database_trigger obs rules rule_mem).val.length_each_mapped_head (hc (rule.body_database_trigger obs rules rule_mem)).val
+          rw [List.getElem?_eq_getElem (hc (rule.body_database_trigger obs rules rule_mem)).isLt, List.getElem?_eq_getElem (by rw [PreTrigger.length_mapped_head]; exact (hc (rule.body_database_trigger obs rules rule_mem)).isLt)] at this
+          simp only [Option.map_some, Option.some_inj] at this
+          rw [this] at lt2
+          exact lt2
         . exact d_mem
   apply hc_consistent; simp
 
@@ -391,9 +407,10 @@ theorem infiniteList_of_finiteLists_loaded {cp : PreCyclicityPrefix obs hc_consi
         apply Set.subset_trans _ (FiniteTriggerList.start_sub_result (l := [cp.triggers.getLast _]))
         apply Set.subset_trans _ cp.last_trigger_loaded
         rw [last_trigger_eq]
-        rw [PreTrigger.mapped_body_extend_with_groundTermMapping_eq]
+        rw [RTrigger.val_extend_with_groundTermMapping, PreTrigger.mapped_body_extend_with_groundTermMapping_eq]
         . rw [← TermMapping.apply_generalized_atom_list.eq_def, ← TermMapping.apply_generalized_atom_set_toSet]
-          rw [Rule.mapped_body_body_database_trigger]
+          simp only [Rule.body_database_trigger, Trigger.fromPreTrigger]
+          rw [Rule.mapped_body_body_database_pretrigger]
           exact Set.subset_refl
         . intro d d_mem
           rw [ConstantMapping.apply_ground_term_constant, ← cp.constantMappingForRepetition.repeat_once]
@@ -447,7 +464,7 @@ theorem infiniteTriggerList_loaded {cp : PreCyclicityPrefix obs hc_consistent ru
   apply (InfiniteTriggerList.trigger_property_holds_iff_holds_for_head_and_tail (property := fun orig => orig.fst.val.loaded)).mpr
   simp only [InfiniteList.head_cons, InfiniteList.tail_cons]
   constructor
-  . exact Rule.body_database_trigger_loaded
+  . exact Rule.body_database_pretrigger_loaded
   . apply InfiniteTriggerList.fromFiniteLists_loadedness_preserved
     exact cp.infiniteList_of_finiteLists_loaded
 
@@ -513,16 +530,16 @@ theorem infiniteRegularChaseDerivationSkeleton_terms_next_not_empty {cp : PreCyc
     cp.infiniteRegularChaseDerivationSkeleton_next.facts.terms ≠ ∅ := by
   rw [infiniteRegularChaseDerivationSkeleton_facts_next_eq_result_body_database_origin]
   rcases List.exists_mem_of_ne_nil _ rule_hc_exis with ⟨v, v_mem⟩
-  suffices rule.body_database_trigger.functional_term_for_var (hc rule.body_database_trigger).val (hc rule.body_database_trigger).isLt v v_mem ∈ FactSet.terms (rule.body_database_origin obs rules hc rule_mem).result.toSet by
+  suffices (rule.body_database_trigger obs rules rule_mem).val.functional_term_for_var (hc (rule.body_database_trigger obs rules rule_mem)).val (hc (rule.body_database_trigger obs rules rule_mem)).isLt v v_mem ∈ FactSet.terms (rule.body_database_origin obs rules hc rule_mem).result.toSet by
     intro contra; rw [Set.ext_iff] at contra
-    specialize contra (rule.body_database_trigger.functional_term_for_var (hc rule.body_database_trigger).val (hc rule.body_database_trigger).isLt v v_mem)
+    specialize contra ((rule.body_database_trigger obs rules rule_mem).val.functional_term_for_var (hc (rule.body_database_trigger obs rules rule_mem)).val (hc (rule.body_database_trigger obs rules rule_mem)).isLt v v_mem)
     conv at contra => right; simp only [EmptyCollection.emptyCollection, Membership.mem]
     rw [← contra]
     rw [FactSet.terms_union]
     apply Set.mem_union_of_mem_right
     exact this
-  simp only [FactSet.mem_terms_toSet, ChaseNodeOrigin.result, Rule.body_database_origin, Trigger.fromPreTrigger]
-  rw [rule.body_database_trigger.mem_terms_mapped_head_iff _ (hc rule.body_database_trigger).isLt]
+  simp only [FactSet.mem_terms_toSet, ChaseNodeOrigin.result, Rule.body_database_origin]
+  rw [(rule.body_database_trigger obs rules rule_mem).val.mem_terms_mapped_head_iff _ (hc (rule.body_database_trigger obs rules rule_mem)).isLt]
   apply Or.inr; apply Or.inr
   apply PreTrigger.mem_fresh_terms_of_functional_for_exis_var
 
@@ -568,13 +585,13 @@ structure CyclicityPrefix
     (obs_propagates : obs.propagates_under_term_mapping_of_no_fresh_term_occurs)
     (unblk : RepeatableUnblockability obs)
     {rules : RuleSet sig}
-    {hc : HeadChoice sig.withFreshConstantsForVars}
+    {hc : HeadChoice obs rules.cast_withFreshConstantsForVars}
     (hc_consistent : hc.consistent_for_same_rule)
     {rule : Rule sig}
     (rule_mem : rule ∈ rules)
-    (rule_hc_exis : rule.body_database_trigger.rule.existential_vars_for_head_disjunct (hc rule.body_database_trigger).val (hc rule.body_database_trigger).isLt ≠ [])
+    (rule_hc_exis : (rule.body_database_trigger obs rules rule_mem).val.rule.existential_vars_for_head_disjunct (hc (rule.body_database_trigger obs rules rule_mem)).val (hc (rule.body_database_trigger obs rules rule_mem)).isLt ≠ [])
     extends PreCyclicityPrefix obs hc_consistent rule_mem rule_hc_exis where
-  triggers_unblockable : ∀ orig ∈ triggers, unblk.trigger_unblockable rules.cast_withFreshConstantsForVars hc orig.fst.val
+  triggers_unblockable : ∀ orig ∈ triggers, unblk.trigger_unblockable rules.cast_withFreshConstantsForVars hc orig.fst
   -- The following is not stated as in the RPC paper but should mean the same thing. The paper states that the constantMappingForRepetition is reversible for each trigger in each repetition. This should be the same as demanding (what we state) that each repetition of the constantMappingForRepetition is reversible for the triggers in the original list. At least this is more convenient to use for us.
   constantMapping_reversible_in_each_step : ∀ i : Nat, ∀ orig ∈ toPreCyclicityPrefix.triggers,
     (toPreCyclicityPrefix.constantMappingForRepetition.repeat_fun i).isReversible orig.fst.val.termSkeleton.toSet
@@ -584,7 +601,7 @@ structure CyclicityPrefix
 
 namespace CyclicityPrefix
 
-variable [Inhabited sig.C] {obs : ObsolescenceCondition sig.withFreshConstantsForVars} {obs_propagates : obs.propagates_under_term_mapping_of_no_fresh_term_occurs} {unblk : RepeatableUnblockability obs} {rules : RuleSet sig} {hc : HeadChoice sig.withFreshConstantsForVars} {hc_consistent : hc.consistent_for_same_rule} {rule : Rule sig} {rule_mem : rule ∈ rules} {rule_hc_exis : rule.body_database_trigger.rule.existential_vars_for_head_disjunct (hc rule.body_database_trigger).val (hc rule.body_database_trigger).isLt ≠ []}
+variable [Inhabited sig.C] {obs : ObsolescenceCondition sig.withFreshConstantsForVars} {obs_propagates : obs.propagates_under_term_mapping_of_no_fresh_term_occurs} {unblk : RepeatableUnblockability obs} {rules : RuleSet sig} {hc : HeadChoice obs rules.cast_withFreshConstantsForVars} {hc_consistent : hc.consistent_for_same_rule} {rule : Rule sig} {rule_mem : rule ∈ rules} {rule_hc_exis : (rule.body_database_trigger obs rules rule_mem).val.rule.existential_vars_for_head_disjunct (hc (rule.body_database_trigger obs rules rule_mem)).val (hc (rule.body_database_trigger obs rules rule_mem)).isLt ≠ []}
 
 /--
 Every functional term that occurs in the triggers of the `CyclicityPrefix` can only feature constants that occur in the frontier of the initial trigger.
@@ -602,9 +619,11 @@ theorem func_term_in_triggers_features_constants_from_initial_frontier {cp : Cyc
   | zero =>
     simp only [List.take_zero, FiniteTriggerList.result_nil, FactSet.terms_union, Set.mem_union_iff]
     intro t t_mem func ts arity_ok t_eq
-    suffices t ∈ rule.body_database_trigger.fresh_terms_for_head_disjunct (hc rule.body_database_trigger).val (hc rule.body_database_trigger).isLt by
-      suffices ts = rule.body_database_trigger.mapped_frontier by
-        rw [t_eq, GroundTerm.constants_func, this, Rule.mapped_frontier_body_database_trigger, ← List.map_map, List.flatMap_map]; simp
+    suffices t ∈ (rule.body_database_trigger obs rules rule_mem).val.fresh_terms_for_head_disjunct (hc (rule.body_database_trigger obs rules rule_mem)).val (hc (rule.body_database_trigger obs rules rule_mem)).isLt by
+      suffices ts = (rule.body_database_trigger obs rules rule_mem).val.mapped_frontier by
+        rw [t_eq, GroundTerm.constants_func, this]
+        simp only [Rule.body_database_trigger, Trigger.fromPreTrigger]
+        rw [Rule.mapped_frontier_body_database_pretrigger, ← List.map_map, List.flatMap_map]; simp
       rcases PreTrigger.mem_fresh_terms _ this with ⟨_, _, t_eq2⟩
       rw [t_eq, GroundTerm.func.injEq] at t_eq2; exact t_eq2.right
     cases t_mem with
@@ -615,15 +634,15 @@ theorem func_term_in_triggers_features_constants_from_initial_frontier {cp : Cyc
       rw [t_eq] at contra
       exact GroundTerm.func_neq_const contra
     | inr t_mem =>
-    simp only [FactSet.mem_terms_toSet, ChaseNodeOrigin.result, Rule.body_database_origin, Trigger.fromPreTrigger] at t_mem
-    rw [rule.body_database_trigger.mem_terms_mapped_head_iff _ (hc rule.body_database_trigger).isLt] at t_mem
+    simp only [FactSet.mem_terms_toSet, ChaseNodeOrigin.result, Rule.body_database_origin] at t_mem
+    rw [(rule.body_database_trigger obs rules rule_mem).val.mem_terms_mapped_head_iff _ (hc (rule.body_database_trigger obs rules rule_mem)).isLt] at t_mem
     cases t_mem with
     | inl t_mem => exfalso; rcases t_mem with ⟨_, _, contra⟩; rw [t_eq] at contra; exact GroundTerm.func_neq_const (Eq.symm contra)
     | inr t_mem =>
     cases t_mem with
     | inl t_mem =>
       exfalso
-      simp only [List.mem_map, Rule.body_database_trigger] at t_mem; rcases t_mem with ⟨v, v_mem, t_mem⟩
+      simp only [List.mem_map, Rule.body_database_trigger, Trigger.fromPreTrigger, Rule.body_database_pretrigger] at t_mem; rcases t_mem with ⟨v, v_mem, t_mem⟩
       rw [t_eq] at t_mem
       exact GroundTerm.func_neq_const (Eq.symm t_mem)
     | inr t_mem => exact t_mem
@@ -691,16 +710,16 @@ theorem constantMappingForRepetition_on_some_initial_frontier_constant_contains_
     ∃ c ∈ rule.frontier.map .inr,
     ∃ func ts arity_ok, cp.constantMappingForRepetition c = .func func ts arity_ok ∧ c ∈ (GroundTerm.func func ts arity_ok).constants := by
   rcases cp.exis_triggers_feature_function_in_frontier cp.last_trigger cp.last_trigger_mem (by
-      suffices cp.last_trigger.snd.val = (hc rule.body_database_trigger).val by
+      suffices cp.last_trigger.snd.val = (hc (rule.body_database_trigger obs rules rule_mem)).val by
         simp only [cp.rule_last_trigger, this]
         exact rule_hc_exis
       rw [cp.adheres_to_headChoice cp.last_trigger cp.last_trigger_mem]
-      suffices cp.last_trigger.fst.val.rule = rule.body_database_trigger.rule by rw [hc_consistent this]
-      rw [cp.rule_last_trigger]; simp [Rule.body_database_trigger])
+      suffices cp.last_trigger.fst.val.rule = (rule.body_database_trigger obs rules rule_mem).val.rule by rw [hc_consistent this]
+      rw [cp.rule_last_trigger]; simp [Rule.body_database_trigger, Rule.body_database_pretrigger])
     with ⟨func, ts, arity_ok, mem_mapped_frontier⟩
   have mem_mapped_frontier' := mem_mapped_frontier -- we copy the original form of the statement because we need it at the end of the proof
-  rw [cp.last_trigger_eq, ← PreTrigger.apply_mapping_after_mapped_frontier] at mem_mapped_frontier
-  simp only [Rule.mapped_frontier_body_database_trigger, List.map_map, List.mem_map] at mem_mapped_frontier
+  rw [cp.last_trigger_eq, RTrigger.val_extend_with_groundTermMapping, ← PreTrigger.apply_mapping_after_mapped_frontier] at mem_mapped_frontier
+  simp only [Rule.body_database_trigger, Trigger.fromPreTrigger, Rule.mapped_frontier_body_database_pretrigger, List.map_map, List.mem_map] at mem_mapped_frontier
   rcases mem_mapped_frontier with ⟨v, v_mem, mem_mapped_frontier⟩
   exists .inr v; constructor; exact List.mem_map_of_mem v_mem
   exists func, ts, arity_ok; constructor
@@ -718,9 +737,9 @@ theorem constantMappingForRepetition_growing {cp : CyclicityPrefix obs obs_propa
     ∃ t ∈ (rule.body_database_origin obs rules hc rule_mem).result.flatMap GeneralizedAtom.terms,
     ∀ n, ((cp.constantMappingForRepetition.repeat_fun n).apply_ground_term t).depth ≥ n.succ := by
   rcases List.exists_mem_of_ne_nil _ rule_hc_exis with ⟨v, v_mem⟩
-  exists rule.body_database_trigger.functional_term_for_var (hc rule.body_database_trigger).val (hc rule.body_database_trigger).isLt v v_mem
-  simp only [ChaseNodeOrigin.result, Rule.body_database_origin, Trigger.fromPreTrigger]
-  rw [rule.body_database_trigger.mem_terms_mapped_head_iff _ (hc rule.body_database_trigger).isLt]
+  exists (rule.body_database_trigger obs rules rule_mem).val.functional_term_for_var (hc (rule.body_database_trigger obs rules rule_mem)).val (hc (rule.body_database_trigger obs rules rule_mem)).isLt v v_mem
+  simp only [ChaseNodeOrigin.result, Rule.body_database_origin]
+  rw [(rule.body_database_trigger obs rules rule_mem).val.mem_terms_mapped_head_iff _ (hc (rule.body_database_trigger obs rules rule_mem)).isLt]
   constructor
   . apply Or.inr; apply Or.inr
     exact PreTrigger.mem_fresh_terms_of_functional_for_exis_var v_mem
@@ -735,7 +754,8 @@ theorem constantMappingForRepetition_growing {cp : CyclicityPrefix obs obs_propa
       apply List.mem_map_of_mem
       rw [← (cp.constantMappingForRepetition.repeat_fun n).apply_ground_term_constant c]
       apply List.mem_map_of_mem
-      rw [Rule.mapped_frontier_body_database_trigger, ← List.map_map]
+      simp only [Rule.body_database_trigger, Trigger.fromPreTrigger]
+      rw [Rule.mapped_frontier_body_database_pretrigger, ← List.map_map]
       apply List.mem_map_of_mem
       exact c_mem_frontier
     intro n
@@ -822,7 +842,7 @@ theorem infiniteRegularChaseDerivationSkeleton_growing {cp : CyclicityPrefix obs
 
 /-- Every trigger in each repetition is unblockable. -/
 theorem infiniteList_of_finiteLists_unblockable {cp : CyclicityPrefix obs obs_propagates unblk hc_consistent rule_mem rule_hc_exis} :
-    ∀ i, ∀ orig ∈ (cp.infiniteList_of_finiteLists.get i).toList, unblk.trigger_unblockable rules.cast_withFreshConstantsForVars hc orig.fst.val := by
+    ∀ i, ∀ orig ∈ (cp.infiniteList_of_finiteLists.get i).toList, unblk.trigger_unblockable rules.cast_withFreshConstantsForVars hc orig.fst := by
   intro i orig orig_mem
   simp only [PreCyclicityPrefix.infiniteList_of_finiteLists, InfiniteList.compute_get, PreCyclicityPrefix.ithRepetition, NonEmptyList.toList_from_ne_nil, List.mem_map] at orig_mem
   rcases orig_mem with ⟨orig2, orig2_mem, orig_eq⟩
@@ -833,14 +853,14 @@ theorem infiniteList_of_finiteLists_unblockable {cp : CyclicityPrefix obs obs_pr
 
 /-- Every trigger in the `PreCyclicityPrefix.infiniteTriggerList` is unblockable. -/
 theorem infiniteTriggerList_unblockable {cp : CyclicityPrefix obs obs_propagates unblk hc_consistent rule_mem rule_hc_exis} :
-    ∀ orig ∈ cp.infiniteTriggerList, Trigger.kbUnblockable (rule.body_kb rules) hc orig.fst.val := by
+    ∀ orig ∈ cp.infiniteTriggerList, RTrigger.kbUnblockable (rule.body_kb rules) hc orig.fst := by
   unfold PreCyclicityPrefix.infiniteTriggerList
   intro orig orig_mem
   cases InfiniteList.mem_cons.mp orig_mem with
   | inl orig_mem => rw [orig_mem]; exact cp.body_database_trigger_unblockable
   | inr orig_mem =>
     let property : ChaseNodeOrigin obs rules.cast_withFreshConstantsForVars -> FactSet sig.withFreshConstantsForVars -> Prop :=
-      fun orig _ => Trigger.kbUnblockable (rule.body_kb rules) hc orig.fst.val
+      fun orig _ => RTrigger.kbUnblockable (rule.body_kb rules) hc orig.fst
     have prop_holds : ∀ n, FiniteTriggerList.trigger_property_holds property (InfiniteTriggerList.startForFiniteList cp.infiniteList_of_finiteLists ∅ n) (cp.infiniteList_of_finiteLists.get n).toList := by
       intro n
       rw [FiniteTriggerList.trigger_property_holds_iff]
@@ -902,7 +922,7 @@ def to_cyclicityBranch (cp : CyclicityPrefix obs obs_propagates unblk hc_consist
         . intro s s_mem; apply List.le_apply_maxOn_of_mem; rw [terms_eq]; exact s_mem
       exact cp.infiniteRegularChaseDerivationSkeleton_facts_finite_of_mem _ (ChaseDerivationSkeleton.mem_of_mem_suffix suffix _ (cd2.next_mem_of_mem _ (by simp [next])))
     unblockable := by
-      show ∀ node ∈ deriv, ∀ orig ∈ node.origin, (orig.fst.val.kbUnblockable (rule.body_kb rules) hc)
+      show ∀ node ∈ deriv, ∀ orig ∈ node.origin, (orig.fst.kbUnblockable (rule.body_kb rules) hc)
       intro node node_mem orig orig_mem
       simp only [deriv, PreCyclicityPrefix.infiniteRegularChaseDerivationSkeleton, InfiniteTriggerList.to_regularChaseDerivationSkeleton] at node_mem
       simp only [ChaseDerivationSkeleton.mem_iff, PossiblyInfiniteList.get?_from_infiniteList, Option.some_inj] at node_mem
