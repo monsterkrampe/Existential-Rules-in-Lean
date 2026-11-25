@@ -19,12 +19,13 @@ We capture this simply in a subtype.
 public section
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
-variable {obs : LaxObsolescenceCondition sig}
 
 /-- An `RTrigger` for a `RuleSet` $R$ is a `Trigger` with a rule in $R$. -/
-abbrev RTrigger (obs : LaxObsolescenceCondition sig) (rs : RuleSet sig) := { trg : Trigger obs // trg.rule ∈ rs}
+abbrev RTrigger (obs : LaxObsolescenceCondition) (rs : RuleSet sig) := { trg : Trigger sig obs // trg.rule ∈ rs}
 
 namespace RTrigger
+
+variable {obs : LaxObsolescenceCondition}
 
 /-- Two `RTrigger`s are equivalent if the underlying `PreTrigger`s are. -/
 abbrev equiv {rs : RuleSet sig} (trg1 trg2 : RTrigger obs rs) : Prop := trg1.val.equiv trg2.val

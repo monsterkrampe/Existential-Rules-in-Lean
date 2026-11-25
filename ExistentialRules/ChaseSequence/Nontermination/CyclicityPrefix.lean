@@ -97,7 +97,7 @@ theorem Rule.mapped_frontier_body_database_trigger {r : Rule sig} :
 
 /-- The `ChaseNodeOrigin` for a rule that matches its `body_database`. -/
 def Rule.body_database_origin
-    (obs : ObsolescenceCondition sig.withFreshConstantsForVars)
+    (obs : ObsolescenceCondition)
     (rules : RuleSet sig)
     (hc : HeadChoice sig.withFreshConstantsForVars)
     (r : Rule sig)
@@ -108,7 +108,7 @@ def Rule.body_database_origin
 
 /-- The `body_database_origin` adheres to the head choice. -/
 theorem Rule.body_database_origin_adheres_to_headChoice
-    {obs : ObsolescenceCondition sig.withFreshConstantsForVars}
+    {obs : ObsolescenceCondition}
     {rules : RuleSet sig}
     {hc : HeadChoice sig.withFreshConstantsForVars}
     {r : Rule sig}
@@ -137,7 +137,7 @@ We split this mainly to add some auxiliary definitions that we can use to expres
 -/
 structure PreCyclicityPrefix
     [Inhabited sig.C]
-    (obs : ObsolescenceCondition sig.withFreshConstantsForVars)
+    (obs : ObsolescenceCondition)
     {rules : RuleSet sig}
     {hc : HeadChoice sig.withFreshConstantsForVars}
     (hc_consistent : hc.consistent_for_same_rule)
@@ -155,7 +155,7 @@ structure PreCyclicityPrefix
 
 namespace PreCyclicityPrefix
 
-variable [Inhabited sig.C] {obs : ObsolescenceCondition sig.withFreshConstantsForVars} {rules : RuleSet sig} {hc : HeadChoice sig.withFreshConstantsForVars} {hc_consistent : hc.consistent_for_same_rule} {rule : Rule sig} {rule_mem : rule ∈ rules} {rule_hc_exis : rule.body_database_trigger.rule.existential_vars_for_head_disjunct (hc rule.body_database_trigger).val (hc rule.body_database_trigger).isLt ≠ []}
+variable [Inhabited sig.C] {obs : ObsolescenceCondition} {rules : RuleSet sig} {hc : HeadChoice sig.withFreshConstantsForVars} {hc_consistent : hc.consistent_for_same_rule} {rule : Rule sig} {rule_mem : rule ∈ rules} {rule_hc_exis : rule.body_database_trigger.rule.existential_vars_for_head_disjunct (hc rule.body_database_trigger).val (hc rule.body_database_trigger).isLt ≠ []}
 
 /-- The triggers are not empty. -/
 theorem triggers_ne_nil {cp : PreCyclicityPrefix obs hc_consistent rule_mem rule_hc_exis} : cp.triggers ≠ [] := by
@@ -309,7 +309,6 @@ theorem result_ithRepetition {cp : PreCyclicityPrefix obs hc_consistent rule_mem
     . simp [PreTrigger.mapped_head]
     intro k lt1 lt2
     simp only [PreTrigger.mapped_head, Trigger.rule_fromPreTrigger, PreTrigger.rule_extend_with_groundTermMapping, Fin.getElem_fin, List.getElem_map, List.getElem_attach, List.getElem_zipIdx, Nat.zero_add, Trigger.toPreTrigger_after_fromPreTrigger, List.map_map, Function.comp_apply]
-    simp only [← ConstantMapping.apply_fact.eq_def (cp.constantMappingForRepetition.repeat_fun i)]
     rw [ConstantMapping.apply_fact_swap_apply_to_function_free_atom]
     intro d d_mem
     apply constantMappingForRepetition_on_rule_constants
@@ -564,9 +563,9 @@ end PreCyclicityPrefix
 /-- The actual `CyclicityPrefix` definition based on `PreCyclicityPrefix` with extra conditions. -/
 structure CyclicityPrefix
     [Inhabited sig.C]
-    (obs : ObsolescenceCondition sig.withFreshConstantsForVars)
+    (obs : ObsolescenceCondition)
     (obs_propagates : obs.propagates_under_term_mapping_of_no_fresh_term_occurs)
-    (unblk : RepeatableUnblockability obs)
+    (unblk : RepeatableUnblockability sig.withFreshConstantsForVars obs)
     {rules : RuleSet sig}
     {hc : HeadChoice sig.withFreshConstantsForVars}
     (hc_consistent : hc.consistent_for_same_rule)
@@ -584,7 +583,7 @@ structure CyclicityPrefix
 
 namespace CyclicityPrefix
 
-variable [Inhabited sig.C] {obs : ObsolescenceCondition sig.withFreshConstantsForVars} {obs_propagates : obs.propagates_under_term_mapping_of_no_fresh_term_occurs} {unblk : RepeatableUnblockability obs} {rules : RuleSet sig} {hc : HeadChoice sig.withFreshConstantsForVars} {hc_consistent : hc.consistent_for_same_rule} {rule : Rule sig} {rule_mem : rule ∈ rules} {rule_hc_exis : rule.body_database_trigger.rule.existential_vars_for_head_disjunct (hc rule.body_database_trigger).val (hc rule.body_database_trigger).isLt ≠ []}
+variable [Inhabited sig.C] {obs : ObsolescenceCondition} {obs_propagates : obs.propagates_under_term_mapping_of_no_fresh_term_occurs} {unblk : RepeatableUnblockability sig.withFreshConstantsForVars obs} {rules : RuleSet sig} {hc : HeadChoice sig.withFreshConstantsForVars} {hc_consistent : hc.consistent_for_same_rule} {rule : Rule sig} {rule_mem : rule ∈ rules} {rule_hc_exis : rule.body_database_trigger.rule.existential_vars_for_head_disjunct (hc rule.body_database_trigger).val (hc rule.body_database_trigger).isLt ≠ []}
 
 /--
 Every functional term that occurs in the triggers of the `CyclicityPrefix` can only feature constants that occur in the frontier of the initial trigger.

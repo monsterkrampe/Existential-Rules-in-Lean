@@ -24,17 +24,17 @@ variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq 
 section BasicDefinitions
 
 /-- A `KnowledgeBase` never-terminates if none of its `ChaseTree`s terminates. -/
-def KnowledgeBase.neverTerminates (kb : KnowledgeBase sig) (obs : ObsolescenceCondition sig) (N : Type u) [CN : ChaseNode N obs kb.rules] : Prop :=
+def KnowledgeBase.neverTerminates (kb : KnowledgeBase sig) (obs : ObsolescenceCondition) (N : Type u) [CN : ChaseNode N obs kb.rules] : Prop :=
   ∀ (ct : ChaseTree N obs kb), ¬ ct.terminates
 
 /-- Maybe this seems counterintuitive but a `RuleSet` never-terminates if for at least one `Database` the corresponding `KnowledgeBase.neverTerminates`. Asking this question for all Databases would be trivial, at least for the restricted chase, since for every rule set there is a database that satisfies all the rules directly and therefore only has terminating restricted chase trees. -/
-def RuleSet.neverTerminates (rs : RuleSet sig) (obs : ObsolescenceCondition sig) (N : Type u) [CN : ChaseNode N obs rs] : Prop :=
+def RuleSet.neverTerminates (rs : RuleSet sig) (obs : ObsolescenceCondition) (N : Type u) [CN : ChaseNode N obs rs] : Prop :=
   ∃ (db : Database sig), { rules := rs, db := db : KnowledgeBase sig }.neverTerminates obs N
 
 end BasicDefinitions
 
 /-- A `CyclicityDerivation` is an infinite list of `ChaseNode`s. We demand only that triggers are loaded, new terms keep being added (growing) and that triggers are kbUnblockable. This is much different from a `ChaseDerivation` but intuitively, we can view a `CyclicityDerivation` as a very special non-continuous subderivation of a suitable `ChaseDerivation`. -/
-structure CyclicityDerivation (obs : ObsolescenceCondition sig) (kb : KnowledgeBase sig) (hc : HeadChoice sig)
+structure CyclicityDerivation (obs : ObsolescenceCondition) (kb : KnowledgeBase sig) (hc : HeadChoice sig)
     extends RegularChaseDerivationSkeleton obs kb.rules where
   adheres_to_headChoice : ChaseDerivationSkeleton.adheres_to_headChoice toChaseDerivationSkeleton hc
   triggers_loaded : ∀ cd2, cd2 <:+ toChaseDerivationSkeleton -> ∀ next ∈ cd2.next, ∃ orig ∈ next.origin, orig.fst.val.loaded cd2.head.facts
@@ -43,7 +43,7 @@ structure CyclicityDerivation (obs : ObsolescenceCondition sig) (kb : KnowledgeB
 
 namespace CyclicityDerivation
 
-variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig} {hc : HeadChoice sig}
+variable {obs : ObsolescenceCondition} {kb : KnowledgeBase sig} {hc : HeadChoice sig}
 
 instance : Membership (RegularChaseNode obs kb.rules) (CyclicityDerivation obs kb hc) where
   mem cd node := node ∈ cd.toChaseDerivationSkeleton
@@ -227,14 +227,14 @@ end CyclicityDerivation
 
 
 /-- This is the CyclicitySequence from the RPC paper. For us, it is a `CyclicityDerivation` that starts on a database.  -/
-structure CyclicityBranch (obs : ObsolescenceCondition sig) (kb : KnowledgeBase sig) (hc : HeadChoice sig) extends CyclicityDerivation obs kb hc where
+structure CyclicityBranch (obs : ObsolescenceCondition) (kb : KnowledgeBase sig) (hc : HeadChoice sig) extends CyclicityDerivation obs kb hc where
   database_first :
     toChaseDerivationSkeleton.head.facts = kb.db.toFactSet ∧
     toChaseDerivationSkeleton.head.origin = none
 
 namespace CyclicityBranch
 
-variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig} {hc : HeadChoice sig}
+variable {obs : ObsolescenceCondition} {kb : KnowledgeBase sig} {hc : HeadChoice sig}
 
 /-- The result of a `CyclicityBranch` is a subset of the result of the `subderivation_for_headChoice` for every `ChaseTree`. -/
 theorem result_subset_result_subderivation_for_headChoice {cb : CyclicityBranch obs kb hc} (ct : RegularChaseTree obs kb) :
@@ -243,7 +243,7 @@ theorem result_subset_result_subderivation_for_headChoice {cb : CyclicityBranch 
   rw [cb.database_first.left, ← RegularChaseNode.outgoingFacts_eq, ct.database_first.right.left]
 
 /-- If a KB admist a `CyclicityBranch`, then its rule set `neverTerminates`. -/
-theorem neverTerminates_of_cyclicityBranch {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
+theorem neverTerminates_of_cyclicityBranch {obs : ObsolescenceCondition} {kb : KnowledgeBase sig}
     (cb : CyclicityBranch obs kb hc) : kb.rules.neverTerminates obs (RegularChaseNode obs kb.rules) := by
   exists kb.db
   intro ct terminates

@@ -20,7 +20,6 @@ THIS IS VERY MUCH WORK IN PROGRESS!
 
 public section
 
-variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 /-!
 ## Another Condition for Obsolescence
@@ -36,11 +35,13 @@ we also prove that it holds for both `SkolemObsolescence` and `RestrictedObsoles
 -/
 
 @[expose]
-def ObsolescenceCondition.propagates_under_term_mapping_of_no_fresh_term_occurs (obs : ObsolescenceCondition sig) : Prop := ∀ {trg : PreTrigger sig} {fs : FactSet sig} {h : GroundTermMapping sig}, (∀ i lt t, t ∈ trg.fresh_terms_for_head_disjunct i lt -> t ∉ fs.terms) -> (∀ c ∈ trg.rule.head_constants, h (.const c) = .const c) -> obs.cond trg fs -> obs.cond (trg.extend_with_groundTermMapping h) (h.applyFactSet fs)
+def ObsolescenceCondition.propagates_under_term_mapping_of_no_fresh_term_occurs (obs : ObsolescenceCondition) : Prop := ∀ {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [DecidableEq sig.P] {trg : PreTrigger sig} {fs : FactSet sig} {h : GroundTermMapping sig}, (∀ i lt t, t ∈ trg.fresh_terms_for_head_disjunct i lt -> t ∉ fs.terms) -> (∀ c ∈ trg.rule.head_constants, h (.const c) = .const c) -> obs.cond trg fs -> obs.cond (trg.extend_with_groundTermMapping h) (h.applyFactSet fs)
+
+variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 theorem SkolemObsolescence.propagates_under_term_mapping_of_no_fresh_term_occurs :
-    (SkolemObsolescence sig).propagates_under_term_mapping_of_no_fresh_term_occurs := by
-  intro trg fs h no_fresh_term_occurs id_const cond
+    SkolemObsolescence.propagates_under_term_mapping_of_no_fresh_term_occurs := by
+  intro sig _ _ _ trg fs h no_fresh_term_occurs id_const cond
   simp only [SkolemObsolescence] at cond
   simp only [SkolemObsolescence]
   rcases cond with ⟨i, lt, cond⟩
@@ -82,8 +83,8 @@ theorem SkolemObsolescence.propagates_under_term_mapping_of_no_fresh_term_occurs
           rw [trg.apply_to_var_or_const_of_mem_existential_vars _ _ _ contra]
 
 theorem RestrictedObsolescence.propagates_under_term_mapping_of_no_fresh_term_occurs :
-    (RestrictedObsolescence sig).propagates_under_term_mapping_of_no_fresh_term_occurs := by
-  intro trg fs h _ id_const cond -- no_fresh_term_occurs is only needed for SkolemObsolescence
+    RestrictedObsolescence.propagates_under_term_mapping_of_no_fresh_term_occurs := by
+  intro sig _ _ _ trg fs h _ id_const cond -- no_fresh_term_occurs is only needed for SkolemObsolescence
   simp only [RestrictedObsolescence, PreTrigger.satisfied, PreTrigger.satisfied_for_disj] at cond
   simp only [RestrictedObsolescence, PreTrigger.satisfied, PreTrigger.satisfied_for_disj]
   rcases cond with ⟨i, lt, cond⟩
@@ -107,14 +108,14 @@ We now start to define what it means for a trigger to be unblockable. Also we de
 of detecting unblockability. Specific such overapproximations will follow later.
 -/
 
-variable {obs : ObsolescenceCondition sig}
+variable {obs : ObsolescenceCondition}
 
 /-- A trigger is `kbUnblockable` for a given `KnowledgeBase` and `HeadChoice` if, for every derivation, when the trigger is loaded in a node of the branch indicated by the `HeadChoice`, then the `HeadChoice` result of the trigger also occurs in that branch. In the introducing paper this is called g-unblockable. -/
 @[expose]
 def Trigger.kbUnblockable
     (kb : KnowledgeBase sig)
     (hc : HeadChoice sig)
-    (trg : Trigger obs.toLaxObsolescenceCondition) : Prop :=
+    (trg : Trigger sig obs.toLaxObsolescenceCondition) : Prop :=
   ∀ ct : RegularChaseTree obs kb, ∀ node : (ct.subderivation_for_headChoice hc).Node, trg.loaded node.val.facts ->
   ∃ node2 : (ct.subderivation_for_headChoice hc).Node, node ≼ node2 ∧
   (trg.output_for_headChoice hc).toSet ⊆ node2.val.facts
@@ -124,7 +125,7 @@ def Trigger.kbUnblockable
 def Trigger.rsUnblockable
     (rules : RuleSet sig)
     (hc : HeadChoice sig)
-    (trg : Trigger obs.toLaxObsolescenceCondition) : Prop :=
+    (trg : Trigger sig obs.toLaxObsolescenceCondition) : Prop :=
   ∀ kb : KnowledgeBase sig, kb.rules = rules -> trg.kbUnblockable kb hc
 
 /-- Every deterministic Datalog trigger is `rsUnblockable`. -/
@@ -155,7 +156,7 @@ theorem Trigger.rsUnblockable_of_isDatalog_of_isDeterministic {rules : RuleSet s
 def FactSet.is_rpc_overapproximation
     (rules : RuleSet sig)
     (hc : HeadChoice sig)
-    (trg : Trigger obs.toLaxObsolescenceCondition)
+    (trg : Trigger sig obs.toLaxObsolescenceCondition)
     (fs : FactSet sig) : Prop :=
   ∃ h : GroundTermMapping sig, (∀ c ∈ trg.rule.head_constants, h (.const c) = .const c) ∧ (∀ t ∈ trg.mapped_frontier, h t = t) ∧
     ∀ kb : KnowledgeBase sig, kb.rules = rules ->
@@ -167,7 +168,7 @@ theorem FactSet.is_rpc_overapproximation_of_equiv
     {rules : RuleSet sig}
     {hc : HeadChoice sig}
     (hc_consistent : hc.consistent_for_equivalent_triggers)
-    {trg1 trg2 : Trigger obs.toLaxObsolescenceCondition}
+    {trg1 trg2 : Trigger sig obs.toLaxObsolescenceCondition}
     {fs : FactSet sig}
     (overapprox : fs.is_rpc_overapproximation rules hc trg1) :
     trg1.equiv trg2 -> fs.is_rpc_overapproximation rules hc trg2 := by
@@ -242,7 +243,7 @@ This is already a model so the only chase tree features exactly the root node. B
 -/
 -- TODO: A similar result should hold for arbitrary ObsolescenceConditions but only for rules with at least one head disjunct without existential variables. We already have a corresponding critical instance result for this but to show the theorem, we would still need to be able to construct a chase tree (because it would not stop immediately after the database). Once we have such a general construction, it is easy to argue that triggers remain obsolete because they are already obsolete for the database.
 theorem Trigger.not_rsUnblockable_of_hc_exis_of_frontier_only_constants
-    [Inhabited sig.C] {rules : RuleSet sig} {hc : HeadChoice sig} {trg : RTrigger (RestrictedObsolescence sig) rules}
+    [Inhabited sig.C] {rules : RuleSet sig} {hc : HeadChoice sig} {trg : RTrigger RestrictedObsolescence rules}
     (rules_finite : rules.finite)
     (hc_consistent : hc.consistent_for_equivalent_triggers)
     (hc_exis : trg.val.rule.existential_vars_for_head_disjunct (hc trg.val).val (hc trg.val).isLt ≠ [])
@@ -257,15 +258,15 @@ theorem Trigger.not_rsUnblockable_of_hc_exis_of_frontier_only_constants
     apply Nat.not_lt_zero i.val
     suffices trg.rule.head.length = 0 by rw [← this]; exact i.isLt
     simp [trg, contra]
-  suffices ∃ db : Database sig, (∃ trg', trg.equiv trg' ∧ trg'.val.loaded db.toFactSet.val) ∧ ∀ trg : RTrigger (RestrictedObsolescence sig) rules, ¬ trg.val.active db.toFactSet.val by
+  suffices ∃ db : Database sig, (∃ trg', trg.equiv trg' ∧ trg'.val.loaded db.toFactSet.val) ∧ ∀ trg : RTrigger RestrictedObsolescence rules, ¬ trg.val.active db.toFactSet.val by
     rcases this with ⟨db, ⟨trg', trg_equiv, trg'_loaded⟩, all_obs⟩
     have hc_exis' : trg'.val.rule.existential_vars_for_head_disjunct (hc trg'.val).val (hc trg'.val).isLt ≠ [] := by
       simp only [← trg_equiv.left, ← hc_consistent trg_equiv]; exact hc_exis
     exists trg'; constructor; exact trg_equiv
     let kb : KnowledgeBase sig := ⟨db, rules⟩
     intro contra; specialize contra kb rfl
-    let startNode : RegularChaseNode (RestrictedObsolescence sig) rules := { facts := db.toFactSet.val, origin := none, facts_contain_origin_result := by simp }
-    let ct : RegularChaseTree (RestrictedObsolescence sig) kb := {
+    let startNode : RegularChaseNode RestrictedObsolescence rules := { facts := db.toFactSet.val, origin := none, facts_contain_origin_result := by simp }
+    let ct : RegularChaseTree RestrictedObsolescence kb := {
       tree := FiniteDegreeTree.node startNode []
       isSome_root := by simp
       database_first := by simp [TreeDerivation.root, RegularChaseNode.ingoingFacts_eq, RegularChaseNode.outgoingFacts_eq, RegularChaseNode.origin_eq, kb, startNode]
@@ -327,7 +328,7 @@ theorem Trigger.not_rsUnblockable_of_hc_exis_of_frontier_only_constants
   exists rules.generalizedCriticalInstance rules_finite (Inhabited.default :: consts)
   constructor
   . let subs : GroundSubstitution sig := fun v => if v ∈ trg.val.rule.frontier then trg.val.subs v else .const Inhabited.default
-    let trg' : RTrigger (RestrictedObsolescence sig) rules := ⟨⟨trg.val.rule, subs⟩, trg.property⟩
+    let trg' : RTrigger RestrictedObsolescence rules := ⟨⟨trg.val.rule, subs⟩, trg.property⟩
     exists trg'; constructor
     . apply PreTrigger.equiv_of_rule_eq_of_mapped_frontier_equiv
       . rfl

@@ -26,7 +26,7 @@ public section
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 
-abbrev CoreChaseDerivation (rules : RuleSet sig) := ChaseDerivation (CoreChaseNode rules) (RestrictedObsolescence sig) rules
+abbrev CoreChaseDerivation (rules : RuleSet sig) := ChaseDerivation (CoreChaseNode rules) RestrictedObsolescence rules
 
 namespace CoreChaseDerivation
 
@@ -168,7 +168,7 @@ theorem predecessor_trans_of_finite {cd : CoreChaseDerivation rules} {n1 n2 n3 :
   simp only [cd.predecessor_iff]; grind
 
 /-- We can express fairness in terms of the predecessor relation: For each trigger, there is a node such that the trigger is not active for each of the node's successors. -/
-theorem fairness_prec_of_finite {cd : CoreChaseDerivation rules} (head_fin : cd.head.core.finite) : ∀ (trg : RTrigger (RestrictedObsolescence sig) rules), ∃ (node : cd.Node), ∀ node2, node ≼ node2 -> ¬ trg.val.active node2.val.core := by
+theorem fairness_prec_of_finite {cd : CoreChaseDerivation rules} (head_fin : cd.head.core.finite) : ∀ (trg : RTrigger RestrictedObsolescence rules), ∃ (node : cd.Node), ∀ node2, node ≼ node2 -> ¬ trg.val.active node2.val.core := by
   intro trg
   rcases cd.fairness' trg with ⟨cd2, suffix, fair⟩
   exists ⟨cd2.head, cd2.mem_of_mem_suffix suffix _ cd2.head_mem⟩
@@ -310,7 +310,7 @@ theorem trigger_introducing_functional_term_occurs_in_chase
     (node : (cd.tail next_some).Node)
     {t : GroundTerm sig}
     (t_mem_node : t ∈ node.val.facts.terms)
-    {trg : RTrigger (RestrictedObsolescence sig) rules}
+    {trg : RTrigger RestrictedObsolescence rules}
     {disj_idx : Nat}
     {lt : disj_idx < trg.val.rule.head.length}
     (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :
@@ -335,9 +335,9 @@ abbrev result (cd : CoreChaseDerivation rules) (term : cd.terminates) : FactSet 
 @[grind <-]
 theorem result_models_rules {cd : CoreChaseDerivation rules} (term : cd.terminates) : (cd.result term).modelsRules rules := by
   intro r r_mem subs subs_loaded
-  let trg : Trigger (RestrictedObsolescence sig) := ⟨r, subs⟩
+  let trg : Trigger sig RestrictedObsolescence := ⟨r, subs⟩
   have trg_loaded : trg.loaded (cd.result term) := subs_loaded
-  apply (RestrictedObsolescence sig).cond_implies_trg_is_satisfied (trg := trg)
+  apply RestrictedObsolescence.cond_implies_trg_is_satisfied (trg := trg) (fs := cd.result term)
   apply Classical.byContradiction; intro contra
   apply cd.trg_inactive_for_last term ⟨trg, r_mem⟩
   constructor
@@ -349,7 +349,7 @@ end Result
 end CoreChaseDerivation
 
 
-abbrev CoreChaseBranch (kb : KnowledgeBase sig) := ChaseBranch (CoreChaseNode kb.rules) (RestrictedObsolescence sig) kb
+abbrev CoreChaseBranch (kb : KnowledgeBase sig) := ChaseBranch (CoreChaseNode kb.rules) RestrictedObsolescence kb
 
 namespace CoreChaseBranch
 
@@ -425,7 +425,7 @@ theorem predecessor_trans {cb : CoreChaseBranch kb} {n1 n2 n3 : cb.Node} :
   apply CoreChaseDerivation.predecessor_trans_of_finite; apply core_finite_of_mem
 
 /-- We can express fairness in terms of the predecessor relation: For each trigger, there is a node such that the trigger is not active for each of the node's successors. -/
-theorem fairness_prec {cb : CoreChaseBranch kb} : ∀ (trg : RTrigger (RestrictedObsolescence sig) kb.rules), ∃ (node : cb.Node), ∀ node2, node ≼ node2 -> ¬ trg.val.active node2.val.core := by
+theorem fairness_prec {cb : CoreChaseBranch kb} : ∀ (trg : RTrigger RestrictedObsolescence kb.rules), ∃ (node : cb.Node), ∀ node2, node ≼ node2 -> ¬ trg.val.active node2.val.core := by
   apply CoreChaseDerivation.fairness_prec_of_finite; exact core_finite_of_mem ⟨cb.head, cb.head_mem⟩
 
 
@@ -581,7 +581,7 @@ theorem trigger_introducing_functional_term_occurs_in_chase
     (node : cb.Node)
     {t : GroundTerm sig}
     (t_mem_node : t ∈ node.val.facts.terms)
-    {trg : RTrigger (RestrictedObsolescence sig) kb.rules}
+    {trg : RTrigger RestrictedObsolescence kb.rules}
     {disj_idx : Nat}
     {lt : disj_idx < trg.val.rule.head.length}
     (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :

@@ -21,7 +21,7 @@ public section
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 
-abbrev CoreTreeDerivation (rules : RuleSet sig) := TreeDerivation (CoreChaseNode rules) (RestrictedObsolescence sig) rules
+abbrev CoreTreeDerivation (rules : RuleSet sig) := TreeDerivation (CoreChaseNode rules) RestrictedObsolescence rules
 
 namespace CoreTreeDerivation
 
@@ -236,7 +236,7 @@ theorem trigger_introducing_functional_term_occurs_in_chase
     (node : child.NodeWithAddress)
     {t : GroundTerm sig}
     (t_mem_node : t ∈ node.node.facts.terms)
-    {trg : RTrigger (RestrictedObsolescence sig) rules}
+    {trg : RTrigger RestrictedObsolescence rules}
     {disj_idx : Nat}
     {lt : disj_idx < trg.val.rule.head.length}
     (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :
@@ -281,7 +281,7 @@ end Result
 end CoreTreeDerivation
 
 
-abbrev CoreChaseTree (kb : KnowledgeBase sig) := ChaseTree (CoreChaseNode kb.rules) (RestrictedObsolescence sig) kb
+abbrev CoreChaseTree (kb : KnowledgeBase sig) := ChaseTree (CoreChaseNode kb.rules) RestrictedObsolescence kb
 
 namespace CoreChaseTree
 
@@ -422,7 +422,7 @@ theorem trigger_introducing_functional_term_occurs_in_chase
     (node : ct.NodeWithAddress)
     {t : GroundTerm sig}
     (t_mem_node : t ∈ node.node.facts.terms)
-    {trg : RTrigger (RestrictedObsolescence sig) kb.rules}
+    {trg : RTrigger RestrictedObsolescence kb.rules}
     {disj_idx : Nat}
     {lt : disj_idx < trg.val.rule.head.length}
     (t_mem_trg : t ∈ trg.val.fresh_terms_for_head_disjunct disj_idx lt) :

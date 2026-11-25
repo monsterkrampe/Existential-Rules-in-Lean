@@ -40,7 +40,7 @@ The backbone of the `TreeDerivation` is a `FiniteDegreeTree` of `ChaseNode`s wit
 Conditions 3 and 4 together are "fairness", i.e. each trigger must eventually be non-active. Fairness ensures that the chase result (or in this case each fact set in the chase result) is indeed a model.
 -/
 
-structure TreeDerivation (N : Type u) (obs : ObsolescenceCondition sig) (rules : RuleSet sig) [CN : ChaseNode N obs rules] where
+structure TreeDerivation (N : Type u) (obs : ObsolescenceCondition) (rules : RuleSet sig) [CN : ChaseNode N obs rules] where
   tree : FiniteDegreeTree N
   isSome_root : tree.root.isSome
   triggers_exist : ∀ t2, t2 <:+ tree -> ∀ before ∈ t2.root,
@@ -51,7 +51,7 @@ structure TreeDerivation (N : Type u) (obs : ObsolescenceCondition sig) (rules :
 
 namespace TreeDerivation
 
-variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
+variable {obs : ObsolescenceCondition} {rules : RuleSet sig}
 
 section Basics
 
@@ -1472,11 +1472,11 @@ As for the `RegularChaseDerivation`, we consider the special case of `TreeDeriva
 We abbreviate fixing this node type by introducing the `RegularTreeDerivation`.
 -/
 
-abbrev RegularTreeDerivation (obs : ObsolescenceCondition sig) (rules : RuleSet sig) := TreeDerivation (RegularChaseNode obs rules) obs rules
+abbrev RegularTreeDerivation (obs : ObsolescenceCondition) (rules : RuleSet sig) := TreeDerivation (RegularChaseNode obs rules) obs rules
 
 namespace RegularTreeDerivation
 
-variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
+variable {obs : ObsolescenceCondition} {rules : RuleSet sig}
 
 section FactMonotonicity
 

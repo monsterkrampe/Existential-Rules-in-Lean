@@ -22,13 +22,11 @@ We briefly demonstrate that this property holds for both `SkolemObsolescence` an
 
 public section
 
-variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [DecidableEq sig.P]
-
 @[expose]
-def ObsolescenceCondition.propagates_under_constant_mapping (obs : ObsolescenceCondition sig) : Prop := ∀ {trg : PreTrigger sig} {fs : FactSet sig} {g : ConstantMapping sig}, (∀ c ∈ trg.rule.head_constants, g c = GroundTerm.const c) -> obs.cond trg fs -> obs.cond (trg.extend_with_groundTermMapping g.apply_ground_term) (g.apply_fact_set fs)
+def ObsolescenceCondition.propagates_under_constant_mapping (obs : ObsolescenceCondition) : Prop := ∀ {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [DecidableEq sig.P] {trg : PreTrigger sig} {fs : FactSet sig} {g : ConstantMapping sig}, (∀ c ∈ trg.rule.head_constants, g c = GroundTerm.const c) -> obs.cond trg fs -> obs.cond (trg.extend_with_groundTermMapping g.apply_ground_term) (g.apply_fact_set fs)
 
-theorem SkolemObsolescence.propagates_under_constant_mapping : (SkolemObsolescence sig).propagates_under_constant_mapping := by
-  intro trg fs g g_id cond
+theorem SkolemObsolescence.propagates_under_constant_mapping : SkolemObsolescence.propagates_under_constant_mapping := by
+  intro sig _ _ _ trg fs g g_id cond
   simp only [SkolemObsolescence] at cond
   simp only [SkolemObsolescence]
   rcases cond with ⟨i, lt, cond⟩
@@ -56,8 +54,8 @@ theorem SkolemObsolescence.propagates_under_constant_mapping : (SkolemObsolescen
       rw [List.mem_flatMap]
       exists a
 
-theorem RestrictedObsolescence.propagates_under_constant_mapping : (RestrictedObsolescence sig).propagates_under_constant_mapping := by
-  intro trg fs g g_id cond
+theorem RestrictedObsolescence.propagates_under_constant_mapping : RestrictedObsolescence.propagates_under_constant_mapping := by
+  intro sig _ _ _ trg fs g g_id cond
   simp only [RestrictedObsolescence, PreTrigger.satisfied, PreTrigger.satisfied_for_disj] at cond
   simp only [RestrictedObsolescence, PreTrigger.satisfied, PreTrigger.satisfied_for_disj]
   rcases cond with ⟨i, lt, cond⟩

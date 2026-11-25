@@ -24,7 +24,7 @@ public section
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 /-- The `ChaseBranch` merely extends the `ChaseDerivation` with the condition that the head is the database from the knowledge base. -/
-structure ChaseBranch (N : Type u) (obs : ObsolescenceCondition sig) (kb : KnowledgeBase sig) [CN : ChaseNode N obs kb.rules] extends ChaseDerivation N obs kb.rules where
+structure ChaseBranch (N : Type u) (obs : ObsolescenceCondition) (kb : KnowledgeBase sig) [CN : ChaseNode N obs kb.rules] extends ChaseDerivation N obs kb.rules where
   -- We do not need to demand existence here since the ChaseDerivation(Skeleton) already ensures that the head exists.
   -- The ∀ quantifier makes this condition more convenient to use.
   database_first :
@@ -34,7 +34,7 @@ structure ChaseBranch (N : Type u) (obs : ObsolescenceCondition sig) (kb : Knowl
 
 namespace ChaseBranch
 
-variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
+variable {obs : ObsolescenceCondition} {kb : KnowledgeBase sig}
 variable {N : Type u} [CN : ChaseNode N obs kb.rules]
 
 /-- The head of the `ChaseBranch` does not contain any function terms. -/
@@ -64,13 +64,13 @@ end ChaseBranch
 Again, as for the `RegularChaseDerivation`, here we state results about `ChaseBranch`es that specifically hold when using `RegularChaseNode`. The `RegularChaseBranch` abbreviates hardcoding this node type.
 -/
 
-abbrev RegularChaseBranch (obs : ObsolescenceCondition sig) (kb : KnowledgeBase sig) := ChaseBranch (RegularChaseNode obs kb.rules) obs kb
+abbrev RegularChaseBranch (obs : ObsolescenceCondition) (kb : KnowledgeBase sig) := ChaseBranch (RegularChaseNode obs kb.rules) obs kb
 
 namespace RegularChaseBranch
 
 open CustomBasicDatastructures
 
-variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
+variable {obs : ObsolescenceCondition} {kb : KnowledgeBase sig}
 
 /-- Opposed to a `ChaseDerivation`, we know that each node in a `ChaseBranch` has a finite set of facts. This is because the database is finite and each trigger only adds finitely many new facts. -/
 @[grind <-]

@@ -40,13 +40,13 @@ The backbone of the `ChaseDerivation` is a `ChaseDerivationSkeleton` with additi
 2. The derivation needs to be fair. That is, for each trigger, there exists a step in the derivation from which on the trigger is not active.
 -/
 
-structure ChaseDerivation (N : Type u) (obs : ObsolescenceCondition sig) (rules : RuleSet sig) [CN : ChaseNode N obs rules] extends ChaseDerivationSkeleton N obs rules where
+structure ChaseDerivation (N : Type u) (obs : ObsolescenceCondition) (rules : RuleSet sig) [CN : ChaseNode N obs rules] extends ChaseDerivationSkeleton N obs rules where
   triggers_active : ∀ cd2, cd2 <:+ toChaseDerivationSkeleton -> ∀ next ∈ cd2.next, ∃ orig ∈ CN.origin next, orig.fst.val.active (CN.outgoingFacts cd2.head)
   fairness : ∀ (trg : RTrigger obs rules), ∃ (cd2 : ChaseDerivationSkeleton N obs rules), cd2 <:+ toChaseDerivationSkeleton ∧ ∀ node ∈ cd2, ¬ trg.val.active (CN.outgoingFacts node)
 
 namespace ChaseDerivation
 
-variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
+variable {obs : ObsolescenceCondition} {rules : RuleSet sig}
 
 section Basics
 
@@ -434,11 +434,11 @@ The `RegularChaseDerivation` relates to the `ChaseDerivation` as the `RegularCha
 That is, the `RegularChaseDerivation` is an abbreviation for a `ChaseDerivation` where the chase node implementation is fixed to be the `RegularChaseNode`, which lands us in the realm of Skolem and restricted chase (but not core chase).
 -/
 
-abbrev RegularChaseDerivation (obs : ObsolescenceCondition sig) (rules : RuleSet sig) := ChaseDerivation (RegularChaseNode obs rules) obs rules
+abbrev RegularChaseDerivation (obs : ObsolescenceCondition) (rules : RuleSet sig) := ChaseDerivation (RegularChaseNode obs rules) obs rules
 
 namespace RegularChaseDerivation
 
-variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
+variable {obs : ObsolescenceCondition} {rules : RuleSet sig}
 
 section FactMonotonicity
 
@@ -682,9 +682,9 @@ abbrev result (cd : RegularChaseDerivation obs rules) := RegularChaseDerivationS
 @[grind <-]
 theorem result_models_rules {cd : RegularChaseDerivation obs rules} : cd.result.modelsRules rules := by
   intro r r_mem subs subs_loaded
-  let trg : Trigger obs := ⟨r, subs⟩
+  let trg : Trigger sig obs := ⟨r, subs⟩
   have trg_loaded : trg.loaded cd.result := subs_loaded
-  apply obs.cond_implies_trg_is_satisfied (trg := trg)
+  apply obs.cond_implies_trg_is_satisfied (trg := trg) (fs := cd.result)
   rcases RegularChaseDerivationSkeleton.trg_loaded_for_some_node_of_trg_loaded_for_result trg trg_loaded with ⟨node_loaded, node_loaded_mem, trg_loaded⟩
   rcases cd.subderivation_of_node_mem node_loaded_mem with ⟨cd_loaded, cd_loaded_head, cd_loaded_suffix⟩
   rcases cd_loaded.fairness' ⟨trg, r_mem⟩ with ⟨cd_obs, cd_obs_suffix, fairness⟩

@@ -24,7 +24,7 @@ public section
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 /-- The `ChaseTree` merely extends the `TreeDerivation` with the condition that the root is the database from the knowledge base. -/
-structure ChaseTree (N : Type u) (obs : ObsolescenceCondition sig) (kb : KnowledgeBase sig) [CN : ChaseNode N obs kb.rules] extends TreeDerivation N obs kb.rules where
+structure ChaseTree (N : Type u) (obs : ObsolescenceCondition) (kb : KnowledgeBase sig) [CN : ChaseNode N obs kb.rules] extends TreeDerivation N obs kb.rules where
   -- We do not need to demand existence here since the TreeDerivation already ensures that the root exists.
   -- The ∀ quantifier makes this condition more convenient to use.
   database_first :
@@ -34,7 +34,7 @@ structure ChaseTree (N : Type u) (obs : ObsolescenceCondition sig) (kb : Knowled
 
 namespace ChaseTree
 
-variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
+variable {obs : ObsolescenceCondition} {kb : KnowledgeBase sig}
 variable {N : Type u} [CN : ChaseNode N obs kb.rules]
 
 instance : Membership N (ChaseTree N obs kb) where
@@ -96,13 +96,13 @@ end ChaseTree
 Similar to the `RegularTreeDerivation`, we consider `RegularChaseTree`s as the special `ChaseTree`s where the node type is fixed to be `RegularChaseNode` (representing Skolem and restricted chase).
 -/
 
-abbrev RegularChaseTree (obs : ObsolescenceCondition sig) (kb : KnowledgeBase sig) := ChaseTree (RegularChaseNode obs kb.rules) obs kb
+abbrev RegularChaseTree (obs : ObsolescenceCondition) (kb : KnowledgeBase sig) := ChaseTree (RegularChaseNode obs kb.rules) obs kb
 
 namespace RegularChaseTree
 
 open CustomBasicDatastructures
 
-variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
+variable {obs : ObsolescenceCondition} {kb : KnowledgeBase sig}
 
 /-- Opposed to a `TreeDerivation`, we know that each node in a `ChaseBranch` has a finite set of facts. This is because the database is finite and each trigger only adds finitely many new facts. -/
 theorem facts_finite_of_mem {ct : RegularChaseTree obs kb} {node : RegularChaseNode obs kb.rules} (node_mem : node ∈ ct) :

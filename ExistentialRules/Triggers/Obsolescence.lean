@@ -35,24 +35,27 @@ Then, we require 4 conditions:
 public section
 
 /-- `LaxObsolescenceCondition` is a more liberal version of `ObsolescenceCondition` enforcing only subset monotonicity (i.e. condition 1 above). We use such a more liberal condition for MFA later. For the most part, you can completely ignore that this exists and only consider `ObsolescenceCondition`s instead. -/
-structure LaxObsolescenceCondition (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] where
-  cond : PreTrigger sig -> FactSet sig -> Prop
-  monotone : ∀ {trg} {A B : FactSet sig}, A ⊆ B -> cond trg A -> cond trg B
+structure LaxObsolescenceCondition where
+  cond : {sig : Signature} -> [DecidableEq sig.P] -> [DecidableEq sig.C] -> [DecidableEq sig.V] -> PreTrigger sig -> FactSet sig -> Prop
+  monotone : ∀ {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] {trg} {A B : FactSet sig}, A ⊆ B -> cond trg A -> cond trg B
 
 /-- An `ObsolescenceCondition` is a function from `PreTrigger` and `FactSet` into `Prop` with the 4 conditions mentioned above. -/
-structure ObsolescenceCondition (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] extends LaxObsolescenceCondition sig where
-  cond_implies_trg_is_satisfied : cond trg fs -> trg.satisfied fs
-  contains_trg_result_implies_cond : ∀ {trg : PreTrigger sig} {fs} (i : Nat) (lt : i < trg.rule.head.length),
+structure ObsolescenceCondition extends LaxObsolescenceCondition where
+  cond_implies_trg_is_satisfied : ∀ {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V],
+    ∀ {trg : PreTrigger sig} {fs : FactSet sig}, cond trg fs -> trg.satisfied fs
+  contains_trg_result_implies_cond : ∀ {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V],
+    ∀ {trg : PreTrigger sig} {fs : FactSet sig} (i : Nat) (lt : i < trg.rule.head.length),
     ((trg.mapped_head[i]'(by grind)).toSet ⊆ fs) -> cond trg fs
-  preserved_under_equiv : ∀ {trg trg2 : PreTrigger sig} {fs}, trg.equiv trg2 -> (cond trg fs ↔ cond trg2 fs)
+  preserved_under_equiv : ∀ {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V],
+    ∀ {trg trg2 : PreTrigger sig} {fs}, trg.equiv trg2 -> (cond trg fs ↔ cond trg2 fs)
 
-instance {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] :
-    Coe (ObsolescenceCondition sig) (LaxObsolescenceCondition sig) where
+instance : Coe ObsolescenceCondition LaxObsolescenceCondition where
   coe obs := { cond := obs.cond, monotone := obs.monotone }
 
 /-- The only way for a Datalog rule to be obsolete is that its result already occurs in the fact set. -/
-theorem ObsolescenceCondition.cond_implies_contained_of_isDatalog {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
-    {obs : ObsolescenceCondition sig} {trg : PreTrigger sig} {fs : FactSet sig} (isDatalog : trg.rule.isDatalog) :
+theorem ObsolescenceCondition.cond_implies_contained_of_isDatalog
+    {obs : ObsolescenceCondition} {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
+    {trg : PreTrigger sig} {fs : FactSet sig} (isDatalog : trg.rule.isDatalog) :
     obs.cond trg fs -> ∃ (i : Nat) (lt : i < trg.rule.head.length), (trg.mapped_head[i]'(by grind)).toSet ⊆ fs := by
   intro cond; rcases obs.cond_implies_trg_is_satisfied cond with ⟨i, lt, subs, id_frontier, sat⟩
   exists i, lt
@@ -81,10 +84,10 @@ We briefly define the `ObsolescenceCondition`s for Skolem and restricted chase t
 
 /-- Obsolescence for the Skolem chase is indeed a `ObsolescenceCondition`, i.e. it has all 4 properties. According to this condition, a trigger is obsolete if its exact result, for one of the head disjuncts, already occurs in the fact set. -/
 @[expose]
-def SkolemObsolescence (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] : ObsolescenceCondition sig := {
-  cond := fun (trg : PreTrigger sig) (fs : FactSet sig) => ∃ (i : Nat) (lt : i < trg.rule.head.length), (trg.mapped_head[i]'(by grind)).toSet ⊆ fs
+def SkolemObsolescence : ObsolescenceCondition := {
+  cond := fun (trg : PreTrigger _) (fs : FactSet _) => ∃ (i : Nat) (lt : i < trg.rule.head.length), (trg.mapped_head[i]'(by grind)).toSet ⊆ fs
   monotone := by
-    intro trg A B A_sub_B
+    intro sig _ _ _ trg A B A_sub_B
     simp
     intro i lt head_sub_A
     exists i, lt
@@ -92,16 +95,16 @@ def SkolemObsolescence (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C]
     . exact head_sub_A
     . exact A_sub_B
   cond_implies_trg_is_satisfied := by
-    intro trg fs h
+    intro sig _ _ _ trg fs h
     rcases h with ⟨i, lt, h⟩
     exists i, lt
     apply trg.satisfied_for_disj_of_mapped_head_contained
     exact h
   contains_trg_result_implies_cond := by
-    intro trg fs i lt result_in_fs
+    intro sig _ _ _ trg fs i lt result_in_fs
     exists i, lt
   preserved_under_equiv := by
-    intro trg trg2 fs equiv
+    intro sig _ _ _ trg trg2 fs equiv
     have := PreTrigger.result_eq_of_equiv equiv
     constructor
     . intro ⟨i, lt, h⟩
@@ -116,17 +119,17 @@ def SkolemObsolescence (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C]
 
 /-- Obsolescence for the restricted chase is indeed a `ObsolescenceCondition`, i.e. it has all 4 properties. According to this condition, a trigger is obsolete if it is satisfied. -/
 @[expose]
-def RestrictedObsolescence (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] : ObsolescenceCondition sig := {
-  cond := fun (trg : PreTrigger sig) (fs : FactSet sig) => trg.satisfied fs
+def RestrictedObsolescence : ObsolescenceCondition := {
+  cond := fun (trg : PreTrigger _) (fs : FactSet _) => trg.satisfied fs
   monotone := PreTrigger.satisfied_of_satisfied_subset
-  cond_implies_trg_is_satisfied := by intro _ _ h; exact h
+  cond_implies_trg_is_satisfied := by intro _ _ _ _ _ _ h; exact h
   contains_trg_result_implies_cond := by
-    intro trg fs i lt result_in_fs
+    intro sig _ _ _ trg fs i lt result_in_fs
     exists i, lt
     apply trg.satisfied_for_disj_of_mapped_head_contained
     exact result_in_fs
   preserved_under_equiv := by
-    intro trg trg2 fs equiv
+    intro sig _ _ _ trg trg2 fs equiv
     apply PreTrigger.satisfied_preserved_of_equiv
     exact equiv
 }
@@ -144,39 +147,38 @@ We say that a `Trigger` is `active` if it is loaded and not obsolete.
 `SkolemTrigger` and `RestrictedTrigger` are just defined as examples.
 -/
 
+structure Trigger (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] (obsolete : LaxObsolescenceCondition) extends PreTrigger sig
+
+def SkolemTrigger (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] := Trigger sig SkolemObsolescence
+def RestrictedTrigger (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] := Trigger sig RestrictedObsolescence
+
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
+variable {obs : LaxObsolescenceCondition}
 
-structure Trigger (obsolete : LaxObsolescenceCondition sig) extends PreTrigger sig
-
-def SkolemTrigger := Trigger (SkolemObsolescence sig : LaxObsolescenceCondition sig)
-def RestrictedTrigger := Trigger (RestrictedObsolescence sig : LaxObsolescenceCondition sig)
-
-variable {obs : LaxObsolescenceCondition sig}
-
-instance : CoeOut (Trigger obs) (PreTrigger sig) where
+instance : CoeOut (Trigger sig obs) (PreTrigger sig) where
   coe trigger := trigger.toPreTrigger
 
 @[expose]
-def Trigger.fromPreTrigger (trg : PreTrigger sig) (obs : LaxObsolescenceCondition sig) : Trigger obs where
+def Trigger.fromPreTrigger (trg : PreTrigger sig) (obs : LaxObsolescenceCondition) : Trigger sig obs where
   rule := trg.rule
   subs := trg.subs
 
 @[simp, grind =]
-theorem Trigger.rule_fromPreTrigger {trg : PreTrigger sig} {obs : LaxObsolescenceCondition sig} : (Trigger.fromPreTrigger trg obs).rule = trg.rule := rfl
+theorem Trigger.rule_fromPreTrigger {trg : PreTrigger sig} {obs : LaxObsolescenceCondition} : (Trigger.fromPreTrigger trg obs).rule = trg.rule := rfl
 @[simp, grind =]
-theorem Trigger.subs_fromPreTrigger {trg : PreTrigger sig} {obs : LaxObsolescenceCondition sig} : (Trigger.fromPreTrigger trg obs).subs = trg.subs := rfl
+theorem Trigger.subs_fromPreTrigger {trg : PreTrigger sig} {obs : LaxObsolescenceCondition} : (Trigger.fromPreTrigger trg obs).subs = trg.subs := rfl
 
 @[simp, grind =]
 theorem Trigger.toPreTrigger_after_fromPreTrigger {trg : PreTrigger sig} :
-    ∀ {obs : LaxObsolescenceCondition sig}, (Trigger.fromPreTrigger trg obs).toPreTrigger = trg := by
+    ∀ {obs : LaxObsolescenceCondition}, (Trigger.fromPreTrigger trg obs).toPreTrigger = trg := by
   intros; rfl
 
 @[expose]
-def Trigger.active (trg : Trigger obs) (F : FactSet sig) : Prop :=
+def Trigger.active (trg : Trigger sig obs) (F : FactSet sig) : Prop :=
   trg.loaded F ∧ ¬ (obs.cond trg F)
 
 /-- Lifting the definition from `PreTrigger`. -/
-abbrev Trigger.extend_with_groundTermMapping (trg : Trigger obs) (h : GroundTermMapping sig) : Trigger obs :=
+abbrev Trigger.extend_with_groundTermMapping (trg : Trigger sig obs) (h : GroundTermMapping sig) : Trigger sig obs :=
   fromPreTrigger (PreTrigger.extend_with_groundTermMapping trg h) obs
 
 end Trigger

@@ -36,7 +36,7 @@ We start with the more general definition, allowing to start from arbitrary `Fac
 /-- One step of the `parallelDeterminizedDerivation` adds the results of all active triggers to the previous fact set. The results for all disjuncts are combined in the procees. Activeness of the triggers is with respect to a given `LaxObsolescenceCondition`. -/
 @[expose]
 def parallelDeterminizedDerivation_step
-    (rs : RuleSet sig) (obs : LaxObsolescenceCondition sig) (hc_opt : Option (HeadChoice sig)) (remapping : GroundTermMapping sig) (fs : FactSet sig) :
+    (rs : RuleSet sig) (obs : LaxObsolescenceCondition) (hc_opt : Option (HeadChoice sig)) (remapping : GroundTermMapping sig) (fs : FactSet sig) :
     FactSet sig :=
   fs ∪ remapping.applyFactSet (fun f =>
     (∃ (trg : RTrigger obs rs),
@@ -48,7 +48,7 @@ def parallelDeterminizedDerivation_step
 
 /-- Often, when we know that a fact is in a parallelDeterminizedDerivation_step, we only care that it occurs in some disjunct of a trigger result, not about that this index coincides with the head choice. This theorem expresses exactly this simplification. -/
 theorem parallelDeterminizedDerivation_step_subset
-    {rs : RuleSet sig} {obs : LaxObsolescenceCondition sig} {hc_opt : Option (HeadChoice sig)} {remapping : GroundTermMapping sig} {fs : FactSet sig} :
+    {rs : RuleSet sig} {obs : LaxObsolescenceCondition} {hc_opt : Option (HeadChoice sig)} {remapping : GroundTermMapping sig} {fs : FactSet sig} :
     parallelDeterminizedDerivation_step rs obs hc_opt remapping fs ⊆ fs ∪ remapping.applyFactSet (fun f => ∃ (trg : RTrigger obs rs), trg.val.active fs ∧ ∃ (i : Nat) (lt : i < trg.val.rule.head.length), f ∈ trg.val.mapped_head[i]'(by grind)) := by
   intro f f_mem
   cases f_mem with
@@ -63,32 +63,32 @@ theorem parallelDeterminizedDerivation_step_subset
 
 /-- When the head choice is none, we can rewrite the `parallelDeterminizedDerivation_step` definition as follows. -/
 theorem parallelDeterminizedDerivation_step_hc_none
-    {rs : RuleSet sig} {obs : LaxObsolescenceCondition sig} {remapping : GroundTermMapping sig} {fs : FactSet sig} :
+    {rs : RuleSet sig} {obs : LaxObsolescenceCondition} {remapping : GroundTermMapping sig} {fs : FactSet sig} :
     parallelDeterminizedDerivation_step rs obs none remapping fs = fs ∪ remapping.applyFactSet (fun f => ∃ (trg : RTrigger obs rs), trg.val.active fs ∧ ∃ (i : Nat) (lt : i < trg.val.rule.head.length), f ∈ trg.val.mapped_head[i]'(by grind)) := by
   simp [parallelDeterminizedDerivation_step]
 
 /-- When a head choice is present, we can rewrite the `parallelDeterminizedDerivation_step` definition as follows. -/
 theorem parallelDeterminizedDerivation_step_hc_some
-    {rs : RuleSet sig} {obs : LaxObsolescenceCondition sig} {hc : HeadChoice sig} {remapping : GroundTermMapping sig} {fs : FactSet sig} :
+    {rs : RuleSet sig} {obs : LaxObsolescenceCondition} {hc : HeadChoice sig} {remapping : GroundTermMapping sig} {fs : FactSet sig} :
     parallelDeterminizedDerivation_step rs obs (some hc) remapping fs = fs ∪ remapping.applyFactSet (fun f => ∃ (trg : RTrigger obs rs), trg.val.active fs ∧ f ∈ trg.val.mapped_head[(hc trg.val).val]) := by
   simp [parallelDeterminizedDerivation_step]
 
 /-- The `parallelDeterminizedDerivation` simply iterates the `parallelDeterminizedDerivation_step` on an initial `FactSet` using the `InfiniteList.iterate` function. -/
 def parallelDeterminizedDerivation
-    (rs : RuleSet sig) (obs : LaxObsolescenceCondition sig) (hc_opt : Option (HeadChoice sig)) (remapping : GroundTermMapping sig) (fs : FactSet sig) :
+    (rs : RuleSet sig) (obs : LaxObsolescenceCondition) (hc_opt : Option (HeadChoice sig)) (remapping : GroundTermMapping sig) (fs : FactSet sig) :
     InfiniteList (FactSet sig) :=
   InfiniteList.iterate fs (parallelDeterminizedDerivation_step rs obs hc_opt remapping)
 
 /-- The `parallelDeterminizedDerivation_result` is the union of all `FactSet`s in the derivation. -/
 @[expose]
 def parallelDeterminizedDerivation_result
-    (rs : RuleSet sig) (obs : LaxObsolescenceCondition sig) (hc_opt : Option (HeadChoice sig)) (remapping : GroundTermMapping sig)
+    (rs : RuleSet sig) (obs : LaxObsolescenceCondition) (hc_opt : Option (HeadChoice sig)) (remapping : GroundTermMapping sig)
     (start : FactSet sig) : FactSet sig :=
   fun f => ∃ fs ∈ (parallelDeterminizedDerivation rs obs hc_opt remapping start), f ∈ fs
 
 section ParallelDeterminizedDerivation
 
-variable {rs : RuleSet sig} {obs : LaxObsolescenceCondition sig} {hc_opt : Option (HeadChoice sig)} {remapping : GroundTermMapping sig} {start : FactSet sig}
+variable {rs : RuleSet sig} {obs : LaxObsolescenceCondition} {hc_opt : Option (HeadChoice sig)} {remapping : GroundTermMapping sig} {start : FactSet sig}
 
 /-- The `parallelDeterminizedDerivation_head` is the starting `FactSet`. -/
 @[simp, grind =]
@@ -419,20 +419,20 @@ Some of the above theorems thereby can be refined. For example, function symbols
 /-- A `parallelDeterminizedChase` is a special `parallelDeterminizedDerivation` starting on a database from a `KnowledgeBase`. -/
 @[expose]
 def parallelDeterminizedChase
-    (kb : KnowledgeBase sig) (obs : LaxObsolescenceCondition sig) (hc_opt : Option (HeadChoice sig)) (remapping : GroundTermMapping sig) :
+    (kb : KnowledgeBase sig) (obs : LaxObsolescenceCondition) (hc_opt : Option (HeadChoice sig)) (remapping : GroundTermMapping sig) :
     InfiniteList (FactSet sig) :=
   parallelDeterminizedDerivation kb.rules obs hc_opt remapping kb.db.toFactSet.val
 
 /-- The `parallelDeterminizedChase_result` is simply the result of the underlying derivation. -/
 @[expose]
 def parallelDeterminizedChase_result
-    (kb : KnowledgeBase sig) (obs : LaxObsolescenceCondition sig) (hc_opt : Option (HeadChoice sig)) (remapping : GroundTermMapping sig) :
+    (kb : KnowledgeBase sig) (obs : LaxObsolescenceCondition) (hc_opt : Option (HeadChoice sig)) (remapping : GroundTermMapping sig) :
     FactSet sig :=
   parallelDeterminizedDerivation_result kb.rules obs hc_opt remapping kb.db.toFactSet.val
 
 section ParallelDeterminizedChase
 
-variable {kb : KnowledgeBase sig} {obs : LaxObsolescenceCondition sig} {hc_opt : Option (HeadChoice sig)} {remapping : GroundTermMapping sig}
+variable {kb : KnowledgeBase sig} {obs : LaxObsolescenceCondition} {hc_opt : Option (HeadChoice sig)} {remapping : GroundTermMapping sig}
 
 /-- All constants in the chase come from the rule heads or the database or the fresh constants introduced by the remapping. -/
 theorem parallelDeterminizedChase_constants :

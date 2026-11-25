@@ -125,7 +125,7 @@ some basic properties also relying on the results above.
 /-- The CoreChaseNode add a couple of fields on top of the RegularChaseNode but the `facts` field has a different meaning. This is why we duplicate the structure and not jsut extend it. We want to prevent that the `CoreChaseNode` is accidentally treated as a `RegularChaseNode`. -/
 structure CoreChaseNode (rules : RuleSet sig) where
   facts : FactSet sig
-  origin : Option (ChaseNodeOrigin (RestrictedObsolescence sig) rules)
+  origin : Option (ChaseNodeOrigin RestrictedObsolescence rules)
   facts_contain_origin_result : ∀ orig ∈ origin, orig.result.toSet ⊆ facts
   core : FactSet sig
   isWeakCore : core.isWeakCore
@@ -136,7 +136,7 @@ namespace CoreChaseNode
 variable {rules : RuleSet sig}
 
 /-- The `CoreChaseNode` is a `ChaseNode` where the outgoingFacts are a core of the ingoingFacts. -/
-instance coreChaseNodeInstance : ChaseNode (CoreChaseNode rules) (RestrictedObsolescence sig) rules where
+instance coreChaseNodeInstance : ChaseNode (CoreChaseNode rules) RestrictedObsolescence rules where
   ingoingFacts := CoreChaseNode.facts
   outgoingFacts := CoreChaseNode.core
   origin := CoreChaseNode.origin

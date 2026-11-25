@@ -33,11 +33,11 @@ section FiniteTriggerList
 -/
 
 /-- A finite list of origins (as you would expect). -/
-abbrev FiniteTriggerList (obs : ObsolescenceCondition sig) (rules : RuleSet sig) := List (ChaseNodeOrigin obs rules)
+abbrev FiniteTriggerList (obs : ObsolescenceCondition) (rules : RuleSet sig) := List (ChaseNodeOrigin obs rules)
 
 namespace FiniteTriggerList
 
-variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
+variable {obs : ObsolescenceCondition} {rules : RuleSet sig}
 
 /-- The fact set resulting from applying all triggers from the list one after the other to an initial fact set. -/
 def result (start : FactSet sig) : FiniteTriggerList obs rules -> FactSet sig
@@ -120,7 +120,7 @@ def active (start : FactSet sig) (l : FiniteTriggerList obs rules) : Prop := tri
 
 end FiniteTriggerList
 
-abbrev FiniteNonEmptyTriggerList (obs : ObsolescenceCondition sig) (rules : RuleSet sig) := NonEmptyList (ChaseNodeOrigin obs rules)
+abbrev FiniteNonEmptyTriggerList (obs : ObsolescenceCondition) (rules : RuleSet sig) := NonEmptyList (ChaseNodeOrigin obs rules)
 
 end FiniteTriggerList
 
@@ -131,11 +131,11 @@ section InfiniteTriggerList
 -/
 
 /-- A infinite list of origins. -/
-abbrev InfiniteTriggerList (obs : ObsolescenceCondition sig) (rules : RuleSet sig) := InfiniteList (ChaseNodeOrigin obs rules)
+abbrev InfiniteTriggerList (obs : ObsolescenceCondition) (rules : RuleSet sig) := InfiniteList (ChaseNodeOrigin obs rules)
 
 namespace InfiniteTriggerList
 
-variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
+variable {obs : ObsolescenceCondition} {rules : RuleSet sig}
 
 /-- The fact set at index $i$ is exactly the result of the finite trigger list up until $i$. -/
 def factSet_at (l : InfiniteTriggerList obs rules) (start : FactSet sig) (i : Nat) : FactSet sig := FiniteTriggerList.result start (l.take i)
@@ -246,7 +246,7 @@ section InfiniteListOfFiniteTriggerLists
 
 namespace InfiniteTriggerList
 
-variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
+variable {obs : ObsolescenceCondition} {rules : RuleSet sig}
 
 /-- We convert an infinite list of `FiniteNonEmptyTriggerList`s into an `InfiniteTriggerList` by calling `InfiniteList.fromNonEmptyLists`. -/
 @[expose]

@@ -39,7 +39,7 @@ variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq 
 
 namespace AuxiliaryDefsAndTheoremsForUniversalityProof
 
-variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
+variable {obs : ObsolescenceCondition} {kb : KnowledgeBase sig}
 variable {N : Type u} [CN : ChaseNode N obs kb.rules]
 
 /-- The `InductiveHomomorphismResult` is used for the step-wise construction is forms the element that is the input and output of the generator function used in `TreeDerivation.generate_subderivation` later. It consists of a node in the chase tree and a `GroundTermMapping` that is a homomorphism from the node to the target model. The generated branch is the chain of all the generated nodes.  -/
@@ -389,7 +389,7 @@ end AuxiliaryDefsAndTheoremsForUniversalityProof
 
 namespace RegularChaseTree
 
-variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
+variable {obs : ObsolescenceCondition} {kb : KnowledgeBase sig}
 
 open AuxiliaryDefsAndTheoremsForUniversalityProof
 

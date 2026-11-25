@@ -28,7 +28,7 @@ MAYBE THIS IS STILL USEFUL AS GENERAL MACHINERY BUT THEN IT SHOULD MOVED TO SOME
 namespace TreeDerivation
 
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
-variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
+variable {obs : ObsolescenceCondition} {rules : RuleSet sig}
 variable {N : Type u} [CN : ChaseNode N obs rules]
 
 namespace NodeWithAddress

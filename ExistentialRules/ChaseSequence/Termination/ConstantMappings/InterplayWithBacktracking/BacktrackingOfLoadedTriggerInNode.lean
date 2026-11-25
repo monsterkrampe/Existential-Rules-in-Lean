@@ -28,7 +28,7 @@ variable {sig : Signature} [DecidableEq sig.C] [DecidableEq sig.V] [DecidableEq 
 
 namespace ChaseBranch
 
-variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
+variable {obs : ObsolescenceCondition} {kb : KnowledgeBase sig}
 
 theorem backtracking_of_term_in_node [GetFreshInhabitant sig.C] [Inhabited sig.C]
     {cb : RegularChaseBranch obs kb} {node : RegularChaseNode obs kb.rules} (node_mem : node ∈ cb.toChaseDerivation) :

@@ -78,6 +78,45 @@ If you actually aim to understand all the details, then good luck! There are a f
 
 public section
 
+/--
+A `MfaObsolescenceCondition` is simply a `LaxObsolescenceCondition`, i.e. besides the actual condition it only has subset monotonicity as its only condition.
+-/
+structure MfaObsolescenceCondition extends LaxObsolescenceCondition
+
+instance : Coe MfaObsolescenceCondition LaxObsolescenceCondition where
+  coe obs := { cond := obs.cond, monotone := obs.monotone }
+
+/-- A trigger fulfills `DeterministicSkolemObsolescence` if each of its derived heads is already in the fact set in question. Note that this captures the idea of replacing disjunctions with conjunctions, which is part of MFA. We do this nowhere explicitely, so disjunctions always remain in rules, but we implicitly treat them like conjunctions when necessary (like here). -/
+def DeterministicSkolemObsolescence : MfaObsolescenceCondition := {
+  cond := fun (trg : PreTrigger _) (fs : FactSet _) => trg.rule.head.length > 0 ∧ ∀ (i : Nat) (lt : i < trg.rule.head.length), (trg.mapped_head[i]'(by grind)).toSet ⊆ fs
+  monotone := by
+    intro sig _ _ _ trg A B A_sub_B
+    simp only [and_imp]
+    intro length_gt head_sub_A
+    constructor
+    . exact length_gt
+    . intro i lt
+      apply Set.subset_trans
+      . apply head_sub_A; exact lt
+      . apply A_sub_B
+}
+
+/-- A trigger is blocked for its own backtracking if it is obsolete for its own backtracking. Note that the backtracking always requires us to prove that Skolem function terms are well-formed, which is what the additional conditions are for. -/
+def Trigger.blocked_for_backtracking
+    {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
+    [GetFreshInhabitant sig.C]
+    [Inhabited sig.C]
+    {obs : LaxObsolescenceCondition}
+    (trg : Trigger sig obs) : Prop :=
+  (obs.cond trg trg.backtrackFacts.fst.toSet)
+
+/-- A trigger fulfills `BlockingObsolescence` if the trigger with renamed-apart constants is blocked for its own backtracking. Note that `BlockingObsolescence` only depends on the trigger. The passed fact set is ignored. -/
+def BlockingObsolescence (obs : ObsolescenceCondition) : MfaObsolescenceCondition := {
+  cond := fun {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
+    (trg : PreTrigger sig) _ => ∀ [GetFreshInhabitant sig.C] [Inhabited sig.C], (Trigger.fromPreTrigger (trg.rename_constants_apart (trg.affected_rules_for_backtracking.flatMap Rule.constants)) obs).blocked_for_backtracking
+  monotone := by intro sig _ _ _ _ _ _ _ h; exact h -- trivial since the condition does not depend on the passed fact set
+}
+
 variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V]
 
 /-- At some point we need to map constants from arbitrary chases to the ones in the special database. For this, we map all rule set constants to themselves and all others to the single `special_const`. -/
@@ -133,43 +172,20 @@ theorem RuleSet.mfaConstantMapping_id_on_atom_from_rule (rs : RuleSet sig) (spec
           . apply VarOrConst.mem_filterConsts_of_const; exact voc_mem
 
 /--
-A `MfaObsolescenceCondition` is simply a `LaxObsolescenceCondition`, i.e. besides the actual condition it only has subset monotonicity as its only condition.
--/
-structure MfaObsolescenceCondition (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] extends LaxObsolescenceCondition sig
-
-instance {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] : Coe (MfaObsolescenceCondition sig) (LaxObsolescenceCondition sig) where
-  coe obs := { cond := obs.cond, monotone := obs.monotone }
-
-/--
 Here we define what it means for a `MfaObsolescenceCondition` to block a `ObsolescenceCondition`.
 Essentially, we say that if the mfa obsolescence is fulfilled and the trigger is loaded, then also the real obsolescence condition is fulfilled.
 Before that, we filter trggers where already every head result occurs in in the mfa set of facts anyway.
 This is safe to do since applying these again would not make a difference.
 The necessesity for doing this comes from `DeterministicSkolemObsolescence.blocks_each_obs`. `BlockingObsolescence.blocks_corresponding_obs` works without.
 -/
-def MfaObsolescenceCondition.blocks_obs (mfa_obs : MfaObsolescenceCondition sig) (obs : ObsolescenceCondition sig) (rs : RuleSet sig) (special_const : sig.C) : Prop :=
+def MfaObsolescenceCondition.blocks_obs (mfa_obs : MfaObsolescenceCondition) (obs : ObsolescenceCondition) (rs : RuleSet sig) (special_const : sig.C) : Prop :=
   ∀ {db : Database sig} (cb : RegularChaseBranch obs ⟨db, rs⟩) (node : cb.Node) (trg : RTrigger obs rs) (fs : FactSet sig),
   (∃ (i : Nat) (lt : i < trg.val.rule.head.length), ¬ ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact_set (trg.val.mapped_head[i]'(by grind)).toSet) ⊆ fs) ->
   (mfa_obs.cond (trg.val.extend_with_groundTermMapping (rs.mfaConstantMapping special_const).toConstantMapping.apply_ground_term) fs) ->
   trg.val.loaded node.val.facts -> obs.cond trg.val node.val.facts
 
-/-- A trigger fulfills `DeterministicSkolemObsolescence` if each of its derived heads is already in the fact set in question. Note that this captures the idea of replacing disjunctions with conjunctions, which is part of MFA. We do this nowhere explicitely, so disjunctions always remain in rules, but we implicitly treat them like conjunctions when necessary (like here). -/
-def DeterministicSkolemObsolescence (sig : Signature) [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] : MfaObsolescenceCondition sig := {
-  cond := fun (trg : PreTrigger sig) (fs : FactSet sig) => trg.rule.head.length > 0 ∧ ∀ (i : Nat) (lt : i < trg.rule.head.length), (trg.mapped_head[i]'(by grind)).toSet ⊆ fs
-  monotone := by
-    intro trg A B A_sub_B
-    simp only [and_imp]
-    intro length_gt head_sub_A
-    constructor
-    . exact length_gt
-    . intro i lt
-      apply Set.subset_trans
-      . apply head_sub_A; exact lt
-      . apply A_sub_B
-}
-
 /-- `DeterministicSkolemObsolescence` has the `blocks_obs` property for each `ObsolescenceCondition`. -/
-theorem DeterministicSkolemObsolescence.blocks_each_obs (obs : ObsolescenceCondition sig) (special_const : sig.C) : ∀ rs, (DeterministicSkolemObsolescence sig).blocks_obs obs rs special_const := by
+theorem DeterministicSkolemObsolescence.blocks_each_obs (obs : ObsolescenceCondition) (special_const : sig.C) : ∀ rs, DeterministicSkolemObsolescence.blocks_obs obs rs special_const := by
   intro rs _ _ _ trg fs f_not_in_prev cond
   rcases f_not_in_prev with ⟨i, lt, f_not_in_prev⟩
   apply False.elim
@@ -215,23 +231,9 @@ theorem DeterministicSkolemObsolescence.blocks_each_obs (obs : ObsolescenceCondi
       | inr v_mem => simp [v_mem, PreTrigger.extend_with_groundTermMapping]
     | const c => simp [StrictConstantMapping.apply_var_or_const, PreTrigger.apply_to_var_or_const_for_const, ConstantMapping.apply_ground_term_constant, StrictConstantMapping.toConstantMapping]
 
-/-- A trigger is blocked for its own backtracking if it is obsolete for its own backtracking. Note that the backtracking always requires us to prove that Skolem function terms are well-formed, which is what the additional conditions are for. -/
-def Trigger.blocked_for_backtracking
-    [GetFreshInhabitant sig.C]
-    [Inhabited sig.C]
-    {obs : LaxObsolescenceCondition sig}
-    (trg : Trigger obs) : Prop :=
-  (obs.cond trg trg.backtrackFacts.fst.toSet)
-
-/-- A trigger fulfills `BlockingObsolescence` if the trigger with renamed-apart constants is blocked for its own backtracking. Note that `BlockingObsolescence` only depends on the trigger. The passed fact set is ignored. -/
-def BlockingObsolescence [GetFreshInhabitant sig.C] [Inhabited sig.C] (obs : ObsolescenceCondition sig) : MfaObsolescenceCondition sig := {
-  cond := fun (trg : PreTrigger sig) _ => (Trigger.fromPreTrigger (trg.rename_constants_apart (trg.affected_rules_for_backtracking.flatMap Rule.constants)) obs).blocked_for_backtracking
-  monotone := by intro _ _ _ _ h; exact h -- trivial since the condition does not depend on the passed fact set
-}
-
 /-- `BlockingObsolescence` has the `blocks_obs` condition for the `ObsolescenceCondition` it was defined for. -/
 theorem BlockingObsolescence.blocks_corresponding_obs [GetFreshInhabitant sig.C] [Inhabited sig.C]
-    (obs : ObsolescenceCondition sig) (obs_propagates_under_const_mapping : obs.propagates_under_constant_mapping)
+    (obs : ObsolescenceCondition) (obs_propagates_under_const_mapping : obs.propagates_under_constant_mapping)
     (special_const : sig.C) :
     (BlockingObsolescence obs).blocks_obs obs rs special_const := by
   intro db cb node trg _ _ blocked loaded
@@ -383,8 +385,8 @@ namespace KnowledgeBase
 /-- This result is not necessary for MFA-like conditions but still interesting, also as a sanity check: The result of every deterministic Skolem `ChaseBranch` is the same as the `parallelDeterminizedChase_result`. -/
 theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
     (kb : KnowledgeBase sig) (det : kb.rules.isDeterministic) :
-    ∀ (cb : RegularChaseBranch (SkolemObsolescence sig) kb), cb.result =
-      parallelDeterminizedChase_result kb (DeterministicSkolemObsolescence sig) none id := by
+    ∀ (cb : RegularChaseBranch SkolemObsolescence kb), cb.result =
+      parallelDeterminizedChase_result kb DeterministicSkolemObsolescence none id := by
   intro cb
   apply Set.ext
   intro f
@@ -392,12 +394,12 @@ theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
   . rintro ⟨node, node_mem, f_mem⟩
     revert f f_mem
     let node : cb.Node := ⟨node, node_mem⟩
-    show ∀ f ∈ node.val.facts, f ∈ parallelDeterminizedChase_result kb (DeterministicSkolemObsolescence sig) none id
+    show ∀ f ∈ node.val.facts, f ∈ parallelDeterminizedChase_result kb DeterministicSkolemObsolescence none id
     induction node using cb.toChaseDerivation.mem_rec with
     | head =>
       intro f f_mem
       simp only [← cb.head.outgoingFacts_eq, cb.database_first] at f_mem
-      exists (parallelDeterminizedChase kb (DeterministicSkolemObsolescence sig) none id).head
+      exists (parallelDeterminizedChase kb DeterministicSkolemObsolescence none id).head
       simp only [parallelDeterminizedChase, InfiniteList.head_mem]
       simp [f_mem]
     | step cd suffix ih next next_mem =>
@@ -406,14 +408,14 @@ theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
       cases f_mem with
       | inl f_mem => apply ih; exact f_mem
       | inr f_mem =>
-        have : ∃ fs ∈ parallelDeterminizedChase kb (DeterministicSkolemObsolescence sig) none id, cd.head.facts ⊆ fs := by
+        have : ∃ fs ∈ parallelDeterminizedChase kb DeterministicSkolemObsolescence none id, cd.head.facts ⊆ fs := by
           have prev_finite := cb.facts_finite_of_mem ⟨cd.head, (cd.mem_of_mem_suffix suffix _ cd.head_mem)⟩
           rcases prev_finite with ⟨prev_l, _, prev_l_eq⟩
-          have : ∀ (l : List (Fact sig)), (∀ e, e ∈ l -> e ∈ cd.head.facts) -> ∃ fs ∈ (parallelDeterminizedChase kb (DeterministicSkolemObsolescence sig) none id), (∀ e, e ∈ l -> e ∈ fs) := by
+          have : ∀ (l : List (Fact sig)), (∀ e, e ∈ l -> e ∈ cd.head.facts) -> ∃ fs ∈ (parallelDeterminizedChase kb DeterministicSkolemObsolescence none id), (∀ e, e ∈ l -> e ∈ fs) := by
             intro l l_sub
             induction l with
             | nil =>
-              exists (parallelDeterminizedChase kb (DeterministicSkolemObsolescence sig) none id).head
+              exists (parallelDeterminizedChase kb DeterministicSkolemObsolescence none id).head
               constructor
               . exact InfiniteList.head_mem
               . intro _; simp
@@ -445,7 +447,7 @@ theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
             exact this.right f
 
         rcases this with ⟨fs, fs_mem, head_sub_fs⟩
-        exists parallelDeterminizedDerivation_step kb.rules (DeterministicSkolemObsolescence sig) none id fs
+        exists parallelDeterminizedDerivation_step kb.rules DeterministicSkolemObsolescence none id fs
         constructor
         . apply parallelDeterminizedDerivation_step_mem_of_mem; exact fs_mem
         -- TODO: would be Decidable if we define sets in the parallelDeterminizedChase to be finite
@@ -468,7 +470,7 @@ theorem parallelDeterminizedChase_result_eq_every_chase_branch_result
               apply contra.right origin.snd.val origin.snd.isLt
               exact f_mem
           . exists origin.snd.val, origin.snd.isLt; rw [List.mem_toSet] at f_mem; exact f_mem
-  . have goal : ∀ elem : (parallelDeterminizedChase kb (DeterministicSkolemObsolescence sig) none id).Element, elem.val ⊆ cb.result := by
+  . have goal : ∀ elem : (parallelDeterminizedChase kb DeterministicSkolemObsolescence none id).Element, elem.val ⊆ cb.result := by
       intro elem
       induction elem using parallelDeterminizedDerivation_mem_rec with
       | head =>
@@ -605,14 +607,14 @@ theorem mfaKb_functionFreeFact_mem_under_mfaConstantMapping {rs : RuleSet sig} {
   cases Classical.em (s ∈ rs.constants) <;> grind
 
 /-- The fact set computed in the MFA-like checks is the parallel determinized chase result (defined in a separete file) for the `mfaKb`. -/
-def mfaSet (rs : RuleSet sig) (finite : rs.finite) (special_const : sig.C) (obs : MfaObsolescenceCondition sig) : FactSet sig :=
+def mfaSet (rs : RuleSet sig) (finite : rs.finite) (special_const : sig.C) (obs : MfaObsolescenceCondition) : FactSet sig :=
   parallelDeterminizedChase_result (rs.mfaKb finite special_const) obs none id
 
 /-- We can map every possible `ChaseBranch` into the `mfaSet` by replacing all (non-ruleset) constants by the special constant. At least this is the intuition for this behemoth of a theorem statement. -/
 theorem mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_predicates_not_from_rs
     (rs : RuleSet sig) (finite : rs.finite)
-    (special_const : sig.C) (mfa_obs : MfaObsolescenceCondition sig) :
-    ∀ {db : Database sig} {obs : ObsolescenceCondition sig}, (mfa_obs.blocks_obs obs rs special_const) ->
+    (special_const : sig.C) (mfa_obs : MfaObsolescenceCondition) :
+    ∀ {db : Database sig} {obs : ObsolescenceCondition}, (mfa_obs.blocks_obs obs rs special_const) ->
     ∀ (cb : RegularChaseBranch obs { rules := rs, db := db }) (node : cb.Node),
     ∀ f, f.predicate ∈ rs.predicates -> f ∈ node.val.facts ->
       ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact f) ∈ (rs.mfaSet finite special_const mfa_obs) := by
@@ -833,8 +835,8 @@ theorem mfaSet_contains_every_chase_step_for_every_kb_except_for_facts_with_pred
             apply List.getElem_mem
 
 /-- We can extend the result above to the whole result of the `ChaseBranch`. -/
-theorem filtered_cb_result_subset_mfaSet (rs : RuleSet sig) (finite : rs.finite) (special_const : sig.C) (mfa_obs : MfaObsolescenceCondition sig) :
-    ∀ {db : Database sig} {obs : ObsolescenceCondition sig}, (mfa_obs.blocks_obs obs rs special_const) ->
+theorem filtered_cb_result_subset_mfaSet (rs : RuleSet sig) (finite : rs.finite) (special_const : sig.C) (mfa_obs : MfaObsolescenceCondition) :
+    ∀ {db : Database sig} {obs : ObsolescenceCondition}, (mfa_obs.blocks_obs obs rs special_const) ->
     ∀ (cb : RegularChaseBranch obs { rules := rs, db := db }), ((rs.mfaConstantMapping special_const).toConstantMapping.apply_fact_set (fun f => f.predicate ∈ rs.predicates ∧ f ∈ cb.result)) ⊆ (rs.mfaSet finite special_const mfa_obs) := by
   intro db obs blocks cb f f_mem
   rw [GroundTermMapping.mem_applyFactSet] at f_mem
@@ -847,8 +849,8 @@ theorem filtered_cb_result_subset_mfaSet (rs : RuleSet sig) (finite : rs.finite)
   . exact f'_mem
 
 /-- If the `mfaSet` is finite, then the rule set terminates. The argument is that if the `mfaSet` is finite and every `ChaseBranch` can be embedded into this set, then each of these `ChaseBranch`es also needs to be finite. This is still a bit involved since we need to show that only finitely many terms can collapse to the same on in the `mfaSet`. -/
-theorem terminates_of_mfaSet_finite [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.finite) (mfa_obs : MfaObsolescenceCondition sig) :
-    ∀ {obs : ObsolescenceCondition sig}, (mfa_obs.blocks_obs obs rs Inhabited.default) -> (rs.mfaSet rs_finite Inhabited.default mfa_obs).finite -> rs.terminates obs (RegularChaseNode obs rs) := by
+theorem terminates_of_mfaSet_finite [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.finite) (mfa_obs : MfaObsolescenceCondition) :
+    ∀ {obs : ObsolescenceCondition}, (mfa_obs.blocks_obs obs rs Inhabited.default) -> (rs.mfaSet rs_finite Inhabited.default mfa_obs).finite -> rs.terminates obs (RegularChaseNode obs rs) := by
   intro obs blocks mfa_finite
   unfold RuleSet.terminates
   intro db
@@ -966,12 +968,12 @@ theorem terminates_of_mfaSet_finite [Inhabited sig.C] (rs : RuleSet sig) (rs_fin
   . exact res_filtered_finite
 
 /-- A rule set `isMfa` if its `mfaSet` does not contain a cyclic term. -/
-def isMfa [Inhabited sig.C] (rs : RuleSet sig) (finite : rs.finite) (mfa_obs : MfaObsolescenceCondition sig) : Prop :=
+def isMfa [Inhabited sig.C] (rs : RuleSet sig) (finite : rs.finite) (mfa_obs : MfaObsolescenceCondition) : Prop :=
   ∀ t, t ∈ (rs.mfaSet finite default mfa_obs).terms -> ¬ PreGroundTerm.cyclic t.val
 
 /-- A rule set terminates if it `isMfa`. What mainly remains to be shown here is that only finitely many terms are non-cyclic. -/
-theorem terminates_of_isMfa [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.finite) (mfa_obs : MfaObsolescenceCondition sig) :
-    ∀ {obs : ObsolescenceCondition sig}, (mfa_obs.blocks_obs obs rs Inhabited.default) ->
+theorem terminates_of_isMfa [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.finite) (mfa_obs : MfaObsolescenceCondition) :
+    ∀ {obs : ObsolescenceCondition}, (mfa_obs.blocks_obs obs rs Inhabited.default) ->
       rs.isMfa rs_finite mfa_obs -> rs.terminates obs (RegularChaseNode obs rs) := by
   intro obs blocks isMfa
   apply rs.terminates_of_mfaSet_finite rs_finite mfa_obs blocks
@@ -1076,13 +1078,13 @@ theorem terminates_of_isMfa [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs
 
 /-- MFA correctness - If a rule set is MFA (`isMfa` with `DeterministicSkolemObsolescence`), then it terminates. -/
 theorem terminates_of_isMfa_with_DeterministicSkolemObsolescence [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.finite) :
-    rs.isMfa rs_finite (DeterministicSkolemObsolescence sig) -> ∀ obs, rs.terminates obs (RegularChaseNode obs rs) := by
+    rs.isMfa rs_finite DeterministicSkolemObsolescence -> ∀ obs, rs.terminates obs (RegularChaseNode obs rs) := by
   intro isMfa obs
-  apply rs.terminates_of_isMfa rs_finite (DeterministicSkolemObsolescence sig) (DeterministicSkolemObsolescence.blocks_each_obs obs default rs)
+  apply rs.terminates_of_isMfa rs_finite DeterministicSkolemObsolescence (DeterministicSkolemObsolescence.blocks_each_obs obs default rs)
   exact isMfa
 
 /-- DMFA/RMFA correctness - If a rule set is DMFA/RMFA or anything in between (`isMfa` with `BlockingObsolescence`), then it terminates for the respective `ObsolescenceCondition`. -/
-theorem terminates_of_isMfa_with_BlockingObsolescence [GetFreshInhabitant sig.C] [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.finite) (obs : ObsolescenceCondition sig) (obs_propagates_under_const_mapping : obs.propagates_under_constant_mapping) :
+theorem terminates_of_isMfa_with_BlockingObsolescence [GetFreshInhabitant sig.C] [Inhabited sig.C] (rs : RuleSet sig) (rs_finite : rs.finite) (obs : ObsolescenceCondition) (obs_propagates_under_const_mapping : obs.propagates_under_constant_mapping) :
     rs.isMfa rs_finite (BlockingObsolescence obs) -> rs.terminates obs (RegularChaseNode obs rs) :=
   rs.terminates_of_isMfa rs_finite (BlockingObsolescence obs) (BlockingObsolescence.blocks_corresponding_obs obs obs_propagates_under_const_mapping default)
 

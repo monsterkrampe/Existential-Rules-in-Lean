@@ -49,7 +49,7 @@ theorem PreTrigger.output_for_headChoice_eq_of_equiv {trg trg2 : PreTrigger sig}
 
 namespace ChaseNodeOrigin
 
-variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
+variable {obs : ObsolescenceCondition} {rules : RuleSet sig}
 
 /-- A `ChaseNodeOrigin` adheres to a `HeadChoice` if it uses the index that is the head choice of its trigger. -/
 @[expose]
@@ -65,7 +65,7 @@ end ChaseNodeOrigin
 
 namespace ChaseNode
 
-variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N obs rules]
+variable {obs : ObsolescenceCondition} {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N obs rules]
 
 /-- A `ChaseNode` adheres to a `HeadChoice` if its origin uses the index that is the head choice of its trigger. -/
 @[expose]
@@ -84,13 +84,13 @@ end ChaseNode
 /-- A `ChaseDerivationSkeleton` adheres to a `HeadChoice` if every node adheres to the `HeadChoice`. -/
 @[expose]
 def ChaseDerivationSkeleton.adheres_to_headChoice
-    {obs : ObsolescenceCondition sig} {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N obs rules]
+    {obs : ObsolescenceCondition} {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N obs rules]
     (cd : ChaseDerivationSkeleton N obs rules) (hc : HeadChoice sig) : Prop :=
   ∀ n ∈ cd, CN.adheres_to_headChoice n hc
 
 namespace FiniteTriggerList
 
-variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
+variable {obs : ObsolescenceCondition} {rules : RuleSet sig}
 
 /-- A `FiniteTriggerList` adheres to a `HeadChoice` if every element adheres to the `HeadChoice`. -/
 @[expose]
@@ -101,7 +101,7 @@ end FiniteTriggerList
 
 namespace InfiniteTriggerList
 
-variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
+variable {obs : ObsolescenceCondition} {rules : RuleSet sig}
 
 /-- A `InfiniteTriggerList` adheres to a `HeadChoice` if every element adheres to the `HeadChoice`. -/
 @[expose]
@@ -130,7 +130,7 @@ end InfiniteTriggerList
 
 namespace TreeDerivation
 
-variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N obs rules]
+variable {obs : ObsolescenceCondition} {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N obs rules]
 
 /-- The generator function used to generate the tree branch corresponding to the given `HeadChoice`. -/
 def generator_for_headChoice (td : TreeDerivation N obs rules) (hc : HeadChoice sig) (n : td.NodeWithAddress) : Option td.NodeWithAddress :=
@@ -236,7 +236,7 @@ end TreeDerivation
 
 namespace ChaseTree
 
-variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig} {N : Type u} [CN : ChaseNode N obs kb.rules]
+variable {obs : ObsolescenceCondition} {kb : KnowledgeBase sig} {N : Type u} [CN : ChaseNode N obs kb.rules]
 
 /-- This function generates the tree branch that corresponds to the given `HeadChoice`. -/
 @[expose]

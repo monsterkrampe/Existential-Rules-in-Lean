@@ -25,12 +25,12 @@ section Definitions
 
 /-- A `ChaseDerivationSkeleton` terminates if the underlying `PossiblyInfiniteList` is finite. -/
 @[expose, implicit_reducible]
-def ChaseDerivationSkeleton.terminates {obs : ObsolescenceCondition sig} {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N obs rules]
+def ChaseDerivationSkeleton.terminates {obs : ObsolescenceCondition} {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N obs rules]
   (cds : ChaseDerivationSkeleton N obs rules) : Prop := cds.branch.finite
 
 /-- A `ChaseDerivationSkeleton` terminates if and only if its suffixes terminate. -/
 theorem ChaseDerivationSkeleton.terminates_iff_terminates_suffix
-    {obs : ObsolescenceCondition sig} {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N obs rules]
+    {obs : ObsolescenceCondition} {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N obs rules]
     {cd cd2 : ChaseDerivationSkeleton N obs rules} (suf : cd2 <:+ cd) : cd.terminates ↔ cd2.terminates := by
   rw [IsSuffix_iff] at suf; rcases suf with ⟨m, suf⟩
   constructor
@@ -45,22 +45,22 @@ theorem ChaseDerivationSkeleton.terminates_iff_terminates_suffix
 
 /-- A `ChaseDerivation` terminates if the underlying `ChaseDerivationSkeleton` is finite. -/
 @[expose, implicit_reducible]
-def ChaseDerivation.terminates {obs : ObsolescenceCondition sig} {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N obs rules]
+def ChaseDerivation.terminates {obs : ObsolescenceCondition} {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N obs rules]
   (cd : ChaseDerivation N obs rules) : Prop := cd.toChaseDerivationSkeleton.terminates
 
 /-- A `TreeDerivation` terminates if all of its branches terminate. -/
 @[expose, implicit_reducible]
-def TreeDerivation.terminates {obs : ObsolescenceCondition sig} {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N obs rules]
+def TreeDerivation.terminates {obs : ObsolescenceCondition} {rules : RuleSet sig} {N : Type u} [CN : ChaseNode N obs rules]
   (td : TreeDerivation N obs rules) : Prop := ∀ branch, branch ∈ td.branches -> branch.terminates
 
 /-- A `KnowledgeBase` terminates if all of its `ChaseTree`s terminate. -/
 @[expose, implicit_reducible]
-def KnowledgeBase.terminates (kb : KnowledgeBase sig) (obs : ObsolescenceCondition sig) (N : Type u) [CN : ChaseNode N obs kb.rules] : Prop :=
+def KnowledgeBase.terminates (kb : KnowledgeBase sig) (obs : ObsolescenceCondition) (N : Type u) [CN : ChaseNode N obs kb.rules] : Prop :=
   ∀ (ct : ChaseTree N obs kb), ct.terminates
 
 /-- A `RuleSet` terminates if all knowledge bases featuring this rule set terminate. -/
 @[expose, implicit_reducible]
-def RuleSet.terminates (rs : RuleSet sig) (obs : ObsolescenceCondition sig) (N : Type u) [CN : ChaseNode N obs rs] : Prop :=
+def RuleSet.terminates (rs : RuleSet sig) (obs : ObsolescenceCondition) (N : Type u) [CN : ChaseNode N obs rs] : Prop :=
   ∀ (db : Database sig), { rules := rs, db := db : KnowledgeBase sig }.terminates obs N
 
 end Definitions
@@ -76,7 +76,7 @@ For terminating derivations, we define machinery to get the last chase node from
 
 namespace ChaseDerivationSkeleton
 
-variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
+variable {obs : ObsolescenceCondition} {rules : RuleSet sig}
 variable {N : Type u} [CN : ChaseNode N obs rules]
 
 /-- For terminating derivations, we define the last chase node via turning the derivation into a finite list and then retreiving the last element. -/
@@ -113,7 +113,7 @@ end ChaseDerivationSkeleton
 
 namespace RegularChaseDerivationSkeleton
 
-variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
+variable {obs : ObsolescenceCondition} {rules : RuleSet sig}
 
 /-- For terminating derivations, the result is equal to the facts of the last node. -/
 theorem result_eq_facts_last {cd : RegularChaseDerivationSkeleton obs rules} (term : cd.terminates) : cd.result = (cd.last term).facts := by
@@ -128,7 +128,7 @@ end RegularChaseDerivationSkeleton
 
 namespace ChaseDerivation
 
-variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
+variable {obs : ObsolescenceCondition} {rules : RuleSet sig}
 variable {N : Type u} [CN : ChaseNode N obs rules]
 
 /-- No trigger is active on the last node. -/
@@ -152,7 +152,7 @@ We now show some general results mainly relating termination and finiteness of t
 
 namespace RegularChaseDerivation
 
-variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
+variable {obs : ObsolescenceCondition} {rules : RuleSet sig}
 
 /-- A `ChaseDerivation` terminates if and only if there is a maximal node according to the `≼` relation. -/
 theorem terminating_has_last_node (cd : RegularChaseDerivation obs rules) : cd.terminates ↔ ∃ (node : cd.Node), ∀ (node2 : cd.Node), node2 ≼ node := by
@@ -185,7 +185,7 @@ end RegularChaseDerivation
 
 namespace RegularChaseBranch
 
-variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
+variable {obs : ObsolescenceCondition} {kb : KnowledgeBase sig}
 
 /-- A `ChaseBranch` terminates if and only if its result is `Set.finite`. -/
 theorem terminates_iff_result_finite (cb : RegularChaseBranch obs kb) : cb.terminates ↔ cb.result.finite := by
@@ -216,7 +216,7 @@ end RegularChaseBranch
 
 namespace TreeDerivation
 
-variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
+variable {obs : ObsolescenceCondition} {rules : RuleSet sig}
 
 /-- A terminating `TreeDerivation` only has finitely many branches. We show this using König's Lemma. -/
 @[grind ->]
@@ -244,7 +244,7 @@ end TreeDerivation
 
 namespace RegularTreeDerivation
 
-variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
+variable {obs : ObsolescenceCondition} {rules : RuleSet sig}
 
 /-- A `TreeDerivation` with finitely many branches only has finitely many fact sets in its result. -/
 @[grind ->]
@@ -266,7 +266,7 @@ end RegularTreeDerivation
 
 namespace RegularChaseTree
 
-variable {obs : ObsolescenceCondition sig} {kb : KnowledgeBase sig}
+variable {obs : ObsolescenceCondition} {kb : KnowledgeBase sig}
 
 /-- A `ChaseTree` terminates if and only if each fact set in its result is finite. -/
 theorem terminates_iff_result_finite (ct : RegularChaseTree obs kb) :

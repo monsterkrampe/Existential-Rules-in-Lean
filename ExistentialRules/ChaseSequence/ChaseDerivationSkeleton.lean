@@ -32,7 +32,7 @@ The backbone of the `ChaseDerivationSkeleton` is a `PossiblyInfiniteList` of `Ch
 2. At each step in the derivation, either there exists a trigger that yields the next node or there is no next node.
 -/
 
-structure ChaseDerivationSkeleton (N : Type u) (obs : ObsolescenceCondition sig) (rules : RuleSet sig) [CN : ChaseNode N obs rules] where
+structure ChaseDerivationSkeleton (N : Type u) (obs : ObsolescenceCondition) (rules : RuleSet sig) [CN : ChaseNode N obs rules] where
   branch : PossiblyInfiniteList N
   isSome_head : branch.head.isSome
   triggers_exist : ∀ b2, b2 <:+ branch -> ∀ before ∈ b2.head,
@@ -40,7 +40,7 @@ structure ChaseDerivationSkeleton (N : Type u) (obs : ObsolescenceCondition sig)
 
 namespace ChaseDerivationSkeleton
 
-variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
+variable {obs : ObsolescenceCondition} {rules : RuleSet sig}
 
 section Basics
 
@@ -468,11 +468,11 @@ In general, the `ChaseDerivationSkeleton` does not enforce a specific node type 
 We use the `RegularChaseDerivationSkeleton` as an abbreviation for a `ChaseDerivationSkeleton` that uses the `RegularChaseNode` implementation where the ingoing and outgoing facts of each node are always the same (as opposed to the core chase where the outgoing facts would be a core of the ingoing facts).
 -/
 
-abbrev RegularChaseDerivationSkeleton (obs : ObsolescenceCondition sig) (rules : RuleSet sig) := ChaseDerivationSkeleton (RegularChaseNode obs rules) obs rules
+abbrev RegularChaseDerivationSkeleton (obs : ObsolescenceCondition) (rules : RuleSet sig) := ChaseDerivationSkeleton (RegularChaseNode obs rules) obs rules
 
 namespace RegularChaseDerivationSkeleton
 
-variable {obs : ObsolescenceCondition sig} {rules : RuleSet sig}
+variable {obs : ObsolescenceCondition} {rules : RuleSet sig}
 
 section FactMonotonicity
 
@@ -627,7 +627,7 @@ theorem facts_mem_some_node_of_mem_result {cd : RegularChaseDerivationSkeleton o
 
 /-- If a trigger is loaded for the result, then it is loaded for some node in the derivation. -/
 theorem trg_loaded_for_some_node_of_trg_loaded_for_result {cd : RegularChaseDerivationSkeleton obs rules} :
-    ∀ trg : Trigger obs, trg.loaded cd.result -> ∃ node ∈ cd, trg.loaded node.facts := by
+    ∀ trg : Trigger sig obs, trg.loaded cd.result -> ∃ node ∈ cd, trg.loaded node.facts := by
   intro trg trg_loaded
   apply cd.facts_mem_some_node_of_mem_result
   exact trg_loaded
