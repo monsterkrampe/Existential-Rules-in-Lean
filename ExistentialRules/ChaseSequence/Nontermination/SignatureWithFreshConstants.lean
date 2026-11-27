@@ -5,8 +5,8 @@ Released under Apache 2.0 license as described in the file LICENSE.
 
 module
 
-public import ExistentialRules.AtomsAndRules.RuleSet
-public import ExistentialRules.SubstitutionsAndHomomorphisms
+public import ExistentialRules.Triggers.RTrigger
+public import ExistentialRules.ChaseSequence.HeadChoice
 
 open CustomBasicDatastructures
 
@@ -128,6 +128,12 @@ theorem Rule.frontier_cast_withFreshConstants {r : Rule sig} : (r.cast_withFresh
   . intro ⟨i, lt, h⟩; rw [vars_head_disjunct_cast_withFreshConstants (by grind)] at h; exact ⟨_, _, h⟩
   . intro ⟨i, lt, h⟩; exists i, (by grind); rw [vars_head_disjunct_cast_withFreshConstants (by grind)]; exact h
 
+/-- When calling `Rule.cast_withFreshConstants`, the existential variables in each head disjunct remain untouched. -/
+theorem Rule.existential_vars_head_disjunct_cast_withFreshConstants {r : Rule sig} :
+    ∀ {i : Nat} (lt : i < r.head.length),
+    (r.cast_withFreshConstants (Fresh := Fresh)).existential_vars_for_head_disjunct i (by simpa using lt) = r.existential_vars_for_head_disjunct i lt := by
+  simp only [existential_vars_for_head_disjunct]; intro i lt; rw [vars_head_disjunct_cast_withFreshConstants, frontier_cast_withFreshConstants]
+
 /-- The cast rule isDatalog if and only if the original rule isDatalog. -/
 @[simp, grind =]
 theorem Rule.isDatalog_cast_withFreshConstants {r : Rule sig} : (r.cast_withFreshConstants (Fresh := Fresh)).isDatalog ↔ r.isDatalog := by
@@ -160,4 +166,54 @@ theorem RuleSet.constants_cast_withFreshConstants {rs : RuleSet sig} :
     exists r.cast_withFreshConstants; constructor; exact Set.mem_map_of_mem r_mem
     rw [Rule.constants_cast_withFreshConstants, ← c_eq]
     exact List.mem_map_of_mem d_mem
+
+/-- Cast a `SkolemFS` into `Signature.withFreshConstants` by casting its rule. -/
+@[expose]
+def SkolemFS.cast_withFreshConstants (func : SkolemFS sig) : SkolemFS (sig.withFreshConstants Fresh) where
+  rule := func.rule.cast_withFreshConstants
+  headIdx := func.headIdx
+  headIdx_lt := by simpa using func.headIdx_lt
+  v := func.v
+  v_mem := by rw [Rule.existential_vars_head_disjunct_cast_withFreshConstants]; exact func.v_mem
+
+/-- When casting, the function symbol arity remains unchanged. -/
+@[simp, grind =]
+theorem SkolemFS.arity_cast_withFreshConstants {func : SkolemFS sig} : (func.cast_withFreshConstants (Fresh := Fresh)).arity = func.arity := by
+  simp [cast_withFreshConstants, arity]
+
+/-- Change the constant of a `PreGroundTerm` into the Sum type of `Signature.withFreshConstants`. -/
+@[expose]
+def PreGroundTerm.cast_withFreshConstants : TermMapping (PreGroundTerm sig) (PreGroundTerm (sig.withFreshConstants Fresh))
+| .leaf c => .leaf (.inl c)
+| .inner func ts => .inner func.cast_withFreshConstants (ts.map cast_withFreshConstants)
+
+theorem PreGroundTerm.arity_ok_cast_withFreshConstants {t : PreGroundTerm sig} :
+    PreGroundTerm.arity_ok t -> PreGroundTerm.arity_ok (t.cast_withFreshConstants (Fresh := Fresh)) := by
+  intro h; fun_induction cast_withFreshConstants
+  . unfold PreGroundTerm.arity_ok; rfl
+  . unfold PreGroundTerm.arity_ok at h; unfold PreGroundTerm.arity_ok; simp at *; grind
+
+/-- Change the constant of a `GroundTerm` into the Sum type of `Signature.withFreshConstants`. -/
+@[expose]
+def GroundTerm.cast_withFreshConstants : TermMapping (GroundTerm sig) (GroundTerm (sig.withFreshConstants Fresh)) :=
+  fun t => ⟨t.val.cast_withFreshConstants, t.val.arity_ok_cast_withFreshConstants t.property⟩
+
+/-- Change the constant of a `GroundSubstitution` into the Sum type of `Signature.withFreshConstants`. -/
+@[expose]
+def GroundSubstitution.cast_withFreshConstants (subs : GroundSubstitution sig) : GroundSubstitution (sig.withFreshConstants Fresh) :=
+  fun v => (subs v).cast_withFreshConstants
+
+/-- Change the constant of a `PreTrigger` into the Sum type of `Signature.withFreshConstants`. -/
+@[expose]
+def PreTrigger.cast_withFreshConstants (trg : PreTrigger sig) : PreTrigger (sig.withFreshConstants Fresh) :=
+  ⟨trg.rule.cast_withFreshConstants, trg.subs.cast_withFreshConstants⟩
+
+/-- Change the constant of a `RTrigger` into the Sum type of `Signature.withFreshConstants`. -/
+@[expose]
+def RTrigger.cast_withFreshConstants {rules : RuleSet sig} (trg : RTrigger rules) : RTrigger (rules.cast_withFreshConstants (Fresh := Fresh)) :=
+  ⟨trg.val.cast_withFreshConstants, Set.mem_map_of_mem trg.property⟩
+
+/-- Change the constant of a `HeadChoice` into the Sum type of `Signature.withFreshConstants`. -/
+@[expose]
+def HeadChoice.cast_withFreshConstants {rules : RuleSet sig} (hc : HeadChoice rules) : HeadChoice (rules.cast_withFreshConstants (Fresh := Fresh)) := sorry
 

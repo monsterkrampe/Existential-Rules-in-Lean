@@ -157,26 +157,27 @@ We define a structure, which is almost a `CyclicityPrefix` (missing some last co
 We split this mainly to add some auxiliary definitions that we can use to express the remaining conditions more easily.
 -/
 structure PreCyclicityPrefix
+    -- TODO: UP NEXT. Try to use "sig" as much as possible without casting. Try to instead define transformations for e.g. ObsolescenceCondition and HeadChoice to the new Signature. This would be done with respect to the very general `Signature.withFreshConstants` cast and live directly in `SignatureWithFreshConstants.lean`. We will need similar transformations for the RepeatableUnblockability (if I'm not mistaken) and doing the change here will be a good exercise to prepare this.
     [Inhabited sig.C]
     (obs : ObsolescenceCondition sig.withFreshConstantsForVars)
     {rules : RuleSet sig}
-    {hc : HeadChoice rules.cast_withFreshConstantsForVars}
+    {hc : HeadChoice rules}
     (hc_consistent : hc.consistent_for_same_rule)
     {rule : Rule sig}
     (rule_mem : rule ∈ rules)
-    (rule_hc_exis : (rule.body_database_trigger rule_mem).val.rule.existential_vars_for_head_disjunct (hc (rule.body_database_trigger rule_mem)).val (hc (rule.body_database_trigger rule_mem)).isLt ≠ []) where
-  body_database_trigger_unblockable : (rule.body_database_trigger rule_mem).kbUnblockable obs (rule.body_kb rules) hc
+    (rule_hc_exis : rule.existential_vars_for_head_disjunct (hc.forRule rule_mem).val (hc.forRule rule_mem).isLt ≠ []) where
+  body_database_trigger_unblockable : (rule.body_database_trigger rule_mem).kbUnblockable obs (rule.body_kb rules) hc.cast_withFreshConstants
   -- this list does not include the initial database trigger
   triggers : FiniteTriggerList rules.cast_withFreshConstantsForVars
   -- the first conditions are also found in the `CyclicityDerivation`; `growing` and `unblockable` are missing though
-  adheres_to_headChoice : triggers.adheres_to_headChoice hc
-  triggers_loaded : triggers.loaded (rule.body_database.toFactSet.val ∪ (rule.body_database_origin rule_mem hc).result.toSet)
+  adheres_to_headChoice : triggers.adheres_to_headChoice hc.cast_withFreshConstants
+  triggers_loaded : triggers.loaded (rule.body_database.toFactSet.val ∪ (rule.body_database_origin rule_mem hc.cast_withFreshConstants).result.toSet)
   -- from here things are different
   ex_last_trigger : ∃ last ∈ triggers.getLast?, last.fst.val.rule = rule.cast_withFreshConstantsForVars
 
 namespace PreCyclicityPrefix
 
-variable [Inhabited sig.C] {obs : ObsolescenceCondition sig.withFreshConstantsForVars} {rules : RuleSet sig} {hc : HeadChoice rules.cast_withFreshConstantsForVars} {hc_consistent : hc.consistent_for_same_rule} {rule : Rule sig} {rule_mem : rule ∈ rules} {rule_hc_exis : (rule.body_database_trigger rule_mem).val.rule.existential_vars_for_head_disjunct (hc (rule.body_database_trigger rule_mem)).val (hc (rule.body_database_trigger rule_mem)).isLt ≠ []}
+variable [Inhabited sig.C] {obs : ObsolescenceCondition sig.withFreshConstantsForVars} {rules : RuleSet sig} {hc : HeadChoice rules} {hc_consistent : hc.consistent_for_same_rule} {rule : Rule sig} {rule_mem : rule ∈ rules} {rule_hc_exis : rule.existential_vars_for_head_disjunct (hc.forRule rule_mem).val (hc.forRule rule_mem).isLt ≠ []}
 
 /-- The triggers are not empty. -/
 theorem triggers_ne_nil {cp : PreCyclicityPrefix obs hc_consistent rule_mem rule_hc_exis} : cp.triggers ≠ [] := by
@@ -243,7 +244,7 @@ theorem last_trigger_eq {cp : PreCyclicityPrefix obs hc_consistent rule_mem rule
 
 /-- The `last_trigger` result is the result of the initial trigger with the `constantMappingForRepetition` applied afterwards. -/
 theorem result_last_trigger {cp : PreCyclicityPrefix obs hc_consistent rule_mem rule_hc_exis} :
-    cp.last_trigger.result = (rule.body_database_origin rule_mem hc).result.map cp.constantMappingForRepetition.apply_fact := by
+    cp.last_trigger.result = (rule.body_database_origin rule_mem hc.cast_withFreshConstants).result.map cp.constantMappingForRepetition.apply_fact := by
   have adheres := cp.adheres_to_headChoice cp.last_trigger cp.last_trigger_mem
   rw [ChaseNodeOrigin.result_eq_of_adheres_to_headChoice adheres]
   rw [last_trigger_eq]

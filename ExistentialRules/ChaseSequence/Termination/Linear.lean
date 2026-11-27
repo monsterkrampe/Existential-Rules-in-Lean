@@ -67,13 +67,6 @@ end AtomPos
 end AtomPositions
 
 
-instance {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] [Inhabited sig.C] : Inhabited (PreGroundTerm sig) where
-  default := .leaf default
-
-instance {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq sig.V] [Inhabited sig.C] : Inhabited (GroundTerm sig) where
-  default := ⟨default, by unfold PreGroundTerm.arity_ok; rfl⟩
-
-
 section Rules
   /-!
   ## Linear Existential Rule

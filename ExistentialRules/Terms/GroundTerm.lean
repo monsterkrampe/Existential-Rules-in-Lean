@@ -51,6 +51,9 @@ variable {sig : Signature} [DecidableEq sig.P] [DecidableEq sig.C] [DecidableEq 
 @[expose]
 def const (c : sig.C) : GroundTerm sig := ⟨FiniteTree.leaf c, by simp [PreGroundTerm.arity_ok]⟩
 
+instance [Inhabited sig.C] : Inhabited (GroundTerm sig) where
+  default := .const default
+
 /-- The `GroundTerm.const` constructor is injective. -/
 @[grind inj]
 theorem const.inj : Function.Injective (GroundTerm.const (sig := sig)) := by intro c d; unfold const; simp

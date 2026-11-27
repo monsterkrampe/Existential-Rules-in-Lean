@@ -28,6 +28,10 @@ namespace HeadChoice
 
 variable {rules : RuleSet sig}
 
+/-- We can transform a `HeadChoice` to a function that takes a rule instead by plugging in the default substitution. This is especially useful if we know that `consistent_for_same_rule` holds anyway. -/
+@[expose]
+def forRule [Inhabited sig.C] (hc : HeadChoice rules) {r : Rule sig} (mem : r ∈ rules) : Fin r.head.length := hc ⟨⟨r, default⟩, mem⟩
+
 /-- We can apply the same head choice to another rule set if the rule sets are equal. -/
 abbrev cast_of_rules_eq (hc : HeadChoice rules) {rules2 : RuleSet sig} (eq : rules = rules2) : HeadChoice rules2 :=
   (fun trg => hc ⟨trg.val, by rw [eq]; exact trg.property⟩)
@@ -58,6 +62,12 @@ theorem consistent_for_same_rule_cast {hc : HeadChoice rules} {rules2 : RuleSet 
 theorem consistent_for_equivalent_triggers_of_consistent_for_same_rule {hc : HeadChoice rules} :
     hc.consistent_for_same_rule -> hc.consistent_for_equivalent_triggers := by
   intro h trg trg2 eq; apply h; exact eq.left
+
+/-- If a `HeadChoice` is `consistent_for_same_rule`, then using `forRule` on the rule of a trigger is the same as applying the function on the trigger. -/
+@[simp, grind =]
+theorem forRule_eq_of_consistent_for_same_rule [Inhabited sig.C] {hc : HeadChoice rules} (consistent : hc.consistent_for_same_rule) :
+    ∀ trg, hc.forRule trg.property = hc trg := by
+  intro trg; apply Fin.ext; apply consistent; rfl
 
 end HeadChoice
 
